@@ -159,7 +159,25 @@ tag 4    1024 B x 64 records = 64 distinct 32x32 tiles    <- 8-bit indices
 ```
 
 `u16 zero` is exact: the low half of every tag-3 entry is zero in 100% of
-entries across all objects. All 64 tiles are distinct in every object sampled.
+entries across all objects.
+
+**The 32x32 reading of a tag-4 slice is [unverified] and probably wrong.** What
+the loader actually establishes is only that each slice is 1024 bytes belonging
+to one object, carrying an explicit index 0..63: `FUN_00417afd` is called 32
+times (counter `_DAT_005dfb88`, capped at `0x20`), reads **two** tag-4 records
+per call, and passes `counter*2 + k` as a third argument. That reaches
+`FUN_00401090`, which is a **4x4 jump table** dispatching on two size-class
+indices (`x >> 1`, clamped to 3) — so the engine treats these as entries of
+varying shape, not as a uniform grid of 32x32 tiles.
+
+Rendering a slice as 32x32 produces coherent imagery only because 1024 bytes
+happens to be 32x32; the 8x8 sheet layout this repo writes is an arbitrary
+arrangement, not the engine's. The imagery itself is real and unmistakable —
+ice in `M06GLACE`, lava in `F20_FEU` — but the geometry of the texture, and
+what distinguishes the 64 entries, is **not yet known**. Measured: consecutive
+entries differ in ~92% of index bytes yet only 6–15/255 in mean RGB, with no
+consistent palette remap, no monotonic luminance ramp and no spatial shift —
+so they are neither shading levels nor animation frames.
 
 **The palette is RGB565, not RGB555.** Reading it as 555 puts impossible cyan
 and magenta speckles through every texture. As 565 the same bytes render clean
