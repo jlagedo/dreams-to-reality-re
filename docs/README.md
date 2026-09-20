@@ -13,10 +13,11 @@ These docs hold the detail.
 | [toolchain.md](toolchain.md) | **Watcom C/C++ 10.6** pinned down; reference material; ~290 runtime symbols recovered per DOS binary |
 | [cryolib.md](cryolib.md) | `CRYO.DLL` = CryoLib: 165 exports incl. a working **HNM6 decoder** |
 | [game-content.md](game-content.md) | 150 levels, 30 inventory items, save system, from `DREAMS.INI` |
+| [level-map.md](level-map.md) | **Complete project → scene map** — all 150 projects to 98 `.DSN` files |
 | [dsn-loader.md](dsn-loader.md) | **`.DSN` loader decompiled** — stream API, header reader, the `__watcall` blocker |
 | [assets.md](assets.md) | **Models, textures, animation, sound** — where content lives and how it's packed |
 | [file-formats.md](file-formats.md) | Asset format catalogue with verified magic numbers |
-| [hnm-video.md](hnm-video.md) | This game's HNM inventory — HNM4 vs HNM6/HNS6, resolutions, frame counts |
+| [hnm-video.md](hnm-video.md) | HNM inventory **and how to decode it** — all 113 videos decode |
 | [hnm6-spec.md](hnm6-spec.md) | Full HNM6 container + codec specification (MultimediaWiki, mirrored) |
 | [disc-layout.md](disc-layout.md) | Both discs inventoried, install manifest, disc-check mechanism, merge map |
 | [running.md](running.md) | How to actually run the game, ranked by difficulty |

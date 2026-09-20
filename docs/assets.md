@@ -11,14 +11,15 @@ marked otherwise.
 | **Sound effects** | `DATA\SOUND\FSB.DAT` | 1 bank / 24 clips | 741 KB | no | **format fully decoded** |
 | **Voice** | `DATA\3DC\DIALOG.DRD` | 1 bank / 178 clips | 23.5 MB | no | **format fully decoded** |
 | **Music** | redbook CD audio tracks | 11 + 13 tracks | ~700 MB | n/a | mount the `.cue` |
-| **Scenes / levels** | `DATA\3DC\*.DSN` | 98 | **157 MB** | **yes** | header decoded, body packed |
-| **Animation** | `DATA\3DC\*.DAN` | 191 | 23.4 MB | **yes** | header decoded, body packed |
-| **Models** | `DATA\3DC\*.3DC`, `*.3DM` | 40 | 1.3 MB | no | raw, sparse, partly readable |
-| **Model archive** | `DATA\OBJET\*.PAK` | 2 | 62 KB | no | wraps `F3DC` chunks |
-| **Sprites / fonts** | `*.SPR` | 16 | 0.9 MB | no | raw, palette + pixels |
+| **Scenes / levels** | `DATA\3DC\*.DSN` | 98 | **157 MB** | **yes** | **header fully decoded**, body packed |
+| **Animation** | `DATA\3DC\*.DAN` | 191 | 23.4 MB | **yes** | **header fully decoded**, body packed |
+| **Models** | `DATA\3DC\*.3DC` | 32 | ~0.5 MB | no | object/material directory decoded |
+| **Textures?** | `DATA\3DC\*.3DM` | 8 | 0.8 MB | no | fixed 3×32 KB blocks, likely 128×128 RGB555 |
+| **Model archive** | `DATA\OBJET\*.PAK` | 2 | 62 KB | no | one `F3DC` chunk at `0x0C` |
+| **Sprites / fonts** | `*.SPR` | 16 | 0.9 MB | no | **fully decoded** — indexed, inline palette |
 | **Alpha maps** | `*.ALP` | 2 | small | no | raw, very sparse |
-| **Icons** | `ICONE\ICONES.BF` | 1 + 4 old copies | 372 KB | no | `UBIK` container, 5 entries |
-| **Animated textures** | 20 × `HNM4` | 20 | ~25 MB | yes | 256×256 video, FFmpeg-decodable |
+| **Icons** | `ICONE\ICONES.BF` | 1 + 4 old copies | 372 KB | no | **fully decoded** — named-asset container |
+| **Video** | 113 × HNM4/5/6 | 113 | ~300 MB | yes | **all decodable** — see `hnm-video.md` |
 
 There is **no standalone texture file anywhere on either disc.** That is the
 central structural fact: level textures are inside the `.DSN` scene files.
@@ -177,16 +178,21 @@ char[4]   "DSNF"
 u8        0x00
 u32       file size                 (1,771,734 for E01GROTT — exact)
 u8        0x00
-u32       countA                    (813 / 782 / 906 across samples)
-u16       nameCount                 (26 / 25 / 29)
+u32       headerSpan A              (38 .. 999)   A = 31*nameCount + 7
+u16       nameCount                 (1 .. 32)
 --- 0x10 ---
 char[11][nameCount]                 object names, null-padded, DOS FCB style
---- 0x12e for E01GROTT ---
-          16.16 fixed-point values, then packed body
+--- 0x10 + 11*n ---
+u32[2]                              8-byte scene block
+u32[5][nameCount]                   20-byte record per object
+--- 0x18 + 31*n  ( == 17 + A ) ---
+          packed body
 ```
 
-`nameCount` is confirmed exact: `E01GROTT.DSN` declares 26 and the table holds
-exactly 26 records before the data begins.
+`nameCount` is confirmed exact in all 98 files, and `A` turned out to be a
+**derived header span**, not a second count: `A = 31·nameCount + 7` holds in
+98/98, putting the body at `24 + 31·nameCount`. For `E01GROTT.DSN` that is
+`0x33E`. Full detail in [file-formats.md](file-formats.md).
 
 ### The naming scheme decodes to room construction
 
@@ -225,9 +231,18 @@ This is where the level textures are, and they are not stored raw.
 
 ## Textures — the honest position
 
-**No texture files exist on either disc.** Not TGA, not PCX, not a texture
-directory. The `DATA\TGA\` folder holds only 7 leftover JPEGs in a `TEMP\`
-subdirectory — reference renders, not assets.
+**No conventional texture files exist on either disc.** Not TGA, not PCX, not a
+texture directory. The `DATA\TGA\` folder holds only 7 leftover JPEGs in a
+`TEMP\` subdirectory — reference renders, not assets.
+
+**One qualification since this was written:** the eight `.3DM` files are now the
+best standalone-texture candidate. Each is exactly 98,332 bytes — a 28-byte
+header plus three 32,768-byte blocks — and `128 × 128 × 2 = 32,768` exactly. In
+`ESSAI.3DM`, blocks 1 and 2 have the RGB555 unused high bit clear in **all 16,384
+words**, block 0 in 97.8%. All four `.3DM` names (`ESSAI`, `GRILLE`, `OMBRE2`,
+`SPRITE`) also appear as `.3DC` material names. **[unverified]** pending an
+actual render, but it is a narrow, testable claim. That is only 0.8 MB, so it
+does not change the conclusion below.
 
 What this leaves:
 
@@ -236,12 +251,24 @@ What this leaves:
    textures plus geometry. Unpacking `.DSN` is the single highest-value target
    in the whole project.
 2. **Animated textures are the 20 HNM4 videos** — 256×256, named for what they
-   are (`E11_EAU`/`E12_EAU` water, `M05FEU_H` fire, `FD_SOUFL` bellows). These are
-   decodable **today** with FFmpeg.
+   are (`E11_EAU`/`E12_EAU` water, `M05FEU_H` fire, `FD_SOUFL` bellows). These —
+   and now **all 113 video files**, including the HNM6 cutscenes — are decodable
+   today. See [hnm-video.md](hnm-video.md).
 3. **UI and sprite art is separate and raw.** `.SPR`, `.ALP` and `.BF` all
    compress to 12-26%, so they are uncompressed.
 
-### What is known about the raw sprite formats
+### The raw sprite formats — now decoded
+
+The palette inference below was right, and parsing outward from it cracked the
+whole format. Full layout in [file-formats.md](file-formats.md): a 256-entry
+6-bit palette, a 256-entry pointer table at `0x400`, then records of
+`u32 width, u32 height, 2×u32, 8-bit indices`, padded to `round4(16 + w*h)`.
+**[verified]** across all 232 payload records.
+
+The three `DATA\FONT\` files use a different layout — a 16-entry RGB555 palette
+and a tail table of 8×28-byte glyph descriptors.
+
+Original evidence, which still stands:
 
 `ALPHABET.SPR` opens with 4-byte records whose values never exceed 0x3F:
 
@@ -259,38 +286,54 @@ mode) instead opens with a descending **RGB555 grey ramp**: `0x7FFF, 0x7FFF,
 
 `SOUR.ALP` is 84% zeros with a slow monotonic ramp — an alpha gradient table.
 
-### `ICONES.BF` is not cracked
+### `ICONES.BF` — cracked
 
-`UBIK` container, version 2, **5 entries**, 372,358 bytes. Entropy 5.20 and zlib
-26% prove it is **raw imagery**, not compressed. Autocorrelation gives a clean
-128-byte stride (and its 256-byte multiple), the strongest periodicity of any
-file tested.
+The guess-the-stride approach was the wrong one, as suspected. Parsing the
+container instead solves it outright: `UBIK` is a **named-asset container** with a
+267-byte record per entry (259-byte filename, u32 offset, u32 length) in a table
+at the end of the file. Full layout in [file-formats.md](file-formats.md).
 
-But rendering it at that stride as RGB555, RGB565 and 8-bit greyscale all produce
-structured noise rather than recognisable icons. The container declares 5 entries,
-so **the per-entry sub-headers carry the real dimensions and pixel format, and
-guessing is the wrong approach** — parse them instead. Not yet done.
+**[verified]** across all five generations. The members are ordinary `.SPR` and
+`.ALP` files — both now decoded — so `.BF` carries no image format of its own.
 
-Four older generations of this file also ship (`.OLI`, `.BAK`, `OLD\.BAK`,
-`OLD\.OLD`), which makes it an unusually good format-diffing target.
+| Generation | Size | Entries | Difference |
+|---|--:|--:|---|
+| D1 `ICONES.BF` | 372,358 | 5 | no `TITRES.SPR` |
+| D2 `ICONES.BF` | 440,029 | 6 | shipping version |
+| D2 `ICONES.BAK` | 440,029 | 6 | byte-identical to the shipping `.BF` |
+| D2 `ICONES.OLI` | 452,435 | 6 | larger `INTERF.ALP` |
+| D2 `OLD\ICONES.BAK` | 460,203 | 6 | larger `MAGIE.ALP` and `INTERF.ALP` |
+| D2 `OLD\ICONES.OLD` | 431,423 | 7 | also has `MENU.ALP`; smaller `INTERF.ALP` |
+
+So the generations differ by **which assets they contain**, not by container
+version — and an earlier `MENU.ALP` was dropped before release.
 
 ---
 
 ## Priority targets
 
-1. **Unpack `.DSN`.** 157 MB, all the level geometry and textures, packed with an
-   unknown scheme. Everything visual depends on this.
-2. **Parse `ICONES.BF` sub-headers.** Smallest, fully-raw imagery with five
-   versions available to diff — the easiest way to learn Cryo's image conventions
-   before tackling `.DSN`.
-3. **Extract the audio banks.** Both formats are decoded; this is an afternoon's
-   scripting for 202 playable WAV files.
-4. **`CUBE.ASC` known-plaintext attack on `F3DC`.** A 3D Studio ASCII export
-   shipped on the disc; if a matching `.3DC` exists, the geometry format falls out
-   of the diff. See [research-log.md](research-log.md).
-5. **Check whether CryoLib's `GL_UnpackLZW` matches `.DSN`.** CryoLib carries an
+1. **Unpack the `.DSN` body.** 157 MB, all the level geometry and textures. The
+   exact body offset is now known (`24 + 31·nameCount`, verified 98/98), so the
+   attack has a precise starting byte for the first time. Everything visual
+   depends on this.
+2. **Decode the `.3DC` descriptor pairs.** The `(count, absolute-offset)` pairs
+   and the object/material directory are mapped; vertex and index semantics are
+   not. Note the target blocks are **not** plain float32 or simple u16/u32
+   indices.
+3. **Render a `.3DM` block** as 128×128 RGB555 and confirm or kill the texture
+   hypothesis. Ten minutes of work.
+4. **Extract the audio banks.** Both formats decoded; an afternoon's scripting
+   for 202 playable WAV files.
+5. **Try NihAV's Cryo archive reader** (`src/input/archives/cryo.rs`) against
+   `.PAK`, `ICONES.BF` and `DREAMS.DAT`. Untested, and it already understands a
+   Cryo "BigFile" layout.
+6. **Check whether CryoLib's `GL_UnpackLZW` matches `.DSN`.** CryoLib carries an
    `LZWCRYO` signature and a full LZW API — but no `LZWCRYO` tag appears inside
    any `.DSN`, so if LZW is used it is headerless. **[unverified]**
+
+> **Dropped from this list:** parsing `ICONES.BF` (done) and the `CUBE.ASC`
+> known-plaintext attack, which was **tried and failed** — see
+> [research-log.md](research-log.md).
 
 ## Scratch output
 

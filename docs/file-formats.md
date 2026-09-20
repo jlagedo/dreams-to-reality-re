@@ -10,16 +10,16 @@ a single shared chunk-IO layer under all asset loading.
 | Ext | Magic (ASCII) | Magic (hex) | Sample | Size | Contents |
 |---|---|---|---|---|---|
 | `.3DC` | `F3DC` | `46 33 44 43` | `ARC.3DC` | 22,112 | 3D geometry |
-| `.3DM` | `F3DC` | `46 33 44 43` | `ESSAI.3DM` | 98,332 | **Same container as `.3DC`** |
+| `.3DM` | `F3DC` | `46 33 44 43` | `ESSAI.3DM` | 98,332 | **Different structure** — fixed 3×32 KB blocks, likely textures |
 | `.DAN` | `DANF` | `44 41 4E 46` | `AR0.DAN` | 58,862 | Animation |
 | `.DSN` | `DSNF` | `44 53 4E 46` | `E01GROTT.DSN` | 1,771,734 | Scene / level |
 | `.DRD` | `DRDF` | `44 52 44 46` | `DIALOG.DRD` | **24,592,952** | Dialog bundle |
 | `.PAK` | `PAK0` | `50 41 4B 30` | `OBJET1.PAK` | 62,008 | Container of `F3DC` chunks |
 | `.BF` | `UBIK` | `55 42 49 4B` | `ICONES.BF` | 372,358 | Icon/bitmap bundle |
-| `.UBB` | `UBB2` / `UBS2` / `HNM6` | — | `ARENTRAD.UBB` | 1,715,124 | UBIK presentation bundle |
+| `.UBB` | `UBB2` / `UBS2` | — | `ARENTRAD.UBB` | 1,715,124 | **Video** — HNM generation 5 |
 | `.HNM` | `HNM4` / `HNM6` / `HNS6` | — | see `hnm-video.md` | — | Video |
 | `.DIG` | `AIL3DIG` | `41 49 4C 33 44 49 47` | `SB16.DIG` | 2,853 | **Miles sound-card driver** |
-| `.SPR` | none | — | `HI320.SPR` | 14,559 | Raw RGB555 sprite |
+| `.SPR` | none | — | `HI320.SPR` | 14,559 | **Sprite bundle** — 8-bit indexed + inline palette |
 | `.ALP` | none | — | `SOUR.ALP` | 9,225 | Alpha map |
 | `.ASC` | `Ambient light co...` | — | `CUBE.ASC` | 6,623 | **3D Studio ASCII export** |
 | `.TGA` | standard Targa | `00 01 01` | `INSTALL2.TGA` | 8,870 | Colour-mapped Targa |
@@ -58,14 +58,35 @@ file format.
 
 The largest structured data class on the discs: 98 files, **157 MB**.
 
-After the 9-byte preamble:
+The header is **fully decoded**, validated against **all 98 files**: **[verified]**
 
 ```
+offset  0  u8[4]  "DSNF"
+offset  4  u8     0x00
+offset  5  u32    file size (unaligned)   — exact in 98/98
 offset  9  u8     0x00
-offset 10  u32    count A     (813 / 782 / 906 in samples)
-offset 14  u16    count B     (26 / 25 / 29 in samples)
-offset 16  ...    name table
+offset 10  u32    headerSpan  A           (38 .. 999)
+offset 14  u16    objectCount B           (1 .. 32)
+offset 16  char[11][B]   object-name table
+offset 16+11B u32[2]     8-byte scene-wide block
+offset 24+11B u32[5][B]  one 20-byte record per object
+offset 24+31B ...        packed payload
 ```
+
+**`A` is not an independent count.** In every one of the 98 files:
+
+```
+A = 31 * B + 7          body starts at 17 + A  ==  24 + 31*B
+```
+
+So the field is a **header span**, not a second count — it exists so the loader
+can skip straight to the payload without walking the tables. Naming it "count A"
+was a misreading.
+
+Worked example, `E01GROTT.DSN`: `B` = 26, `A` = 813, body at `0x33E`.
+
+The 8-byte block and the 20-byte per-object records are confirmed present and
+correctly sized in all 98 files; their **field meanings are [unverified]**.
 
 The name table is **11-byte fixed-length records**, null-padded — the classic DOS
 FCB 8+3 filename field, used here for object names: **[verified]**
@@ -76,37 +97,161 @@ E02ARAI0.DSN:  E02_25   E02_BAS  E02_CENT E02_COL1 E02_COL2 E02_COL3 E02_COL4 ..
 E03ARAI1.DSN:  E03_B1   E03_B2   E03_CH   E03_COL1 E03_COL2 E03_COL3 E03_COL4 ...
 ```
 
-Names carry the level prefix and a role suffix (`COL` = colonne/column, `BAS` =
-base, `CENT` = centre, `ME`/`MN` = mesh types?). `count B` is plausibly the number
-of name records. **[unverified]**
+Names carry the level prefix and a role suffix. Read as French, `M`+compass gives
+`ME`/`MN`/`MO`/`MS` = Mur Est/Nord/Ouest/Sud (walls), `SOL` = floor, `P` =
+plafond (ceiling), `COL` = colonne, `BAS` = base, `CENT` = centre. **[unverified]**
+but consistent across every sample. See [assets.md](assets.md).
 
-Parsing this table is the obvious first step into the scene format.
+**[verified]** `B` is exactly the number of name records — confirmed in 98/98.
+Across all files there are **2,145 records, 1,642 distinct names**, 4–8 printable
+characters each with 3–7 trailing NULs.
+
+**[verified]** The payload is genuinely packed: entropy 4.46–7.79 bits/byte
+(median 6.93), and zlib -9 only reaches 46.7–91.6% (median 78.0%). It is not a
+raw fixed-stride image stream. ASCII fragments such as `DEFAULT`, `E01_SOL1` and
+`PIECE` do occur inside it.
+
+Which scene belongs to which level is now fully mapped — see
+[level-map.md](level-map.md).
+
+### `.DAN` — animation (`DANF`)
+
+**Header fully decoded**, validated against **all 191 files**. **[verified]**
+
+```
+0x00  char[4]   "DANF"
+0x04  u8        0x00
+0x05  u32       file size (unaligned)   — exact in 191/191
+0x09  u8        0x00
+0x0A  u32       headerSpan A            — A = bodyOffset - 9
+0x0E  u16       objectCount N           — 1, 2, 3, 4 or 6
+0x10  char[11][N]   object-name table
+      u16       frameCount F            — 1 .. 49
+      char[13][F]   ".3DA" source labels, FIXED 13-byte slots
+body  u8        0x01                    — first payload byte, always
+      ...       packed payload
+```
+
+The body offset is exact in every file:
+
+```
+16 + 11*N + 2 + 13*F  ==  9 + A
+```
+
+Name-count distribution: 100 files have 1 name, 68 have 2, 18 have 3, 4 have 4,
+1 has 6.
+
+The `.3DA` references are **fixed 13-byte slots** (12-char name + NUL), not
+variable-length records — 1,048 references across 191 files, 552 distinct names.
+**No `.3DA` file exists anywhere on either disc**, so the frames are embedded and
+these are retained authoring labels. Their numbering is sparse
+(`F28AN000`, `002`, `004`, `016`, `050`), so they are keyframes selected from a
+longer authored sequence.
+
+**[verified]** The payload is packed: entropy 7.338–7.819, only 0.65–3.42% zero
+bytes. `AR0.DAN` body begins `01 0A 2C 00 00 30 1C 63 B4 00 FD FF 01 BE FF FF`;
+`F07.DAN` begins `01 B4 52 00 00 30 1C 63 B4 00 FD FF 01 BE FF FF` — a shared
+prefix past the first two bytes.
+
+**[verified] No `.DAN` references a `.3DC` by name.** Across all 191 files there
+are zero `F3DC` tags and zero `.3DC` filename strings, and no `.DAN` object label
+matches a `.3DC` object label. The `DAN_Load3DC` symbol is real, so the
+association must be made at runtime rather than stored in the asset.
+
+Content reuse is heavy: nine byte-identical `CAISSE` animations, eight identical
+`MCHAPO`, four identical `MCLEF`, plus aliases like `TABLEAU1`/`TABLO1` and
+`TALISMA1`/`TALISMAN`. 191 physical files hold 159 distinct logical names.
 
 ## Notes per format
 
 ### `.3DC` / `.3DM` — geometry (`F3DC`)
 
-Both extensions share the `F3DC` tag, so `.3DM` is not a separate format —
-likely a naming convention for a subtype (model vs chunk). Header after the tag:
+**They share the `F3DC` tag but are structurally different formats.** An earlier
+reading of `.3DM` as "the same container" was wrong. **[verified]** across all 16
+unique `.3DC` and all 4 unique `.3DM`.
+
+### `.3DC` — object/material directory
 
 ```
-ARC.3DC    46 33 44 43  C2 01 00 00  00 00 00 00  00 00 00 00
-ESSAI.3DM  46 33 44 43  C2 01 00 00  B0 41 47 00  34 CA 45 00
+0x00  char[4]  "F3DC"
+0x04  u32      450          revision, constant in every standalone file
+0x08  u32      0
+0x0C  u32      0
+0x10  u32      1
+0x14  u32      0
+0x18  u32      0
+0x1C  u32      object count      (1, 2, 17, 130 observed)
+0x20  u32      absolute offset of the first lowercase texture-name slot
+0x24  u32[n-1] descending offset table
+      u32      2                 constant, immediately before material records
+mat   char[16] "DEFAULT"         first material slot
+mat+0x20 u32   0x3DEF3DEF        default material colour (RGB555 mid-grey, twice)
+mat+0x2C char[16]  second name slot — GRILLE / ESSAI / SPRITE / OMBRE2 ...
+mat+0x3C char[16]  lowercase texture name (== the address stored at 0x20)
+mat+0x58 ...    repeated (count, absolute-offset) descriptor pairs
 ```
 
-`C2 01` = 450 appears in both at offset 4 — a version or record-count field that
-is constant across samples. The `.3DM` sample carries non-zero data at offsets 8
-and 12 where the `.3DC` sample has zeros. **[unverified]** interpretation.
+**[verified]** in 16/16 files. The descriptor pairs are the way into the geometry:
+`CARRE.3DC` holds `04 00 00 00 DD 00 00 00 06 00 00 00 7D 01 00 00` at `0xFC`.
+First-pair counts across the 16 files are 3, 4, 6, 15, 26, 28, 44, 98; second-pair
+counts are 3, 6, 12, 156, 216, 288, 576 — a spread consistent with vertex and
+index counts. **[unverified]** that the pairs are vertices/indices specifically;
+the target blocks do **not** decode as plain float32 or as simple u16/u32 indices.
 
-Loaded by `DAN_Load3DC` (see `engine.md`), which is in the animation module —
-animation data references geometry.
+Object labels are readable and French: `archer`, `fleche`, `sword`, `feu`, `pan`,
+`cube`, `tri`.
+
+Loaded by `DAN_Load3DC` (see [engine.md](engine.md)), which sits in the animation
+module — animation data references geometry.
+
+### `.3DM` — fixed three-block container
+
+Every `.3DM` file is **exactly 98,332 bytes**: **[verified]** 8/8 physical copies.
+
+```
+0x00     char[4]  "F3DC"
+0x04     u32      450
+0x08     u32[5]   per-file header values, schema differs from .3DC
+0x1C     0x8000 bytes   block 0
+0x801C   0x8000 bytes   block 1
+0x1001C  0x8000 bytes   block 2        -> 28 + 3*32768 = 98,332
+```
+
+There is **no material/object directory** in any `.3DM`. Only four exist:
+`ESSAI`, `GRILLE`, `OMBRE2`, `SPRITE` — and each name also exists as a `.3DC`
+material name, which suggests `.3DM` holds the *texture* for that material.
+
+**[unverified] but well supported: the blocks are 128×128 RGB555 images.**
+`128 × 128 × 2 = 32,768` exactly. Testing `ESSAI.3DM` as u16: blocks 1 and 2 have
+the top bit set in **0 of 16,384 words** and block 0 in only 2.2% — precisely the
+signature of RGB555's unused high bit. Distinct values per block are 945–1,134 out
+of 16,384, the low colour diversity of a texture. This also matches the engine's
+confirmed RGB555 format. Not yet rendered to an image for visual confirmation.
 
 ### `.PAK` — geometry container (`PAK0`)
 
-`OBJET1.PAK` begins `PAK0`, then at offset 16 contains a literal `F3DC` tag. So
-`.PAK` is an archive wrapping multiple `F3DC` chunks. Parsing the `PAK0` index
-is the cheapest route into the geometry format. **[verified]** that it embeds
-`F3DC`; **[unverified]** as to index structure.
+```
+0x00  char[4]  "PAK0"
+0x04  u32      62004     = file size - 4
+0x08  u32      82995     unknown, constant
+0x0C  char[4]  "F3DC"    embedded chunk starts here
+0x10  u32      100       embedded revision - NOT the standalone 450
+```
+
+**[verified]** on both copies of `OBJET1.PAK` (they are byte-identical).
+
+Three corrections to earlier notes:
+
+- `F3DC` sits at offset **12** (`0x0C`), **not 16**.
+- The file contains **exactly one** `F3DC` occurrence. No multi-chunk directory or
+  index table was found, so calling `.PAK` "an archive wrapping multiple chunks"
+  is not supported by the bytes — with only two `.PAK` files on the discs it may
+  simply never carry more than one.
+- The embedded chunk's revision field is **100**, so "offset 4 holds 450" is true
+  only for *standalone* `.3DC`/`.3DM`.
+
+It contains the string `Fem10`, a character model name. **[unverified]** whether
+that is the only archived model.
 
 ### `.DRD` — dialog (`DRDF`)
 
@@ -117,23 +262,61 @@ resident on the hard disk rather than streamed from CD.
 
 ### `.BF` — `UBIK` bundle
 
-`ICONES.BF` starts with the ASCII tag `UBIK`. "UBIK" is also the name of a Cryo
-game (a demo of it ships on disc 1) and appears to double as the name of an
-internal Cryo toolkit, since `.UBB` files use the related `UBB2`/`UBS2` tags and
-disc 2 ships `PLAYUBB.EXE` as a standalone player. **[unverified]** that UBIK is a
-shared toolkit rather than a coincidence.
+**Fully decoded.** **[verified]** across all five generations of `ICONES`.
 
-Header: `55 42 49 4B  02 00 00 00  4F A9 05 00  05 00 00 00` — tag, version 2,
-a size-like u32, then count 5.
+```
+0x00  char[4]  "UBIK"
+0x04  u32      2            container version
+0x08  u32      table offset (== file size - 267*count)
+0x0C  u32      entry count
+0x10  ...      payload, entries back to back
 
-### `.UBB` — UBIK presentation bundle
+table record, 267 bytes each:
+  +0x000  char[259]  asset filename
+  +0x103  u32        absolute payload offset
+  +0x107  u32        payload length
+```
 
-Three different magics appear across `.UBB` files: `UBB2`, `UBS2` and `HNM6`.
-The `B`/`S` pairing mirrors the `HNM`/`HNS` pairing in the video files, which
-suggests the letter encodes a variant (see `hnm-video.md`). Some `.UBB` files are
-simply HNM6 videos with a different extension. `SETUP.INI` registers
-`demos2\playubb.exe` as the "DemoPlayerUbb", so `.UBB` is the format Cryo used
-for the interactive demo slideshows on disc 2.
+The payload chain is exact: every `offset + length` equals the next entry's
+offset, and the last entry ends precisely at the table offset.
+
+The shipping disc-2 `ICONES.BF` holds six assets:
+
+| Name | Offset | Length |
+|---|--:|--:|
+| `MAGIE.ALP` | 16 | 116,489 |
+| `ANIM.ALP` | 116,505 | 40,457 |
+| `PYRAM.ALP` | 156,962 | 94,761 |
+| `TITRES.SPR` | 251,723 | 67,404 |
+| `TOUCHES.SPR` | 319,127 | 14,025 |
+| `INTERF.ALP` | 333,152 | 105,275 |
+
+So `.BF` is a plain named-asset container holding `.SPR` and `.ALP` members —
+both formats documented above. Nothing about it is image-specific.
+
+> **Correction.** "UBIK" here is **not** evidence of a shared Cryo authoring
+> toolkit. `.UBB` turned out to be the HNM5 *video* codec, unrelated to this
+> container beyond the borrowed name (Cryo also published a game called *Ubik*).
+> The earlier inference linking `UBIK`, `UBB2` and `PLAYUBB.EXE` into one toolkit
+> is withdrawn.
+
+### `.UBB` — video, HNM generation 5
+
+**[verified]** `.UBB` is **not** a "presentation bundle", a subtitle sidecar or an
+audio sidecar, and there is no UBIK authoring toolkit. It is the **fifth
+generation of Cryo's HNM video codec**, introduced with *MegaRace II* (1996).
+NihAV reads it with a plugin it labels "Cryo UBB". This settles a long-standing
+open question in this project.
+
+The 19 game files are 3 × `UBB2` and 16 × `UBS2`, all 640×304, all self-contained:
+UBB2 carries `IV` video and `PL` palette chunks, UBS2 adds `SD` sound chunks
+internally. No game `.UBB` begins with `HNM6` — the single `HNM6`-tagged `.UBB` on
+the discs is `DEMOS2\3MILL\3MILL.UBB`, which is demo content.
+
+Full header layout and decoding instructions in [hnm-video.md](hnm-video.md).
+
+`SETUP.INI` registers `demos2\playubb.exe` as "DemoPlayerUbb" — it is a video
+player, which is consistent.
 
 ### `.DIG` — Miles drivers, NOT game audio
 
@@ -158,16 +341,47 @@ Also present: `MSSDRVR.LST` (stock Miles driver-selection message file, 20,434 B
 `SETSOUND.EXE` (120,295 B, the DOS sound configurator) and `MSSW95.EXE`
 (8,029 B).
 
-### `.SPR` — sprites, RGB555
+### `.SPR` — sprite bundles, **not** raw bitmaps
 
-No magic. `HI320.SPR` begins `1F 1C` then a run of `FF 7F` = 0x7FFF, which is
-white in RGB555. This pins the engine's colour format at **16-bit hi-color
-RGB555** and is corroborated by `bpp = 16` in every HNM6 header. **[verified]**
+No magic. There are **two different `.SPR` families**, and neither is a raw
+RGB555 image — an earlier description of them as such was wrong. **[verified]**
 
-`DATA\OBJET\` holds `ALPHABET.SPR` and `ALPHABE2.SPR` (bitmap fonts),
-`OBJET0.SPR`, `PARTICLE.SPR` and `PARTICL2.SPR` (particle systems). `DATA\FONT\`
-holds three more `.SPR` files including `HI320.SPR` — the `HI` prefix and `320`
-suggest hi-color assets for the 320x200 mode.
+#### `DATA\OBJET\` — indexed sprite bundles (5 files)
+
+```
+0x000  u8[4][256]   VGA palette, RGBX, every channel <= 0x3F (6-bit DAC)
+0x400  u32[256]     pointer table, offsets relative to 0x400
+record +0x00  u32   width
+record +0x04  u32   height
+record +0x08  u32   placement/hotspot?        [unverified]
+record +0x0C  u32   placement/hotspot?        [unverified]
+record +0x10  u8[]  8-bit palette indices
+record size  = round4(16 + width*height)
+```
+
+**[verified]** across all 232 payload records. Unique record counts:
+`ALPHABET.SPR` 64, `ALPHABE2.SPR` 64, `PARTICL2.SPR` 64, `PARTICLE.SPR` 32,
+`OBJET0.SPR` 8. Pointer slots `0x5000` and `0x100` are special/empty entries
+whose meaning is **[unverified]**; several slots alias the same record.
+
+So `ALPHABET`/`ALPHABE2` are bitmap fonts (64 glyphs each) and
+`PARTICLE`/`PARTICL2` are particle sprite sheets.
+
+#### `DATA\FONT\` — `HI320` / `HI480` / `HI640` (3 files)
+
+A different layout: a **16-entry RGB555 palette** in the first 32 bytes, then
+glyph data, then a tail table of **8 × 28-byte descriptors** (absolute offset at
+`+0x00`, width at `+0x08`, height at `+0x0C`), then an 8-byte footer
+`[u32 data_end][u32 0x100]`. **[verified]** 3/3.
+
+The names are display modes, not dimensions: `HI320`/`HI480`/`HI640` are the
+320, 480 and 640-wide screen modes.
+
+> **Correction.** `HI320.SPR` opening `1F 1C FF 7F` was previously read as a
+> width/height header followed by white RGB555 pixels. It is not: `1F 1C` is
+> palette entry `0x1C1F`, and `FF 7F` is entry `0x7FFF`. The file starts with its
+> palette. The engine *is* RGB555 — that is independently confirmed by `bpp = 16`
+> in every HNM6 header and by `0x3DEF3DEF` in `.3DC` — but not by these bytes.
 
 ## File census
 
@@ -251,10 +465,34 @@ Note the inconsistent case (`.dan` vs `.DAN`) — another sign of an uncleaned
 build. `LISTL0.TXT` has 6 entries; `LISTL1.TXT` has ~200. Entries repeat, so the
 list is probably load-order rather than a set.
 
-`DREAMS.DAT` (138,879 B on disc 1, 138,835 B on disc 2) is a binary table of
-little-endian u32 offsets beginning at 0: `00000000 00000844 00000E74 00001280
-0000157E ...`. Monotonically increasing, so it is an index into a companion blob.
-**[unverified]** which blob it indexes, and which disc's copy is authoritative.
+### `DREAMS.DAT` — the project bank
+
+**[verified]** It is **self-indexing** — it indexes itself, not a companion blob.
+
+```
+0x000   u32[151]    offsets, relative to 0x400
+0x25C   420 x 00    padding (verified all-zero on both discs)
+0x400   150 records "ProjectN\0" + variable body, 132 .. 2,592 bytes each
+```
+
+`0x400 + offset[150]` equals the file size **exactly** on both discs — 138,879 on
+disc 1, 138,835 on disc 2. Record bodies contain the strings `LINK0`, `FLINKn`,
+`DLINKn`, `OBJETn`, `BOXn`, `LINKADVENTn`, so this is a project *graph*, not a
+flat asset list. Binary fields within a record are **[unverified]**.
+
+> **Correction.** Describing this as "a monotonically increasing table of u32
+> offsets" across the whole file was wrong. Only the first 151 entries are that
+> table; everything past `0x400` is record payload, and reading it as offsets
+> produces meaningless non-monotonic values.
+
+**[verified]** The two discs' copies differ in exactly **six** project records —
+P31, P41, P55, P69, P75, P87 — with identical embedded asset-name sets. Only
+numeric fields and record lengths differ, and disc 1's copy is 44 bytes larger.
+Neither is demonstrably authoritative; disc 1's is the safer default as the
+program disc.
+
+Joining these 150 records to `DREAMS.INI` gives the complete level map — see
+[level-map.md](level-map.md).
 
 ### `.ANTI-VIR.DAT`
 

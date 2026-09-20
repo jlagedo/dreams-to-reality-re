@@ -3,6 +3,14 @@
 **This resolves the project's highest-priority open question, and it resolves it
 better than expected: a working HNM6 decoder ships on disc 2.**
 
+> **Update — CryoLib is no longer the best route to the video.** Open-source
+> decoders exist (NihAV, ScummVM) and decode all 113 files on these discs today,
+> and Cryo's own `CM6_*x16.dll` is publicly archived with only 36 KB of `.text` —
+> a far cleaner RE target than this 644 KB DLL. See
+> [hnm-video.md](hnm-video.md). CryoLib remains the best available guide to
+> Cryo's naming and structure conventions, and the only one of the three that
+> also documents the `.UBB` and BigFile APIs.
+
 `DEMOS2\CRYO.DLL`, 644,608 bytes. **[verified]**
 
 ## Identity

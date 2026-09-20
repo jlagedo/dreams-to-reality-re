@@ -19,6 +19,7 @@ This file is the summary. The detail lives in [`docs/`](docs/README.md):
 | [docs/toolchain.md](docs/toolchain.md) | **Watcom C/C++ 10.6** pinned down, reference material, recovered runtime symbols |
 | [docs/cryolib.md](docs/cryolib.md) | `CRYO.DLL` = CryoLib: 165 exports including a working **HNM6 decoder** |
 | [docs/game-content.md](docs/game-content.md) | 150 levels, 30 inventory items, save system, from `DREAMS.INI` |
+| [docs/level-map.md](docs/level-map.md) | **Complete project → scene map** — all 150 projects to 98 `.DSN` files |
 | [docs/dsn-loader.md](docs/dsn-loader.md) | **`.DSN` loader decompiled** — stream API, header reader, `__watcall` blocker |
 | [docs/assets.md](docs/assets.md) | **Models, textures, animation, sound** — where content lives and how it's packed |
 | [docs/file-formats.md](docs/file-formats.md) | Asset format catalogue with verified magic numbers |
@@ -233,15 +234,15 @@ All proprietary Cryo formats. **[verified]** unless noted.
 | Ext | Magic | Contents |
 |---|---|---|
 | `.HNM` | `HNM4` / `HNS6` / `HNM6` | Video. 20 files are HNM4 256x256 texture animations; 75 are 640x304 cutscenes |
-| `.UBB` | `UBB2` / `UBS2` / `HNM6` | UBIK presentation bundles, played by `PLAYUBB.EXE` |
-| `.3DC` / `.3DM` | `F3DC` | 3D geometry — **both extensions share one container** |
+| `.UBB` | `UBB2` / `UBS2` | **Video** — HNM generation 5, played by `PLAYUBB.EXE` |
+| `.3DC` / `.3DM` | `F3DC` | Geometry and (probably) textures — **same tag, different structures** |
 | `.DAN` | `DANF` | Animation |
 | `.DSN` | `DSNF` | Scene / level definition |
 | `.PAK` | `PAK0` | Container of `F3DC` chunks |
 | `.BF` | `UBIK` | Icon/bitmap bundle (`ICONE\ICONES.BF`) |
 | `.DRD` | `DRDF` | Dialog bundle — `DIALOG.DRD` is **24.6 MB** |
 | `.DIG` | `AIL3DIG` | **Miles sound-card drivers, not game audio.** Audio bank is `SOUND\FSB.DAT` |
-| `.SPR` / `.ALP` | none | Raw RGB555 sprites, alpha maps |
+| `.SPR` / `.ALP` | none | Sprite bundles — 8-bit indexed + inline palette; alpha maps |
 | `.ASC` / `.BAK` | text | **3D Studio developer leftovers** shipped on the retail disc |
 | `.TGA` | Targa | Truevision Targa — standard |
 
@@ -254,12 +255,24 @@ hi-color, JPEG-like key blocks plus motion blocks derived from previously drawn
 blocks, 8x8 or smaller. Audio is Cryo **APC**, either muxed into the `.HNM` or in
 sidecar files. **[sourced]**
 
-**No working decoder exists.** FFmpeg implements HNM4 only. A
-[ZenHAX thread](https://zenhax.com/viewtopic.php@t=15513.html) requests an
-HNM6-to-AVI converter; nobody built one. Lead worth chasing: the
-[GameMediaFormats DirectShow package](https://github.com/ValeryAnisimovsky/GameMediaFormatsCoreFilters)
-notes HNM/HNS playback was provided by Cryo's own `CM6_*x16.dll` decoder DLLs —
-"CM6" matching the `HNS6` magic. **[sourced]**
+**Working decoders exist and all 113 video files on these discs decode.**
+**[verified]**
+
+- **[NihAV `na_game_tool`](https://nihav.org/game_tool.html)** (Rust, GPLv3) added
+  HNM5 and HNM6 in Jan 2026. It needs a **one-line patch** to accept this game's
+  `HNS6`/`UBS2` tag spellings, after which 113/113 files decode. Verified here:
+  `ARENE.HNM` → 113 coherent 640×304 frames.
+- **ScummVM** `video/hnm_decoder.cpp` is a second, independently written decoder
+  (added 2022), plus `audio/decoders/apc.cpp` for Cryo APC audio.
+- **Cryo's own `CM6_*x16.dll`** vendor decoders are publicly archived at
+  <https://samples.ffmpeg.org/game-formats/cryo/> — MD5-verified, exporting
+  `HNMPI_Init` / `HNMPI_DecodeFrame` / `HNMPI_Cleanup`, importing only
+  `KERNEL32`. 36 KB of `.text` makes this a cleaner RE target than `CRYO.DLL`.
+
+Video is solved; **audio extraction is not** — the `SD` chunks are located but not
+yet decoded. Every sixth-generation header credits `Pascal URRO  R&D`.
+
+See [docs/hnm-video.md](docs/hnm-video.md).
 
 ### Level manifests
 
@@ -369,20 +382,33 @@ Recommended: Windows 95, 32 MB RAM, 1 GB disk, Direct3D/Glide GPU.
 - **No source code or engine leak exists** for Cryo's real-time 3D engine. **[sourced]**
 - The `360: Three Sixty` source found on a retail PlayStation disc is a **false
   lead** — Smart Dog developed that game and Cryo only published it. Different codebase.
-- **ScummVM will not help.** Its `cryo` (Lost Eden) and `cryomni3d` (Versailles,
-  Necronomicon, The Cameron Files) engines cover the point-and-click titles only.
-  This game's real-time engine is out of scope and unsupported.
-- TCRF has a page for the game, but it could not be read through automated fetch —
-  the fetched content appeared to contain prompt-injection text rather than game
-  documentation. **Open manually**: <https://tcrf.net/Dreams_to_Reality_(DOS,_Windows)>
+- **ScummVM's engines will not help** — `cryo` (Lost Eden) and `cryomni3d`
+  (Versailles, Necronomicon, The Cameron Files) cover the point-and-click titles
+  only. **Its video layer does help**, though: it decodes this game's HNM format.
+- **Cryo's engine code may physically survive.** Stéphane Petit, co-founder of
+  Kheops Studio, said in a 2023 interview that he and Benoît Hozjan — both
+  credited on this game's R&D — took Cryo's engine and tools with them when Kheops
+  was founded in 2003. **[sourced]**
+- **Do not fetch the TCRF page programmatically.** It returns deliberate anti-AI
+  prompt-injection text instead of documentation — reproduced three times, and an
+  acknowledged TCRF practice. **Open manually in a browser**:
+  <https://tcrf.net/Dreams_to_Reality_(DOS,_Windows)>
 
 ### Open questions
 
-1. Does a merged install with `FULL.ID` present actually suppress disc swapping?
-2. Which `DREAMS.DAT` is correct — disc 1's or disc 2's? Diff the offset tables.
-3. Why is disc 2's `HD.ID` binary (`01 00 00 00`) when disc 1's is text (`toto`)?
-4. Can `CM6_*x16.dll` be located to decode the HNM6 videos?
-5. What are `.UBB` files — subtitle or audio sidecars for HNM?
+1. **Unpack the `.DSN` body** — 157 MB of level geometry and textures. The body
+   offset is now exact (`24 + 31·countB`, verified 98/98), so there is a precise
+   starting byte for the first time.
+2. **Decode the `.3DC` geometry payload.** The descriptor pairs are mapped; vertex
+   and index semantics are not, and the `CUBE.ASC` shortcut failed.
+3. **Extract HNM audio.** Video decodes; the `SD` chunks do not yet.
+4. Does a merged install with `FULL.ID` present actually suppress disc swapping?
+5. Why is disc 2's `HD.ID` binary (`01 00 00 00`) when disc 1's is text (`toto`)?
+
+Resolved since the first pass: the HNM6 decoder problem, `CM6_*x16.dll`'s
+location, what `.UBB` files are, `DREAMS.DAT`'s structure, the `HNS6`/`HNM6`
+distinction, and the complete level map. See
+[docs/research-log.md](docs/research-log.md).
 
 ### References
 
