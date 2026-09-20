@@ -27,10 +27,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import struct
 import subprocess
 import tempfile
+from collections import Counter
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -82,10 +84,38 @@ class Source:
     path: Path
     disc: int
     suffix: str = ""  # "_d1"/"_d2" when the two discs genuinely differ
+    qualified: bool = False  # use the full-path slug because bare stems collide
+
+    @property
+    def slug(self) -> str:
+        """Path-qualified name, unique across the whole disc tree.
+
+        ``DATA/ICONE/OLD/ICONES.BAK`` -> ``icone_old_icones_bak``. The extension
+        is kept: five generations of ``ICONES`` differ only by it.
+        """
+        s = re.sub(r"[^a-z0-9]+", "_", self.rel.lower()).strip("_")
+        return s.removeprefix("data_") + self.suffix
 
     @property
     def stem(self) -> str:
+        if self.qualified:
+            return self.slug
         return Path(self.rel).stem.lower() + self.suffix
+
+
+def disambiguate(sources: list[Source]) -> list[Source]:
+    """Promote a whole group to path-qualified names if any bare stem repeats.
+
+    ``ICONES.BF``, ``ICONES.BAK``, ``ICONES.OLI`` and ``OLD/ICONES.BAK`` all
+    reduce to ``icones``, so without this they silently overwrite one another -
+    and those five generations are the best format-diffing material on the discs.
+    Applied per group so unambiguous groups keep short, readable names.
+    """
+    counts = Counter(s.stem for s in sources)
+    if any(n > 1 for n in counts.values()):
+        for s in sources:
+            s.qualified = True
+    return sources
 
 
 def _sha256(p: Path, limit: int | None = None) -> str:
@@ -612,6 +642,9 @@ def plan(groups: list[str]) -> dict[str, list[Source]]:
             out[g] = [s for s in merge_discs("*.JPG") if "TEMP" in s.rel]
         else:
             out[g] = []  # music / metadata / text discover their own sources
+
+    for g, srcs in out.items():
+        out[g] = disambiguate(srcs)
     return out
 
 

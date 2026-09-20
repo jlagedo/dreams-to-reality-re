@@ -87,6 +87,32 @@ def test_plugin_table_covers_every_known_magic():
     assert set(video.PLUGIN) == {"HNM4", "UBB2", "UBS2", "HNM6", "HNS6"}
 
 
+def test_disambiguate_promotes_colliding_stems(tmp_path):
+    """Five ICONES generations differ only by extension and must not overwrite."""
+    srcs = [
+        extract.Source("DATA/ICONE/ICONES.BF", tmp_path, 1),
+        extract.Source("DATA/ICONE/ICONES.BAK", tmp_path, 1),
+        extract.Source("DATA/ICONE/OLD/ICONES.BAK", tmp_path, 1),
+    ]
+    assert len({s.stem for s in srcs}) == 1  # all collapse to "icones"
+    extract.disambiguate(srcs)
+    assert [s.stem for s in srcs] == [
+        "icone_icones_bf",
+        "icone_icones_bak",
+        "icone_old_icones_bak",
+    ]
+    assert len({s.stem for s in srcs}) == 3
+
+
+def test_disambiguate_leaves_unique_stems_short(tmp_path):
+    srcs = [
+        extract.Source("DATA/HNM/INTRO.HNM", tmp_path, 1),
+        extract.Source("DATA/HNM/ARENE.HNM", tmp_path, 1),
+    ]
+    extract.disambiguate(srcs)
+    assert [s.stem for s in srcs] == ["intro", "arene"]
+
+
 def test_sprite_record_size_rounds_up_to_four():
     assert image.Sprite(0, 0, 10, 11, 0, 0).record_size == 128  # 16 + 110 -> 128
     assert image.Sprite(0, 0, 4, 4, 0, 0).record_size == 32  # 16 + 16, already aligned
@@ -161,6 +187,14 @@ def test_font_spr_is_not_an_indexed_bundle():
     for s in fonts:
         with pytest.raises(ValueError, match="not an indexed"):
             image.read_spritesheet(s.path)
+
+
+@needs_discs
+def test_no_group_produces_colliding_output_names():
+    """A collision silently overwrites assets - this is how the icon bug slipped in."""
+    for group, srcs in extract.plan(list(extract.ALL_GROUPS)).items():
+        stems = [s.stem for s in srcs]
+        assert len(stems) == len(set(stems)), f"{group}: duplicate output names"
 
 
 @needs_discs
