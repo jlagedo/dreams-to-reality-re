@@ -1,0 +1,78 @@
+diff --git a/mcp-bridge/tools.go b/mcp-bridge/tools.go
+index 578b58b..418a6e9 100644
+--- a/mcp-bridge/tools.go
++++ b/mcp-bridge/tools.go
+@@ -514,6 +514,7 @@ var allTools = []toolDef{
+ 	},
+ 
+ 	{Name: "list_equates", Desc: "List all equates (named constants) defined in the program. Shows the name, value, and locations where each equate is applied.", Title: "List Equates", Method: "listEquates", ReadOnly: true},
++	{Name: "save_program", Desc: "Persist the current program to its Ghidra project file on disk. Every other mutation tool only creates an in-memory transaction, so call this after making changes or they are lost when Ghidra closes.", Title: "Save Program", Method: "saveProgram"},
+ 	{Name: "ping", Desc: "Test connectivity to the Ghidra server. Returns 'pong' if the connection is alive. Use this to verify the bridge is working.", Title: "Ping", Method: "ping", ReadOnly: true},
+ 
+ 	// =====================================================================
+diff --git a/src/main/java/ghidra/mcp/MCPClientHandler.java b/src/main/java/ghidra/mcp/MCPClientHandler.java
+index fe757cf..860592b 100644
+--- a/src/main/java/ghidra/mcp/MCPClientHandler.java
++++ b/src/main/java/ghidra/mcp/MCPClientHandler.java
+@@ -983,6 +983,12 @@ public class MCPClientHandler implements Runnable {
+ 
+             // ===== Utility =====
+ 
++            case "saveProgram": {
++                Map<String, Object> saveResult = contextProvider.saveProgram();
++                response.add("result", GSON.toJsonTree(saveResult));
++                break;
++            }
++
+             case "ping": {
+                 response.addProperty("result", "pong");
+                 break;
+diff --git a/src/main/java/ghidra/mcp/MCPContextProvider.java b/src/main/java/ghidra/mcp/MCPContextProvider.java
+index deb521b..3fd0a5b 100644
+--- a/src/main/java/ghidra/mcp/MCPContextProvider.java
++++ b/src/main/java/ghidra/mcp/MCPContextProvider.java
+@@ -437,6 +437,44 @@ public class MCPContextProvider {
+      * @param isAddress If true, identifier is treated as an address; otherwise as a name
+      * @return Map containing success status and detailed information
+      */
++    /**
++     * Persist the current program to its Ghidra project file.
++     *
++     * Every other mutation tool only opens an undo-able transaction in memory;
++     * without this the whole session is lost when Ghidra closes. Added locally
++     * for the Dreams project - see docs/re-setup.md.
++     */
++    public Map<String, Object> saveProgram() {
++        Map<String, Object> result = new HashMap<>();
++        result.put("success", false);
++
++        if (currentProgram == null) {
++            result.put("error", "No program loaded");
++            return result;
++        }
++
++        try {
++            boolean hadUnsaved = currentProgram.isChanged();
++            ghidra.framework.model.DomainFile df = currentProgram.getDomainFile();
++            if (df == null) {
++                result.put("error", "Program has no domain file (not in a project?)");
++                return result;
++            }
++            if (df.isReadOnly()) {
++                result.put("error", "Program is read-only");
++                return result;
++            }
++            df.save(ghidra.util.task.TaskMonitor.DUMMY);
++            result.put("success", true);
++            result.put("program", currentProgram.getName());
++            result.put("path", df.getPathname());
++            result.put("hadUnsavedChanges", hadUnsaved);
++        } catch (Exception e) {
++            result.put("error", "Save failed: " + e.getMessage());
++        }
++        return result;
++    }
++
+     public Map<String, Object> renameFunction(String identifier, String newName, boolean isAddress) {
+         Map<String, Object> result = new HashMap<>();
+         result.put("success", false);

@@ -1,0 +1,307 @@
+# Reverse-engineering setup
+
+Ghidra, the MCP bridge, and how this repo is organised so the analysis survives
+in git without any game data going near it.
+
+## The organising principle
+
+> **The Ghidra project is a build artefact. `re/` is the source of truth.**
+
+A `.rep` directory is an opaque binary blob. Git cannot merge it, it bloats
+history, and — the part that actually matters here — **it embeds copies of the
+game executables**. Committing one would put Cryo's code in the repo.
+
+So the split is:
+
+| Path | Committed? | What it is |
+|---|---|---|
+| `ghidra/` | **no** | the Ghidra project — regenerate with `tools/ghidra-import.ps1` |
+| `ghidra_scripts/` | yes | our Ghidra scripts |
+| `re/symbols/*.tsv` | yes | function names and comments we assigned |
+| `re/structs/*.h` | yes | C struct definitions for the formats |
+| `src/dreams/` | yes | the Python decoding toolkit |
+| `docs/` | yes | findings |
+
+Round trip: annotate in Ghidra → `ExportSymbols.java` → commit the TSV → someone
+else runs `ghidra-import.ps1 -ImportSymbols` and gets your annotated project
+from their own copy of the discs.
+
+## Installed on this machine
+
+| Component | Version | Location |
+|---|---|---|
+| Ghidra | 12.1.3 (2026-08-18) | `E:\tools\ghidra_12.1.3_PUBLIC` |
+| JDK | Temurin 25.0.3 LTS | already on PATH; Ghidra needs 21+ |
+| Gradle | 9.7.1 | scoop; only needed to rebuild the plugin |
+| Go | installed | only needed to rebuild the bridge |
+| GhidraMCP | 0.2.2, built from `13bm/GhidraMCP@master` | `…\Ghidra\Extensions\GhidraMCP` |
+| MCP bridge | built from source | `E:\tools\ghidra-mcp\mcp_bridge.exe` |
+
+### Why the plugin was built from source
+
+`13bm/GhidraMCP` pins each release to an exact Ghidra version, and its newest
+*release* targets 12.0.4. Ghidra rejects extensions whose `extension.properties`
+version does not match the running install, so the 12.0.4 zip would not load in
+12.1.3. Master is already stamped `version=12.1.3` (bumped 2026-08-19) but no
+release has been cut, so we built it:
+
+```powershell
+$env:GHIDRA_INSTALL_DIR = "E:\tools\ghidra_12.1.3_PUBLIC"
+cd E:\tools\GhidraMCP-src
+gradle buildExtension --no-daemon
+cd mcp-bridge; go build -o mcp_bridge.exe .
+```
+
+Rebuild both after any Ghidra upgrade.
+
+> The older and more widely linked `LaurieWired/GhidraMCP` was last released in
+> June 2025 against Ghidra 11.x and will not load here.
+
+## Using the MCP bridge
+
+The plugin runs **inside a live Ghidra GUI session** — it is not a headless
+tool. The chain is:
+
+```
+Claude Code  --stdio/MCP-->  mcp_bridge.exe  --TCP :8765-->  Ghidra plugin
+```
+
+One-time setup in the GUI:
+
+1. `E:\tools\ghidra_12.1.3_PUBLIC\ghidraRun.bat`
+2. Open the `dreams` project and a program (start with `WINDREAM.EXE`)
+3. **File > Configure > GhidraMCP** → tick **MCPServerPlugin**
+4. The plugin starts a TCP server on `localhost:8765` automatically
+
+`.mcp.json` in the repo root already points Claude Code at the bridge. Approve
+it once with `claude` (it shows as *Pending approval* until you do). Override the
+binary location with `DREAMS_GHIDRA_BRIDGE` if yours lives elsewhere.
+
+The bridge exposes ~70 tools: decompile, rename, list functions/imports/exports,
+define structs, search, and async decompilation for large functions.
+
+**Nothing is annotated until you save.** MCP edits live in the Ghidra session;
+run `ExportSymbols.java` to get them into git.
+
+## Headless workflow
+
+For anything reproducible, prefer headless over the GUI:
+
+```powershell
+.\tools\ghidra-import.ps1                     # create project, import, analyse
+.\tools\ghidra-import.ps1 -ImportSymbols      # …and re-apply saved names
+.\tools\ghidra-import.ps1 -Analyze:$false     # skip auto-analysis
+```
+
+Defaults to importing `WINDREAM.EXE`, `GDIDREAM.EXE`, `SETUP.EXE` and
+`CRYO.DLL`. Paths come from `DREAMS_DISC1` / `DREAMS_DISC2`, same as the Python
+toolkit.
+
+## Which binary to attack
+
+**`WINDREAM.EXE` is the primary target.** It is PE32, so Ghidra loads it with no
+extra loader, and since Cryo compiled one portable Watcom core three ways, what
+you learn transfers to the DOS builds. See [engine.md](engine.md).
+
+`DREAMS.EXE` and `DREAMSFX.EXE` are LE (DOS/4GW) and need a loader extension
+Ghidra does not ship. Worth it later — the DOS builds carry richer symbol
+residue — but not the place to start.
+
+`CRYO.DLL` is a **debug build with 165 named exports**. It is a different
+codebase from the game (see [cryolib.md](cryolib.md)), but it is the best
+available guide to Cryo's naming and structure conventions.
+
+## The scripts
+
+### `FindFormatParsers.java` — start here
+
+Containers first. Every Cryo format opens with a four-character tag and the
+loader must validate it. A compiler emits that check one of two ways:
+
+1. **immediate compare** — `cmp dword ptr [x], 0x464E5344` ("DSNF" as an int)
+2. **memcmp/strncmp** against a string literal in `.data`
+
+**Measured on `WINDREAM.EXE`: zero immediates, exactly one ASCII literal per
+tag.** Watcom emitted form 2 here, so the literals are the anchors — find the
+references to them and you land in the parser. The script checks both and
+reports whichever applies.
+
+Scripts are **Java, not Python**, deliberately. Ghidra compiles Java scripts with
+no external dependency; PyGhidra needs a matching jpype wheel and tops out at
+Python 3.13, which would break on this machine's 3.14.
+
+#### First results — the parsers are located
+
+Run against `WINDREAM.EXE` (image base `0x400000`): **[verified]**
+
+| Tag | Literal | Referencing function | What it is |
+|---|---|---|---|
+| `DSNF` | `0x004c421e` | **`FUN_004175bc`** (2 xrefs) | **scene loader — top target** |
+| `DANF` | `0x004c39f1` | `FUN_0040fff7` | animation loader |
+| `DRDF` | `0x004c3a48` | `FUN_0041072c` | dialogue bank |
+| `UBIK` | `0x004c5511` | `FUN_0043ad40` | image bundle (`.BF`) |
+| `F3DC` | `0x00456e0d` | none | inside a data blob, reached indirectly |
+| `HNM4`/`HNM6`/`HNS6`/`UBB2`/`UBS2` | `0x004086e0`–`0x004087a3` | none | **clustered in 0xc3 bytes — a signature table, not five compares** |
+
+`PAK0` has no literal at all, consistent with `.PAK` being parsed by whatever
+reads the embedded `F3DC` chunk rather than by its own loader.
+
+String anchors additionally implicate `FUN_0041c666` (4 xrefs), `FUN_00456038`,
+`FUN_00427f11`, `FUN_0041020f` and `FUN_00426143` — the file I/O and disc-check
+layer.
+
+### `ExportSymbols.java` / `ImportSymbols.java`
+
+Round-trip named functions and comments through `re/symbols/<program>.tsv`.
+
+TSV rather than JSON: no dependency, and one line per symbol gives clean git
+diffs when someone renames a single function. Addresses are stored as **RVAs**,
+so a rebased project still matches. The export records the binary's SHA-256 and
+the import warns on mismatch. Ghidra's auto-generated `FUN_xxxxxxxx` names are
+skipped so re-analysis does not churn the diff.
+
+## Not losing work
+
+### Ghidra saves normally
+
+To be clear up front, because this is easy to misread: **Ghidra persists your
+analysis perfectly well.** The project at `ghidra/dreams.rep` already holds all
+four analysed programs.
+
+- **Headless saves automatically** — the import run logged
+  `Save succeeded for processed file: /WINDREAM.EXE`. Pass `-readOnly` to
+  suppress it.
+- **The GUI saves on Ctrl+S** and prompts on close.
+- Auto-recovery snapshots (Edit → Tool Options → Recovery, every 5 min) exist as
+  well, but those are *crash* recovery — they will not save you from closing a
+  program without saving.
+
+### The one real gap, and how we closed it
+
+The GhidraMCP plugin shipped **70 tools, none of which saved**. Its own docs
+describe mutations as *"undo-able transactions in Ghidra"* — in-memory only. So
+Claude could rename sixty functions and have no way to commit any of them; a
+human had to remember to press Ctrl+S.
+
+Since we build the plugin from source anyway, we added the missing tool:
+
+```
+save_program   Persist the current program to its Ghidra project file on disk.
+```
+
+Three small changes — a `saveProgram()` method on `MCPContextProvider`, a case in
+`MCPClientHandler`, and a declaration in the Go bridge's `tools.go`. The bridge
+now advertises **71 tools**.
+
+Implementation: `currentProgram.getDomainFile().save(TaskMonitor.DUMMY)`, with
+guards for no program loaded, no domain file, and read-only files. It reports
+whether there were unsaved changes, so a no-op save is visible rather than
+silent.
+
+**The patch is preserved at `tools/ghidramcp-save-program.patch`.** Upstream does
+not have this, so re-apply it after any plugin update:
+
+```powershell
+cd E:	ools\GhidraMCP-src
+git apply E:\dev\dreams	ools\ghidramcp-save-program.patch
+$env:GHIDRA_INSTALL_DIR = "E:	ools\ghidra_12.1.3_PUBLIC"
+gradle buildExtension --no-daemon
+cd mcp-bridge; go build -o mcp_bridge.exe .
+```
+
+### Three layers of durability
+
+| Layer | What | Durability |
+|---|---|---|
+| Ghidra program database | live analysis, what MCP edits | volatile until saved — now savable by Claude via `save_program` |
+| `ghidra/dreams.rep` | the saved project | durable on disk, but **gitignored** — binary, unmergeable, embeds the game executables |
+| `re/symbols/*.tsv` | exported names + comments | **durable and in git** — the record that outlives everything |
+
+`re/` is the source of truth. The Ghidra project is disposable and rebuildable
+from the discs with `ghidra-import.ps1 -ImportSymbols`.
+
+### The project lock
+
+Ghidra locks a project while it is open — a `dreams.lock` appears beside
+`dreams.gpr`, and **headless cannot touch a project the GUI holds**. That gives
+two checkpoint routes.
+
+**GUI open (Claude working over MCP):**
+
+1. Ask Claude to call `save_program`, or press Ctrl+S.
+2. **Window → Script Manager → Dreams → `ExportSymbols.java`** — writes the TSV
+   from the live program, no lock conflict.
+3. `.	oolse-checkpoint.ps1 -SkipExport -Message "name the DSN header reader"`
+
+**GUI closed:**
+
+```powershell
+.	oolse-checkpoint.ps1 -Message "batch rename stream helpers"
+```
+
+Exports every program headless, then commits. It detects the lock and redirects
+you to the GUI route rather than failing obscurely.
+
+Flags: `-NoCommit` to inspect first, `-SkipExport` to commit an existing export.
+
+### What a checkpoint captures
+
+From the first real run:
+
+| Program | Named functions | Comments |
+|---|---|---|
+| `CRYO.DLL` | **574** | 1125 |
+| `SETUP.EXE` | 258 | 905 |
+| `WINDREAM.EXE` | 1 | 350 |
+
+CryoLib's 574 come free — it is a debug build, so Ghidra resolves exports and
+signatures:
+
+```
+FUNC  1000  GL_InitHnmScreen   undefined GL_InitHnmScreen(void)
+FUNC  1019  GL_AddProgramItems undefined4 GL_AddProgramItems(undefined4, uint *, uint *)
+FUNC  101e  GL_ShellExec       BOOL GL_ShellExec(LPCSTR, LPCSTR, LPCSTR)
+```
+
+`WINDREAM.EXE` shows 1 because nothing has been named in it yet. Watching that
+number climb is the measure of progress.
+
+### If you want real version history
+
+Everything above gives you git history of the *annotations*. If you want Ghidra's
+native check-in/check-out with per-revision comments and program-level diffing,
+run a local **Ghidra Server** (`server/ghidraSvr.bat`) and convert the project to
+a shared one. Heavier to operate, and largely redundant for a solo project given
+the TSV round-trip — but it is the native answer and it exists.
+
+### Guardrails
+
+- Exports are **RVA-keyed** and stamped with the binary's SHA-256, so rebasing or
+  re-importing still matches and a wrong binary warns on import.
+- Auto-generated `FUN_xxxxxxxx` names are skipped, so re-analysis does not churn
+  the diff.
+- `re-checkpoint.ps1` **refuses to commit** if anything matching a game-asset
+  extension appears in the working tree.
+
+### Discipline
+
+Checkpoint at every natural pause. It costs seconds, and the TSV diff doubles as
+a readable log of what was learned.
+
+## Suggested order of attack
+
+1. ~~Run `FindFormatParsers.java` on `WINDREAM.EXE`.~~ **Done** — see the table
+   above.
+2. **Decompile `FUN_004175bc`.** It is the `.DSN` scene loader: 157 MB of packed
+   level geometry and textures sits behind it, and it is the top open question in
+   [research-log.md](research-log.md).
+3. Read outward from the magic check: the code immediately after it parses the
+   header we already decoded (`u8 flag`, `u32 size @5`, counts, 11-byte name
+   table), which gives you a known anchor to orient against.
+4. Whatever consumes the bytes past `0x12e` **is the unpacker**. That is the
+   answer we cannot get from the outside.
+5. Name it, export symbols, commit.
+
+Cross-check anything you find against the measurements in
+[assets.md](assets.md) — the decoded headers there are verified byte-exact, so
+they make good ground truth for a decompilation you are unsure of.

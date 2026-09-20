@@ -1,0 +1,354 @@
+#program	GDIDREAM.EXE
+#sha256	b2f053bd26627eb618f034481fbeb49c2287bec834351787385a69d74db05001
+#imagebase	400000
+FUNC	65538	entry	undefined entry(void)	
+CMT	178	eol	AUTO
+CMT	1a0	eol	.idata
+CMT	1c8	eol	DGROUP
+CMT	1f0	eol	.bss
+CMT	218	eol	.reloc
+CMT	240	eol	.rsrc
+CMT	9c08c	eol	IMAGE_THUNK_DATA32
+CMT	9c090	eol	IMAGE_THUNK_DATA32
+CMT	9c094	eol	IMAGE_THUNK_DATA32
+CMT	9c098	eol	IMAGE_THUNK_DATA32
+CMT	9c09c	eol	IMAGE_THUNK_DATA32
+CMT	9c0a0	eol	IMAGE_THUNK_DATA32
+CMT	9c0a4	eol	IMAGE_THUNK_DATA32
+CMT	9c0a8	eol	IMAGE_THUNK_DATA32
+CMT	9c0b0	eol	IMAGE_THUNK_DATA32
+CMT	9c0b4	eol	IMAGE_THUNK_DATA32
+CMT	9c0b8	eol	IMAGE_THUNK_DATA32
+CMT	9c0bc	eol	IMAGE_THUNK_DATA32
+CMT	9c0c0	eol	IMAGE_THUNK_DATA32
+CMT	9c0c4	eol	IMAGE_THUNK_DATA32
+CMT	9c0cc	eol	IMAGE_THUNK_DATA32
+CMT	9c0d0	eol	IMAGE_THUNK_DATA32
+CMT	9c0d4	eol	IMAGE_THUNK_DATA32
+CMT	9c0d8	eol	IMAGE_THUNK_DATA32
+CMT	9c0dc	eol	IMAGE_THUNK_DATA32
+CMT	9c0e0	eol	IMAGE_THUNK_DATA32
+CMT	9c0e4	eol	IMAGE_THUNK_DATA32
+CMT	9c0e8	eol	IMAGE_THUNK_DATA32
+CMT	9c0ec	eol	IMAGE_THUNK_DATA32
+CMT	9c0f0	eol	IMAGE_THUNK_DATA32
+CMT	9c0f4	eol	IMAGE_THUNK_DATA32
+CMT	9c0f8	eol	IMAGE_THUNK_DATA32
+CMT	9c0fc	eol	IMAGE_THUNK_DATA32
+CMT	9c100	eol	IMAGE_THUNK_DATA32
+CMT	9c104	eol	IMAGE_THUNK_DATA32
+CMT	9c108	eol	IMAGE_THUNK_DATA32
+CMT	9c10c	eol	IMAGE_THUNK_DATA32
+CMT	9c110	eol	IMAGE_THUNK_DATA32
+CMT	9c114	eol	IMAGE_THUNK_DATA32
+CMT	9c118	eol	IMAGE_THUNK_DATA32
+CMT	9c11c	eol	IMAGE_THUNK_DATA32
+CMT	9c120	eol	IMAGE_THUNK_DATA32
+CMT	9c128	eol	IMAGE_THUNK_DATA32
+CMT	9c12c	eol	IMAGE_THUNK_DATA32
+CMT	9c130	eol	IMAGE_THUNK_DATA32
+CMT	9c134	eol	IMAGE_THUNK_DATA32
+CMT	9c138	eol	IMAGE_THUNK_DATA32
+CMT	9c13c	eol	IMAGE_THUNK_DATA32
+CMT	9c140	eol	IMAGE_THUNK_DATA32
+CMT	9c144	eol	IMAGE_THUNK_DATA32
+CMT	9c148	eol	IMAGE_THUNK_DATA32
+CMT	9c14c	eol	IMAGE_THUNK_DATA32
+CMT	9c150	eol	IMAGE_THUNK_DATA32
+CMT	9c154	eol	IMAGE_THUNK_DATA32
+CMT	9c158	eol	IMAGE_THUNK_DATA32
+CMT	9c15c	eol	IMAGE_THUNK_DATA32
+CMT	9c160	eol	IMAGE_THUNK_DATA32
+CMT	9c164	eol	IMAGE_THUNK_DATA32
+CMT	9c168	eol	IMAGE_THUNK_DATA32
+CMT	9c16c	eol	IMAGE_THUNK_DATA32
+CMT	9c170	eol	IMAGE_THUNK_DATA32
+CMT	9c174	eol	IMAGE_THUNK_DATA32
+CMT	9c178	eol	IMAGE_THUNK_DATA32
+CMT	9c17c	eol	IMAGE_THUNK_DATA32
+CMT	9c180	eol	IMAGE_THUNK_DATA32
+CMT	9c184	eol	IMAGE_THUNK_DATA32
+CMT	9c188	eol	IMAGE_THUNK_DATA32
+CMT	9c18c	eol	IMAGE_THUNK_DATA32
+CMT	9c190	eol	IMAGE_THUNK_DATA32
+CMT	9c194	eol	IMAGE_THUNK_DATA32
+CMT	9c198	eol	IMAGE_THUNK_DATA32
+CMT	9c19c	eol	IMAGE_THUNK_DATA32
+CMT	9c1a0	eol	IMAGE_THUNK_DATA32
+CMT	9c1a4	eol	IMAGE_THUNK_DATA32
+CMT	9c1a8	eol	IMAGE_THUNK_DATA32
+CMT	9c1ac	eol	IMAGE_THUNK_DATA32
+CMT	9c1b0	eol	IMAGE_THUNK_DATA32
+CMT	9c1b4	eol	IMAGE_THUNK_DATA32
+CMT	9c1b8	eol	IMAGE_THUNK_DATA32
+CMT	9c1bc	eol	IMAGE_THUNK_DATA32
+CMT	9c1c0	eol	IMAGE_THUNK_DATA32
+CMT	9c1c4	eol	IMAGE_THUNK_DATA32
+CMT	9c1c8	eol	IMAGE_THUNK_DATA32
+CMT	9c1cc	eol	IMAGE_THUNK_DATA32
+CMT	9c1d0	eol	IMAGE_THUNK_DATA32
+CMT	9c1d4	eol	IMAGE_THUNK_DATA32
+CMT	9c1d8	eol	IMAGE_THUNK_DATA32
+CMT	9c1dc	eol	IMAGE_THUNK_DATA32
+CMT	9c1e0	eol	IMAGE_THUNK_DATA32
+CMT	9c1e4	eol	IMAGE_THUNK_DATA32
+CMT	9c1e8	eol	IMAGE_THUNK_DATA32
+CMT	9c1ec	eol	IMAGE_THUNK_DATA32
+CMT	9c1f0	eol	IMAGE_THUNK_DATA32
+CMT	9c1f4	eol	IMAGE_THUNK_DATA32
+CMT	9c1f8	eol	IMAGE_THUNK_DATA32
+CMT	9c1fc	eol	IMAGE_THUNK_DATA32
+CMT	9c200	eol	IMAGE_THUNK_DATA32
+CMT	9c204	eol	IMAGE_THUNK_DATA32
+CMT	9c208	eol	IMAGE_THUNK_DATA32
+CMT	9c20c	eol	IMAGE_THUNK_DATA32
+CMT	9c210	eol	IMAGE_THUNK_DATA32
+CMT	9c214	eol	IMAGE_THUNK_DATA32
+CMT	9c218	eol	IMAGE_THUNK_DATA32
+CMT	9c21c	eol	IMAGE_THUNK_DATA32
+CMT	9c220	eol	IMAGE_THUNK_DATA32
+CMT	9c224	eol	IMAGE_THUNK_DATA32
+CMT	9c228	eol	IMAGE_THUNK_DATA32
+CMT	9c22c	eol	IMAGE_THUNK_DATA32
+CMT	9c230	eol	IMAGE_THUNK_DATA32
+CMT	9c234	eol	IMAGE_THUNK_DATA32
+CMT	9c238	eol	IMAGE_THUNK_DATA32
+CMT	9c23c	eol	IMAGE_THUNK_DATA32
+CMT	9c240	eol	IMAGE_THUNK_DATA32
+CMT	9c248	eol	IMAGE_THUNK_DATA32
+CMT	9c250	eol	IMAGE_THUNK_DATA32
+CMT	9c258	pre	1  CreateCompatibleDC  <<not bound>>
+CMT	9c25c	pre	2  CreateDIBSection  <<not bound>>
+CMT	9c260	pre	3  DeleteDC  <<not bound>>
+CMT	9c264	pre	4  DeleteObject  <<not bound>>
+CMT	9c268	pre	5  GetStockObject  <<not bound>>
+CMT	9c26c	pre	6  SelectObject  <<not bound>>
+CMT	9c270	pre	7  SetBkMode  <<not bound>>
+CMT	9c274	pre	8  StretchBlt  <<not bound>>
+CMT	9c27c	pre	1  joyGetDevCapsA  <<not bound>>
+CMT	9c280	pre	2  joyGetNumDevs  <<not bound>>
+CMT	9c284	pre	3  joyGetPosEx  <<not bound>>
+CMT	9c288	pre	4  mciGetErrorStringA  <<not bound>>
+CMT	9c28c	pre	5  mciSendCommandA  <<not bound>>
+CMT	9c290	pre	6  timeGetTime  <<not bound>>
+CMT	9c298	pre	1  AdjustWindowRectEx  <<not bound>>
+CMT	9c29c	pre	2  CharUpperBuffA  <<not bound>>
+CMT	9c2a0	pre	3  CreateWindowExA  <<not bound>>
+CMT	9c2a4	pre	4  DefWindowProcA  <<not bound>>
+CMT	9c2a8	pre	5  DispatchMessageA  <<not bound>>
+CMT	9c2ac	pre	6  GetAsyncKeyState  <<not bound>>
+CMT	9c2b0	pre	7  GetClientRect  <<not bound>>
+CMT	9c2b4	pre	8  GetDC  <<not bound>>
+CMT	9c2b8	pre	9  GetFocus  <<not bound>>
+CMT	9c2bc	pre	10  GetSystemMetrics  <<not bound>>
+CMT	9c2c0	pre	11  LoadCursorA  <<not bound>>
+CMT	9c2c4	pre	12  LoadIconA  <<not bound>>
+CMT	9c2c8	pre	13  MessageBeep  <<not bound>>
+CMT	9c2cc	pre	14  MessageBoxA  <<not bound>>
+CMT	9c2d0	pre	15  PeekMessageA  <<not bound>>
+CMT	9c2d4	pre	16  PostQuitMessage  <<not bound>>
+CMT	9c2d8	pre	17  RegisterClassA  <<not bound>>
+CMT	9c2dc	pre	18  ReleaseDC  <<not bound>>
+CMT	9c2e0	pre	19  ShowCursor  <<not bound>>
+CMT	9c2e4	pre	20  ShowWindow  <<not bound>>
+CMT	9c2e8	pre	21  TranslateMessage  <<not bound>>
+CMT	9c2ec	pre	22  UpdateWindow  <<not bound>>
+CMT	9c2f4	pre	1  CloseHandle  <<not bound>>
+CMT	9c2f8	pre	2  CreateEventA  <<not bound>>
+CMT	9c2fc	pre	3  CreateFileA  <<not bound>>
+CMT	9c300	pre	4  CreateFileMappingA  <<not bound>>
+CMT	9c304	pre	5  CreateThread  <<not bound>>
+CMT	9c308	pre	6  DeleteCriticalSection  <<not bound>>
+CMT	9c30c	pre	7  DeleteFileA  <<not bound>>
+CMT	9c310	pre	8  DosDateTimeToFileTime  <<not bound>>
+CMT	9c314	pre	9  EnterCriticalSection  <<not bound>>
+CMT	9c318	pre	10  ExitProcess  <<not bound>>
+CMT	9c31c	pre	11  ExitThread  <<not bound>>
+CMT	9c320	pre	12  FileTimeToDosDateTime  <<not bound>>
+CMT	9c324	pre	13  FileTimeToLocalFileTime  <<not bound>>
+CMT	9c328	pre	14  FindClose  <<not bound>>
+CMT	9c32c	pre	15  FindFirstFileA  <<not bound>>
+CMT	9c330	pre	16  FindNextFileA  <<not bound>>
+CMT	9c334	pre	17  FlushFileBuffers  <<not bound>>
+CMT	9c338	pre	18  GetACP  <<not bound>>
+CMT	9c33c	pre	19  GetCPInfo  <<not bound>>
+CMT	9c340	pre	20  GetCommandLineA  <<not bound>>
+CMT	9c344	pre	21  GetCommandLineW  <<not bound>>
+CMT	9c348	pre	22  GetConsoleMode  <<not bound>>
+CMT	9c34c	pre	23  GetCurrentDirectoryA  <<not bound>>
+CMT	9c350	pre	24  GetCurrentProcessId  <<not bound>>
+CMT	9c354	pre	25  GetCurrentThreadId  <<not bound>>
+CMT	9c358	pre	26  GetCurrentThread  <<not bound>>
+CMT	9c35c	pre	27  GetEnvironmentStrings  <<not bound>>
+CMT	9c360	pre	28  GetFileAttributesA  <<not bound>>
+CMT	9c364	pre	29  GetFileType  <<not bound>>
+CMT	9c368	pre	30  GetFullPathNameA  <<not bound>>
+CMT	9c36c	pre	31  GetLastError  <<not bound>>
+CMT	9c370	pre	32  GetModuleFileNameA  <<not bound>>
+CMT	9c374	pre	33  GetModuleFileNameW  <<not bound>>
+CMT	9c378	pre	34  GetModuleHandleA  <<not bound>>
+CMT	9c37c	pre	35  GetOEMCP  <<not bound>>
+CMT	9c380	pre	36  GetProcAddress  <<not bound>>
+CMT	9c384	pre	37  GetStdHandle  <<not bound>>
+CMT	9c388	pre	38  GetVersion  <<not bound>>
+CMT	9c38c	pre	39  InitializeCriticalSection  <<not bound>>
+CMT	9c390	pre	40  LeaveCriticalSection  <<not bound>>
+CMT	9c394	pre	41  LoadLibraryA  <<not bound>>
+CMT	9c398	pre	42  LocalFileTimeToFileTime  <<not bound>>
+CMT	9c39c	pre	43  MoveFileA  <<not bound>>
+CMT	9c3a0	pre	44  MultiByteToWideChar  <<not bound>>
+CMT	9c3a4	pre	45  PeekConsoleInputA  <<not bound>>
+CMT	9c3a8	pre	46  QueryPerformanceCounter  <<not bound>>
+CMT	9c3ac	pre	47  ReadConsoleInputA  <<not bound>>
+CMT	9c3b0	pre	48  ReadFile  <<not bound>>
+CMT	9c3b4	pre	49  SetConsoleCtrlHandler  <<not bound>>
+CMT	9c3b8	pre	50  SetConsoleMode  <<not bound>>
+CMT	9c3bc	pre	51  SetCurrentDirectoryA  <<not bound>>
+CMT	9c3c0	pre	52  SetEnvironmentVariableA  <<not bound>>
+CMT	9c3c4	pre	53  SetEnvironmentVariableW  <<not bound>>
+CMT	9c3c8	pre	54  SetEvent  <<not bound>>
+CMT	9c3cc	pre	55  SetFilePointer  <<not bound>>
+CMT	9c3d0	pre	56  SetLastError  <<not bound>>
+CMT	9c3d4	pre	57  SetStdHandle  <<not bound>>
+CMT	9c3d8	pre	58  SetUnhandledExceptionFilter  <<not bound>>
+CMT	9c3dc	pre	59  Sleep  <<not bound>>
+CMT	9c3e0	pre	60  TlsAlloc  <<not bound>>
+CMT	9c3e4	pre	61  TlsFree  <<not bound>>
+CMT	9c3e8	pre	62  TlsGetValue  <<not bound>>
+CMT	9c3ec	pre	63  TlsSetValue  <<not bound>>
+CMT	9c3f0	pre	64  UnhandledExceptionFilter  <<not bound>>
+CMT	9c3f4	pre	65  VirtualAlloc  <<not bound>>
+CMT	9c3f8	pre	66  VirtualFree  <<not bound>>
+CMT	9c3fc	pre	67  VirtualQuery  <<not bound>>
+CMT	9c400	pre	68  WaitForSingleObject  <<not bound>>
+CMT	9c404	pre	69  WideCharToMultiByte  <<not bound>>
+CMT	9c408	pre	70  WriteConsoleA  <<not bound>>
+CMT	9c40c	pre	71  WriteFile  <<not bound>>
+CMT	9c414	pre	1  DirectSoundCreate  <<not bound>>
+CMT	9c41c	pre	1  DirectDrawCreate  <<not bound>>
+CMT	9c000	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	9c014	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	9c028	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	9c03c	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	9c050	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	9c064	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	9c424	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	9c42e	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	9c438	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	9c443	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	9c450	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	9c45b	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	9c466	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c47c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c490	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c49c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c4ac	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c4be	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c4ce	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c4da	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c4e8	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c4fa	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c50a	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c518	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c52e	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c540	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c54e	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c564	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c576	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c588	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c59a	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c5ae	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c5c2	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c5d2	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c5da	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c5e6	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c5fa	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c608	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c614	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c622	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c630	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c640	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c652	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c664	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c670	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c67e	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c68c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c6a0	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c6b0	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c6be	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c6ce	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c6dc	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c6f2	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c702	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c71a	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c728	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c740	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c758	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c766	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c774	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c78c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c7a6	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c7b2	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c7c4	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c7d4	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c7e8	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c7f2	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c7fe	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c810	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c822	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c834	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c84c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c862	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c878	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c88c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c8a4	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c8ba	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c8c8	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c8dc	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c8ec	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c902	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c918	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c92c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c938	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c94a	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c95a	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c968	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c984	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c99c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c9ac	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c9c6	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c9d2	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c9e8	plate	IMAGE_IMPORT_BY_NAME
+CMT	9c9fc	plate	IMAGE_IMPORT_BY_NAME
+CMT	9ca16	plate	IMAGE_IMPORT_BY_NAME
+CMT	9ca2a	plate	IMAGE_IMPORT_BY_NAME
+CMT	9ca36	plate	IMAGE_IMPORT_BY_NAME
+CMT	9ca4e	plate	IMAGE_IMPORT_BY_NAME
+CMT	9ca60	plate	IMAGE_IMPORT_BY_NAME
+CMT	9ca78	plate	IMAGE_IMPORT_BY_NAME
+CMT	9ca92	plate	IMAGE_IMPORT_BY_NAME
+CMT	9caac	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cab8	plate	IMAGE_IMPORT_BY_NAME
+CMT	9caca	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cada	plate	IMAGE_IMPORT_BY_NAME
+CMT	9caea	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cb08	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cb10	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cb1c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cb26	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cb34	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cb42	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cb5e	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cb6e	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cb7c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cb8c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cba2	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cbb8	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cbc8	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cbd4	plate	IMAGE_IMPORT_BY_NAME
+CMT	9cbe8	plate	IMAGE_IMPORT_BY_NAME
+CMT	2be150	plate	Rsrc_Icon_1_0 Size of resource: 0x2e8 bytes
+CMT	2be438	plate	Rsrc_Icon_2_0 Size of resource: 0x8a8 bytes
+CMT	2bece0	plate	Rsrc_Icon_3_0 Size of resource: 0x668 bytes
+CMT	2bf348	plate	Rsrc_Icon_4_0 Size of resource: 0xea8 bytes
+CMT	2c01f0	plate	Rsrc_GroupIcon_IDI_DREAMS_ICON_0 Size of resource: 0x3e bytes

@@ -1,0 +1,7 @@
+# Normalise line endings so the repo stays consistent across Windows and Linux.
+* text=auto eol=lf
+
+# Binary fixtures, if any are ever added under tests/data.
+*.hex text eol=lf
+*.bin binary
+*.iso binary

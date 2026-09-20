@@ -1,0 +1,159 @@
+# ---------------------------------------------------------------------------
+# GAME ASSETS - never commit. This repo holds notes and tools only.
+# The discs are copyrighted material; keep them on local disk, out of git.
+# ---------------------------------------------------------------------------
+
+# Disc images and tracks
+*.bin
+*.cue
+*.iso
+*.img
+*.ccd
+*.sub
+*.mds
+*.mdf
+*.nrg
+
+# Extracted disc trees (any directory named like these, at any depth)
+extracted/
+Disc-Image-Disk-*/
+disc1/
+disc2/
+game/
+assets/
+
+# Cryo / Dreams asset formats
+*.3DC
+*.3dc
+*.3DM
+*.3dm
+*.3DA
+*.3da
+*.DAN
+*.dan
+*.DSN
+*.dsn
+*.DRD
+*.drd
+*.HNM
+*.hnm
+*.UBB
+*.ubb
+*.UBS
+*.ubs
+*.PAK
+*.pak
+*.SPR
+*.spr
+*.ALP
+*.alp
+*.BF
+*.bf
+*.OLI
+*.oli
+*.BIG
+*.big
+*.DIG
+*.dig
+*.FSB
+*.fsb
+
+# Decoded / derived media
+*.wav
+*.mp3
+*.flac
+*.avi
+*.mp4
+*.tga
+*.TGA
+*.pcx
+*.bmp
+*.gif
+*.jpg
+*.jpeg
+*.JPG
+*.png
+*.PNG
+*.obj
+*.gltf
+*.glb
+*.ply
+
+# Game binaries lifted from the discs
+*.exe
+*.EXE
+*.dll
+*.DLL
+*.ovl
+*.OVL
+*.pdb
+
+# Tool output
+out/
+output/
+dumps/
+scratch/
+_png/
+*.log
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+
+# uv writes the lockfile - DO commit uv.lock for reproducible builds.
+# (listed here only as a reminder; not ignored)
+
+# ---------------------------------------------------------------------------
+# Local config and editors
+# ---------------------------------------------------------------------------
+dreams.local.toml
+.env
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------------------
+# Allowlist: small reference artefacts we DO want in the repo.
+# Add narrowly, and only for things that are ours, not Cryo's.
+# ---------------------------------------------------------------------------
+!docs/**/*.md
+!tests/data/*.hex
+
+# ---------------------------------------------------------------------------
+# Ghidra / reverse engineering
+#
+# A Ghidra project is an opaque binary blob that git cannot merge and that
+# embeds copies of the analysed executables. Treat it as a BUILD ARTIFACT:
+# regenerate it from the discs with tools/ghidra-import.ps1.
+#
+# The SOURCE of truth for our analysis is re/ - exported symbols, struct
+# definitions and notes, all diffable text. Commit those.
+# ---------------------------------------------------------------------------
+ghidra/
+*.rep/
+*.gpr
+*.lock
+*.ghidra
+ghidra_*.log
+.ghidra/
+ghidra-server/
+
+# Ghidra extension build output
+dist/
+build/
+.gradle/
+
+# Local Ghidra install (should live outside the repo anyway)
+ghidra_*_PUBLIC/

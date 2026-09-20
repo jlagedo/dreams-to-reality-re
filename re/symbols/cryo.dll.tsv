@@ -1,0 +1,1702 @@
+#program	CRYO.DLL
+#sha256	86df61dcf505ede08201c19b974e569e07204e7e26aa6e212fd25b73903c4965
+#imagebase	10000000
+FUNC	1000	GL_InitHnmScreen	undefined GL_InitHnmScreen(void)	
+FUNC	100a	GL_GetLastKey	int GL_GetLastKey(void)	
+FUNC	1014	GL_IsAppActive	bool GL_IsAppActive(void)	
+FUNC	1019	GL_AddProgramItems	undefined4 GL_AddProgramItems(undefined4 param_1, uint * param_2, uint * param_3)	
+FUNC	101e	GL_ShellExec	BOOL GL_ShellExec(LPCSTR param_1, LPCSTR param_2, LPCSTR param_3)	
+FUNC	1023	GL_GetScreen	undefined4 GL_GetScreen(int param_1, int param_2, int param_3, int param_4, BYTE * param_5)	
+FUNC	102d	GL_SetDirectSoundPan	undefined GL_SetDirectSoundPan(int param_1, undefined4 param_2)	
+FUNC	1032	GL_FileRelatifMoveIn	undefined GL_FileRelatifMoveIn(HANDLE param_1, LONG param_2)	
+FUNC	1037	GL_UnlockScreen	undefined4 GL_UnlockScreen(int param_1)	
+FUNC	1041	GL_PBox	undefined4 GL_PBox(int param_1, int param_2, int param_3, int param_4)	
+FUNC	1046	GL_OpenHnm	undefined4 * GL_OpenHnm(undefined4 * param_1, uint * param_2, int param_3)	
+FUNC	1050	GL_LockBufferSound	undefined4 GL_LockBufferSound(void)	
+FUNC	105f	GL_ConvertTrueColors	undefined GL_ConvertTrueColors(HDC param_1)	
+FUNC	1064	GL_GetKeyStrValue	undefined4 GL_GetKeyStrValue(char * param_1, LPSTR param_2)	
+FUNC	106e	GL_AllocDirectSound	undefined GL_AllocDirectSound(int param_1, undefined4 param_2, int param_3, short param_4, int param_5)	
+FUNC	1073	GL_QuitWithError	undefined4 GL_QuitWithError(char * param_1, char * param_2)	
+FUNC	1078	GL_FileWrite	DWORD GL_FileWrite(HANDLE param_1, LPCVOID param_2, DWORD param_3)	
+FUNC	1082	GL_CallExe	undefined4 GL_CallExe(uint * param_1, char * param_2)	
+FUNC	1087	GL_SetKeybTable	undefined4 GL_SetKeybTable(uint param_1, uint param_2)	
+FUNC	108c	GL_FileGetLen	DWORD GL_FileGetLen(HANDLE param_1)	
+FUNC	1091	GL_MouseX	undefined4 GL_MouseX(void)	
+FUNC	1096	GL_SetDirectSoundPosition	undefined GL_SetDirectSoundPosition(int param_1, undefined4 param_2)	
+FUNC	109b	GL_CloseWAV	undefined GL_CloseWAV(HANDLE param_1)	
+FUNC	10a5	GL_LoadWAV	DWORD GL_LoadWAV(uint * param_1, byte * param_2)	
+FUNC	10aa	InitAudioCard	undefined InitAudioCard(void)	
+FUNC	10af	GL_CloseHnm	undefined GL_CloseHnm(void)	
+FUNC	10b4	GL_BlitScreen	undefined GL_BlitScreen(int param_1, HWND param_2, int param_3, int param_4, int param_5, int param_6)	
+FUNC	10c3	GL_IsWavFinished	uint GL_IsWavFinished(int param_1)	
+FUNC	10cd	GL_CloseDdraw	undefined GL_CloseDdraw(void)	
+FUNC	10d2	_GL_HNM6_Init_All_16@0	undefined8 _GL_HNM6_Init_All_16@0(void)	
+FUNC	10d7	GL_dcpt_one_frame_ubb	undefined GL_dcpt_one_frame_ubb(void)	
+FUNC	10dc	GL_PlayDirectSound	undefined GL_PlayDirectSound(int param_1, int param_2)	
+FUNC	10e1	GL_Box	undefined4 GL_Box(int param_1, int param_2, int param_3, int param_4)	
+FUNC	10eb	GL_KbHit	undefined4 GL_KbHit(void)	
+FUNC	10f5	GL_StartHnmSound	undefined GL_StartHnmSound(void)	
+FUNC	10ff	GL_QuitWithoutError	undefined4 GL_QuitWithoutError(void)	
+FUNC	1104	GL_SetDirectSoundVolume	undefined GL_SetDirectSoundVolume(int param_1, undefined4 param_2)	
+FUNC	1109	GL_SetGraphScreen	undefined GL_SetGraphScreen(undefined4 param_1)	
+FUNC	110e	GL_CopyEcran	undefined GL_CopyEcran(int param_1, int param_2)	
+FUNC	1113	GL_ShowGroup	undefined4 GL_ShowGroup(uint * param_1)	
+FUNC	111d	GL_CreateKey	bool GL_CreateKey(char * param_1)	
+FUNC	1122	GL_CloseFileBigFile	undefined GL_CloseFileBigFile(uint param_1)	
+FUNC	1127	_GL_HNM6_Init_All_15@0	undefined8 _GL_HNM6_Init_All_15@0(void)	
+FUNC	112c	GL_SetErrorMode	undefined GL_SetErrorMode(undefined4 param_1)	
+FUNC	1131	GL_SavePackLZW	undefined4 GL_SavePackLZW(void)	
+FUNC	1136	GL_GetMessages	WPARAM GL_GetMessages(void)	
+FUNC	113b	GL_SethInstance	undefined GL_SethInstance(undefined4 param_1)	
+FUNC	1140	GL_TestIfExistKey	bool GL_TestIfExistKey(char * param_1)	
+FUNC	1145	GL_FileOpen	HANDLE GL_FileOpen(uint * param_1, int param_2)	
+FUNC	114a	_GL_InitTestIfExeRunning@0	undefined4 _GL_InitTestIfExeRunning@0(void)	
+FUNC	1154	GL_GetFileSizeBigFile	undefined4 GL_GetFileSizeBigFile(int param_1)	
+FUNC	1159	GL_ReadFile	undefined4 GL_ReadFile(HANDLE param_1, byte * param_2, DWORD param_3, int * param_4)	
+FUNC	115e	GL_FreeDirectSoundAdr	undefined GL_FreeDirectSoundAdr(int param_1)	
+FUNC	1163	GL_MouseY	undefined4 GL_MouseY(void)	
+FUNC	116d	GL_ReleaseScreenHdc	undefined GL_ReleaseScreenHdc(undefined4 param_1, int param_2)	
+FUNC	1172	_GL_HNM6_Decompression_Warp@8	undefined _GL_HNM6_Decompression_Warp@8(void)	
+FUNC	1177	GL_OpenWAV	HANDLE GL_OpenWAV(uint * param_1)	
+FUNC	117c	GL_QuitWithErrorCode	undefined GL_QuitWithErrorCode(LPCSTR param_1, uint * param_2, int param_3)	
+FUNC	1181	GL_GetDirectSoundPosition	undefined GL_GetDirectSoundPosition(int param_1, undefined4 param_2, undefined4 param_3)	
+FUNC	1186	GL_GetTime	ulonglong GL_GetTime(void)	
+FUNC	118b	GL_CloseHnmSound	undefined GL_CloseHnmSound(void)	
+FUNC	1190	GL_GetNumLogicalScreen	undefined4 GL_GetNumLogicalScreen(void)	
+FUNC	1195	GL_DeleteKey	bool GL_DeleteKey(char * param_1)	
+FUNC	119a	GL_LockScreen	undefined4 GL_LockScreen(int param_1)	
+FUNC	119f	GL_LoadDirectSound	undefined GL_LoadDirectSound(HANDLE param_1, DWORD param_2, int param_3)	
+FUNC	11a4	GL_SaveTga	undefined4 GL_SaveTga(uint * param_1, LPCVOID param_2)	
+FUNC	11a9	GL_FreeScreen	undefined GL_FreeScreen(int param_1)	
+FUNC	11ae	GL_GetWAVHeader	undefined4 GL_GetWAVHeader(HANDLE param_1, byte * param_2)	
+FUNC	11b3	GL_CreateList	undefined GL_CreateList(void)	
+FUNC	11b8	GL_WaitForAppActive	undefined GL_WaitForAppActive(void)	
+FUNC	11c7	GL_HideMouse	undefined GL_HideMouse(void)	
+FUNC	11cc	GL_UnlockBufferSound	undefined GL_UnlockBufferSound(void)	
+FUNC	11d1	GL_SetKeyStrValue	undefined4 GL_SetKeyStrValue(char * param_1, BYTE * param_2)	
+FUNC	11d6	GL_ViewEcran	undefined GL_ViewEcran(void)	
+FUNC	11db	GL_FileCopy	undefined GL_FileCopy(HANDLE param_1, HANDLE param_2)	
+FUNC	11e0	GL_GetFirstArg	char * GL_GetFirstArg(char * param_1)	
+FUNC	11ea	GL_WaitTime	undefined GL_WaitTime(int param_1)	
+FUNC	11f4	_GL_ReleaseGraphColor@0	undefined _GL_ReleaseGraphColor@0(void)	
+FUNC	11f9	CloseAudioCard	undefined CloseAudioCard(int param_1)	
+FUNC	1203	GL_FlipScreen	undefined GL_FlipScreen(void)	
+FUNC	1208	GL_OpenDdraw	undefined4 GL_OpenDdraw(undefined4 param_1, undefined4 param_2, undefined4 param_3, int param_4, int param_5)	
+FUNC	120d	GL_search_blocks	undefined GL_search_blocks(void)	
+FUNC	1212	GL_OpenBigFile	HANDLE GL_OpenBigFile(uint * param_1)	
+FUNC	1217	GL_ReadFileBigFile	int GL_ReadFileBigFile(uint param_1, byte * param_2, int param_3)	
+FUNC	121c	GL_PackLZW	size_t GL_PackLZW(undefined4 * param_1, void * param_2, void * param_3, size_t param_4)	
+FUNC	1221	GL_PlayHnmGDI	undefined4 GL_PlayHnmGDI(uint * param_1, int param_2, int param_3)	
+FUNC	1230	GL_IsFileExist	bool GL_IsFileExist(LPCSTR param_1)	
+FUNC	1235	GL_LockDirectSoundAdr	undefined4 GL_LockDirectSoundAdr(undefined4 param_1, undefined4 param_2, int param_3)	
+FUNC	123a	GL_ClsLogicalScreen	undefined GL_ClsLogicalScreen(void)	
+FUNC	123f	GL_SetDdrawCooperativeLevel	undefined4 GL_SetDdrawCooperativeLevel(undefined4 param_1)	
+FUNC	124e	GL_PlayWav	undefined GL_PlayWav(int param_1)	
+FUNC	1253	GL_load_one_block_ubb	int GL_load_one_block_ubb(void)	
+FUNC	1267	GL_IconifyWindow	undefined GL_IconifyWindow(void)	
+FUNC	126c	GL_StopHnmSound	undefined GL_StopHnmSound(void)	
+FUNC	1271	GL_FilePackAndCopy	size_t GL_FilePackAndCopy(HANDLE param_1, HANDLE param_2)	
+FUNC	1276	GL_FileBrowse	LPSTR GL_FileBrowse(LPCSTR param_1, LPCSTR param_2, LPCSTR param_3, int param_4)	
+FUNC	127b	GL_LockLogicalScreen	undefined GL_LockLogicalScreen(void)	
+FUNC	1285	GL_LoadTga	undefined4 GL_LoadTga(uint * param_1, byte * param_2)	
+FUNC	128a	GL_FreeDirectSound	undefined GL_FreeDirectSound(int param_1)	
+FUNC	128f	GL_ExecRoutine	HANDLE GL_ExecRoutine(LPTHREAD_START_ROUTINE param_1, LPVOID param_2)	
+FUNC	1299	GL_GetTgaInfo	undefined GL_GetTgaInfo(uint * param_1, uint * param_2, uint * param_3, uint * param_4, int * param_5, undefined1 * param_6)	
+FUNC	12ad	GL_GetFileSize	DWORD GL_GetFileSize(HANDLE param_1, undefined4 * param_2)	
+FUNC	12b2	GL_UnlockLogicalScreen	undefined4 GL_UnlockLogicalScreen(void)	
+FUNC	12bc	GL_InitHnmSound	undefined GL_InitHnmSound(void)	
+FUNC	12c1	GL_SetGraphColor	undefined GL_SetGraphColor(undefined1 param_1, undefined1 param_2, undefined1 param_3)	
+FUNC	12c6	GL_OpenFileBigFile	int GL_OpenFileBigFile(char * param_1)	
+FUNC	12cb	GL_GetDirectSoundStatus	uint GL_GetDirectSoundStatus(int param_1)	
+FUNC	12d5	GL_SetDebugFlag	undefined GL_SetDebugFlag(undefined4 param_1)	
+FUNC	12df	GL_CloseDirectSound	undefined GL_CloseDirectSound(void)	
+FUNC	12e9	GL_StopDirectSound	undefined GL_StopDirectSound(int param_1)	
+FUNC	12ee	GL_FileMoveIn	undefined GL_FileMoveIn(HANDLE param_1, LONG param_2)	
+FUNC	12f3	GL_BlitDdrawScreen	undefined GL_BlitDdrawScreen(int param_1, int param_2, int param_3, int param_4, int param_5)	
+FUNC	12f8	GL_PlayHnmDDRAW	undefined4 GL_PlayHnmDDRAW(uint * param_1, int param_2, int param_3, char * param_4, double param_5)	
+FUNC	12fd	GL_AdjustFreqSoundHnm	undefined GL_AdjustFreqSoundHnm(int param_1, int param_2)	
+FUNC	1302	GL_SetTgaInfo	undefined GL_SetTgaInfo(undefined2 param_1, undefined2 param_2, undefined2 param_3, undefined2 param_4, char param_5, undefined1 * param_6)	
+FUNC	1307	GL_LoadTgaInfo	undefined GL_LoadTgaInfo(uint * param_1, uint * param_2, uint * param_3, uint * param_4, uint * param_5, int * param_6, undefined1 * param_7)	
+FUNC	130c	GL_TexteOpaque	undefined4 GL_TexteOpaque(int param_1, int param_2, char * param_3, int param_4)	
+FUNC	1311	GL_FreeHnmScreen	undefined GL_FreeHnmScreen(void)	
+FUNC	1316	GL_BlitImage	undefined GL_BlitImage(void)	
+FUNC	131b	GL_Texte	undefined4 GL_Texte(int param_1, int param_2, char * param_3, int param_4)	
+FUNC	1320	GL_DcptOneBlockSound	undefined8 GL_DcptOneBlockSound(undefined4 param_1, undefined4 param_2, ushort * param_3)	
+FUNC	1339	GL_LoadPackLZW	byte * GL_LoadPackLZW(byte * param_1, uint * param_2)	
+FUNC	133e	GL_MouseK	undefined4 GL_MouseK(void)	
+FUNC	134d	GL_SelectScreen	undefined GL_SelectScreen(HDC param_1, int param_2)	
+FUNC	1352	GL_FileRead	int GL_FileRead(HANDLE param_1, byte * param_2, DWORD param_3)	
+FUNC	135c	GL_GetFlags	undefined4 GL_GetFlags(char * param_1)	
+FUNC	136b	GL_CreateGroup	undefined4 GL_CreateGroup(uint * param_1)	
+FUNC	1375	GL_SetHwnd	undefined GL_SetHwnd(undefined4 param_1)	
+FUNC	137a	GL_ClsScreen	undefined GL_ClsScreen(int param_1)	
+FUNC	137f	GL_LoadWav	undefined GL_LoadWav(uint * param_1, int param_2)	
+FUNC	1384	GL_SetFilePointer	DWORD GL_SetFilePointer(HANDLE param_1, int param_2, undefined4 param_3, DWORD param_4)	
+FUNC	1389	GL_UnpackLZW	undefined GL_UnpackLZW(uint * param_1, byte * param_2)	
+FUNC	138e	GL_FlipToGDI	undefined GL_FlipToGDI(void)	
+FUNC	1398	GL_GetScreenHdc	undefined4 GL_GetScreenHdc(int param_1)	
+FUNC	13a7	_GL_GetMessages2@0	WPARAM _GL_GetMessages2@0(void)	
+FUNC	13ac	GL_ReplaceFileBigFile	undefined4 GL_ReplaceFileBigFile(uint * param_1, uint * param_2, undefined4 param_3)	
+FUNC	13b1	SetBigFileDebug	undefined SetBigFileDebug(undefined4 param_1)	
+FUNC	13b6	GL_CreateBigFile	undefined4 GL_CreateBigFile(uint * param_1, char * param_2)	
+FUNC	13bb	GL_CloseBigFile	undefined GL_CloseBigFile(void)	
+FUNC	13c0	GL_RestoreSurfaces	undefined4 GL_RestoreSurfaces(void)	
+FUNC	13c5	_GL_TestIfExeRunning@4	int _GL_TestIfExeRunning@4(char * param_1)	
+FUNC	13cf	GL_OutVal	undefined GL_OutVal(LPCSTR param_1, undefined4 param_2)	
+FUNC	13d4	GL_ShowMouse	undefined GL_ShowMouse(void)	
+FUNC	13d9	GL_FileClose	undefined GL_FileClose(HANDLE param_1)	
+FUNC	13de	GL_IsExeRunning	bool GL_IsExeRunning(LPCSTR param_1)	
+FUNC	13e3	_GL_WaitKey@0	undefined _GL_WaitKey@0(void)	
+FUNC	13e8	GL_ResetAllScreen	undefined GL_ResetAllScreen(void)	
+FUNC	13ed	GL_KeyHit	bool GL_KeyHit(int param_1)	
+FUNC	13f7	GL_CloseHandle	undefined4 GL_CloseHandle(HANDLE param_1)	
+FUNC	13fc	GL_CloseFileMapping	undefined GL_CloseFileMapping(void)	
+FUNC	1401	GL_TestIfDdraw	bool GL_TestIfDdraw(void)	
+FUNC	1406	GL_SetDirectSoundFrequency	undefined GL_SetDirectSoundFrequency(int param_1, undefined4 param_2)	
+FUNC	140b	GL_ToggleWinFullScreen	undefined GL_ToggleWinFullScreen(void)	
+FUNC	1415	GL_CreateFile	HANDLE GL_CreateFile(uint * param_1)	
+FUNC	141a	GL_TestAppAlreadyRunning	bool GL_TestAppAlreadyRunning(LPCSTR param_1)	
+FUNC	1424	GL_SaveWAV	DWORD GL_SaveWAV(uint * param_1, LPCVOID param_2)	
+FUNC	1433	GL_GetNextArg	char * GL_GetNextArg(void)	
+FUNC	1447	GL_PlayWavDirectSound	undefined GL_PlayWavDirectSound(uint * param_1, int param_2, int param_3)	
+FUNC	144c	GL_InitDirectSound	undefined4 GL_InitDirectSound(void)	
+FUNC	1451	GL_Line	undefined4 GL_Line(int param_1, int param_2, int param_3, int param_4)	
+FUNC	1456	GL_InitAllScreen	undefined GL_InitAllScreen(void)	
+FUNC	145b	GL_ClrKeybTable	undefined4 GL_ClrKeybTable(uint param_1, uint param_2)	
+FUNC	35da0	_malloc	void * _malloc(size_t _Size)	Library Function - Single Match\n _malloc\n\nLibrary: Visual Studio 1998 Debug
+FUNC	35dd0	__malloc_dbg	undefined __malloc_dbg(uint param_1, uint param_2, int param_3, undefined4 param_4)	Library Function - Single Match\n __malloc_dbg\n\nLibrary: Visual Studio 1998 Debug
+FUNC	35e00	__nh_malloc	void * __nh_malloc(size_t _Size, int _NhFlag)	Library Function - Single Match\n __nh_malloc\n\nLibrary: Visual Studio 1998 Debug
+FUNC	35e30	__nh_malloc_dbg	undefined4 * __nh_malloc_dbg(uint param_1, int param_2, uint param_3, int param_4, undefined4 param_5)	Library Function - Single Match\n __nh_malloc_dbg\n\nLibrary: Visual Studio 1998 Debug
+FUNC	35eb0	__heap_alloc	void * __heap_alloc(size_t _Size)	Library Function - Single Match\n __heap_alloc\n\nLibrary: Visual Studio 1998 Debug
+FUNC	35ee0	__heap_alloc_dbg	undefined4 * __heap_alloc_dbg(uint param_1, uint param_2, int param_3, undefined4 param_4)	Library Function - Single Match\n __heap_alloc_dbg\n\nLibrary: Visual Studio 1998 Debug
+FUNC	36220	_calloc	void * _calloc(size_t _Count, size_t _Size)	Library Function - Single Match\n _calloc\n\nLibrary: Visual Studio 1998 Debug
+FUNC	36250	__calloc_dbg	undefined1 * __calloc_dbg(int param_1, int param_2, undefined4 param_3, undefined4 param_4, undefined4 param_5)	Library Function - Single Match\n __calloc_dbg\n\nLibrary: Visual Studio 1998 Debug
+FUNC	362c0	FID_conflict:__expand	void * FID_conflict:__expand(void * _Memory, size_t _NewSize)	Library Function - Multiple Matches With Different Base Names\n __expand\n _realloc\n\nLibrary: Visual Studio 1998 Debug
+FUNC	362f0	__realloc_dbg	int * __realloc_dbg(void * param_1, uint param_2, uint param_3, int param_4, int param_5)	Library Function - Single Match\n __realloc_dbg\n\nLibrary: Visual Studio 1998 Debug
+FUNC	36340	realloc_help	int * realloc_help(void * param_1, uint param_2, uint param_3, int param_4, int param_5, int param_6)	Library Function - Single Match\n _realloc_help\n\nLibrary: Visual Studio 1998 Debug
+FUNC	368d0	FID_conflict:__expand	void * FID_conflict:__expand(void * _Memory, size_t _NewSize)	Library Function - Multiple Matches With Different Base Names\n __expand\n _realloc\n\nLibrary: Visual Studio 1998 Debug
+FUNC	36900	__expand_dbg	int * __expand_dbg(void * param_1, uint param_2, uint param_3, int param_4, int param_5)	Library Function - Single Match\n __expand_dbg\n\nLibrary: Visual Studio 1998 Debug
+FUNC	36970	__free_lk	undefined __free_lk(void * param_1)	Library Function - Single Match\n __free_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	36990	__free_dbg	undefined __free_dbg(void * param_1, int param_2)	Library Function - Single Match\n __free_dbg\n\nLibrary: Visual Studio 1998 Debug
+FUNC	369c0	__free_dbg_lk	undefined __free_dbg_lk(void * param_1, int param_2)	Library Function - Single Match\n __free_dbg_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	36df0	__msize	size_t __msize(void * _Memory)	Library Function - Single Match\n __msize\n\nLibrary: Visual Studio 1998 Debug
+FUNC	36e10	__msize_dbg	undefined4 __msize_dbg(int param_1, int param_2)	Library Function - Single Match\n __msize_dbg\n\nLibrary: Visual Studio 1998 Debug
+FUNC	36fc0	__CrtSetDbgBlockType	undefined __CrtSetDbgBlockType(int param_1, undefined4 param_2)	Library Function - Single Match\n __CrtSetDbgBlockType\n\nLibrary: Visual Studio 1998 Debug
+FUNC	370b0	_CheckBytes	undefined4 _CheckBytes(char * param_1, char param_2, int param_3)	Library Function - Single Match\n _CheckBytes\n\nLibrary: Visual Studio 1998 Debug
+FUNC	37140	__CrtCheckMemory	undefined4 __CrtCheckMemory(void)	Library Function - Single Match\n __CrtCheckMemory\n\nLibrary: Visual Studio 1998 Debug
+FUNC	374e0	__CrtSetDbgFlag	int __CrtSetDbgFlag(int param_1)	Library Function - Single Match\n __CrtSetDbgFlag\n\nLibrary: Visual Studio 1998 Debug
+FUNC	37510	__CrtDoForAllClientObjects	undefined __CrtDoForAllClientObjects(undefined * param_1, undefined4 param_2)	Library Function - Single Match\n __CrtDoForAllClientObjects\n\nLibrary: Visual Studio 1998 Debug
+FUNC	37590	__CrtIsValidPointer	undefined4 __CrtIsValidPointer(void * param_1, UINT_PTR param_2, int param_3)	Library Function - Single Match\n __CrtIsValidPointer\n\nLibrary: Visual Studio 1998 Debug
+FUNC	375f0	__CrtIsValidHeapPointer	BOOL __CrtIsValidHeapPointer(int param_1)	Library Function - Single Match\n __CrtIsValidHeapPointer\n\nLibrary: Visual Studio 1998 Debug
+FUNC	376c0	__CrtIsMemoryBlock	undefined4 __CrtIsMemoryBlock(void * param_1, UINT_PTR param_2, undefined4 * param_3, undefined4 * param_4, undefined4 * param_5)	Library Function - Single Match\n __CrtIsMemoryBlock\n\nLibrary: Visual Studio 1998 Debug
+FUNC	37810	__CrtMemCheckpoint	undefined __CrtMemCheckpoint(undefined4 * param_1)	Library Function - Single Match\n __CrtMemCheckpoint\n\nLibrary: Visual Studio 1998 Debug
+FUNC	37960	__CrtMemDifference	undefined4 __CrtMemDifference(undefined4 * param_1, int param_2, int param_3)	Library Function - Single Match\n __CrtMemDifference\n\nLibrary: Visual Studio 1998 Debug
+FUNC	37aa0	__CrtMemDumpAllObjectsSince	undefined __CrtMemDumpAllObjectsSince(undefined4 * param_1)	Library Function - Single Match\n __CrtMemDumpAllObjectsSince\n\nLibrary: Visual Studio 1998 Debug
+FUNC	37d80	__printMemBlockData	undefined __printMemBlockData(int param_1)	Library Function - Single Match\n __printMemBlockData\n\nLibrary: Visual Studio 1998 Debug
+FUNC	37e80	__CrtDumpMemoryLeaks	undefined4 __CrtDumpMemoryLeaks(void)	Library Function - Single Match\n __CrtDumpMemoryLeaks\n\nLibrary: Visual Studio 1998 Debug
+FUNC	37f10	__CrtMemDumpStatistics	undefined __CrtMemDumpStatistics(int param_1)	Library Function - Single Match\n __CrtMemDumpStatistics\n\nLibrary: Visual Studio 1998 Debug
+FUNC	37ff0	FID_conflict:_strcat	char * FID_conflict:_strcat(char * _Dest, char * _Source)	Library Function - Multiple Matches With Different Base Names\n __mbscat\n _strcat\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	380d0	_sprintf	int _sprintf(char * _Dest, char * _Format, ...)	Library Function - Single Match\n _sprintf\n\nLibrary: Visual Studio 1998 Debug
+FUNC	381c0	__cinit	int __cinit(int param_1)	Library Function - Single Match\n __cinit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38210	_exit	void _exit(int _Code)	Library Function - Single Match\n _exit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38230	__exit	undefined __exit(UINT param_1)	Library Function - Single Match\n __exit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38250	__cexit	void __cexit(void)	Library Function - Single Match\n __cexit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38270	__c_exit	void __c_exit(void)	Library Function - Single Match\n __c_exit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38290	doexit	undefined doexit(UINT param_1, int param_2, int param_3)	Library Function - Single Match\n _doexit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	383a0	FID_conflict:__lockexit	void FID_conflict:__lockexit(void)	Library Function - Multiple Matches With Different Base Names\n __lockexit\n __unlockexit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	383c0	FID_conflict:__lockexit	void FID_conflict:__lockexit(void)	Library Function - Multiple Matches With Different Base Names\n __lockexit\n __unlockexit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	383e0	__initterm	undefined __initterm(int * param_1, int * param_2)	Library Function - Single Match\n __initterm\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38420	_printf	int _printf(char * _Format, ...)	Library Function - Single Match\n _printf\n\nLibrary: Visual Studio 1998 Debug
+FUNC	384e0	_strcmp	int _strcmp(char * _Str1, char * _Str2)	Library Function - Single Match\n _strcmp\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38570	_strncpy	char * _strncpy(char * _Dest, char * _Source, size_t _Count)	Library Function - Single Match\n _strncpy\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38670	__fpmath	void __fpmath(int param_1)	Library Function - Single Match\n __fpmath\n\nLibrary: Visual Studio 1998 Debug
+FUNC	386b0	__cfltcvt_init	undefined __cfltcvt_init(void)	Library Function - Single Match\n __cfltcvt_init\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38730	_strtok	char * _strtok(char * _Str, char * _Delim)	Library Function - Single Match\n _strtok\n\nLibrary: Visual Studio 1998 Debug
+FUNC	388b0	_memset	void * _memset(void * _Dst, int _Val, size_t _Size)	Library Function - Single Match\n _memset\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	38910	_strlen	size_t _strlen(char * _Str)	Library Function - Single Match\n _strlen\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	38990	FID_conflict:_memcpy	void * FID_conflict:_memcpy(void * _Dst, void * _Src, size_t _Size)	Library Function - Multiple Matches With Different Base Names\n _memcpy\n _memmove\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release
+FUNC	38ae0	operator_new	void * operator_new(uint param_1)	Library Function - Single Match\n void * __cdecl operator new(unsigned int)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38b00	operator_delete	void operator_delete(void * param_1)	Library Function - Single Match\n void __cdecl operator delete(void *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38bb8	__global_unwind2	undefined __global_unwind2(PVOID param_1)	Library Function - Single Match\n __global_unwind2\n\nLibraries: Visual Studio, vc6
+FUNC	38bfa	__local_unwind2	undefined __local_unwind2(int param_1, int param_2)	Library Function - Single Match\n __local_unwind2\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, Visual Studio 2003 Debug, Visual Studio 2003 Release
+FUNC	38c62	__abnormal_termination	int __abnormal_termination(void)	Library Function - Single Match\n __abnormal_termination\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38cb0	_JumpToContinuation	void _JumpToContinuation(void * param_1, EHRegistrationNode * param_2)	Library Function - Single Match\n void __stdcall _JumpToContinuation(void *,struct EHRegistrationNode *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38cf0	_CallMemberFunction0	void _CallMemberFunction0(void * param_1, void * param_2)	Library Function - Single Match\n void __stdcall _CallMemberFunction0(void *,void *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38d00	FID_conflict:_CallMemberFunction1	undefined FID_conflict:_CallMemberFunction1(undefined4 param_1, undefined * UNRECOVERED_JUMPTABLE)	Library Function - Multiple Matches With Different Base Names\n void __stdcall _CallMemberFunction1(void *,void *,void *)\n void __stdcall _CallMemberFunction2(void *,void *,void *,int)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38d10	FID_conflict:_CallMemberFunction1	undefined FID_conflict:_CallMemberFunction1(undefined4 param_1, undefined * UNRECOVERED_JUMPTABLE)	Library Function - Multiple Matches With Different Base Names\n void __stdcall _CallMemberFunction1(void *,void *,void *)\n void __stdcall _CallMemberFunction2(void *,void *,void *,int)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38d20	_UnwindNestedFrames	void _UnwindNestedFrames(EHRegistrationNode * param_1, EHExceptionRecord * param_2)	Library Function - Single Match\n void __stdcall _UnwindNestedFrames(struct EHRegistrationNode *,struct EHExceptionRecord *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38d80	___CxxFrameHandler	undefined4 ___CxxFrameHandler(EHExceptionRecord * param_1, EHRegistrationNode * param_2, _CONTEXT * param_3, void * param_4)	Library Function - Single Match\n ___CxxFrameHandler\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38dc0	___CxxLongjmpUnwind@4	undefined ___CxxLongjmpUnwind@4(int param_1)	Library Function - Single Match\n ___CxxLongjmpUnwind@4\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38e00	_CallCatchBlock2	void * _CallCatchBlock2(EHRegistrationNode * param_1, _s_FuncInfo * param_2, void * param_3, int param_4, ulong param_5)	Library Function - Single Match\n void * __cdecl _CallCatchBlock2(struct EHRegistrationNode *,struct _s_FuncInfo const *,void *,int,unsigned long)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38e70	CatchGuardHandler	_EXCEPTION_DISPOSITION CatchGuardHandler(EHExceptionRecord * param_1, CatchGuardRN * param_2, void * param_3, void * param_4)	Library Function - Single Match\n enum _EXCEPTION_DISPOSITION __cdecl CatchGuardHandler(struct EHExceptionRecord *,struct CatchGuardRN *,void *,void *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38eb0	_CallSETranslator	int _CallSETranslator(EHExceptionRecord * param_1, EHRegistrationNode * param_2, void * param_3, void * param_4, _s_FuncInfo * param_5, int param_6, EHRegistrationNode * param_7)	Library Function - Single Match\n int __cdecl _CallSETranslator(struct EHExceptionRecord *,struct EHRegistrationNode *,void *,void *,struct _s_FuncInfo const *,int,struct EHRegistrationNode *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	38f90	TranslatorGuardHandler	_EXCEPTION_DISPOSITION TranslatorGuardHandler(EHExceptionRecord * param_1, TranslatorGuardRN * param_2, void * param_3, void * param_4)	Library Function - Single Match\n enum _EXCEPTION_DISPOSITION __cdecl TranslatorGuardHandler(struct EHExceptionRecord *,struct TranslatorGuardRN *,void *,void *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	39000	_fclose	int _fclose(FILE * _File)	Library Function - Single Match\n _fclose\n\nLibrary: Visual Studio 1998 Debug
+FUNC	39090	__fclose_lk	int __fclose_lk(FILE * param_1)	Library Function - Single Match\n __fclose_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	39160	_fgets	char * _fgets(char * _Buf, int _MaxCount, FILE * _File)	Library Function - Single Match\n _fgets\n\nLibrary: Visual Studio 1998 Debug
+FUNC	392b0	__fsopen	FILE * __fsopen(char * _Filename, char * _Mode, int _ShFlag)	Library Function - Single Match\n __fsopen\n\nLibrary: Visual Studio 1998 Debug
+FUNC	393c0	_fopen	FILE * _fopen(char * _Filename, char * _Mode)	Library Function - Single Match\n _fopen\n\nLibrary: Visual Studio 1998 Debug
+FUNC	393e4	__ftol	longlong __ftol(void)	Library Function - Single Match\n __ftol\n\nLibrary: Visual Studio
+FUNC	39410	_fread	size_t _fread(void * _DstBuf, size_t _ElementSize, size_t _Count, FILE * _File)	Library Function - Single Match\n _fread\n\nLibrary: Visual Studio 1998 Debug
+FUNC	39460	__fread_lk	uint __fread_lk(undefined1 * param_1, uint param_2, uint param_3, FILE * param_4)	Library Function - Single Match\n __fread_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	39630	_fgetc	int _fgetc(FILE * _File)	Library Function - Single Match\n _fgetc\n\nLibrary: Visual Studio 1998 Debug
+FUNC	396d0	_getc	int _getc(FILE * _File)	Library Function - Single Match\n _getc\n\nLibrary: Visual Studio 1998 Debug
+FUNC	396f0	_fputc	int _fputc(int _Ch, FILE * _File)	Library Function - Single Match\n _fputc\n\nLibrary: Visual Studio 1998 Debug
+FUNC	397a0	_putc	int _putc(int _Ch, FILE * _File)	Library Function - Single Match\n _putc\n\nLibrary: Visual Studio 1998 Debug
+FUNC	397c0	_fseek	int _fseek(FILE * _File, long _Offset, int _Origin)	Library Function - Single Match\n _fseek\n\nLibrary: Visual Studio 1998 Debug
+FUNC	39840	__fseek_lk	undefined4 __fseek_lk(FILE * param_1, int param_2, int param_3)	Library Function - Single Match\n __fseek_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	39980	__fgetchar	int __fgetchar(void)	Library Function - Single Match\n __fgetchar\n\nLibrary: Visual Studio 1998 Debug
+FUNC	399c0	FID_conflict:_memcpy	void * FID_conflict:_memcpy(void * _Dst, void * _Src, size_t _Size)	Library Function - Multiple Matches With Different Base Names\n _memcpy\n _memmove\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release
+FUNC	39b10	_fprintf	int _fprintf(FILE * _File, char * _Format, ...)	Library Function - Single Match\n _fprintf\n\nLibrary: Visual Studio 1998 Debug
+FUNC	39be0	___initstdio	undefined ___initstdio(void)	Library Function - Single Match\n ___initstdio\n\nLibrary: Visual Studio 1998 Debug
+FUNC	39d40	___endstdio	undefined ___endstdio(void)	Library Function - Single Match\n ___endstdio\n\nLibrary: Visual Studio 1998 Debug
+FUNC	39d70	_rewind	void _rewind(FILE * _File)	Library Function - Single Match\n _rewind\n\nLibrary: Visual Studio 1998 Debug
+FUNC	39e50	_ftell	long _ftell(FILE * _File)	Library Function - Single Match\n _ftell\n\nLibrary: Visual Studio 1998 Debug
+FUNC	39ec0	__ftell_lk	int __ftell_lk(int * param_1)	Library Function - Single Match\n __ftell_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3a180	_memcmp	int _memcmp(void * _Buf1, void * _Buf2, size_t _Size)	Library Function - Single Match\n _memcmp\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	3a240	_strchr	char * _strchr(char * _Str, int _Val)	Library Function - Single Match\n _strchr\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3a300	FID_conflict:__wrename	int FID_conflict:__wrename(wchar_t * _OldFilename, wchar_t * _NewFilename)	Library Function - Multiple Matches With Different Base Names\n __wrename\n _rename\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3a360	FID_conflict:_remove	int FID_conflict:_remove(char * _Filename)	Library Function - Multiple Matches With Different Base Names\n __wremove\n _remove\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3a3c0	FID_conflict:__unlink	int FID_conflict:__unlink(wchar_t * _Filename)	Library Function - Multiple Matches With Different Base Names\n __unlink\n __wunlink\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3a3e0	__onexit	_onexit_t __onexit(_onexit_t _Func)	Library Function - Single Match\n __onexit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3a4b0	_atexit	int _atexit(_func_4879 * param_1)	Library Function - Single Match\n _atexit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3a4e0	___onexitinit	undefined ___onexitinit(void)	Library Function - Single Match\n ___onexitinit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3a540	_tmpnam	char * _tmpnam(char * _Buffer)	Library Function - Single Match\n _tmpnam\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3a670	_tmpfile	FILE * _tmpfile(void)	Library Function - Single Match\n _tmpfile\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3a810	init_namebuf	undefined init_namebuf(int param_1)	Library Function - Single Match\n _init_namebuf\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3a8d0	genfname	undefined4 genfname(uchar * param_1)	Library Function - Single Match\n _genfname\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3a970	_strpbrk	char * _strpbrk(char * _Str, char * _Control)	Library Function - Single Match\n _strpbrk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3a9d0	_toupper	int _toupper(int _C)	Library Function - Single Match\n _toupper\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3aa80	__toupper_lk	uint __toupper_lk(uint param_1)	Library Function - Single Match\n __toupper_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3abc0	__CRT_INIT@12	undefined4 __CRT_INIT@12(undefined4 param_1, int param_2)	Library Function - Single Match\n __CRT_INIT@12\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3adb0	entry	int entry(undefined4 param_1, int param_2, undefined4 param_3)	
+FUNC	3aef0	__amsg_exit	void __amsg_exit(int param_1)	Library Function - Single Match\n __amsg_exit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3af50	_set_new_handler	_func_int_uint * _set_new_handler(_func_int_uint * param_1)	Library Function - Single Match\n int (__cdecl*__cdecl _set_new_handler(int (__cdecl*)(unsigned int)))(unsigned int)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3afb0	__callnewh	int __callnewh(size_t _Size)	Library Function - Single Match\n __callnewh\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b010	__mtinitlocks	int __mtinitlocks(void)	Library Function - Single Match\n __mtinitlocks\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b050	__mtdeletelocks	void __mtdeletelocks(void)	Library Function - Single Match\n __mtdeletelocks\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b110	__lock	void __lock(int _File)	Library Function - Single Match\n __lock\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b1e0	__lock_file	void __lock_file(FILE * _File)	Library Function - Multiple Matches With Different Base Names\n __lock_file\n __unlock_file\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b240	FID_conflict:__lock_file2	void FID_conflict:__lock_file2(int _Index, void * _File)	Library Function - Multiple Matches With Different Base Names\n __lock_file2\n __unlock_file2\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b280	__unlock_file	void __unlock_file(FILE * _File)	Library Function - Single Match\n __unlock_file\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b2e0	FID_conflict:__lock_file2	void FID_conflict:__lock_file2(int _Index, void * _File)	Library Function - Multiple Matches With Different Base Names\n __lock_file2\n __unlock_file2\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b320	__lockerr_exit	undefined __lockerr_exit(LPCSTR param_1)	Library Function - Single Match\n __lockerr_exit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b350	__malloc_base	undefined __malloc_base(uint param_1)	Library Function - Single Match\n __malloc_base\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b380	__nh_malloc_base	undefined * __nh_malloc_base(uint param_1, int param_2)	Library Function - Single Match\n __nh_malloc_base\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b420	__heap_alloc_base	undefined * __heap_alloc_base(int param_1)	Library Function - Single Match\n __heap_alloc_base\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b4a0	__CrtDbgBreak	undefined __CrtDbgBreak(void)	Library Function - Single Match\n __CrtDbgBreak\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b4c0	__CrtSetReportMode	undefined4 __CrtSetReportMode(int param_1, uint param_2)	Library Function - Single Match\n __CrtSetReportMode\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b540	__CrtSetReportFile	undefined4 __CrtSetReportFile(int param_1, int param_2)	Library Function - Single Match\n __CrtSetReportFile\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3b620	__CrtDbgReport	undefined4 __CrtDbgReport(int param_1, undefined * param_2, int param_3, char * param_4, char * param_5)	Library Function - Single Match\n __CrtDbgReport\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3ba10	_CrtMessageWindow	bool _CrtMessageWindow(int param_1, undefined * param_2, undefined * param_3, char * param_4, char * param_5)	Library Function - Single Match\n _CrtMessageWindow\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3bd60	__expand_base	undefined * __expand_base(undefined * param_1, uint param_2)	Library Function - Single Match\n __expand_base\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3be50	__realloc_base	undefined * __realloc_base(undefined * param_1, uint param_2)	Library Function - Single Match\n __realloc_base\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3c080	__free_base	undefined __free_base(undefined * param_1)	Library Function - Single Match\n __free_base\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3c110	__heapchk	int __heapchk(void)	Library Function - Single Match\n __heapchk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3c1b0	__heapset	int __heapset(uint _Fill)	Library Function - Single Match\n __heapset\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3c1d0	__heap_init	int __heap_init(void)	Library Function - Single Match\n __heap_init\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3c230	__heap_term	void __heap_term(void)	Library Function - Single Match\n __heap_term\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3c2b0	__set_sbh_threshold	bool __set_sbh_threshold(int param_1)	Library Function - Single Match\n __set_sbh_threshold\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3c300	___sbh_new_region	undefined * * ___sbh_new_region(void)	Library Function - Single Match\n ___sbh_new_region\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3c510	___sbh_release_region	undefined ___sbh_release_region(undefined * * param_1)	Library Function - Single Match\n ___sbh_release_region\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3c5a0	___sbh_decommit_pages	undefined ___sbh_decommit_pages(int param_1)	Library Function - Single Match\n ___sbh_decommit_pages\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3c720	___sbh_find_block	int ___sbh_find_block(undefined * param_1, undefined4 * param_2, uint * param_3)	Library Function - Single Match\n ___sbh_find_block\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3c7d0	___sbh_free_block	undefined ___sbh_free_block(int param_1, int param_2, char * param_3)	Library Function - Single Match\n ___sbh_free_block\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3c860	___sbh_alloc_block	undefined * ___sbh_alloc_block(uint param_1)	Library Function - Single Match\n ___sbh_alloc_block\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3cd30	___sbh_alloc_block_from_page	int ___sbh_alloc_block_from_page(int * param_1, uint param_2, uint param_3)	Library Function - Single Match\n ___sbh_alloc_block_from_page\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3d030	___sbh_resize_block	undefined4 ___sbh_resize_block(int param_1, undefined4 * param_2, byte * param_3, uint param_4)	Library Function - Single Match\n ___sbh_resize_block\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3d1f0	___sbh_heap_check	undefined4 ___sbh_heap_check(void)	Library Function - Single Match\n ___sbh_heap_check\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3d460	__isctype	int __isctype(int _C, int _Type)	Library Function - Single Match\n __isctype\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3d520	__flsbuf	int __flsbuf(int _Ch, FILE * _File)	Library Function - Single Match\n __flsbuf\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3d7c0	__output	int __output(FILE * param_1, byte * param_2, undefined4 * param_3)	Library Function - Single Match\n __output\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3e550	write_char	undefined write_char(int param_1, FILE * param_2, int * param_3)	Library Function - Single Match\n _write_char\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3e5d0	write_multi_char	undefined write_multi_char(int param_1, int param_2, FILE * param_3, int * param_4)	Library Function - Single Match\n _write_multi_char\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3e620	write_string	undefined write_string(char * param_1, int param_2, FILE * param_3, int * param_4)	Library Function - Single Match\n _write_string\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3e680	get_int_arg	undefined4 get_int_arg(int * param_1)	Library Function - Single Match\n _get_int_arg\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3e6a0	get_int64_arg	undefined8 get_int64_arg(int * param_1)	Library Function - Single Match\n _get_int64_arg\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3e6d0	get_short_arg	undefined4 get_short_arg(int * param_1)	Library Function - Single Match\n _get_short_arg\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3e6f0	__stbuf	int __stbuf(FILE * _File)	Library Function - Single Match\n __stbuf\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3e840	__ftbuf	void __ftbuf(int _Flag, FILE * _File)	Library Function - Single Match\n __ftbuf\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3e8e0	__setdefaultprecision	undefined __setdefaultprecision(void)	Library Function - Single Match\n __setdefaultprecision\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3e900	__ms_p5_test_fdiv	undefined4 __ms_p5_test_fdiv(void)	Library Function - Single Match\n __ms_p5_test_fdiv\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3e960	__ms_p5_mp_test_fdiv	undefined __ms_p5_mp_test_fdiv(void)	Library Function - Single Match\n __ms_p5_mp_test_fdiv\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3e9c0	__forcdecpt	void __forcdecpt(char * _Buf)	Library Function - Single Match\n __forcdecpt\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3ea80	__cropzeros	void __cropzeros(char * _Buf)	Library Function - Single Match\n __cropzeros\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3eb60	__positive	int __positive(double * arg)	Library Function - Single Match\n __positive\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3eba0	__fassign	void __fassign(int flag, char * argument, char * number)	Library Function - Single Match\n __fassign\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3ec00	__cftoe	errno_t __cftoe(double * _Value, char * _Buf, size_t _SizeInBytes, int _Dec, int _Caps)	Library Function - Single Match\n __cftoe\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3ec80	__cftoe2	undefined1 * __cftoe2(undefined1 * param_1, int param_2, int param_3, int * param_4, char param_5)	Library Function - Single Match\n __cftoe2\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3ee00	__cftof	errno_t __cftof(double * _Value, char * _Buf, size_t _SizeInBytes, int _Dec)	Library Function - Single Match\n __cftof\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3ee80	__cftof2	char * __cftof2(char * param_1, size_t param_2, int * param_3, char param_4)	Library Function - Single Match\n __cftof2\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3efc0	__cftog	undefined __cftog(double * param_1, char * param_2, size_t param_3, int param_4)	Library Function - Single Match\n __cftog\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3f0d0	__cfltcvt	errno_t __cfltcvt(double * arg, char * buffer, size_t sizeInBytes, int format, int precision, int caps)	Library Function - Single Match\n __cfltcvt\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3f150	__shift	undefined __shift(char * param_1, int param_2)	Library Function - Single Match\n __shift\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3f190	__mtinit	int __mtinit(void)	Library Function - Single Match\n __mtinit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3f230	__mtterm	void __mtterm(void)	Library Function - Single Match\n __mtterm\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3f270	__initptd	void __initptd(_ptiddata _Ptd, pthreadlocinfo _Locale)	Library Function - Single Match\n __initptd\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3f290	__getptd	_ptiddata __getptd(void)	Library Function - Single Match\n __getptd\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3f340	__freeptd	void __freeptd(_ptiddata _Ptd)	Library Function - Single Match\n __freeptd\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3f490	___InternalCxxFrameHandler	undefined4 ___InternalCxxFrameHandler(EHExceptionRecord * param_1, EHRegistrationNode * param_2, _CONTEXT * param_3, void * param_4, _s_FuncInfo * param_5, int param_6, EHRegistrationNode * param_7, undefined4 param_8)	Library Function - Single Match\n ___InternalCxxFrameHandler\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3f5b0	FindHandler	void FindHandler(EHExceptionRecord * param_1, EHRegistrationNode * param_2, _CONTEXT * param_3, void * param_4, _s_FuncInfo * param_5, uchar param_6, int param_7, EHRegistrationNode * param_8)	Library Function - Single Match\n void __cdecl FindHandler(struct EHExceptionRecord *,struct EHRegistrationNode *,struct _CONTEXT *,void *,struct _s_FuncInfo const *,unsigned char,int,struct EHRegistrationNode *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3f860	FindHandlerForForeignException	void FindHandlerForForeignException(EHExceptionRecord * param_1, EHRegistrationNode * param_2, _CONTEXT * param_3, void * param_4, _s_FuncInfo * param_5, int param_6, int param_7, EHRegistrationNode * param_8)	Library Function - Single Match\n void __cdecl FindHandlerForForeignException(struct EHExceptionRecord *,struct EHRegistrationNode *,struct _CONTEXT *,void *,struct _s_FuncInfo const *,int,int,struct EHRegistrationNode *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3f990	GetRangeOfTrysToCheck	_s_TryBlockMapEntry * GetRangeOfTrysToCheck(_s_FuncInfo * param_1, int param_2, int param_3, uint * param_4, uint * param_5)	Library Function - Single Match\n struct _s_TryBlockMapEntry const * __cdecl GetRangeOfTrysToCheck(struct _s_FuncInfo const *,int,int,unsigned int *,unsigned int *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3fa80	TypeMatch	int TypeMatch(_s_HandlerType * param_1, _s_CatchableType * param_2, _s_ThrowInfo * param_3)	Library Function - Single Match\n int __cdecl TypeMatch(struct _s_HandlerType const *,struct _s_CatchableType const *,struct _s_ThrowInfo const *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3fb50	___FrameUnwindToState	undefined ___FrameUnwindToState(int param_1, undefined4 param_2, int param_3, int param_4)	Library Function - Single Match\n ___FrameUnwindToState\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3fc60	FID_conflict:ArrayUnwindFilter	undefined4 FID_conflict:ArrayUnwindFilter(undefined4 * param_1)	Library Function - Multiple Matches With Different Base Names\n int __cdecl ArrayUnwindFilter(struct _EXCEPTION_POINTERS *)\n int __cdecl FrameUnwindFilter(struct _EXCEPTION_POINTERS *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3fcb0	CatchIt	void CatchIt(EHExceptionRecord * param_1, EHRegistrationNode * param_2, _CONTEXT * param_3, void * param_4, _s_FuncInfo * param_5, _s_HandlerType * param_6, _s_CatchableType * param_7, _s_TryBlockMapEntry * param_8, int param_9, EHRegistrationNode * param_10)	Library Function - Single Match\n void __cdecl CatchIt(struct EHExceptionRecord *,struct EHRegistrationNode *,struct _CONTEXT *,void *,struct _s_FuncInfo const *,struct _s_HandlerType const *,struct _s_CatchableType const *,struct _s_TryBlockMapEntry const *,int,struct EHRegistrationNode *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3fd90	CallCatchBlock	void * CallCatchBlock(EHExceptionRecord * param_1, EHRegistrationNode * param_2, _CONTEXT * param_3, _s_FuncInfo * param_4, void * param_5, int param_6, ulong param_7)	Library Function - Single Match\n void * __cdecl CallCatchBlock(struct EHExceptionRecord *,struct EHRegistrationNode *,struct _CONTEXT *,struct _s_FuncInfo const *,void *,int,unsigned long)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3ff20	ExFilterRethrow	int ExFilterRethrow(_EXCEPTION_POINTERS * param_1)	Library Function - Single Match\n int __cdecl ExFilterRethrow(struct _EXCEPTION_POINTERS *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	3ff90	BuildCatchObject	void BuildCatchObject(EHExceptionRecord * param_1, EHRegistrationNode * param_2, _s_HandlerType * param_3, _s_CatchableType * param_4)	Library Function - Single Match\n void __cdecl BuildCatchObject(struct EHExceptionRecord *,struct EHRegistrationNode *,struct _s_HandlerType const *,struct _s_CatchableType const *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	40270	DestructExceptionObject	void DestructExceptionObject(EHExceptionRecord * param_1, uchar param_2)	Library Function - Single Match\n void __cdecl DestructExceptionObject(struct EHExceptionRecord *,unsigned char)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	40310	AdjustPointer	void * AdjustPointer(void * param_1, PMD * param_2)	Library Function - Single Match\n void * __cdecl AdjustPointer(void *,struct PMD const &)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	40360	__CallSettingFrame@12	undefined __CallSettingFrame@12(undefined4 param_1, undefined4 param_2, undefined4 param_3)	Library Function - Single Match\n __CallSettingFrame@12\n\nLibrary: Visual Studio 1998 Debug
+FUNC	403b0	__close	int __close(int _FileHandle)	Library Function - Single Match\n __close\n\nLibrary: Visual Studio 1998 Debug
+FUNC	40450	__close_lk	undefined4 __close_lk(uint param_1)	Library Function - Single Match\n __close_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	40520	__freebuf	void __freebuf(FILE * _File)	Library Function - Single Match\n __freebuf\n\nLibrary: Visual Studio 1998 Debug
+FUNC	405b0	_fflush	int _fflush(FILE * _File)	Library Function - Single Match\n _fflush\n\nLibrary: Visual Studio 1998 Debug
+FUNC	40610	__fflush_lk	undefined4 __fflush_lk(FILE * param_1)	Library Function - Single Match\n __fflush_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	40680	__flush	int __flush(FILE * _File)	Library Function - Single Match\n __flush\n\nLibrary: Visual Studio 1998 Debug
+FUNC	40740	__flushall	int __flushall(void)	Library Function - Single Match\n __flushall\n\nLibrary: Visual Studio 1998 Debug
+FUNC	40760	flsall	int flsall(int param_1)	Library Function - Single Match\n _flsall\n\nLibrary: Visual Studio 1998 Debug
+FUNC	408c0	__filbuf	int __filbuf(FILE * _File)	Library Function - Single Match\n __filbuf\n\nLibrary: Visual Studio 1998 Debug
+FUNC	40ab0	__openfile	FILE * __openfile(char * _Filename, char * _Mode, int _ShFlag, FILE * _File)	Library Function - Single Match\n __openfile\n\nLibrary: Visual Studio 1998 Debug
+FUNC	40e70	__getstream	FILE * __getstream(void)	Library Function - Single Match\n __getstream\n\nLibrary: Visual Studio 1998 Debug
+FUNC	41010	__read	int __read(int _FileHandle, void * _DstBuf, uint _MaxCharCount)	Library Function - Single Match\n __read\n\nLibrary: Visual Studio 1998 Debug
+FUNC	410c0	__read_lk	int __read_lk(uint param_1, char * param_2, DWORD param_3)	Library Function - Single Match\n __read_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	41580	__lseek	long __lseek(int _FileHandle, long _Offset, int _Origin)	Library Function - Single Match\n __lseek\n\nLibrary: Visual Studio 1998 Debug
+FUNC	41630	__lseek_lk	DWORD __lseek_lk(uint param_1, LONG param_2, DWORD param_3)	Library Function - Single Match\n __lseek_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	41720	__dosmaperr	void __dosmaperr(ulong param_1)	Library Function - Single Match\n __dosmaperr\n\nLibrary: Visual Studio 1998 Debug
+FUNC	41840	__ioinit	int __ioinit(void)	Library Function - Single Match\n __ioinit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	41b90	__ioterm	void __ioterm(void)	Library Function - Single Match\n __ioterm\n\nLibrary: Visual Studio 1998 Debug
+FUNC	41c50	__fcloseall	int __fcloseall(void)	Library Function - Single Match\n __fcloseall\n\nLibrary: Visual Studio 1998 Debug
+FUNC	41d40	__access	int __access(char * _Filename, int _AccessMode)	Library Function - Single Match\n __access\n\nLibrary: Visual Studio 1998 Debug
+FUNC	41dd0	__open	int __open(char * _Filename, int _OpenFlag, ...)	Library Function - Single Match\n __open\n\nLibrary: Visual Studio 1998 Debug
+FUNC	41e20	__sopen	int __sopen(char * _Filename, int _OpenFlag, int _ShareFlag, ...)	Library Function - Single Match\n __sopen\n\nLibrary: Visual Studio 1998 Debug
+FUNC	42460	__itoa	char * __itoa(int _Value, char * _Dest, int _Radix)	Library Function - Single Match\n __itoa\n\nLibrary: Visual Studio 1998 Debug
+FUNC	424c0	xtoa	undefined xtoa(uint param_1, char * param_2, uint param_3, int param_4)	Library Function - Single Match\n _xtoa\n\nLibrary: Visual Studio 1998 Debug
+FUNC	42580	__ltoa	char * __ltoa(long _Value, char * _Dest, int _Radix)	Library Function - Single Match\n __ltoa\n\nLibrary: Visual Studio 1998 Debug
+FUNC	425e0	__ultoa	char * __ultoa(ulong _Value, char * _Dest, int _Radix)	Library Function - Single Match\n __ultoa\n\nLibrary: Visual Studio 1998 Debug
+FUNC	42610	__i64toa	char * __i64toa(longlong _Val, char * _DstBuf, int _Radix)	Library Function - Single Match\n __i64toa\n\nLibrary: Visual Studio 1998 Debug
+FUNC	42680	x64toa	undefined x64toa(undefined8 param_1, char * param_2, uint param_3, int param_4)	Library Function - Single Match\n _x64toa@20\n\nLibrary: Visual Studio 1998 Debug\n__stdcall x64toa,20
+FUNC	42760	__ui64toa	char * __ui64toa(ulonglong _Val, char * _DstBuf, int _Radix)	Library Function - Single Match\n __ui64toa\n\nLibrary: Visual Studio 1998 Debug
+FUNC	42790	__getpid	int __getpid(void)	Library Function - Single Match\n __getpid\n\nLibrary: Visual Studio 1998 Debug
+FUNC	427b0	_strtol	long _strtol(char * _Str, char * * _EndPtr, int _Radix)	Library Function - Single Match\n _strtol\n\nLibrary: Visual Studio 1998 Debug
+FUNC	427e0	strtoxl	uint strtoxl(byte * param_1, int * param_2, uint param_3, uint param_4)	Library Function - Single Match\n _strtoxl\n\nLibrary: Visual Studio 1998 Debug
+FUNC	42b80	_strtoul	ulong _strtoul(char * _Str, char * * _EndPtr, int _Radix)	Library Function - Single Match\n _strtoul\n\nLibrary: Visual Studio 1998 Debug
+FUNC	42bb0	__mbsrchr	uchar * __mbsrchr(uchar * _Str, uint _Ch)	Library Function - Single Match\n __mbsrchr\n\nLibrary: Visual Studio 1998 Debug
+FUNC	42ca0	__rmtmp	int __rmtmp(void)	Library Function - Single Match\n __rmtmp\n\nLibrary: Visual Studio 1998 Debug
+FUNC	42d80	_setlocale	char * _setlocale(int _Category, char * _Locale)	Library Function - Single Match\n _setlocale\n\nLibrary: Visual Studio 1998 Debug
+FUNC	43190	__setlocale_set_cat	undefined4 __setlocale_set_cat(int param_1, uint * param_2)	Library Function - Single Match\n __setlocale_set_cat\n\nLibrary: Visual Studio 1998 Debug
+FUNC	43340	__setlocale_get_all	char * __setlocale_get_all(void)	Library Function - Single Match\n __setlocale_get_all\n\nLibrary: Visual Studio 1998 Debug
+FUNC	43460	__expandlocale	uint * __expandlocale(uint * param_1, uint * param_2, undefined2 * param_3, undefined4 * param_4)	Library Function - Single Match\n __expandlocale\n\nLibrary: Visual Studio 1998 Debug
+FUNC	43640	__strcats	undefined __strcats(char * param_1, int param_2)	Library Function - Single Match\n __strcats\n\nLibrary: Visual Studio 1998 Debug
+FUNC	436a0	___lc_strtolc	undefined4 ___lc_strtolc(char * param_1, char * param_2)	Library Function - Single Match\n ___lc_strtolc\n\nLibrary: Visual Studio 1998 Debug
+FUNC	43850	___lc_lctostr	undefined ___lc_lctostr(uint * param_1, uint * param_2)	Library Function - Single Match\n ___lc_lctostr\n\nLibrary: Visual Studio 1998 Debug
+FUNC	438d0	___crtLCMapStringW	int ___crtLCMapStringW(LPCWSTR _LocaleName, DWORD _DWMapFlag, LPCWSTR _LpSrcStr, int _CchSrc, LPWSTR _LpDestStr, int _CchDest)	Library Function - Single Match\n ___crtLCMapStringW\n\nLibrary: Visual Studio 1998 Debug
+FUNC	43bd0	wcsncnt	int wcsncnt(short * param_1, int param_2)	Library Function - Single Match\n _wcsncnt\n\nLibrary: Visual Studio 1998 Debug
+FUNC	43c40	___crtLCMapStringA	int ___crtLCMapStringA(_locale_t _Plocinfo, LPCWSTR _LocaleName, DWORD _DwMapFlag, LPCSTR _LpSrcStr, int _CchSrc, LPSTR _LpDestStr, int _CchDest, int _Code_page, BOOL _BError)	Library Function - Single Match\n ___crtLCMapStringA\n\nLibrary: Visual Studio 1998 Debug
+FUNC	43f60	_strncnt	size_t _strncnt(char * _String, size_t _Cnt)	Library Function - Single Match\n _strncnt\n\nLibrary: Visual Studio 1998 Debug
+FUNC	43fd0	__setenvp	int __setenvp(void)	Library Function - Single Match\n __setenvp\n\nLibrary: Visual Studio 1998 Debug
+FUNC	44110	__setargv	int __setargv(void)	Library Function - Single Match\n __setargv\n\nLibrary: Visual Studio 1998 Debug
+FUNC	441e0	parse_cmdline	undefined parse_cmdline(byte * param_1, undefined4 * param_2, byte * param_3, int * param_4, int * param_5)	Library Function - Single Match\n _parse_cmdline\n\nLibrary: Visual Studio 1998 Debug
+FUNC	445a0	__setmbcp	int __setmbcp(int _CodePage)	Library Function - Single Match\n __setmbcp\n\nLibrary: Visual Studio 1998 Debug
+FUNC	44920	getSystemCP	UINT getSystemCP(UINT param_1)	Library Function - Single Match\n _getSystemCP\n\nLibrary: Visual Studio 1998 Debug
+FUNC	449b0	_CPtoLCID	undefined4 _CPtoLCID(undefined4 param_1)	Library Function - Single Match\n _CPtoLCID\n\nLibrary: Visual Studio 1998 Debug
+FUNC	44a50	setSBCS	undefined setSBCS(void)	Library Function - Single Match\n _setSBCS\n\nLibrary: Visual Studio 1998 Debug
+FUNC	44af0	___initmbctable	undefined ___initmbctable(void)	Library Function - Single Match\n ___initmbctable\n\nLibrary: Visual Studio 1998 Debug
+FUNC	44b10	___crtGetEnvironmentStringsW	LPVOID ___crtGetEnvironmentStringsW(void)	Library Function - Single Match\n ___crtGetEnvironmentStringsW\n\nLibrary: Visual Studio 1998 Debug
+FUNC	44dd0	___crtGetEnvironmentStringsA	LPVOID ___crtGetEnvironmentStringsA(void)	Library Function - Single Match\n ___crtGetEnvironmentStringsA\n\nLibrary: Visual Studio 1998 Debug
+FUNC	45030	__set_error_mode	int __set_error_mode(int _Mode)	Library Function - Single Match\n __set_error_mode\n\nLibrary: Visual Studio 1998 Debug
+FUNC	450b0	___set_app_type	void ___set_app_type(int param_1)	Library Function - Single Match\n ___set_app_type\n\nLibrary: Visual Studio 1998 Debug
+FUNC	450d0	_DllMain@12	undefined4 _DllMain@12(void)	Library Function - Single Match\n _DllMain@12\n\nLibrary: Visual Studio 1998 Debug
+FUNC	450f0	__FF_MSGBANNER	void __FF_MSGBANNER(void)	Library Function - Single Match\n __FF_MSGBANNER\n\nLibrary: Visual Studio 1998 Debug
+FUNC	45150	__NMSG_WRITE	void __NMSG_WRITE(int param_1)	Library Function - Single Match\n __NMSG_WRITE\n\nLibrary: Visual Studio 1998 Debug
+FUNC	45370	__GET_RTERRMSG	wchar_t * __GET_RTERRMSG(int param_1)	Library Function - Single Match\n __GET_RTERRMSG\n\nLibrary: Visual Studio 1998 Debug
+FUNC	453f0	__snprintf	int __snprintf(char * _Dest, size_t _Count, char * _Format, ...)	Library Function - Single Match\n __snprintf\n\nLibrary: Visual Studio 1998 Debug
+FUNC	454e0	__vsnprintf	int __vsnprintf(char * _Dest, size_t _Count, char * _Format, va_list _Args)	Library Function - Single Match\n __vsnprintf\n\nLibrary: Visual Studio 1998 Debug
+FUNC	455d0	__alloca_probe	undefined __alloca_probe(void)	Library Function - Single Match\n __alloca_probe\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	45600	_signal	void _signal(int param_1)	Library Function - Single Match\n _signal\n\nLibrary: Visual Studio 1998 Debug
+FUNC	45880	ctrlevent_capture	undefined4 ctrlevent_capture(int param_1)	Library Function - Single Match\n _ctrlevent_capture@4\n\nLibrary: Visual Studio 1998 Debug\n__stdcall ctrlevent_capture,4
+FUNC	45930	_raise	int _raise(int _SigNum)	Library Function - Single Match\n _raise\n\nLibrary: Visual Studio 1998 Debug
+FUNC	45bc0	siglookup	uint siglookup(int param_1, uint param_2)	Library Function - Single Match\n _siglookup\n\nLibrary: Visual Studio 1998 Debug
+FUNC	45c50	___pxcptinfoptrs	void * * ___pxcptinfoptrs(void)	Library Function - Single Match\n ___pxcptinfoptrs\n\nLibrary: Visual Studio 1998 Debug
+FUNC	45c70	___crtMessageBoxA	int ___crtMessageBoxA(LPCSTR _LpText, LPCSTR _LpCaption, UINT _UType)	Library Function - Single Match\n ___crtMessageBoxA\n\nLibrary: Visual Studio 1998 Debug
+FUNC	45d50	___crtGetStringTypeW	undefined ___crtGetStringTypeW(DWORD param_1, LPCWSTR param_2, int param_3, LPWORD param_4, UINT param_5, LCID param_6)	Library Function - Single Match\n ___crtGetStringTypeW\n\nLibrary: Visual Studio 1998 Debug
+FUNC	45fb0	___crtGetStringTypeA	BOOL ___crtGetStringTypeA(_locale_t _Plocinfo, DWORD _DWInfoType, LPCSTR _LpSrcStr, int _CchSrc, LPWORD _LpCharType, int _Code_page, BOOL _BError)	Library Function - Single Match\n ___crtGetStringTypeA\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46150	__write	int __write(int _FileHandle, void * _Buf, uint _MaxCharCount)	Library Function - Single Match\n __write\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46200	__write_lk	int __write_lk(uint param_1, char * param_2, uint param_3)	Library Function - Single Match\n __write_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46500	__getbuf	void __getbuf(FILE * _File)	Library Function - Single Match\n __getbuf\n\nLibrary: Visual Studio 1998 Debug
+FUNC	465c0	__isatty	int __isatty(int _FileHandle)	Library Function - Single Match\n __isatty\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46610	_wctomb	int _wctomb(char * _MbCh, wchar_t _WCh)	Library Function - Single Match\n _wctomb\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46690	__wctomb_lk	int __wctomb_lk(LPSTR param_1, uint param_2)	Library Function - Single Match\n __wctomb_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46770	__aulldiv	undefined8 __aulldiv(uint param_1, uint param_2, uint param_3, uint param_4)	Library Function - Single Match\n __aulldiv\n\nLibrary: Visual Studio 1998 Debug
+FUNC	467e0	__aullrem	undefined8 __aullrem(uint param_1, uint param_2, uint param_3, uint param_4)	Library Function - Single Match\n __aullrem\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46860	__statusfp	uint __statusfp(void)	Library Function - Single Match\n __statusfp\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46890	__clearfp	uint __clearfp(void)	Library Function - Single Match\n __clearfp\n\nLibrary: Visual Studio 1998 Debug
+FUNC	468c0	__control87	uint __control87(uint _NewValue, uint _Mask)	Library Function - Single Match\n __control87\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46910	__controlfp	uint __controlfp(uint _NewValue, uint _Mask)	Library Function - Single Match\n __controlfp\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46940	__fpreset	void __fpreset(void)	Library Function - Single Match\n __fpreset\n\nLibrary: Visual Studio 1998 Debug
+FUNC	469a0	__abstract_cw	uint __abstract_cw(uint param_1)	Library Function - Single Match\n __abstract_cw\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46af0	__hw_cw	undefined4 __hw_cw(uint param_1)	Library Function - Single Match\n __hw_cw\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46cc0	__abstract_sw	uint __abstract_sw(byte param_1)	Library Function - Single Match\n __abstract_sw\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46d40	__fptrap	void __fptrap(void)	Library Function - Single Match\n __fptrap\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46d80	_tolower	int _tolower(int _C)	Library Function - Single Match\n _tolower\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46e30	__tolower_lk	uint __tolower_lk(uint param_1)	Library Function - Single Match\n __tolower_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	46f70	__ZeroTail	undefined4 __ZeroTail(int param_1, int param_2)	Library Function - Single Match\n __ZeroTail\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47010	__IncMan	int __IncMan(int param_1, int param_2)	Library Function - Single Match\n __IncMan\n\nLibrary: Visual Studio 1998 Debug
+FUNC	470d0	__RoundMan	int __RoundMan(int param_1, int param_2)	Library Function - Single Match\n __RoundMan\n\nLibrary: Visual Studio 1998 Debug
+FUNC	471b0	__CopyMan	undefined __CopyMan(undefined4 * param_1, undefined4 * param_2)	Library Function - Single Match\n __CopyMan\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47200	__FillZeroMan	undefined __FillZeroMan(int param_1)	Library Function - Single Match\n __FillZeroMan\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47240	__IsZeroMan	undefined4 __IsZeroMan(int param_1)	Library Function - Single Match\n __IsZeroMan\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47290	__ShrMan	undefined __ShrMan(int param_1, int param_2)	Library Function - Single Match\n __ShrMan\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47380	__ld12cvt	undefined4 __ld12cvt(ushort * param_1, uint * param_2, int * param_3)	Library Function - Single Match\n __ld12cvt\n\nLibrary: Visual Studio 1998 Debug
+FUNC	475f0	FID_conflict:__ld12tod	INTRNCVT_STATUS FID_conflict:__ld12tod(_LDBL12 * _Ifp, _CRT_DOUBLE * _D)	Library Function - Multiple Matches With Different Base Names\n __ld12tod\n __ld12tof\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47620	FID_conflict:__ld12tod	INTRNCVT_STATUS FID_conflict:__ld12tod(_LDBL12 * _Ifp, _CRT_DOUBLE * _D)	Library Function - Multiple Matches With Different Base Names\n __ld12tod\n __ld12tof\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47650	__ld12told	INTRNCVT_STATUS __ld12told(_LDBL12 * _Ifp, _LDOUBLE * _Ld)	Library Function - Single Match\n __ld12told\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47720	FID_conflict:__atodbl	int FID_conflict:__atodbl(_CRT_FLOAT * _Result, char * _Str)	Library Function - Multiple Matches With Different Base Names\n __atodbl\n __atoflt\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47760	__atoldbl	int __atoldbl(_LDOUBLE * _Result, char * _Str)	Library Function - Single Match\n __atoldbl\n\nLibrary: Visual Studio 1998 Debug
+FUNC	477a0	FID_conflict:__atodbl	int FID_conflict:__atodbl(_CRT_FLOAT * _Result, char * _Str)	Library Function - Multiple Matches With Different Base Names\n __atodbl\n __atoflt\n\nLibrary: Visual Studio 1998 Debug
+FUNC	477e0	__fptostr	errno_t __fptostr(char * _Buf, size_t _SizeInBytes, int _Digits, STRFLT _PtFlt)	Library Function - Single Match\n __fptostr\n\nLibrary: Visual Studio 1998 Debug
+FUNC	478c0	__fltout2	STRFLT __fltout2(_CRT_DOUBLE _Dbl, STRFLT _Flt, char * _ResultStr, size_t _SizeInBytes)	Library Function - Single Match\n __fltout2\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47940	___dtold	undefined ___dtold(uint * param_1, uint * param_2)	Library Function - Single Match\n ___dtold\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47ac0	__XcptFilter	int __XcptFilter(ulong _ExceptionNum, _EXCEPTION_POINTERS * _ExceptionPtr)	Library Function - Single Match\n __XcptFilter\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47cd0	xcptlookup	int * xcptlookup(int param_1, int * param_2)	Library Function - Single Match\n _xcptlookup\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47d30	$E2	undefined $E2(void)	Library Function - Single Match\n _$E2\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47d50	$E1	undefined $E1(void)	Library Function - Single Match\n _$E1\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47d80	__CxxUnhandledExceptionFilter	long __CxxUnhandledExceptionFilter(_EXCEPTION_POINTERS * param_1)	Library Function - Single Match\n long __stdcall __CxxUnhandledExceptionFilter(struct _EXCEPTION_POINTERS *)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47e40	terminate	void terminate(void)	Library Function - Single Match\n void __cdecl terminate(void)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47ee0	unexpected	void unexpected(void)	Library Function - Single Match\n void __cdecl unexpected(void)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47f10	_inconsistency	void _inconsistency(void)	Library Function - Single Match\n void __cdecl _inconsistency(void)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47fb0	_ValidateRead	int _ValidateRead(void * param_1, uint param_2)	Library Function - Single Match\n int __cdecl _ValidateRead(void const *,unsigned int)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	47ff0	_ValidateWrite	int _ValidateWrite(void * param_1, uint param_2)	Library Function - Multiple Matches With Different Base Names\n int __cdecl _ValidateRead(void const *,unsigned int)\n int __cdecl _ValidateWrite(void *,unsigned int)\n\nLibrary: Visual Studio 1998 Debug
+FUNC	48030	_ValidateExecute	int _ValidateExecute(_func_int * param_1)	Library Function - Single Match\n int __cdecl _ValidateExecute(int (__stdcall*)(void))\n\nLibrary: Visual Studio 1998 Debug
+FUNC	48150	__alloc_osfhnd	int __alloc_osfhnd(void)	Library Function - Single Match\n __alloc_osfhnd\n\nLibrary: Visual Studio 1998 Debug
+FUNC	48340	__set_osfhnd	int __set_osfhnd(int param_1, intptr_t param_2)	Library Function - Single Match\n __set_osfhnd\n\nLibrary: Visual Studio 1998 Debug
+FUNC	48450	__free_osfhnd	int __free_osfhnd(int param_1)	Library Function - Single Match\n __free_osfhnd\n\nLibrary: Visual Studio 1998 Debug
+FUNC	48580	__get_osfhandle	intptr_t __get_osfhandle(int _FileHandle)	Library Function - Single Match\n __get_osfhandle\n\nLibrary: Visual Studio 1998 Debug
+FUNC	48620	__open_osfhandle	int __open_osfhandle(intptr_t _OSFileHandle, int _Flags)	Library Function - Single Match\n __open_osfhandle\n\nLibrary: Visual Studio 1998 Debug
+FUNC	48740	__lock_fhandle	int __lock_fhandle(int _Filehandle)	Library Function - Single Match\n __lock_fhandle\n\nLibrary: Visual Studio 1998 Debug
+FUNC	487e0	__unlock_fhandle	void __unlock_fhandle(int _Filehandle)	Library Function - Single Match\n __unlock_fhandle\n\nLibrary: Visual Studio 1998 Debug
+FUNC	48820	__commit	int __commit(int _FileHandle)	Library Function - Single Match\n __commit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	48940	__chsize	int __chsize(int _FileHandle, long _Size)	Library Function - Single Match\n __chsize\n\nLibrary: Visual Studio 1998 Debug
+FUNC	489e0	__chsize_lk	int __chsize_lk(uint param_1, int param_2)	Library Function - Single Match\n __chsize_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	48c70	_strrchr	char * _strrchr(char * _Str, int _Ch)	Library Function - Single Match\n _strrchr\n\nLibrary: Visual Studio 1998 Debug
+FUNC	48ca0	___init_time	int ___init_time(threadlocinfo * _LocInfo)	Library Function - Single Match\n ___init_time\n\nLibrary: Visual Studio 1998 Debug
+FUNC	48da0	__get_lc_time	uint __get_lc_time(LCTYPE param_1)	Library Function - Single Match\n __get_lc_time\n\nLibrary: Visual Studio 1998 Debug
+FUNC	49250	__free_lc_time	undefined __free_lc_time(undefined4 * param_1)	Library Function - Single Match\n __free_lc_time\n\nLibrary: Visual Studio 1998 Debug
+FUNC	49570	storeTimeFmt	uint storeTimeFmt(int param_1, int param_2)	Library Function - Single Match\n _storeTimeFmt\n\nLibrary: Visual Studio 1998 Debug
+FUNC	49700	___init_numeric	int ___init_numeric(threadlocinfo * _LocInfo)	Library Function - Single Match\n ___init_numeric\n\nLibrary: Visual Studio 1998 Debug
+FUNC	499c0	fix_grouping	undefined fix_grouping(char * param_1)	Library Function - Single Match\n _fix_grouping\n\nLibrary: Visual Studio 1998 Debug
+FUNC	49a50	___init_monetary	int ___init_monetary(threadlocinfo * _LocInfo)	Library Function - Single Match\n ___init_monetary\n\nLibrary: Visual Studio 1998 Debug
+FUNC	49b90	__get_lc_lconv	uint __get_lc_lconv(int param_1)	Library Function - Single Match\n __get_lc_lconv\n\nLibrary: Visual Studio 1998 Debug
+FUNC	49d70	fix_grouping	undefined fix_grouping(char * param_1)	Library Function - Single Match\n _fix_grouping\n\nLibrary: Visual Studio 1998 Debug
+FUNC	49e00	__free_lc_lconv	undefined __free_lc_lconv(int param_1)	Library Function - Single Match\n __free_lc_lconv\n\nLibrary: Visual Studio 1998 Debug
+FUNC	49eb0	___init_ctype	int ___init_ctype(threadlocinfo * _LocInfo)	Library Function - Single Match\n ___init_ctype\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4a2d0	_strcspn	size_t _strcspn(char * _Str, char * _Control)	Library Function - Single Match\n _strcspn\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4a310	_strncmp	int _strncmp(char * _Str1, char * _Str2, size_t _MaxCount)	Library Function - Single Match\n _strncmp\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4a350	___get_qualified_locale	BOOL ___get_qualified_locale(LPLC_STRINGS _LpInStr, UINT * _LpCodePage, LPLC_STRINGS _LpOutStr)	Library Function - Single Match\n ___get_qualified_locale\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4a750	trans_lang_lang	undefined2 trans_lang_lang(char * param_1)	Library Function - Single Match\n _trans_lang_lang\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4a7f0	trans_ctry_ctry	undefined2 trans_ctry_ctry(char * param_1)	Library Function - Single Match\n _trans_ctry_ctry\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4a890	trans_ctry_lang	uint trans_ctry_lang(ushort param_1)	Library Function - Single Match\n _trans_ctry_lang\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4a920	testSpecialCtry	undefined4 testSpecialCtry(short param_1)	Library Function - Single Match\n _testSpecialCtry\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4a970	match_ctry_lang	undefined4 match_ctry_lang(ushort * param_1, ushort * param_2)	Library Function - Single Match\n _match_ctry_lang\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4aaa0	_wcslen	size_t _wcslen(wchar_t * _Str)	Library Function - Single Match\n _wcslen\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4aaf0	___addl	undefined4 ___addl(uint param_1, uint param_2, uint * param_3)	Library Function - Single Match\n ___addl\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4ab40	___add_12	undefined ___add_12(uint * param_1, uint * param_2)	Library Function - Single Match\n ___add_12\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4abf0	___shl_12	undefined ___shl_12(int * param_1)	Library Function - Single Match\n ___shl_12\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4ac70	___shr_12	undefined ___shr_12(uint * param_1)	Library Function - Single Match\n ___shr_12\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4acf0	___mtold12	undefined ___mtold12(char * param_1, int param_2, uint * param_3)	Library Function - Single Match\n ___mtold12\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4ae30	___strgtold12	uint ___strgtold12(_LDBL12 * pld12, char * * p_end_ptr, char * str, int mult12, int scale, int decpt, int implicit_E)	Library Function - Single Match\n ___strgtold12\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4ba50	___STRINGTOLD	uint ___STRINGTOLD(_LDOUBLE * pld, char * * p_end_ptr, char * str, int mult12)	Library Function - Single Match\n ___STRINGTOLD\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4bab0	$I10_OUTPUT	undefined4 $I10_OUTPUT(int param_1, uint param_2, ushort param_3, int param_4, byte param_5, short * param_6)	Library Function - Single Match\n _$I10_OUTPUT\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4bff0	_abort	void _abort(void)	Library Function - Single Match\n _abort\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4c020	__setmode	int __setmode(int _FileHandle, int _Mode)	Library Function - Single Match\n __setmode\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4c0c0	__setmode_lk	undefined4 __setmode_lk(uint param_1, int param_2)	Library Function - Single Match\n __setmode_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4c1e0	__Getdays	char * __Getdays(void)	Library Function - Single Match\n __Getdays\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4c2f0	__Getmonths	char * __Getmonths(void)	Library Function - Single Match\n __Getmonths\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4c410	__Gettnames	void * __Gettnames(void)	Library Function - Single Match\n __Gettnames\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4c750	_strftime	size_t _strftime(char * _Buf, size_t _SizeInBytes, char * _Format, tm * _Tm)	Library Function - Single Match\n _strftime\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4c780	__Strftime	size_t __Strftime(char * param_1, size_t _Maxsize, char * param_3, tm * param_4, void * param_5)	Library Function - Single Match\n __Strftime\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4c910	__expandtime	undefined __expandtime(undefined1 param_1, int * param_2, uint * param_3, uint * param_4, int param_5)	Library Function - Single Match\n __expandtime\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4cf40	__store_str	undefined __store_str(char * param_1, int * param_2, int * param_3)	Library Function - Single Match\n __store_str\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4cf90	__store_num	undefined __store_num(int param_1, uint param_2, uint * param_3, uint * param_4)	Library Function - Single Match\n __store_num\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4d040	__store_number	undefined __store_number(int param_1, uint * param_2, uint * param_3)	Library Function - Single Match\n __store_number\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4d0e0	__store_winword	undefined __store_winword(byte * param_1, undefined4 param_2, int * param_3, int * param_4, undefined4 param_5)	Library Function - Single Match\n __store_winword\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4d590	___getlocaleinfo	int ___getlocaleinfo(_locale_t _Locale, int _Lc_type, LPCWSTR _LocaleName, LCTYPE _FieldType, void * _Address)	Library Function - Single Match\n ___getlocaleinfo\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4d880	___crtGetLocaleInfoW	undefined ___crtGetLocaleInfoW(LCID param_1, LCTYPE param_2, LPWSTR param_3, int param_4, UINT param_5)	Library Function - Single Match\n ___crtGetLocaleInfoW\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4da40	___crtGetLocaleInfoA	int ___crtGetLocaleInfoA(_locale_t _Plocinfo, LPCWSTR _LocaleName, LCTYPE _LCType, LPSTR _LpLCData, int _CchData)	Library Function - Single Match\n ___crtGetLocaleInfoA\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4dc10	_wcstol	long _wcstol(wchar_t * _Str, wchar_t * * _EndPtr, int _Radix)	Library Function - Single Match\n _wcstol\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4dc40	wcstoxl	uint wcstoxl(wint_t * param_1, int * param_2, uint param_3, uint param_4)	Library Function - Single Match\n _wcstoxl\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4df80	_wcstoul	ulong _wcstoul(wchar_t * _Str, wchar_t * * _EndPtr, int _Radix)	Library Function - Single Match\n _wcstoul\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4dfb0	_atol	long _atol(char * _Str)	Library Function - Single Match\n _atol\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4e0d0	_atoi	int _atoi(char * _Str)	Library Function - Single Match\n _atoi\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4e0f0	__atoi64	longlong __atoi64(char * _String)	Library Function - Single Match\n __atoi64\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4e240	__strcmpi	int __strcmpi(char * _Str1, char * _Str2)	Library Function - Single Match\n __strcmpi\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4e310	___ld12mul	undefined ___ld12mul(int * param_1, int * param_2)	Library Function - Single Match\n ___ld12mul\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4e740	___multtenpow12	undefined ___multtenpow12(int * param_1, uint param_2, int param_3)	Library Function - Single Match\n ___multtenpow12\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4e820	___tzset	undefined ___tzset(void)	Library Function - Single Match\n ___tzset\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4e870	__tzset	void __tzset(void)	Library Function - Single Match\n __tzset\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4e8a0	__tzset_lk	undefined __tzset_lk(void)	Library Function - Single Match\n __tzset_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4ec30	__isindst	int __isindst(tm * _Time)	Library Function - Single Match\n __isindst\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4ec70	__isindst_lk	undefined4 __isindst_lk(int * param_1)	Library Function - Single Match\n __isindst_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4efe0	cvtdate	undefined cvtdate(int param_1, int param_2, uint param_3, int param_4, int param_5, int param_6, int param_7, int param_8, int param_9, int param_10, int param_11)	Library Function - Single Match\n _cvtdate\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4f1f0	_towupper	wint_t _towupper(wint_t _C)	Library Function - Single Match\n _towupper\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4f2b0	__towupper_lk	uint __towupper_lk(uint param_1)	Library Function - Single Match\n __towupper_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4f390	_iswctype	int _iswctype(wint_t _C, wctype_t _Type)	Library Function - Single Match\n _iswctype\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4f440	_is_wctype	int _is_wctype(wint_t _C, wctype_t _Type)	Library Function - Single Match\n _is_wctype\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4f460	__allmul	longlong __allmul(uint param_1, int param_2, uint param_3, int param_4)	Library Function - Single Match\n __allmul\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4f4a0	_wcstombs	size_t _wcstombs(char * _Dest, wchar_t * _Source, size_t _MaxCount)	Library Function - Single Match\n _wcstombs\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4f520	__wcstombs_lk	size_t __wcstombs_lk(LPSTR param_1, LPCWSTR param_2, uint param_3)	Library Function - Single Match\n __wcstombs_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4f8a0	wcsncnt	int wcsncnt(short * param_1, int param_2)	Library Function - Single Match\n _wcsncnt\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4f910	_getenv	char * _getenv(char * _VarName)	Library Function - Single Match\n _getenv\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4f950	__getenv_lk	int __getenv_lk(uchar * param_1)	Library Function - Single Match\n __getenv_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4fa40	__mbsnbicoll	int __mbsnbicoll(uchar * _Str1, uchar * _Str2, size_t _MaxCount)	Library Function - Single Match\n __mbsnbicoll\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4fab0	___wtomb_environ	int ___wtomb_environ(void)	Library Function - Single Match\n ___wtomb_environ\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4fb80	___crtCompareStringW	int ___crtCompareStringW(LPCWSTR _LocaleName, DWORD _DwCmpFlags, LPCWSTR _LpString1, int _CchCount1, LPCWSTR _LpString2, int _CchCount2)	Library Function - Single Match\n ___crtCompareStringW\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4fe70	wcsncnt	int wcsncnt(short * param_1, int param_2)	Library Function - Single Match\n _wcsncnt\n\nLibrary: Visual Studio 1998 Debug
+FUNC	4fee0	___crtCompareStringA	int ___crtCompareStringA(_locale_t _Plocinfo, LPCWSTR _LocaleName, DWORD _DwCmpFlags, LPCSTR _LpString1, int _CchCount1, LPCSTR _LpString2, int _CchCount2, int _Code_page)	Library Function - Single Match\n ___crtCompareStringA\n\nLibrary: Visual Studio 1998 Debug
+FUNC	50340	_strncnt	size_t _strncnt(char * _String, size_t _Cnt)	Library Function - Single Match\n _strncnt\n\nLibrary: Visual Studio 1998 Debug
+FUNC	503b0	___crtsetenv	int ___crtsetenv(char * * _POption, int _Primary)	Library Function - Single Match\n ___crtsetenv\n\nLibrary: Visual Studio 1998 Debug
+FUNC	50720	findenv	int findenv(uchar * param_1, size_t param_2)	Library Function - Single Match\n _findenv\n\nLibrary: Visual Studio 1998 Debug
+FUNC	507c0	copy_environ	int * copy_environ(int * param_1)	Library Function - Single Match\n _copy_environ\n\nLibrary: Visual Studio 1998 Debug
+FUNC	508c0	__mbschr	uchar * __mbschr(uchar * _Str, uint _Ch)	Library Function - Single Match\n __mbschr\n\nLibrary: Visual Studio 1998 Debug
+FUNC	50b60	__strupr	char * __strupr(char * _String)	Library Function - Single Match\n __strupr\n\nLibrary: Visual Studio 1998 Debug
+FUNC	50d60	__getch	int __getch(void)	Library Function - Single Match\n __getch\n\nLibrary: Visual Studio 1998 Debug
+FUNC	50da0	__getche	int __getche(void)	Library Function - Single Match\n __getche\n\nLibrary: Visual Studio 1998 Debug
+FUNC	50de0	__getch_lk	uint __getch_lk(void)	Library Function - Single Match\n __getch_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	50f20	__getche_lk	uint __getche_lk(void)	Library Function - Single Match\n __getche_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	50f90	__kbhit	int __kbhit(void)	Library Function - Single Match\n __kbhit\n\nLibrary: Visual Studio 1998 Debug
+FUNC	50fd0	__kbhit_lk	undefined4 __kbhit_lk(void)	Library Function - Single Match\n __kbhit_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	51110	__ungetch	int __ungetch(int _Ch)	Library Function - Single Match\n __ungetch\n\nLibrary: Visual Studio 1998 Debug
+FUNC	51150	__ungetch_lk	uint __ungetch_lk(uint param_1)	Library Function - Single Match\n __ungetch_lk\n\nLibrary: Visual Studio 1998 Debug
+FUNC	511a0	__getextendedkeycode	char * __getextendedkeycode(int param_1)	Library Function - Single Match\n __getextendedkeycode\n\nLibrary: Visual Studio 1998 Debug
+FUNC	51350	___initconin	void ___initconin(void)	Library Function - Single Match\n ___initconin\n\nLibrary: Visual Studio 1998 Debug
+FUNC	51380	___initconout	void ___initconout(void)	Library Function - Single Match\n ___initconout\n\nLibrary: Visual Studio 1998 Debug
+FUNC	513b0	___termcon	undefined ___termcon(void)	Library Function - Single Match\n ___termcon\n\nLibrary: Visual Studio 1998 Debug
+FUNC	51410	__putch	int __putch(int _Ch)	Library Function - Single Match\n __putch\n\nLibrary: Visual Studio 1998 Debug
+FUNC	51450	__putch_lk	uint __putch_lk(byte param_1)	Library Function - Single Match\n __putch_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	178	eol	.text
+CMT	1a0	eol	.rdata
+CMT	1c8	eol	.data
+CMT	1f0	eol	.idata
+CMT	218	eol	.reloc
+CMT	a30c8	eol	IMAGE_THUNK_DATA32
+CMT	a30cc	eol	IMAGE_THUNK_DATA32
+CMT	a30d0	eol	IMAGE_THUNK_DATA32
+CMT	a30d4	eol	IMAGE_THUNK_DATA32
+CMT	a30d8	eol	IMAGE_THUNK_DATA32
+CMT	a30dc	eol	IMAGE_THUNK_DATA32
+CMT	a3110	eol	IMAGE_THUNK_DATA32
+CMT	a3140	eol	IMAGE_THUNK_DATA32
+CMT	a3170	eol	IMAGE_THUNK_DATA32
+CMT	a3174	eol	IMAGE_THUNK_DATA32
+CMT	a3178	eol	IMAGE_THUNK_DATA32
+CMT	a317c	eol	IMAGE_THUNK_DATA32
+CMT	a3180	eol	IMAGE_THUNK_DATA32
+CMT	a3184	eol	IMAGE_THUNK_DATA32
+CMT	a3188	eol	IMAGE_THUNK_DATA32
+CMT	a318c	eol	IMAGE_THUNK_DATA32
+CMT	a3190	eol	IMAGE_THUNK_DATA32
+CMT	a3194	eol	IMAGE_THUNK_DATA32
+CMT	a3198	eol	IMAGE_THUNK_DATA32
+CMT	a319c	eol	IMAGE_THUNK_DATA32
+CMT	a31a0	eol	IMAGE_THUNK_DATA32
+CMT	a31a4	eol	IMAGE_THUNK_DATA32
+CMT	a31a8	eol	IMAGE_THUNK_DATA32
+CMT	a31ac	eol	IMAGE_THUNK_DATA32
+CMT	a31b0	eol	IMAGE_THUNK_DATA32
+CMT	a31b4	eol	IMAGE_THUNK_DATA32
+CMT	a31b8	eol	IMAGE_THUNK_DATA32
+CMT	a31bc	eol	IMAGE_THUNK_DATA32
+CMT	a31c0	eol	IMAGE_THUNK_DATA32
+CMT	a31c4	eol	IMAGE_THUNK_DATA32
+CMT	a3204	eol	IMAGE_THUNK_DATA32
+CMT	a3208	eol	IMAGE_THUNK_DATA32
+CMT	a320c	eol	IMAGE_THUNK_DATA32
+CMT	a3210	eol	IMAGE_THUNK_DATA32
+CMT	a3214	eol	IMAGE_THUNK_DATA32
+CMT	a3218	eol	IMAGE_THUNK_DATA32
+CMT	a321c	eol	IMAGE_THUNK_DATA32
+CMT	a3220	eol	IMAGE_THUNK_DATA32
+CMT	a3224	eol	IMAGE_THUNK_DATA32
+CMT	a3228	eol	IMAGE_THUNK_DATA32
+CMT	a322c	eol	IMAGE_THUNK_DATA32
+CMT	a3230	eol	IMAGE_THUNK_DATA32
+CMT	a3234	eol	IMAGE_THUNK_DATA32
+CMT	a3238	eol	IMAGE_THUNK_DATA32
+CMT	a323c	eol	IMAGE_THUNK_DATA32
+CMT	a3240	eol	IMAGE_THUNK_DATA32
+CMT	a3244	eol	IMAGE_THUNK_DATA32
+CMT	a3248	eol	IMAGE_THUNK_DATA32
+CMT	a324c	eol	IMAGE_THUNK_DATA32
+CMT	a3250	eol	IMAGE_THUNK_DATA32
+CMT	a3254	eol	IMAGE_THUNK_DATA32
+CMT	a3258	eol	IMAGE_THUNK_DATA32
+CMT	a325c	eol	IMAGE_THUNK_DATA32
+CMT	a3260	eol	IMAGE_THUNK_DATA32
+CMT	a3264	eol	IMAGE_THUNK_DATA32
+CMT	a3268	eol	IMAGE_THUNK_DATA32
+CMT	a326c	eol	IMAGE_THUNK_DATA32
+CMT	a3270	eol	IMAGE_THUNK_DATA32
+CMT	a3274	eol	IMAGE_THUNK_DATA32
+CMT	a3278	eol	IMAGE_THUNK_DATA32
+CMT	a327c	eol	IMAGE_THUNK_DATA32
+CMT	a3280	eol	IMAGE_THUNK_DATA32
+CMT	a3284	eol	IMAGE_THUNK_DATA32
+CMT	a3288	eol	IMAGE_THUNK_DATA32
+CMT	a328c	eol	IMAGE_THUNK_DATA32
+CMT	a3290	eol	IMAGE_THUNK_DATA32
+CMT	a3294	eol	IMAGE_THUNK_DATA32
+CMT	a3298	eol	IMAGE_THUNK_DATA32
+CMT	a329c	eol	IMAGE_THUNK_DATA32
+CMT	a32a0	eol	IMAGE_THUNK_DATA32
+CMT	a32a4	eol	IMAGE_THUNK_DATA32
+CMT	a32a8	eol	IMAGE_THUNK_DATA32
+CMT	a32ac	eol	IMAGE_THUNK_DATA32
+CMT	a32b0	eol	IMAGE_THUNK_DATA32
+CMT	a32b4	eol	IMAGE_THUNK_DATA32
+CMT	a32b8	eol	IMAGE_THUNK_DATA32
+CMT	a32bc	eol	IMAGE_THUNK_DATA32
+CMT	a32c0	eol	IMAGE_THUNK_DATA32
+CMT	a32c4	eol	IMAGE_THUNK_DATA32
+CMT	a32c8	eol	IMAGE_THUNK_DATA32
+CMT	a32cc	eol	IMAGE_THUNK_DATA32
+CMT	a32d0	eol	IMAGE_THUNK_DATA32
+CMT	a32d4	eol	IMAGE_THUNK_DATA32
+CMT	a32d8	eol	IMAGE_THUNK_DATA32
+CMT	a32dc	eol	IMAGE_THUNK_DATA32
+CMT	a32e0	eol	IMAGE_THUNK_DATA32
+CMT	a32e4	eol	IMAGE_THUNK_DATA32
+CMT	a32e8	eol	IMAGE_THUNK_DATA32
+CMT	a32ec	eol	IMAGE_THUNK_DATA32
+CMT	a32f0	eol	IMAGE_THUNK_DATA32
+CMT	a32f4	eol	IMAGE_THUNK_DATA32
+CMT	a32f8	eol	IMAGE_THUNK_DATA32
+CMT	a32fc	eol	IMAGE_THUNK_DATA32
+CMT	a3300	eol	IMAGE_THUNK_DATA32
+CMT	a3304	eol	IMAGE_THUNK_DATA32
+CMT	a3308	eol	IMAGE_THUNK_DATA32
+CMT	a330c	eol	IMAGE_THUNK_DATA32
+CMT	a3310	eol	IMAGE_THUNK_DATA32
+CMT	a3314	eol	IMAGE_THUNK_DATA32
+CMT	a3318	eol	IMAGE_THUNK_DATA32
+CMT	a331c	eol	IMAGE_THUNK_DATA32
+CMT	a3320	eol	IMAGE_THUNK_DATA32
+CMT	a3324	eol	IMAGE_THUNK_DATA32
+CMT	a3328	eol	IMAGE_THUNK_DATA32
+CMT	a332c	eol	IMAGE_THUNK_DATA32
+CMT	a3330	eol	IMAGE_THUNK_DATA32
+CMT	a3334	eol	IMAGE_THUNK_DATA32
+CMT	a3338	eol	IMAGE_THUNK_DATA32
+CMT	a333c	eol	IMAGE_THUNK_DATA32
+CMT	a3340	eol	IMAGE_THUNK_DATA32
+CMT	a3344	eol	IMAGE_THUNK_DATA32
+CMT	a3348	eol	IMAGE_THUNK_DATA32
+CMT	a334c	eol	IMAGE_THUNK_DATA32
+CMT	a3350	eol	IMAGE_THUNK_DATA32
+CMT	a3354	eol	IMAGE_THUNK_DATA32
+CMT	a3358	eol	IMAGE_THUNK_DATA32
+CMT	a335c	eol	IMAGE_THUNK_DATA32
+CMT	a3360	eol	IMAGE_THUNK_DATA32
+CMT	a3364	eol	IMAGE_THUNK_DATA32
+CMT	a3368	eol	IMAGE_THUNK_DATA32
+CMT	a336c	eol	IMAGE_THUNK_DATA32
+CMT	a3370	eol	IMAGE_THUNK_DATA32
+CMT	a3374	eol	IMAGE_THUNK_DATA32
+CMT	a3378	eol	IMAGE_THUNK_DATA32
+CMT	a337c	eol	IMAGE_THUNK_DATA32
+CMT	a3380	eol	IMAGE_THUNK_DATA32
+CMT	a3384	eol	IMAGE_THUNK_DATA32
+CMT	a3388	eol	IMAGE_THUNK_DATA32
+CMT	a338c	eol	IMAGE_THUNK_DATA32
+CMT	a3408	eol	IMAGE_THUNK_DATA32
+CMT	a3438	eol	IMAGE_THUNK_DATA32
+CMT	a343c	eol	IMAGE_THUNK_DATA32
+CMT	a3440	eol	IMAGE_THUNK_DATA32
+CMT	a3444	eol	IMAGE_THUNK_DATA32
+CMT	a3448	eol	IMAGE_THUNK_DATA32
+CMT	a344c	eol	IMAGE_THUNK_DATA32
+CMT	a3450	eol	IMAGE_THUNK_DATA32
+CMT	a3454	eol	IMAGE_THUNK_DATA32
+CMT	a3458	eol	IMAGE_THUNK_DATA32
+CMT	a345c	eol	IMAGE_THUNK_DATA32
+CMT	a3460	eol	IMAGE_THUNK_DATA32
+CMT	a3464	eol	IMAGE_THUNK_DATA32
+CMT	a3468	eol	IMAGE_THUNK_DATA32
+CMT	a346c	eol	IMAGE_THUNK_DATA32
+CMT	a3470	eol	IMAGE_THUNK_DATA32
+CMT	a3474	eol	IMAGE_THUNK_DATA32
+CMT	a3478	eol	IMAGE_THUNK_DATA32
+CMT	a347c	eol	IMAGE_THUNK_DATA32
+CMT	a3480	eol	IMAGE_THUNK_DATA32
+CMT	a3484	eol	IMAGE_THUNK_DATA32
+CMT	a3488	eol	IMAGE_THUNK_DATA32
+CMT	a348c	eol	IMAGE_THUNK_DATA32
+CMT	a3490	eol	IMAGE_THUNK_DATA32
+CMT	a3494	eol	IMAGE_THUNK_DATA32
+CMT	a3498	eol	IMAGE_THUNK_DATA32
+CMT	a349c	eol	IMAGE_THUNK_DATA32
+CMT	a34a0	eol	IMAGE_THUNK_DATA32
+CMT	a34a4	eol	IMAGE_THUNK_DATA32
+CMT	a34a8	eol	IMAGE_THUNK_DATA32
+CMT	a34ac	eol	IMAGE_THUNK_DATA32
+CMT	a34b0	eol	IMAGE_THUNK_DATA32
+CMT	a34f8	eol	IMAGE_THUNK_DATA32
+CMT	a34fc	eol	IMAGE_THUNK_DATA32
+CMT	a3500	eol	IMAGE_THUNK_DATA32
+CMT	a3504	eol	IMAGE_THUNK_DATA32
+CMT	a3508	eol	IMAGE_THUNK_DATA32
+CMT	a350c	eol	IMAGE_THUNK_DATA32
+CMT	a3510	eol	IMAGE_THUNK_DATA32
+CMT	a3514	eol	IMAGE_THUNK_DATA32
+CMT	a3518	eol	IMAGE_THUNK_DATA32
+CMT	a351c	eol	IMAGE_THUNK_DATA32
+CMT	a3520	eol	IMAGE_THUNK_DATA32
+CMT	a3558	eol	IMAGE_THUNK_DATA32
+CMT	a355c	eol	IMAGE_THUNK_DATA32
+CMT	1000	pre	0x1000  69  GL_InitHnmScreen
+CMT	100a	pre	0x100a  56  GL_GetLastKey
+CMT	1014	pre	0x1014  71  GL_IsAppActive
+CMT	1019	pre	0x1019  2  GL_AddProgramItems
+CMT	101e	pre	0x101e  132  GL_ShellExec
+CMT	1023	pre	0x1023  60  GL_GetScreen
+CMT	102d	pre	0x102d  120  GL_SetDirectSoundPan
+CMT	1032	pre	0x1032  41  GL_FileRelatifMoveIn
+CMT	1037	pre	0x1037  146  GL_UnlockScreen
+CMT	1041	pre	0x1041  97  GL_PBox
+CMT	1046	pre	0x1046  94  GL_OpenHnm
+CMT	104b	pre	0x104b  5  GL_ArjFile
+CMT	1050	pre	0x1050  84  GL_LockBufferSound
+CMT	105f	pre	0x105f  23  GL_ConvertTrueColors
+CMT	1064	pre	0x1064  55  GL_GetKeyStrValue
+CMT	106e	pre	0x106e  4  GL_AllocDirectSound
+CMT	1073	pre	0x1073  104  GL_QuitWithError
+CMT	1078	pre	0x1078  42  GL_FileWrite
+CMT	1082	pre	0x1082  10  GL_CallExe
+CMT	1087	pre	0x1087  129  GL_SetKeybTable
+CMT	108c	pre	0x108c  36  GL_FileGetLen
+CMT	1091	pre	0x1091  89  GL_MouseX
+CMT	1096	pre	0x1096  121  GL_SetDirectSoundPosition
+CMT	109b	pre	0x109b  19  GL_CloseWAV
+CMT	10a5	pre	0x10a5  82  GL_LoadWAV
+CMT	10aa	pre	0x10aa  156  InitAudioCard
+CMT	10af	pre	0x10af  17  GL_CloseHnm
+CMT	10b4	pre	0x10b4  8  GL_BlitScreen
+CMT	10c3	pre	0x10c3  74  GL_IsWavFinished
+CMT	10cd	pre	0x10cd  12  GL_CloseDdraw
+CMT	10d2	pre	0x10d2  161  _GL_HNM6_Init_All_16@0
+CMT	10d7	pre	0x10d7  153  GL_dcpt_one_frame_ubb
+CMT	10dc	pre	0x10dc  99  GL_PlayDirectSound
+CMT	10e1	pre	0x10e1  9  GL_Box
+CMT	10eb	pre	0x10eb  75  GL_KbHit
+CMT	10f5	pre	0x10f5  135  GL_StartHnmSound
+CMT	10ff	pre	0x10ff  106  GL_QuitWithoutError
+CMT	1104	pre	0x1104  122  GL_SetDirectSoundVolume
+CMT	1109	pre	0x1109  126  GL_SetGraphScreen
+CMT	110e	pre	0x110e  24  GL_CopyEcran
+CMT	1113	pre	0x1113  133  GL_ShowGroup
+CMT	111d	pre	0x111d  28  GL_CreateKey
+CMT	1122	pre	0x1122  14  GL_CloseFileBigFile
+CMT	1127	pre	0x1127  160  _GL_HNM6_Init_All_15@0
+CMT	112c	pre	0x112c  123  GL_SetErrorMode
+CMT	1131	pre	0x1131  113  GL_SavePackLZW
+CMT	1136	pre	0x1136  57  GL_GetMessages
+CMT	113b	pre	0x113b  131  GL_SethInstance
+CMT	1140	pre	0x1140  140  GL_TestIfExistKey
+CMT	1145	pre	0x1145  38  GL_FileOpen
+CMT	114a	pre	0x114a  162  _GL_InitTestIfExeRunning@0
+CMT	1154	pre	0x1154  52  GL_GetFileSizeBigFile
+CMT	1159	pre	0x1159  107  GL_ReadFile
+CMT	115e	pre	0x115e  46  GL_FreeDirectSoundAdr
+CMT	1163	pre	0x1163  90  GL_MouseY
+CMT	116d	pre	0x116d  109  GL_ReleaseScreenHdc
+CMT	1172	pre	0x1172  159  _GL_HNM6_Decompression_Warp@8
+CMT	1177	pre	0x1177  95  GL_OpenWAV
+CMT	117c	pre	0x117c  105  GL_QuitWithErrorCode
+CMT	1181	pre	0x1181  49  GL_GetDirectSoundPosition
+CMT	1186	pre	0x1186  63  GL_GetTime
+CMT	118b	pre	0x118b  18  GL_CloseHnmSound
+CMT	1190	pre	0x1190  59  GL_GetNumLogicalScreen
+CMT	1195	pre	0x1195  31  GL_DeleteKey
+CMT	119a	pre	0x119a  87  GL_LockScreen
+CMT	119f	pre	0x119f  78  GL_LoadDirectSound
+CMT	11a4	pre	0x11a4  114  GL_SaveTga
+CMT	11a9	pre	0x11a9  48  GL_FreeScreen
+CMT	11ae	pre	0x11ae  64  GL_GetWAVHeader
+CMT	11b3	pre	0x11b3  29  GL_CreateList
+CMT	11b8	pre	0x11b8  149  GL_WaitForAppActive
+CMT	11c7	pre	0x11c7  65  GL_HideMouse
+CMT	11cc	pre	0x11cc  144  GL_UnlockBufferSound
+CMT	11d1	pre	0x11d1  128  GL_SetKeyStrValue
+CMT	11d6	pre	0x11d6  148  GL_ViewEcran
+CMT	11db	pre	0x11db  35  GL_FileCopy
+CMT	11e0	pre	0x11e0  53  GL_GetFirstArg
+CMT	11ea	pre	0x11ea  150  GL_WaitTime
+CMT	11f4	pre	0x11f4  163  _GL_ReleaseGraphColor@0
+CMT	11f9	pre	0x11f9  1  CloseAudioCard
+CMT	1203	pre	0x1203  43  GL_FlipScreen
+CMT	1208	pre	0x1208  92  GL_OpenDdraw
+CMT	120d	pre	0x120d  155  GL_search_blocks
+CMT	1212	pre	0x1212  91  GL_OpenBigFile
+CMT	1217	pre	0x1217  108  GL_ReadFileBigFile
+CMT	121c	pre	0x121c  98  GL_PackLZW
+CMT	1221	pre	0x1221  101  GL_PlayHnmGDI
+CMT	1230	pre	0x1230  73  GL_IsFileExist
+CMT	1235	pre	0x1235  85  GL_LockDirectSoundAdr
+CMT	123a	pre	0x123a  21  GL_ClsLogicalScreen
+CMT	123f	pre	0x123f  117  GL_SetDdrawCooperativeLevel
+CMT	124e	pre	0x124e  102  GL_PlayWav
+CMT	1253	pre	0x1253  154  GL_load_one_block_ubb
+CMT	1267	pre	0x1267  66  GL_IconifyWindow
+CMT	126c	pre	0x126c  137  GL_StopHnmSound
+CMT	1271	pre	0x1271  39  GL_FilePackAndCopy
+CMT	1276	pre	0x1276  33  GL_FileBrowse
+CMT	127b	pre	0x127b  86  GL_LockLogicalScreen
+CMT	1285	pre	0x1285  80  GL_LoadTga
+CMT	128a	pre	0x128a  45  GL_FreeDirectSound
+CMT	128f	pre	0x128f  32  GL_ExecRoutine
+CMT	1299	pre	0x1299  62  GL_GetTgaInfo
+CMT	12ad	pre	0x12ad  51  GL_GetFileSize
+CMT	12b2	pre	0x12b2  145  GL_UnlockLogicalScreen
+CMT	12bc	pre	0x12bc  70  GL_InitHnmSound
+CMT	12c1	pre	0x12c1  125  GL_SetGraphColor
+CMT	12c6	pre	0x12c6  93  GL_OpenFileBigFile
+CMT	12cb	pre	0x12cb  50  GL_GetDirectSoundStatus
+CMT	12d5	pre	0x12d5  118  GL_SetDebugFlag
+CMT	12df	pre	0x12df  13  GL_CloseDirectSound
+CMT	12e9	pre	0x12e9  136  GL_StopDirectSound
+CMT	12ee	pre	0x12ee  37  GL_FileMoveIn
+CMT	12f3	pre	0x12f3  6  GL_BlitDdrawScreen
+CMT	12f8	pre	0x12f8  100  GL_PlayHnmDDRAW
+CMT	12fd	pre	0x12fd  3  GL_AdjustFreqSoundHnm
+CMT	1302	pre	0x1302  130  GL_SetTgaInfo
+CMT	1307	pre	0x1307  81  GL_LoadTgaInfo
+CMT	130c	pre	0x130c  142  GL_TexteOpaque
+CMT	1311	pre	0x1311  47  GL_FreeHnmScreen
+CMT	1316	pre	0x1316  7  GL_BlitImage
+CMT	131b	pre	0x131b  141  GL_Texte
+CMT	1320	pre	0x1320  30  GL_DcptOneBlockSound
+CMT	1339	pre	0x1339  79  GL_LoadPackLZW
+CMT	133e	pre	0x133e  88  GL_MouseK
+CMT	134d	pre	0x134d  116  GL_SelectScreen
+CMT	1352	pre	0x1352  40  GL_FileRead
+CMT	135c	pre	0x135c  54  GL_GetFlags
+CMT	136b	pre	0x136b  27  GL_CreateGroup
+CMT	1375	pre	0x1375  127  GL_SetHwnd
+CMT	137a	pre	0x137a  22  GL_ClsScreen
+CMT	137f	pre	0x137f  83  GL_LoadWav
+CMT	1384	pre	0x1384  124  GL_SetFilePointer
+CMT	1389	pre	0x1389  147  GL_UnpackLZW
+CMT	138e	pre	0x138e  44  GL_FlipToGDI
+CMT	1398	pre	0x1398  61  GL_GetScreenHdc
+CMT	139d	pre	0x139d  151  GL_WindowProc
+CMT	13a7	pre	0x13a7  158  _GL_GetMessages2@0
+CMT	13ac	pre	0x13ac  110  GL_ReplaceFileBigFile
+CMT	13b1	pre	0x13b1  157  SetBigFileDebug
+CMT	13b6	pre	0x13b6  25  GL_CreateBigFile
+CMT	13bb	pre	0x13bb  11  GL_CloseBigFile
+CMT	13c0	pre	0x13c0  112  GL_RestoreSurfaces
+CMT	13c5	pre	0x13c5  164  _GL_TestIfExeRunning@4
+CMT	13cf	pre	0x13cf  96  GL_OutVal
+CMT	13d4	pre	0x13d4  134  GL_ShowMouse
+CMT	13d9	pre	0x13d9  34  GL_FileClose
+CMT	13de	pre	0x13de  72  GL_IsExeRunning
+CMT	13e3	pre	0x13e3  165  _GL_WaitKey@0
+CMT	13e8	pre	0x13e8  111  GL_ResetAllScreen
+CMT	13ed	pre	0x13ed  76  GL_KeyHit
+CMT	13f7	pre	0x13f7  16  GL_CloseHandle
+CMT	13fc	pre	0x13fc  15  GL_CloseFileMapping
+CMT	1401	pre	0x1401  139  GL_TestIfDdraw
+CMT	1406	pre	0x1406  119  GL_SetDirectSoundFrequency
+CMT	140b	pre	0x140b  143  GL_ToggleWinFullScreen
+CMT	1415	pre	0x1415  26  GL_CreateFile
+CMT	141a	pre	0x141a  138  GL_TestAppAlreadyRunning
+CMT	1424	pre	0x1424  115  GL_SaveWAV
+CMT	1433	pre	0x1433  58  GL_GetNextArg
+CMT	1442	pre	0x1442  152  GL_ZipFile
+CMT	1447	pre	0x1447  103  GL_PlayWavDirectSound
+CMT	144c	pre	0x144c  68  GL_InitDirectSound
+CMT	1451	pre	0x1451  77  GL_Line
+CMT	1456	pre	0x1456  67  GL_InitAllScreen
+CMT	145b	pre	0x145b  20  GL_ClrKeybTable
+CMT	a358c	pre	286  RegDeleteKeyA  <<not bound>>
+CMT	a3590	pre	309  RegQueryValueA  <<not bound>>
+CMT	a3594	pre	279  RegCloseKey  <<not bound>>
+CMT	a3598	pre	321  RegSetValueExA  <<not bound>>
+CMT	a359c	pre	283  RegCreateKeyExA  <<not bound>>
+CMT	a35a0	pre	302  RegOpenKeyExA  <<not bound>>
+CMT	a35d4	pre	5  DirectDrawCreate  <<not bound>>
+CMT	a3604	pre	0  DirectSoundCreate  <<not bound>>
+CMT	a3634	pre	283  MoveToEx  <<not bound>>
+CMT	a3638	pre	43  CreateFontA  <<not bound>>
+CMT	a363c	pre	336  SetBkColor  <<not bound>>
+CMT	a3640	pre	53  CreatePalette  <<not bound>>
+CMT	a3644	pre	70  DeleteObject  <<not bound>>
+CMT	a3648	pre	164  GdiSetBatchLimit  <<not bound>>
+CMT	a364c	pre	36  CreateDIBSection  <<not bound>>
+CMT	a3650	pre	311  RealizePalette  <<not bound>>
+CMT	a3654	pre	331  SelectPalette  <<not bound>>
+CMT	a3658	pre	67  DeleteDC  <<not bound>>
+CMT	a365c	pre	382  StretchBlt  <<not bound>>
+CMT	a3660	pre	342  SetDIBColorTable  <<not bound>>
+CMT	a3664	pre	330  SelectObject  <<not bound>>
+CMT	a3668	pre	31  CreateCompatibleDC  <<not bound>>
+CMT	a366c	pre	366  SetStretchBltMode  <<not bound>>
+CMT	a3670	pre	64  CreateSolidBrush  <<not bound>>
+CMT	a3674	pre	55  CreatePen  <<not bound>>
+CMT	a3678	pre	280  LineTo  <<not bound>>
+CMT	a367c	pre	314  Rectangle  <<not bound>>
+CMT	a3680	pre	387  TextOutA  <<not bound>>
+CMT	a3684	pre	337  SetBkMode  <<not bound>>
+CMT	a3688	pre	370  SetTextColor  <<not bound>>
+CMT	a36c8	pre	635  WriteFile  <<not bound>>
+CMT	a36cc	pre	237  GetFileSize  <<not bound>>
+CMT	a36d0	pre	232  GetFileAttributesA  <<not bound>>
+CMT	a36d4	pre	470  ReadFile  <<not bound>>
+CMT	a36d8	pre	537  SetFilePointer  <<not bound>>
+CMT	a36dc	pre	49  CreateFileA  <<not bound>>
+CMT	a36e0	pre	67  CreateThread  <<not bound>>
+CMT	a36e4	pre	454  QueryPerformanceFrequency  <<not bound>>
+CMT	a36e8	pre	453  QueryPerformanceCounter  <<not bound>>
+CMT	a36ec	pre	575  Sleep  <<not bound>>
+CMT	a36f0	pre	254  GetModuleHandleA  <<not bound>>
+CMT	a36f4	pre	278  GetProcAddress  <<not bound>>
+CMT	a36f8	pre	603  VirtualAlloc  <<not bound>>
+CMT	a36fc	pre	606  VirtualFree  <<not bound>>
+CMT	a3700	pre	61  CreateProcessA  <<not bound>>
+CMT	a3704	pre	432  OpenFileMappingA  <<not bound>>
+CMT	a3708	pre	24  CloseHandle  <<not bound>>
+CMT	a370c	pre	50  CreateFileMappingA  <<not bound>>
+CMT	a3710	pre	244  GetLastError  <<not bound>>
+CMT	a3714	pre	107  ExitProcess  <<not bound>>
+CMT	a3718	pre	341  GlobalAlloc  <<not bound>>
+CMT	a371c	pre	352  GlobalLock  <<not bound>>
+CMT	a3720	pre	358  GlobalUnlock  <<not bound>>
+CMT	a3724	pre	348  GlobalFree  <<not bound>>
+CMT	a3728	pre	442  OutputDebugStringA  <<not bound>>
+CMT	a372c	pre	563  SetThreadPriority  <<not bound>>
+CMT	a3730	pre	667  lstrcpyA  <<not bound>>
+CMT	a3734	pre	201  GetConsoleMode  <<not bound>>
+CMT	a3738	pre	332  GetVersion  <<not bound>>
+CMT	a373c	pre	377  InitializeCriticalSection  <<not bound>>
+CMT	a3740	pre	485  RtlUnwind  <<not bound>>
+CMT	a3744	pre	528  SetEndOfFile  <<not bound>>
+CMT	a3748	pre	422  MoveFileA  <<not bound>>
+CMT	a374c	pre	553  SetStdHandle  <<not bound>>
+CMT	a3750	pre	384  IsBadCodePtr  <<not bound>>
+CMT	a3754	pre	142  FlushFileBuffers  <<not bound>>
+CMT	a3758	pre	592  UnhandledExceptionFilter  <<not bound>>
+CMT	a375c	pre	302  GetStringTypeW  <<not bound>>
+CMT	a3760	pre	566  SetUnhandledExceptionFilter  <<not bound>>
+CMT	a3764	pre	501  SetConsoleCtrlHandler  <<not bound>>
+CMT	a3768	pre	227  GetEnvironmentStringsW  <<not bound>>
+CMT	a376c	pre	299  GetStringTypeA  <<not bound>>
+CMT	a3770	pre	225  GetEnvironmentStrings  <<not bound>>
+CMT	a3774	pre	150  FreeEnvironmentStringsA  <<not bound>>
+CMT	a3778	pre	151  FreeEnvironmentStringsW  <<not bound>>
+CMT	a377c	pre	157  GetACP  <<not bound>>
+CMT	a3780	pre	163  GetCPInfo  <<not bound>>
+CMT	a3784	pre	265  GetOEMCP  <<not bound>>
+CMT	a3788	pre	622  WideCharToMultiByte  <<not bound>>
+CMT	a378c	pre	397  LCMapStringA  <<not bound>>
+CMT	a3790	pre	398  LCMapStringW  <<not bound>>
+CMT	a3794	pre	212  GetCurrentProcessId  <<not bound>>
+CMT	a3798	pre	296  GetStartupInfoA  <<not bound>>
+CMT	a379c	pre	427  MultiByteToWideChar  <<not bound>>
+CMT	a37a0	pre	539  SetHandleCount  <<not bound>>
+CMT	a37a4	pre	213  GetCurrentThread  <<not bound>>
+CMT	a37a8	pre	514  SetConsoleMode  <<not bound>>
+CMT	a37ac	pre	239  GetFileType  <<not bound>>
+CMT	a37b0	pre	78  DeleteFileA  <<not bound>>
+CMT	a37b4	pre	542  SetLastError  <<not bound>>
+CMT	a37b8	pre	585  TlsFree  <<not bound>>
+CMT	a37bc	pre	459  ReadConsoleInputA  <<not bound>>
+CMT	a37c0	pre	529  SetEnvironmentVariableA  <<not bound>>
+CMT	a37c4	pre	31  CompareStringW  <<not bound>>
+CMT	a37c8	pre	624  WriteConsoleA  <<not bound>>
+CMT	a37cc	pre	263  GetNumberOfConsoleInputEvents  <<not bound>>
+CMT	a37d0	pre	444  PeekConsoleInputA  <<not bound>>
+CMT	a37d4	pre	30  CompareStringA  <<not bound>>
+CMT	a37d8	pre	328  GetTimeZoneInformation  <<not bound>>
+CMT	a37dc	pre	247  GetLocaleInfoW  <<not bound>>
+CMT	a37e0	pre	246  GetLocaleInfoA  <<not bound>>
+CMT	a37e4	pre	329  GetUserDefaultLCID  <<not bound>>
+CMT	a37e8	pre	395  IsValidCodePage  <<not bound>>
+CMT	a37ec	pre	396  IsValidLocale  <<not bound>>
+CMT	a37f0	pre	399  LeaveCriticalSection  <<not bound>>
+CMT	a37f4	pre	115  FatalAppExitA  <<not bound>>
+CMT	a37f8	pre	390  IsBadWritePtr  <<not bound>>
+CMT	a37fc	pre	387  IsBadReadPtr  <<not bound>>
+CMT	a3800	pre	374  HeapValidate  <<not bound>>
+CMT	a3804	pre	582  TerminateProcess  <<not bound>>
+CMT	a3808	pre	211  GetCurrentProcess  <<not bound>>
+CMT	a380c	pre	298  GetStdHandle  <<not bound>>
+CMT	a3810	pre	72  DebugBreak  <<not bound>>
+CMT	a3814	pre	586  TlsGetValue  <<not bound>>
+CMT	a3818	pre	170  GetCommandLineA  <<not bound>>
+CMT	a381c	pre	379  InterlockedDecrement  <<not bound>>
+CMT	a3820	pre	584  TlsAlloc  <<not bound>>
+CMT	a3824	pre	76  DeleteCriticalSection  <<not bound>>
+CMT	a3828	pre	88  EnterCriticalSection  <<not bound>>
+CMT	a382c	pre	400  LoadLibraryA  <<not bound>>
+CMT	a3830	pre	214  GetCurrentThreadId  <<not bound>>
+CMT	a3834	pre	360  HeapAlloc  <<not bound>>
+CMT	a3838	pre	587  TlsSetValue  <<not bound>>
+CMT	a383c	pre	362  HeapCreate  <<not bound>>
+CMT	a3840	pre	366  HeapFree  <<not bound>>
+CMT	a3844	pre	364  HeapDestroy  <<not bound>>
+CMT	a3848	pre	382  InterlockedIncrement  <<not bound>>
+CMT	a384c	pre	252  GetModuleFileNameA  <<not bound>>
+CMT	a3850	pre	369  HeapReAlloc  <<not bound>>
+CMT	a38cc	pre	99  ShellExecuteExA  <<not bound>>
+CMT	a38fc	pre	103  DdeFreeStringHandle  <<not bound>>
+CMT	a3900	pre	105  DdeGetLastError  <<not bound>>
+CMT	a3904	pre	433  PostMessageA  <<not bound>>
+CMT	a3908	pre	238  GetDC  <<not bound>>
+CMT	a390c	pre	461  ReleaseDC  <<not bound>>
+CMT	a3910	pre	138  DestroyWindow  <<not bound>>
+CMT	a3914	pre	405  MessageBoxA  <<not bound>>
+CMT	a3918	pre	338  InvalidateRect  <<not bound>>
+CMT	a391c	pre	228  GetClientRect  <<not bound>>
+CMT	a3920	pre	593  UpdateWindow  <<not bound>>
+CMT	a3924	pre	54  ClientToScreen  <<not bound>>
+CMT	a3928	pre	300  GetSystemMetrics  <<not bound>>
+CMT	a392c	pre	249  GetForegroundWindow  <<not bound>>
+CMT	a3930	pre	144  DispatchMessageA  <<not bound>>
+CMT	a3934	pre	356  IsIconic  <<not bound>>
+CMT	a3938	pre	553  ShowCursor  <<not bound>>
+CMT	a393c	pre	182  EndPaint  <<not bound>>
+CMT	a3940	pre	581  TranslateMessage  <<not bound>>
+CMT	a3944	pre	431  PeekMessageA  <<not bound>>
+CMT	a3948	pre	9  BeginPaint  <<not bound>>
+CMT	a394c	pre	121  DdeUninitialize  <<not bound>>
+CMT	a3950	pre	316  GetWindowPlacement  <<not bound>>
+CMT	a3954	pre	387  LoadStringA  <<not bound>>
+CMT	a3958	pre	314  GetWindowLongA  <<not bound>>
+CMT	a395c	pre	97  DdeCreateStringHandleA  <<not bound>>
+CMT	a3960	pre	541  SetWindowPlacement  <<not bound>>
+CMT	a3964	pre	108  DdeInitializeA  <<not bound>>
+CMT	a3968	pre	92  DdeClientTransaction  <<not bound>>
+CMT	a396c	pre	94  DdeConnect  <<not bound>>
+CMT	a3970	pre	96  DdeCreateDataHandle  <<not bound>>
+CMT	a3974	pre	99  DdeDisconnect  <<not bound>>
+CMT	a39bc	pre	192  waveOutWrite  <<not bound>>
+CMT	a39c0	pre	171  waveOutClose  <<not bound>>
+CMT	a39c4	pre	191  waveOutUnprepareHeader  <<not bound>>
+CMT	a39c8	pre	186  waveOutReset  <<not bound>>
+CMT	a39cc	pre	185  waveOutPrepareHeader  <<not bound>>
+CMT	a39d0	pre	183  waveOutOpen  <<not bound>>
+CMT	a39d4	pre	151  timeGetTime  <<not bound>>
+CMT	a39d8	pre	152  timeKillEvent  <<not bound>>
+CMT	a39dc	pre	153  timeSetEvent  <<not bound>>
+CMT	a39e0	pre	147  timeBeginPeriod  <<not bound>>
+CMT	a39e4	pre	148  timeEndPeriod  <<not bound>>
+CMT	a3a1c	pre	9  GetOpenFileNameA  <<not bound>>
+CMT	a3a20	pre	11  GetSaveFileNameA  <<not bound>>
+CMT	35da0	plate	Library Function - Single Match\n _malloc\n\nLibrary: Visual Studio 1998 Debug
+CMT	35dd0	plate	Library Function - Single Match\n __malloc_dbg\n\nLibrary: Visual Studio 1998 Debug
+CMT	35e00	plate	Library Function - Single Match\n __nh_malloc\n\nLibrary: Visual Studio 1998 Debug
+CMT	35e30	plate	Library Function - Single Match\n __nh_malloc_dbg\n\nLibrary: Visual Studio 1998 Debug
+CMT	35eb0	plate	Library Function - Single Match\n __heap_alloc\n\nLibrary: Visual Studio 1998 Debug
+CMT	35ee0	plate	Library Function - Single Match\n __heap_alloc_dbg\n\nLibrary: Visual Studio 1998 Debug
+CMT	36220	plate	Library Function - Single Match\n _calloc\n\nLibrary: Visual Studio 1998 Debug
+CMT	36250	plate	Library Function - Single Match\n __calloc_dbg\n\nLibrary: Visual Studio 1998 Debug
+CMT	362c0	plate	Library Function - Multiple Matches With Different Base Names\n __expand\n _realloc\n\nLibrary: Visual Studio 1998 Debug
+CMT	362f0	plate	Library Function - Single Match\n __realloc_dbg\n\nLibrary: Visual Studio 1998 Debug
+CMT	36340	plate	Library Function - Single Match\n _realloc_help\n\nLibrary: Visual Studio 1998 Debug
+CMT	368d0	plate	Library Function - Multiple Matches With Different Base Names\n __expand\n _realloc\n\nLibrary: Visual Studio 1998 Debug
+CMT	36900	plate	Library Function - Single Match\n __expand_dbg\n\nLibrary: Visual Studio 1998 Debug
+CMT	36970	plate	Library Function - Single Match\n __free_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	36990	plate	Library Function - Single Match\n __free_dbg\n\nLibrary: Visual Studio 1998 Debug
+CMT	369c0	plate	Library Function - Single Match\n __free_dbg_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	36df0	plate	Library Function - Single Match\n __msize\n\nLibrary: Visual Studio 1998 Debug
+CMT	36e10	plate	Library Function - Single Match\n __msize_dbg\n\nLibrary: Visual Studio 1998 Debug
+CMT	36fc0	plate	Library Function - Single Match\n __CrtSetDbgBlockType\n\nLibrary: Visual Studio 1998 Debug
+CMT	370b0	plate	Library Function - Single Match\n _CheckBytes\n\nLibrary: Visual Studio 1998 Debug
+CMT	37140	plate	Library Function - Single Match\n __CrtCheckMemory\n\nLibrary: Visual Studio 1998 Debug
+CMT	374e0	plate	Library Function - Single Match\n __CrtSetDbgFlag\n\nLibrary: Visual Studio 1998 Debug
+CMT	37510	plate	Library Function - Single Match\n __CrtDoForAllClientObjects\n\nLibrary: Visual Studio 1998 Debug
+CMT	37590	plate	Library Function - Single Match\n __CrtIsValidPointer\n\nLibrary: Visual Studio 1998 Debug
+CMT	375f0	plate	Library Function - Single Match\n __CrtIsValidHeapPointer\n\nLibrary: Visual Studio 1998 Debug
+CMT	376c0	plate	Library Function - Single Match\n __CrtIsMemoryBlock\n\nLibrary: Visual Studio 1998 Debug
+CMT	37810	plate	Library Function - Single Match\n __CrtMemCheckpoint\n\nLibrary: Visual Studio 1998 Debug
+CMT	37960	plate	Library Function - Single Match\n __CrtMemDifference\n\nLibrary: Visual Studio 1998 Debug
+CMT	37aa0	plate	Library Function - Single Match\n __CrtMemDumpAllObjectsSince\n\nLibrary: Visual Studio 1998 Debug
+CMT	37d80	plate	Library Function - Single Match\n __printMemBlockData\n\nLibrary: Visual Studio 1998 Debug
+CMT	37e80	plate	Library Function - Single Match\n __CrtDumpMemoryLeaks\n\nLibrary: Visual Studio 1998 Debug
+CMT	37f10	plate	Library Function - Single Match\n __CrtMemDumpStatistics\n\nLibrary: Visual Studio 1998 Debug
+CMT	37ff0	plate	Library Function - Multiple Matches With Different Base Names\n __mbscat\n _strcat\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+CMT	380d0	plate	Library Function - Single Match\n _sprintf\n\nLibrary: Visual Studio 1998 Debug
+CMT	381c0	plate	Library Function - Single Match\n __cinit\n\nLibrary: Visual Studio 1998 Debug
+CMT	38210	plate	Library Function - Single Match\n _exit\n\nLibrary: Visual Studio 1998 Debug
+CMT	38230	plate	Library Function - Single Match\n __exit\n\nLibrary: Visual Studio 1998 Debug
+CMT	38250	plate	Library Function - Single Match\n __cexit\n\nLibrary: Visual Studio 1998 Debug
+CMT	38270	plate	Library Function - Single Match\n __c_exit\n\nLibrary: Visual Studio 1998 Debug
+CMT	38290	plate	Library Function - Single Match\n _doexit\n\nLibrary: Visual Studio 1998 Debug
+CMT	383a0	plate	Library Function - Multiple Matches With Different Base Names\n __lockexit\n __unlockexit\n\nLibrary: Visual Studio 1998 Debug
+CMT	383c0	plate	Library Function - Multiple Matches With Different Base Names\n __lockexit\n __unlockexit\n\nLibrary: Visual Studio 1998 Debug
+CMT	383e0	plate	Library Function - Single Match\n __initterm\n\nLibrary: Visual Studio 1998 Debug
+CMT	38420	plate	Library Function - Single Match\n _printf\n\nLibrary: Visual Studio 1998 Debug
+CMT	384e0	plate	Library Function - Single Match\n _strcmp\n\nLibrary: Visual Studio 1998 Debug
+CMT	38570	plate	Library Function - Single Match\n _strncpy\n\nLibrary: Visual Studio 1998 Debug
+CMT	38670	plate	Library Function - Single Match\n __fpmath\n\nLibrary: Visual Studio 1998 Debug
+CMT	386b0	plate	Library Function - Single Match\n __cfltcvt_init\n\nLibrary: Visual Studio 1998 Debug
+CMT	38730	plate	Library Function - Single Match\n _strtok\n\nLibrary: Visual Studio 1998 Debug
+CMT	388b0	plate	Library Function - Single Match\n _memset\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+CMT	38910	plate	Library Function - Single Match\n _strlen\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+CMT	38990	plate	Library Function - Multiple Matches With Different Base Names\n _memcpy\n _memmove\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release
+CMT	38ae0	plate	Library Function - Single Match\n void * __cdecl operator new(unsigned int)\n\nLibrary: Visual Studio 1998 Debug
+CMT	38b00	plate	Library Function - Single Match\n void __cdecl operator delete(void *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	38bb8	plate	Library Function - Single Match\n __global_unwind2\n\nLibraries: Visual Studio, vc6
+CMT	38bfa	plate	Library Function - Single Match\n __local_unwind2\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, Visual Studio 2003 Debug, Visual Studio 2003 Release
+CMT	38c62	plate	Library Function - Single Match\n __abnormal_termination\n\nLibrary: Visual Studio 1998 Debug
+CMT	38cb0	plate	Library Function - Single Match\n void __stdcall _JumpToContinuation(void *,struct EHRegistrationNode *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	38cf0	plate	Library Function - Single Match\n void __stdcall _CallMemberFunction0(void *,void *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	38d00	plate	Library Function - Multiple Matches With Different Base Names\n void __stdcall _CallMemberFunction1(void *,void *,void *)\n void __stdcall _CallMemberFunction2(void *,void *,void *,int)\n\nLibrary: Visual Studio 1998 Debug
+CMT	38d10	plate	Library Function - Multiple Matches With Different Base Names\n void __stdcall _CallMemberFunction1(void *,void *,void *)\n void __stdcall _CallMemberFunction2(void *,void *,void *,int)\n\nLibrary: Visual Studio 1998 Debug
+CMT	38d20	plate	Library Function - Single Match\n void __stdcall _UnwindNestedFrames(struct EHRegistrationNode *,struct EHExceptionRecord *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	38d80	plate	Library Function - Single Match\n ___CxxFrameHandler\n\nLibrary: Visual Studio 1998 Debug
+CMT	38dc0	plate	Library Function - Single Match\n ___CxxLongjmpUnwind@4\n\nLibrary: Visual Studio 1998 Debug
+CMT	38e00	plate	Library Function - Single Match\n void * __cdecl _CallCatchBlock2(struct EHRegistrationNode *,struct _s_FuncInfo const *,void *,int,unsigned long)\n\nLibrary: Visual Studio 1998 Debug
+CMT	38e70	plate	Library Function - Single Match\n enum _EXCEPTION_DISPOSITION __cdecl CatchGuardHandler(struct EHExceptionRecord *,struct CatchGuardRN *,void *,void *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	38eb0	plate	Library Function - Single Match\n int __cdecl _CallSETranslator(struct EHExceptionRecord *,struct EHRegistrationNode *,void *,void *,struct _s_FuncInfo const *,int,struct EHRegistrationNode *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	38f90	plate	Library Function - Single Match\n enum _EXCEPTION_DISPOSITION __cdecl TranslatorGuardHandler(struct EHExceptionRecord *,struct TranslatorGuardRN *,void *,void *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	39000	plate	Library Function - Single Match\n _fclose\n\nLibrary: Visual Studio 1998 Debug
+CMT	39090	plate	Library Function - Single Match\n __fclose_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	39160	plate	Library Function - Single Match\n _fgets\n\nLibrary: Visual Studio 1998 Debug
+CMT	392b0	plate	Library Function - Single Match\n __fsopen\n\nLibrary: Visual Studio 1998 Debug
+CMT	393c0	plate	Library Function - Single Match\n _fopen\n\nLibrary: Visual Studio 1998 Debug
+CMT	393e4	plate	Library Function - Single Match\n __ftol\n\nLibrary: Visual Studio
+CMT	39410	plate	Library Function - Single Match\n _fread\n\nLibrary: Visual Studio 1998 Debug
+CMT	39460	plate	Library Function - Single Match\n __fread_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	39630	plate	Library Function - Single Match\n _fgetc\n\nLibrary: Visual Studio 1998 Debug
+CMT	396d0	plate	Library Function - Single Match\n _getc\n\nLibrary: Visual Studio 1998 Debug
+CMT	396f0	plate	Library Function - Single Match\n _fputc\n\nLibrary: Visual Studio 1998 Debug
+CMT	397a0	plate	Library Function - Single Match\n _putc\n\nLibrary: Visual Studio 1998 Debug
+CMT	397c0	plate	Library Function - Single Match\n _fseek\n\nLibrary: Visual Studio 1998 Debug
+CMT	39840	plate	Library Function - Single Match\n __fseek_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	39980	plate	Library Function - Single Match\n __fgetchar\n\nLibrary: Visual Studio 1998 Debug
+CMT	399c0	plate	Library Function - Multiple Matches With Different Base Names\n _memcpy\n _memmove\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release
+CMT	39b10	plate	Library Function - Single Match\n _fprintf\n\nLibrary: Visual Studio 1998 Debug
+CMT	39be0	plate	Library Function - Single Match\n ___initstdio\n\nLibrary: Visual Studio 1998 Debug
+CMT	39d40	plate	Library Function - Single Match\n ___endstdio\n\nLibrary: Visual Studio 1998 Debug
+CMT	39d70	plate	Library Function - Single Match\n _rewind\n\nLibrary: Visual Studio 1998 Debug
+CMT	39e50	plate	Library Function - Single Match\n _ftell\n\nLibrary: Visual Studio 1998 Debug
+CMT	39ec0	plate	Library Function - Single Match\n __ftell_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	3a180	plate	Library Function - Single Match\n _memcmp\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+CMT	3a240	plate	Library Function - Single Match\n _strchr\n\nLibrary: Visual Studio 1998 Debug
+CMT	3a300	plate	Library Function - Multiple Matches With Different Base Names\n __wrename\n _rename\n\nLibrary: Visual Studio 1998 Debug
+CMT	3a360	plate	Library Function - Multiple Matches With Different Base Names\n __wremove\n _remove\n\nLibrary: Visual Studio 1998 Debug
+CMT	3a3c0	plate	Library Function - Multiple Matches With Different Base Names\n __unlink\n __wunlink\n\nLibrary: Visual Studio 1998 Debug
+CMT	3a3e0	plate	Library Function - Single Match\n __onexit\n\nLibrary: Visual Studio 1998 Debug
+CMT	3a4b0	plate	Library Function - Single Match\n _atexit\n\nLibrary: Visual Studio 1998 Debug
+CMT	3a4e0	plate	Library Function - Single Match\n ___onexitinit\n\nLibrary: Visual Studio 1998 Debug
+CMT	3a540	plate	Library Function - Single Match\n _tmpnam\n\nLibrary: Visual Studio 1998 Debug
+CMT	3a670	plate	Library Function - Single Match\n _tmpfile\n\nLibrary: Visual Studio 1998 Debug
+CMT	3a810	plate	Library Function - Single Match\n _init_namebuf\n\nLibrary: Visual Studio 1998 Debug
+CMT	3a8d0	plate	Library Function - Single Match\n _genfname\n\nLibrary: Visual Studio 1998 Debug
+CMT	3a970	plate	Library Function - Single Match\n _strpbrk\n\nLibrary: Visual Studio 1998 Debug
+CMT	3a9d0	plate	Library Function - Single Match\n _toupper\n\nLibrary: Visual Studio 1998 Debug
+CMT	3aa80	plate	Library Function - Single Match\n __toupper_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	3abc0	plate	Library Function - Single Match\n __CRT_INIT@12\n\nLibrary: Visual Studio 1998 Debug
+CMT	3aef0	plate	Library Function - Single Match\n __amsg_exit\n\nLibrary: Visual Studio 1998 Debug
+CMT	3af50	plate	Library Function - Single Match\n int (__cdecl*__cdecl _set_new_handler(int (__cdecl*)(unsigned int)))(unsigned int)\n\nLibrary: Visual Studio 1998 Debug
+CMT	3afb0	plate	Library Function - Single Match\n __callnewh\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b010	plate	Library Function - Single Match\n __mtinitlocks\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b050	plate	Library Function - Single Match\n __mtdeletelocks\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b110	plate	Library Function - Single Match\n __lock\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b1e0	plate	Library Function - Multiple Matches With Different Base Names\n __lock_file\n __unlock_file\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b240	plate	Library Function - Multiple Matches With Different Base Names\n __lock_file2\n __unlock_file2\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b280	plate	Library Function - Single Match\n __unlock_file\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b2e0	plate	Library Function - Multiple Matches With Different Base Names\n __lock_file2\n __unlock_file2\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b320	plate	Library Function - Single Match\n __lockerr_exit\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b350	plate	Library Function - Single Match\n __malloc_base\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b380	plate	Library Function - Single Match\n __nh_malloc_base\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b420	plate	Library Function - Single Match\n __heap_alloc_base\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b4a0	plate	Library Function - Single Match\n __CrtDbgBreak\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b4c0	plate	Library Function - Single Match\n __CrtSetReportMode\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b540	plate	Library Function - Single Match\n __CrtSetReportFile\n\nLibrary: Visual Studio 1998 Debug
+CMT	3b620	plate	Library Function - Single Match\n __CrtDbgReport\n\nLibrary: Visual Studio 1998 Debug
+CMT	3ba10	plate	Library Function - Single Match\n _CrtMessageWindow\n\nLibrary: Visual Studio 1998 Debug
+CMT	3bd60	plate	Library Function - Single Match\n __expand_base\n\nLibrary: Visual Studio 1998 Debug
+CMT	3be50	plate	Library Function - Single Match\n __realloc_base\n\nLibrary: Visual Studio 1998 Debug
+CMT	3c080	plate	Library Function - Single Match\n __free_base\n\nLibrary: Visual Studio 1998 Debug
+CMT	3c110	plate	Library Function - Single Match\n __heapchk\n\nLibrary: Visual Studio 1998 Debug
+CMT	3c1b0	plate	Library Function - Single Match\n __heapset\n\nLibrary: Visual Studio 1998 Debug
+CMT	3c1d0	plate	Library Function - Single Match\n __heap_init\n\nLibrary: Visual Studio 1998 Debug
+CMT	3c230	plate	Library Function - Single Match\n __heap_term\n\nLibrary: Visual Studio 1998 Debug
+CMT	3c2b0	plate	Library Function - Single Match\n __set_sbh_threshold\n\nLibrary: Visual Studio 1998 Debug
+CMT	3c300	plate	Library Function - Single Match\n ___sbh_new_region\n\nLibrary: Visual Studio 1998 Debug
+CMT	3c510	plate	Library Function - Single Match\n ___sbh_release_region\n\nLibrary: Visual Studio 1998 Debug
+CMT	3c5a0	plate	Library Function - Single Match\n ___sbh_decommit_pages\n\nLibrary: Visual Studio 1998 Debug
+CMT	3c720	plate	Library Function - Single Match\n ___sbh_find_block\n\nLibrary: Visual Studio 1998 Debug
+CMT	3c7d0	plate	Library Function - Single Match\n ___sbh_free_block\n\nLibrary: Visual Studio 1998 Debug
+CMT	3c860	plate	Library Function - Single Match\n ___sbh_alloc_block\n\nLibrary: Visual Studio 1998 Debug
+CMT	3cd30	plate	Library Function - Single Match\n ___sbh_alloc_block_from_page\n\nLibrary: Visual Studio 1998 Debug
+CMT	3d030	plate	Library Function - Single Match\n ___sbh_resize_block\n\nLibrary: Visual Studio 1998 Debug
+CMT	3d1f0	plate	Library Function - Single Match\n ___sbh_heap_check\n\nLibrary: Visual Studio 1998 Debug
+CMT	3d460	plate	Library Function - Single Match\n __isctype\n\nLibrary: Visual Studio 1998 Debug
+CMT	3d520	plate	Library Function - Single Match\n __flsbuf\n\nLibrary: Visual Studio 1998 Debug
+CMT	3d7c0	plate	Library Function - Single Match\n __output\n\nLibrary: Visual Studio 1998 Debug
+CMT	3e550	plate	Library Function - Single Match\n _write_char\n\nLibrary: Visual Studio 1998 Debug
+CMT	3e5d0	plate	Library Function - Single Match\n _write_multi_char\n\nLibrary: Visual Studio 1998 Debug
+CMT	3e620	plate	Library Function - Single Match\n _write_string\n\nLibrary: Visual Studio 1998 Debug
+CMT	3e680	plate	Library Function - Single Match\n _get_int_arg\n\nLibrary: Visual Studio 1998 Debug
+CMT	3e6a0	plate	Library Function - Single Match\n _get_int64_arg\n\nLibrary: Visual Studio 1998 Debug
+CMT	3e6d0	plate	Library Function - Single Match\n _get_short_arg\n\nLibrary: Visual Studio 1998 Debug
+CMT	3e6f0	plate	Library Function - Single Match\n __stbuf\n\nLibrary: Visual Studio 1998 Debug
+CMT	3e840	plate	Library Function - Single Match\n __ftbuf\n\nLibrary: Visual Studio 1998 Debug
+CMT	3e8e0	plate	Library Function - Single Match\n __setdefaultprecision\n\nLibrary: Visual Studio 1998 Debug
+CMT	3e900	plate	Library Function - Single Match\n __ms_p5_test_fdiv\n\nLibrary: Visual Studio 1998 Debug
+CMT	3e960	plate	Library Function - Single Match\n __ms_p5_mp_test_fdiv\n\nLibrary: Visual Studio 1998 Debug
+CMT	3e9c0	plate	Library Function - Single Match\n __forcdecpt\n\nLibrary: Visual Studio 1998 Debug
+CMT	3ea80	plate	Library Function - Single Match\n __cropzeros\n\nLibrary: Visual Studio 1998 Debug
+CMT	3eb60	plate	Library Function - Single Match\n __positive\n\nLibrary: Visual Studio 1998 Debug
+CMT	3eba0	plate	Library Function - Single Match\n __fassign\n\nLibrary: Visual Studio 1998 Debug
+CMT	3ec00	plate	Library Function - Single Match\n __cftoe\n\nLibrary: Visual Studio 1998 Debug
+CMT	3ec80	plate	Library Function - Single Match\n __cftoe2\n\nLibrary: Visual Studio 1998 Debug
+CMT	3ee00	plate	Library Function - Single Match\n __cftof\n\nLibrary: Visual Studio 1998 Debug
+CMT	3ee80	plate	Library Function - Single Match\n __cftof2\n\nLibrary: Visual Studio 1998 Debug
+CMT	3efc0	plate	Library Function - Single Match\n __cftog\n\nLibrary: Visual Studio 1998 Debug
+CMT	3f0d0	plate	Library Function - Single Match\n __cfltcvt\n\nLibrary: Visual Studio 1998 Debug
+CMT	3f150	plate	Library Function - Single Match\n __shift\n\nLibrary: Visual Studio 1998 Debug
+CMT	3f190	plate	Library Function - Single Match\n __mtinit\n\nLibrary: Visual Studio 1998 Debug
+CMT	3f230	plate	Library Function - Single Match\n __mtterm\n\nLibrary: Visual Studio 1998 Debug
+CMT	3f270	plate	Library Function - Single Match\n __initptd\n\nLibrary: Visual Studio 1998 Debug
+CMT	3f290	plate	Library Function - Single Match\n __getptd\n\nLibrary: Visual Studio 1998 Debug
+CMT	3f340	plate	Library Function - Single Match\n __freeptd\n\nLibrary: Visual Studio 1998 Debug
+CMT	3f490	plate	Library Function - Single Match\n ___InternalCxxFrameHandler\n\nLibrary: Visual Studio 1998 Debug
+CMT	3f5b0	plate	Library Function - Single Match\n void __cdecl FindHandler(struct EHExceptionRecord *,struct EHRegistrationNode *,struct _CONTEXT *,void *,struct _s_FuncInfo const *,unsigned char,int,struct EHRegistrationNode *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	3f860	plate	Library Function - Single Match\n void __cdecl FindHandlerForForeignException(struct EHExceptionRecord *,struct EHRegistrationNode *,struct _CONTEXT *,void *,struct _s_FuncInfo const *,int,int,struct EHRegistrationNode *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	3f990	plate	Library Function - Single Match\n struct _s_TryBlockMapEntry const * __cdecl GetRangeOfTrysToCheck(struct _s_FuncInfo const *,int,int,unsigned int *,unsigned int *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	3fa80	plate	Library Function - Single Match\n int __cdecl TypeMatch(struct _s_HandlerType const *,struct _s_CatchableType const *,struct _s_ThrowInfo const *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	3fb50	plate	Library Function - Single Match\n ___FrameUnwindToState\n\nLibrary: Visual Studio 1998 Debug
+CMT	3fc60	plate	Library Function - Multiple Matches With Different Base Names\n int __cdecl ArrayUnwindFilter(struct _EXCEPTION_POINTERS *)\n int __cdecl FrameUnwindFilter(struct _EXCEPTION_POINTERS *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	3fcb0	plate	Library Function - Single Match\n void __cdecl CatchIt(struct EHExceptionRecord *,struct EHRegistrationNode *,struct _CONTEXT *,void *,struct _s_FuncInfo const *,struct _s_HandlerType const *,struct _s_CatchableType const *,struct _s_TryBlockMapEntry const *,int,struct EHRegistrationNode *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	3fd90	plate	Library Function - Single Match\n void * __cdecl CallCatchBlock(struct EHExceptionRecord *,struct EHRegistrationNode *,struct _CONTEXT *,struct _s_FuncInfo const *,void *,int,unsigned long)\n\nLibrary: Visual Studio 1998 Debug
+CMT	3ff20	plate	Library Function - Single Match\n int __cdecl ExFilterRethrow(struct _EXCEPTION_POINTERS *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	3ff90	plate	Library Function - Single Match\n void __cdecl BuildCatchObject(struct EHExceptionRecord *,struct EHRegistrationNode *,struct _s_HandlerType const *,struct _s_CatchableType const *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	40270	plate	Library Function - Single Match\n void __cdecl DestructExceptionObject(struct EHExceptionRecord *,unsigned char)\n\nLibrary: Visual Studio 1998 Debug
+CMT	40310	plate	Library Function - Single Match\n void * __cdecl AdjustPointer(void *,struct PMD const &)\n\nLibrary: Visual Studio 1998 Debug
+CMT	40360	plate	Library Function - Single Match\n __CallSettingFrame@12\n\nLibrary: Visual Studio 1998 Debug
+CMT	403b0	plate	Library Function - Single Match\n __close\n\nLibrary: Visual Studio 1998 Debug
+CMT	40450	plate	Library Function - Single Match\n __close_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	40520	plate	Library Function - Single Match\n __freebuf\n\nLibrary: Visual Studio 1998 Debug
+CMT	405b0	plate	Library Function - Single Match\n _fflush\n\nLibrary: Visual Studio 1998 Debug
+CMT	40610	plate	Library Function - Single Match\n __fflush_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	40680	plate	Library Function - Single Match\n __flush\n\nLibrary: Visual Studio 1998 Debug
+CMT	40740	plate	Library Function - Single Match\n __flushall\n\nLibrary: Visual Studio 1998 Debug
+CMT	40760	plate	Library Function - Single Match\n _flsall\n\nLibrary: Visual Studio 1998 Debug
+CMT	408c0	plate	Library Function - Single Match\n __filbuf\n\nLibrary: Visual Studio 1998 Debug
+CMT	40ab0	plate	Library Function - Single Match\n __openfile\n\nLibrary: Visual Studio 1998 Debug
+CMT	40e70	plate	Library Function - Single Match\n __getstream\n\nLibrary: Visual Studio 1998 Debug
+CMT	41010	plate	Library Function - Single Match\n __read\n\nLibrary: Visual Studio 1998 Debug
+CMT	410c0	plate	Library Function - Single Match\n __read_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	41580	plate	Library Function - Single Match\n __lseek\n\nLibrary: Visual Studio 1998 Debug
+CMT	41630	plate	Library Function - Single Match\n __lseek_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	41720	plate	Library Function - Single Match\n __dosmaperr\n\nLibrary: Visual Studio 1998 Debug
+CMT	41840	plate	Library Function - Single Match\n __ioinit\n\nLibrary: Visual Studio 1998 Debug
+CMT	41b90	plate	Library Function - Single Match\n __ioterm\n\nLibrary: Visual Studio 1998 Debug
+CMT	41c50	plate	Library Function - Single Match\n __fcloseall\n\nLibrary: Visual Studio 1998 Debug
+CMT	41d40	plate	Library Function - Single Match\n __access\n\nLibrary: Visual Studio 1998 Debug
+CMT	41dd0	plate	Library Function - Single Match\n __open\n\nLibrary: Visual Studio 1998 Debug
+CMT	41e20	plate	Library Function - Single Match\n __sopen\n\nLibrary: Visual Studio 1998 Debug
+CMT	42460	plate	Library Function - Single Match\n __itoa\n\nLibrary: Visual Studio 1998 Debug
+CMT	424c0	plate	Library Function - Single Match\n _xtoa\n\nLibrary: Visual Studio 1998 Debug
+CMT	42580	plate	Library Function - Single Match\n __ltoa\n\nLibrary: Visual Studio 1998 Debug
+CMT	425e0	plate	Library Function - Single Match\n __ultoa\n\nLibrary: Visual Studio 1998 Debug
+CMT	42610	plate	Library Function - Single Match\n __i64toa\n\nLibrary: Visual Studio 1998 Debug
+CMT	42680	plate	Library Function - Single Match\n _x64toa@20\n\nLibrary: Visual Studio 1998 Debug\n__stdcall x64toa,20
+CMT	42760	plate	Library Function - Single Match\n __ui64toa\n\nLibrary: Visual Studio 1998 Debug
+CMT	42790	plate	Library Function - Single Match\n __getpid\n\nLibrary: Visual Studio 1998 Debug
+CMT	427b0	plate	Library Function - Single Match\n _strtol\n\nLibrary: Visual Studio 1998 Debug
+CMT	427e0	plate	Library Function - Single Match\n _strtoxl\n\nLibrary: Visual Studio 1998 Debug
+CMT	42b80	plate	Library Function - Single Match\n _strtoul\n\nLibrary: Visual Studio 1998 Debug
+CMT	42bb0	plate	Library Function - Single Match\n __mbsrchr\n\nLibrary: Visual Studio 1998 Debug
+CMT	42ca0	plate	Library Function - Single Match\n __rmtmp\n\nLibrary: Visual Studio 1998 Debug
+CMT	42d80	plate	Library Function - Single Match\n _setlocale\n\nLibrary: Visual Studio 1998 Debug
+CMT	43190	plate	Library Function - Single Match\n __setlocale_set_cat\n\nLibrary: Visual Studio 1998 Debug
+CMT	43340	plate	Library Function - Single Match\n __setlocale_get_all\n\nLibrary: Visual Studio 1998 Debug
+CMT	43460	plate	Library Function - Single Match\n __expandlocale\n\nLibrary: Visual Studio 1998 Debug
+CMT	43640	plate	Library Function - Single Match\n __strcats\n\nLibrary: Visual Studio 1998 Debug
+CMT	436a0	plate	Library Function - Single Match\n ___lc_strtolc\n\nLibrary: Visual Studio 1998 Debug
+CMT	43850	plate	Library Function - Single Match\n ___lc_lctostr\n\nLibrary: Visual Studio 1998 Debug
+CMT	438d0	plate	Library Function - Single Match\n ___crtLCMapStringW\n\nLibrary: Visual Studio 1998 Debug
+CMT	43bd0	plate	Library Function - Single Match\n _wcsncnt\n\nLibrary: Visual Studio 1998 Debug
+CMT	43c40	plate	Library Function - Single Match\n ___crtLCMapStringA\n\nLibrary: Visual Studio 1998 Debug
+CMT	43f60	plate	Library Function - Single Match\n _strncnt\n\nLibrary: Visual Studio 1998 Debug
+CMT	43fd0	plate	Library Function - Single Match\n __setenvp\n\nLibrary: Visual Studio 1998 Debug
+CMT	44110	plate	Library Function - Single Match\n __setargv\n\nLibrary: Visual Studio 1998 Debug
+CMT	441e0	plate	Library Function - Single Match\n _parse_cmdline\n\nLibrary: Visual Studio 1998 Debug
+CMT	445a0	plate	Library Function - Single Match\n __setmbcp\n\nLibrary: Visual Studio 1998 Debug
+CMT	44920	plate	Library Function - Single Match\n _getSystemCP\n\nLibrary: Visual Studio 1998 Debug
+CMT	449b0	plate	Library Function - Single Match\n _CPtoLCID\n\nLibrary: Visual Studio 1998 Debug
+CMT	44a50	plate	Library Function - Single Match\n _setSBCS\n\nLibrary: Visual Studio 1998 Debug
+CMT	44af0	plate	Library Function - Single Match\n ___initmbctable\n\nLibrary: Visual Studio 1998 Debug
+CMT	44b10	plate	Library Function - Single Match\n ___crtGetEnvironmentStringsW\n\nLibrary: Visual Studio 1998 Debug
+CMT	44dd0	plate	Library Function - Single Match\n ___crtGetEnvironmentStringsA\n\nLibrary: Visual Studio 1998 Debug
+CMT	45030	plate	Library Function - Single Match\n __set_error_mode\n\nLibrary: Visual Studio 1998 Debug
+CMT	450b0	plate	Library Function - Single Match\n ___set_app_type\n\nLibrary: Visual Studio 1998 Debug
+CMT	450d0	plate	Library Function - Single Match\n _DllMain@12\n\nLibrary: Visual Studio 1998 Debug
+CMT	450f0	plate	Library Function - Single Match\n __FF_MSGBANNER\n\nLibrary: Visual Studio 1998 Debug
+CMT	45150	plate	Library Function - Single Match\n __NMSG_WRITE\n\nLibrary: Visual Studio 1998 Debug
+CMT	45370	plate	Library Function - Single Match\n __GET_RTERRMSG\n\nLibrary: Visual Studio 1998 Debug
+CMT	453f0	plate	Library Function - Single Match\n __snprintf\n\nLibrary: Visual Studio 1998 Debug
+CMT	454e0	plate	Library Function - Single Match\n __vsnprintf\n\nLibrary: Visual Studio 1998 Debug
+CMT	455d0	plate	Library Function - Single Match\n __alloca_probe\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+CMT	45600	plate	Library Function - Single Match\n _signal\n\nLibrary: Visual Studio 1998 Debug
+CMT	45880	plate	Library Function - Single Match\n _ctrlevent_capture@4\n\nLibrary: Visual Studio 1998 Debug\n__stdcall ctrlevent_capture,4
+CMT	45930	plate	Library Function - Single Match\n _raise\n\nLibrary: Visual Studio 1998 Debug
+CMT	45bc0	plate	Library Function - Single Match\n _siglookup\n\nLibrary: Visual Studio 1998 Debug
+CMT	45c50	plate	Library Function - Single Match\n ___pxcptinfoptrs\n\nLibrary: Visual Studio 1998 Debug
+CMT	45c70	plate	Library Function - Single Match\n ___crtMessageBoxA\n\nLibrary: Visual Studio 1998 Debug
+CMT	45d50	plate	Library Function - Single Match\n ___crtGetStringTypeW\n\nLibrary: Visual Studio 1998 Debug
+CMT	45fb0	plate	Library Function - Single Match\n ___crtGetStringTypeA\n\nLibrary: Visual Studio 1998 Debug
+CMT	46150	plate	Library Function - Single Match\n __write\n\nLibrary: Visual Studio 1998 Debug
+CMT	46200	plate	Library Function - Single Match\n __write_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	46500	plate	Library Function - Single Match\n __getbuf\n\nLibrary: Visual Studio 1998 Debug
+CMT	465c0	plate	Library Function - Single Match\n __isatty\n\nLibrary: Visual Studio 1998 Debug
+CMT	46610	plate	Library Function - Single Match\n _wctomb\n\nLibrary: Visual Studio 1998 Debug
+CMT	46690	plate	Library Function - Single Match\n __wctomb_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	46770	plate	Library Function - Single Match\n __aulldiv\n\nLibrary: Visual Studio 1998 Debug
+CMT	467e0	plate	Library Function - Single Match\n __aullrem\n\nLibrary: Visual Studio 1998 Debug
+CMT	46860	plate	Library Function - Single Match\n __statusfp\n\nLibrary: Visual Studio 1998 Debug
+CMT	46890	plate	Library Function - Single Match\n __clearfp\n\nLibrary: Visual Studio 1998 Debug
+CMT	468c0	plate	Library Function - Single Match\n __control87\n\nLibrary: Visual Studio 1998 Debug
+CMT	46910	plate	Library Function - Single Match\n __controlfp\n\nLibrary: Visual Studio 1998 Debug
+CMT	46940	plate	Library Function - Single Match\n __fpreset\n\nLibrary: Visual Studio 1998 Debug
+CMT	469a0	plate	Library Function - Single Match\n __abstract_cw\n\nLibrary: Visual Studio 1998 Debug
+CMT	46af0	plate	Library Function - Single Match\n __hw_cw\n\nLibrary: Visual Studio 1998 Debug
+CMT	46cc0	plate	Library Function - Single Match\n __abstract_sw\n\nLibrary: Visual Studio 1998 Debug
+CMT	46d40	plate	Library Function - Single Match\n __fptrap\n\nLibrary: Visual Studio 1998 Debug
+CMT	46d80	plate	Library Function - Single Match\n _tolower\n\nLibrary: Visual Studio 1998 Debug
+CMT	46e30	plate	Library Function - Single Match\n __tolower_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	46f70	plate	Library Function - Single Match\n __ZeroTail\n\nLibrary: Visual Studio 1998 Debug
+CMT	47010	plate	Library Function - Single Match\n __IncMan\n\nLibrary: Visual Studio 1998 Debug
+CMT	470d0	plate	Library Function - Single Match\n __RoundMan\n\nLibrary: Visual Studio 1998 Debug
+CMT	471b0	plate	Library Function - Single Match\n __CopyMan\n\nLibrary: Visual Studio 1998 Debug
+CMT	47200	plate	Library Function - Single Match\n __FillZeroMan\n\nLibrary: Visual Studio 1998 Debug
+CMT	47240	plate	Library Function - Single Match\n __IsZeroMan\n\nLibrary: Visual Studio 1998 Debug
+CMT	47290	plate	Library Function - Single Match\n __ShrMan\n\nLibrary: Visual Studio 1998 Debug
+CMT	47380	plate	Library Function - Single Match\n __ld12cvt\n\nLibrary: Visual Studio 1998 Debug
+CMT	475f0	plate	Library Function - Multiple Matches With Different Base Names\n __ld12tod\n __ld12tof\n\nLibrary: Visual Studio 1998 Debug
+CMT	47620	plate	Library Function - Multiple Matches With Different Base Names\n __ld12tod\n __ld12tof\n\nLibrary: Visual Studio 1998 Debug
+CMT	47650	plate	Library Function - Single Match\n __ld12told\n\nLibrary: Visual Studio 1998 Debug
+CMT	47720	plate	Library Function - Multiple Matches With Different Base Names\n __atodbl\n __atoflt\n\nLibrary: Visual Studio 1998 Debug
+CMT	47760	plate	Library Function - Single Match\n __atoldbl\n\nLibrary: Visual Studio 1998 Debug
+CMT	477a0	plate	Library Function - Multiple Matches With Different Base Names\n __atodbl\n __atoflt\n\nLibrary: Visual Studio 1998 Debug
+CMT	477e0	plate	Library Function - Single Match\n __fptostr\n\nLibrary: Visual Studio 1998 Debug
+CMT	478c0	plate	Library Function - Single Match\n __fltout2\n\nLibrary: Visual Studio 1998 Debug
+CMT	47940	plate	Library Function - Single Match\n ___dtold\n\nLibrary: Visual Studio 1998 Debug
+CMT	47ac0	plate	Library Function - Single Match\n __XcptFilter\n\nLibrary: Visual Studio 1998 Debug
+CMT	47cd0	plate	Library Function - Single Match\n _xcptlookup\n\nLibrary: Visual Studio 1998 Debug
+CMT	47d30	plate	Library Function - Single Match\n _$E2\n\nLibrary: Visual Studio 1998 Debug
+CMT	47d50	plate	Library Function - Single Match\n _$E1\n\nLibrary: Visual Studio 1998 Debug
+CMT	47d80	plate	Library Function - Single Match\n long __stdcall __CxxUnhandledExceptionFilter(struct _EXCEPTION_POINTERS *)\n\nLibrary: Visual Studio 1998 Debug
+CMT	47e40	plate	Library Function - Single Match\n void __cdecl terminate(void)\n\nLibrary: Visual Studio 1998 Debug
+CMT	47ee0	plate	Library Function - Single Match\n void __cdecl unexpected(void)\n\nLibrary: Visual Studio 1998 Debug
+CMT	47f10	plate	Library Function - Single Match\n void __cdecl _inconsistency(void)\n\nLibrary: Visual Studio 1998 Debug
+CMT	47fb0	plate	Library Function - Single Match\n int __cdecl _ValidateRead(void const *,unsigned int)\n\nLibrary: Visual Studio 1998 Debug
+CMT	47ff0	plate	Library Function - Multiple Matches With Different Base Names\n int __cdecl _ValidateRead(void const *,unsigned int)\n int __cdecl _ValidateWrite(void *,unsigned int)\n\nLibrary: Visual Studio 1998 Debug
+CMT	48030	plate	Library Function - Single Match\n int __cdecl _ValidateExecute(int (__stdcall*)(void))\n\nLibrary: Visual Studio 1998 Debug
+CMT	48150	plate	Library Function - Single Match\n __alloc_osfhnd\n\nLibrary: Visual Studio 1998 Debug
+CMT	48340	plate	Library Function - Single Match\n __set_osfhnd\n\nLibrary: Visual Studio 1998 Debug
+CMT	48450	plate	Library Function - Single Match\n __free_osfhnd\n\nLibrary: Visual Studio 1998 Debug
+CMT	48580	plate	Library Function - Single Match\n __get_osfhandle\n\nLibrary: Visual Studio 1998 Debug
+CMT	48620	plate	Library Function - Single Match\n __open_osfhandle\n\nLibrary: Visual Studio 1998 Debug
+CMT	48740	plate	Library Function - Single Match\n __lock_fhandle\n\nLibrary: Visual Studio 1998 Debug
+CMT	487e0	plate	Library Function - Single Match\n __unlock_fhandle\n\nLibrary: Visual Studio 1998 Debug
+CMT	48820	plate	Library Function - Single Match\n __commit\n\nLibrary: Visual Studio 1998 Debug
+CMT	48940	plate	Library Function - Single Match\n __chsize\n\nLibrary: Visual Studio 1998 Debug
+CMT	489e0	plate	Library Function - Single Match\n __chsize_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	48c70	plate	Library Function - Single Match\n _strrchr\n\nLibrary: Visual Studio 1998 Debug
+CMT	48ca0	plate	Library Function - Single Match\n ___init_time\n\nLibrary: Visual Studio 1998 Debug
+CMT	48da0	plate	Library Function - Single Match\n __get_lc_time\n\nLibrary: Visual Studio 1998 Debug
+CMT	49250	plate	Library Function - Single Match\n __free_lc_time\n\nLibrary: Visual Studio 1998 Debug
+CMT	49570	plate	Library Function - Single Match\n _storeTimeFmt\n\nLibrary: Visual Studio 1998 Debug
+CMT	49700	plate	Library Function - Single Match\n ___init_numeric\n\nLibrary: Visual Studio 1998 Debug
+CMT	499c0	plate	Library Function - Single Match\n _fix_grouping\n\nLibrary: Visual Studio 1998 Debug
+CMT	49a50	plate	Library Function - Single Match\n ___init_monetary\n\nLibrary: Visual Studio 1998 Debug
+CMT	49b90	plate	Library Function - Single Match\n __get_lc_lconv\n\nLibrary: Visual Studio 1998 Debug
+CMT	49d70	plate	Library Function - Single Match\n _fix_grouping\n\nLibrary: Visual Studio 1998 Debug
+CMT	49e00	plate	Library Function - Single Match\n __free_lc_lconv\n\nLibrary: Visual Studio 1998 Debug
+CMT	49eb0	plate	Library Function - Single Match\n ___init_ctype\n\nLibrary: Visual Studio 1998 Debug
+CMT	4a2d0	plate	Library Function - Single Match\n _strcspn\n\nLibrary: Visual Studio 1998 Debug
+CMT	4a310	plate	Library Function - Single Match\n _strncmp\n\nLibrary: Visual Studio 1998 Debug
+CMT	4a350	plate	Library Function - Single Match\n ___get_qualified_locale\n\nLibrary: Visual Studio 1998 Debug
+CMT	4a750	plate	Library Function - Single Match\n _trans_lang_lang\n\nLibrary: Visual Studio 1998 Debug
+CMT	4a7f0	plate	Library Function - Single Match\n _trans_ctry_ctry\n\nLibrary: Visual Studio 1998 Debug
+CMT	4a890	plate	Library Function - Single Match\n _trans_ctry_lang\n\nLibrary: Visual Studio 1998 Debug
+CMT	4a920	plate	Library Function - Single Match\n _testSpecialCtry\n\nLibrary: Visual Studio 1998 Debug
+CMT	4a970	plate	Library Function - Single Match\n _match_ctry_lang\n\nLibrary: Visual Studio 1998 Debug
+CMT	4aaa0	plate	Library Function - Single Match\n _wcslen\n\nLibrary: Visual Studio 1998 Debug
+CMT	4aaf0	plate	Library Function - Single Match\n ___addl\n\nLibrary: Visual Studio 1998 Debug
+CMT	4ab40	plate	Library Function - Single Match\n ___add_12\n\nLibrary: Visual Studio 1998 Debug
+CMT	4abf0	plate	Library Function - Single Match\n ___shl_12\n\nLibrary: Visual Studio 1998 Debug
+CMT	4ac70	plate	Library Function - Single Match\n ___shr_12\n\nLibrary: Visual Studio 1998 Debug
+CMT	4acf0	plate	Library Function - Single Match\n ___mtold12\n\nLibrary: Visual Studio 1998 Debug
+CMT	4ae30	plate	Library Function - Single Match\n ___strgtold12\n\nLibrary: Visual Studio 1998 Debug
+CMT	4ba50	plate	Library Function - Single Match\n ___STRINGTOLD\n\nLibrary: Visual Studio 1998 Debug
+CMT	4bab0	plate	Library Function - Single Match\n _$I10_OUTPUT\n\nLibrary: Visual Studio 1998 Debug
+CMT	4bff0	plate	Library Function - Single Match\n _abort\n\nLibrary: Visual Studio 1998 Debug
+CMT	4c020	plate	Library Function - Single Match\n __setmode\n\nLibrary: Visual Studio 1998 Debug
+CMT	4c0c0	plate	Library Function - Single Match\n __setmode_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	4c1e0	plate	Library Function - Single Match\n __Getdays\n\nLibrary: Visual Studio 1998 Debug
+CMT	4c2f0	plate	Library Function - Single Match\n __Getmonths\n\nLibrary: Visual Studio 1998 Debug
+CMT	4c410	plate	Library Function - Single Match\n __Gettnames\n\nLibrary: Visual Studio 1998 Debug
+CMT	4c750	plate	Library Function - Single Match\n _strftime\n\nLibrary: Visual Studio 1998 Debug
+CMT	4c780	plate	Library Function - Single Match\n __Strftime\n\nLibrary: Visual Studio 1998 Debug
+CMT	4c910	plate	Library Function - Single Match\n __expandtime\n\nLibrary: Visual Studio 1998 Debug
+CMT	4cf40	plate	Library Function - Single Match\n __store_str\n\nLibrary: Visual Studio 1998 Debug
+CMT	4cf90	plate	Library Function - Single Match\n __store_num\n\nLibrary: Visual Studio 1998 Debug
+CMT	4d040	plate	Library Function - Single Match\n __store_number\n\nLibrary: Visual Studio 1998 Debug
+CMT	4d0e0	plate	Library Function - Single Match\n __store_winword\n\nLibrary: Visual Studio 1998 Debug
+CMT	4d590	plate	Library Function - Single Match\n ___getlocaleinfo\n\nLibrary: Visual Studio 1998 Debug
+CMT	4d880	plate	Library Function - Single Match\n ___crtGetLocaleInfoW\n\nLibrary: Visual Studio 1998 Debug
+CMT	4da40	plate	Library Function - Single Match\n ___crtGetLocaleInfoA\n\nLibrary: Visual Studio 1998 Debug
+CMT	4dc10	plate	Library Function - Single Match\n _wcstol\n\nLibrary: Visual Studio 1998 Debug
+CMT	4dc40	plate	Library Function - Single Match\n _wcstoxl\n\nLibrary: Visual Studio 1998 Debug
+CMT	4df80	plate	Library Function - Single Match\n _wcstoul\n\nLibrary: Visual Studio 1998 Debug
+CMT	4dfb0	plate	Library Function - Single Match\n _atol\n\nLibrary: Visual Studio 1998 Debug
+CMT	4e0d0	plate	Library Function - Single Match\n _atoi\n\nLibrary: Visual Studio 1998 Debug
+CMT	4e0f0	plate	Library Function - Single Match\n __atoi64\n\nLibrary: Visual Studio 1998 Debug
+CMT	4e240	plate	Library Function - Single Match\n __strcmpi\n\nLibrary: Visual Studio 1998 Debug
+CMT	4e310	plate	Library Function - Single Match\n ___ld12mul\n\nLibrary: Visual Studio 1998 Debug
+CMT	4e740	plate	Library Function - Single Match\n ___multtenpow12\n\nLibrary: Visual Studio 1998 Debug
+CMT	4e820	plate	Library Function - Single Match\n ___tzset\n\nLibrary: Visual Studio 1998 Debug
+CMT	4e870	plate	Library Function - Single Match\n __tzset\n\nLibrary: Visual Studio 1998 Debug
+CMT	4e8a0	plate	Library Function - Single Match\n __tzset_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	4ec30	plate	Library Function - Single Match\n __isindst\n\nLibrary: Visual Studio 1998 Debug
+CMT	4ec70	plate	Library Function - Single Match\n __isindst_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	4efe0	plate	Library Function - Single Match\n _cvtdate\n\nLibrary: Visual Studio 1998 Debug
+CMT	4f1f0	plate	Library Function - Single Match\n _towupper\n\nLibrary: Visual Studio 1998 Debug
+CMT	4f2b0	plate	Library Function - Single Match\n __towupper_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	4f390	plate	Library Function - Single Match\n _iswctype\n\nLibrary: Visual Studio 1998 Debug
+CMT	4f440	plate	Library Function - Single Match\n _is_wctype\n\nLibrary: Visual Studio 1998 Debug
+CMT	4f460	plate	Library Function - Single Match\n __allmul\n\nLibrary: Visual Studio 1998 Debug
+CMT	4f4a0	plate	Library Function - Single Match\n _wcstombs\n\nLibrary: Visual Studio 1998 Debug
+CMT	4f520	plate	Library Function - Single Match\n __wcstombs_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	4f8a0	plate	Library Function - Single Match\n _wcsncnt\n\nLibrary: Visual Studio 1998 Debug
+CMT	4f910	plate	Library Function - Single Match\n _getenv\n\nLibrary: Visual Studio 1998 Debug
+CMT	4f950	plate	Library Function - Single Match\n __getenv_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	4fa40	plate	Library Function - Single Match\n __mbsnbicoll\n\nLibrary: Visual Studio 1998 Debug
+CMT	4fab0	plate	Library Function - Single Match\n ___wtomb_environ\n\nLibrary: Visual Studio 1998 Debug
+CMT	4fb80	plate	Library Function - Single Match\n ___crtCompareStringW\n\nLibrary: Visual Studio 1998 Debug
+CMT	4fe70	plate	Library Function - Single Match\n _wcsncnt\n\nLibrary: Visual Studio 1998 Debug
+CMT	4fee0	plate	Library Function - Single Match\n ___crtCompareStringA\n\nLibrary: Visual Studio 1998 Debug
+CMT	50340	plate	Library Function - Single Match\n _strncnt\n\nLibrary: Visual Studio 1998 Debug
+CMT	503b0	plate	Library Function - Single Match\n ___crtsetenv\n\nLibrary: Visual Studio 1998 Debug
+CMT	50720	plate	Library Function - Single Match\n _findenv\n\nLibrary: Visual Studio 1998 Debug
+CMT	507c0	plate	Library Function - Single Match\n _copy_environ\n\nLibrary: Visual Studio 1998 Debug
+CMT	508c0	plate	Library Function - Single Match\n __mbschr\n\nLibrary: Visual Studio 1998 Debug
+CMT	50b60	plate	Library Function - Single Match\n __strupr\n\nLibrary: Visual Studio 1998 Debug
+CMT	50d60	plate	Library Function - Single Match\n __getch\n\nLibrary: Visual Studio 1998 Debug
+CMT	50da0	plate	Library Function - Single Match\n __getche\n\nLibrary: Visual Studio 1998 Debug
+CMT	50de0	plate	Library Function - Single Match\n __getch_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	50f20	plate	Library Function - Single Match\n __getche_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	50f90	plate	Library Function - Single Match\n __kbhit\n\nLibrary: Visual Studio 1998 Debug
+CMT	50fd0	plate	Library Function - Single Match\n __kbhit_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	51110	plate	Library Function - Single Match\n __ungetch\n\nLibrary: Visual Studio 1998 Debug
+CMT	51150	plate	Library Function - Single Match\n __ungetch_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	511a0	plate	Library Function - Single Match\n __getextendedkeycode\n\nLibrary: Visual Studio 1998 Debug
+CMT	51350	plate	Library Function - Single Match\n ___initconin\n\nLibrary: Visual Studio 1998 Debug
+CMT	51380	plate	Library Function - Single Match\n ___initconout\n\nLibrary: Visual Studio 1998 Debug
+CMT	513b0	plate	Library Function - Single Match\n ___termcon\n\nLibrary: Visual Studio 1998 Debug
+CMT	51410	plate	Library Function - Single Match\n __putch\n\nLibrary: Visual Studio 1998 Debug
+CMT	51450	plate	Library Function - Single Match\n __putch_lk\n\nLibrary: Visual Studio 1998 Debug
+CMT	5e1e8	plate	Export Function Pointers
+CMT	5e47c	plate	Export Name Pointers
+CMT	5e710	plate	Export Ordinal Values
+CMT	5e85a	plate	Export Library Name
+CMT	a3000	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	a3014	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	a3028	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	a303c	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	a3050	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	a3064	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	a3078	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	a308c	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	a30a0	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	a3a50	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3a64	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	a3a6e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3a82	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	a3a8e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3a9c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3aac	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3ac6	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3ad6	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3aee	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3afe	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3b0c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3b1c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3b2e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3b3e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3b4e	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	a3b58	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3b6e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3b7c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3b8c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3b9a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3ba8	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3bb6	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3bc6	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3bdc	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3bea	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3bfe	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3c10	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3c1e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3c2e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3c40	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3c54	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3c5c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3c6e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3c7c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3c88	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3c94	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3ca2	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3cb8	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3cc4	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3cd8	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3ce8	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3d04	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3d1e	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	a3d2c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3d3c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3d4c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3d5a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3d66	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3d6e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3d7e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3d8e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3da0	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3db4	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3dca	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3ddc	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3de8	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3df6	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3e0a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3e1e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3e2e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3e3a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3e48	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3e5a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3e6c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3e7c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3e92	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3eaa	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3ec0	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3ece	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3ee8	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3efa	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3f10	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3f26	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3f38	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3f46	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	a3f52	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3f62	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3f72	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3f86	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3f9a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3fac	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3fbc	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3fc8	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3fd6	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3fea	plate	IMAGE_IMPORT_BY_NAME
+CMT	a3ffa	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4010	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4024	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4038	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4044	plate	IMAGE_IMPORT_BY_NAME
+CMT	a404e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a405a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4066	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4072	plate	IMAGE_IMPORT_BY_NAME
+CMT	a407e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a408e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a409c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a40aa	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	a40b4	plate	IMAGE_IMPORT_BY_NAME
+CMT	a40c8	plate	IMAGE_IMPORT_BY_NAME
+CMT	a40dc	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	a40ea	plate	IMAGE_IMPORT_BY_NAME
+CMT	a40f8	plate	IMAGE_IMPORT_BY_NAME
+CMT	a410a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a411a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a412c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a413e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a414e	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	a415c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a416e	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	a417a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a418a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a419a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a41aa	plate	IMAGE_IMPORT_BY_NAME
+CMT	a41be	plate	IMAGE_IMPORT_BY_NAME
+CMT	a41d2	plate	IMAGE_IMPORT_BY_NAME
+CMT	a41de	plate	IMAGE_IMPORT_BY_NAME
+CMT	a41ea	plate	IMAGE_IMPORT_BY_NAME
+CMT	a41f8	plate	IMAGE_IMPORT_BY_NAME
+CMT	a420a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4218	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4234	plate	IMAGE_IMPORT_BY_NAME
+CMT	a424c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4264	plate	IMAGE_IMPORT_BY_NAME
+CMT	a427c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a428c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4298	plate	IMAGE_IMPORT_BY_NAME
+CMT	a42a6	plate	IMAGE_IMPORT_BY_NAME
+CMT	a42b6	plate	IMAGE_IMPORT_BY_NAME
+CMT	a42ce	plate	IMAGE_IMPORT_BY_NAME
+CMT	a42de	plate	IMAGE_IMPORT_BY_NAME
+CMT	a42f6	plate	IMAGE_IMPORT_BY_NAME
+CMT	a430c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a431a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4326	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4334	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4342	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4358	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4366	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4372	plate	IMAGE_IMPORT_BY_NAME
+CMT	a437c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a438c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a439a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a43ae	plate	IMAGE_IMPORT_BY_NAME
+CMT	a43c0	plate	IMAGE_IMPORT_BY_NAME
+CMT	a43ce	plate	IMAGE_IMPORT_BY_NAME
+CMT	a43e0	plate	IMAGE_IMPORT_BY_NAME
+CMT	a43f6	plate	IMAGE_IMPORT_BY_NAME
+CMT	a440c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a441c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4432	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4442	plate	IMAGE_IMPORT_BY_NAME
+CMT	a444e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4458	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4464	plate	IMAGE_IMPORT_BY_NAME
+CMT	a447e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4496	plate	IMAGE_IMPORT_BY_NAME
+CMT	a44b0	plate	IMAGE_IMPORT_BY_NAME
+CMT	a44ca	plate	IMAGE_IMPORT_BY_NAME
+CMT	a44e2	plate	IMAGE_IMPORT_BY_NAME
+CMT	a44f4	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4506	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4522	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4540	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4550	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4560	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4574	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4584	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4594	plate	IMAGE_IMPORT_BY_NAME
+CMT	a45a6	plate	IMAGE_IMPORT_BY_NAME
+CMT	a45bc	plate	IMAGE_IMPORT_BY_NAME
+CMT	a45ce	plate	IMAGE_IMPORT_BY_NAME
+CMT	a45e0	plate	IMAGE_IMPORT_BY_NAME
+CMT	a45fa	plate	IMAGE_IMPORT_BY_NAME
+CMT	a460c	plate	IMAGE_IMPORT_BY_NAME
+CMT	a461e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4638	plate	IMAGE_IMPORT_BY_NAME
+CMT	a464a	plate	IMAGE_IMPORT_BY_NAME
+CMT	a465e	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4670	plate	IMAGE_IMPORT_BY_NAME
+CMT	a4684	plate	IMAGE_IMPORT_BY_NAME
+CMT	a46a4	plate	IMAGE_IMPORT_BY_NAME

@@ -1,0 +1,1166 @@
+#program	SETUP.EXE
+#sha256	22ca3a4c6a68dbde1838e6d356442b2b6bcf1dcff735ed21b0448bd16686c4d6
+#imagebase	400000
+FUNC	1000	_GL_GetKeyStrValue@8	undefined4 _GL_GetKeyStrValue@8(char * param_1, LPSTR param_2)	
+FUNC	1005	_GL_dcpt_one_frame_ubb@0	undefined _GL_dcpt_one_frame_ubb@0(void)	
+FUNC	100a	_GL_LoadWAV@8	DWORD _GL_LoadWAV@8(uint * param_1, byte * param_2)	
+FUNC	1023	_GL_SetErrorMode@4	undefined _GL_SetErrorMode@4(undefined4 param_1)	
+FUNC	1028	_GL_SetKeyStrValue@8	undefined4 _GL_SetKeyStrValue@8(char * param_1, BYTE * param_2)	
+FUNC	102d	_GL_LoadWav@8	undefined _GL_LoadWav@8(uint * param_1, int param_2)	
+FUNC	1032	_GL_LoadBlockMusic@0	undefined4 _GL_LoadBlockMusic@0(void)	
+FUNC	1037	_GL_GetTgaInfo@24	undefined _GL_GetTgaInfo@24(uint * param_1, uint * param_2, uint * param_3, uint * param_4, int * param_5, undefined1 * param_6)	
+FUNC	103c	_GL_CloseHnm@0	undefined _GL_CloseHnm@0(void)	
+FUNC	1041	_GL_GetNumLogicalScreen@0	undefined4 _GL_GetNumLogicalScreen@0(void)	
+FUNC	104b	_GL_PlayHnmGDI@12	undefined4 _GL_PlayHnmGDI@12(uint * param_1, int param_2, int param_3)	
+FUNC	1050	_GL_GetFlags@4	undefined4 _GL_GetFlags@4(uint * param_1)	
+FUNC	1055	_GL_InitHnmScreen@0	undefined _GL_InitHnmScreen@0(void)	
+FUNC	1064	_GL_InitHnmSound@0	undefined _GL_InitHnmSound@0(void)	
+FUNC	1069	_GL_LoadTgaInfo@28	undefined _GL_LoadTgaInfo@28(uint * param_1, uint * param_2, uint * param_3, uint * param_4, uint * param_5, int * param_6, undefined1 * param_7)	
+FUNC	106e	_GL_InitWarp@0	undefined _GL_InitWarp@0(void)	
+FUNC	107d	_GL_TestIfExistKey@4	bool _GL_TestIfExistKey@4(char * param_1)	
+FUNC	1091	_GL_GetScreen@20	undefined4 _GL_GetScreen@20(int param_1, int param_2, int param_3, int param_4, BYTE * param_5)	
+FUNC	109b	_GL_HNM6_Decompression_Warp@8	undefined _GL_HNM6_Decompression_Warp@8(undefined4 param_1, undefined4 param_2)	
+FUNC	10a0	_GL_CloseBigFile@0	undefined _GL_CloseBigFile@0(void)	
+FUNC	10af	_GL_CreateGroup@4	undefined4 _GL_CreateGroup@4(uint * param_1)	
+FUNC	10b4	_GL_DcptOneBlockSound@4	undefined4 _GL_DcptOneBlockSound@4(ushort * param_1)	
+FUNC	10b9	_GL_CloseWarp@0	undefined _GL_CloseWarp@0(void)	
+FUNC	10be	_GL_IsWavFinished@4	uint _GL_IsWavFinished@4(int param_1)	
+FUNC	10c3	_GL_BlitDdrawScreen@20	undefined _GL_BlitDdrawScreen@20(void * this, int param_1, int param_2, int param_3, int param_4, int param_5)	
+FUNC	10c8	_GL_ToggleWinFullScreen@0	undefined _GL_ToggleWinFullScreen@0(void)	
+FUNC	10d2	_GL_CloseHandle@4	undefined4 _GL_CloseHandle@4(HANDLE param_1)	
+FUNC	10e6	_GL_Texte@16	undefined4 _GL_Texte@16(int param_1, int param_2, char * param_3, int param_4)	
+FUNC	10eb	_GL_CopyEcran@8	undefined _GL_CopyEcran@8(int param_1, int param_2)	
+FUNC	10f0	_GL_ClsScreen@4	undefined _GL_ClsScreen@4(int param_1)	
+FUNC	10f5	_GL_SetDirectSoundFrequency@8	undefined _GL_SetDirectSoundFrequency@8(void)	
+FUNC	10fa	_GL_IsFileExist@4	bool _GL_IsFileExist@4(LPCSTR param_1)	
+FUNC	10ff	_GL_InitHnm6@4	undefined _GL_InitHnm6@4(int param_1)	
+FUNC	1104	_GL_FileGetLen@4	DWORD _GL_FileGetLen@4(HANDLE param_1)	
+FUNC	1109	_GL_MouseY@0	undefined4 _GL_MouseY@0(void)	
+FUNC	1113	_GL_TestAppAlreadyRunning@4	bool _GL_TestAppAlreadyRunning@4(LPCSTR param_1)	
+FUNC	1118	_GL_CloseWAV@4	undefined _GL_CloseWAV@4(HANDLE param_1)	
+FUNC	111d	_GL_MouseX@0	undefined4 _GL_MouseX@0(void)	
+FUNC	1122	_GL_CloseFileBigFile@4	undefined _GL_CloseFileBigFile@4(uint param_1)	
+FUNC	1127	_CloseAudioCard@4	undefined _CloseAudioCard@4(int param_1)	
+FUNC	112c	_GL_FreeDirectSound@4	undefined _GL_FreeDirectSound@4(void)	
+FUNC	1136	_GL_WaitForEndMusic@0	undefined _GL_WaitForEndMusic@0(void)	
+FUNC	113b	_GL_UnpackLZW@8	undefined _GL_UnpackLZW@8(uint * param_1, byte * param_2)	
+FUNC	1140	_GL_LockLogicalScreen@0	undefined _GL_LockLogicalScreen@0(void)	
+FUNC	114a	_GL_IsExeRunning@4	bool _GL_IsExeRunning@4(LPCSTR param_1)	
+FUNC	114f	_GL_QuitWithError@8	undefined4 _GL_QuitWithError@8(byte * param_1, byte * param_2)	
+FUNC	1154	_GL_FileBrowse@16	LPSTR _GL_FileBrowse@16(LPCSTR param_1, LPCSTR param_2, LPCSTR param_3, int param_4)	
+FUNC	1159	_GL_ConvertTrueColors@4	undefined _GL_ConvertTrueColors@4(HDC param_1)	
+FUNC	1163	_GL_IsAppActive@0	bool _GL_IsAppActive@0(void)	
+FUNC	1168	_GL_FilePackAndCopy@8	size_t _GL_FilePackAndCopy@8(HANDLE param_1, HANDLE param_2)	
+FUNC	116d	_GL_CloseDirectSound@0	undefined _GL_CloseDirectSound@0(void)	
+FUNC	117c	_GL_FileRelatifMoveIn@8	undefined _GL_FileRelatifMoveIn@8(HANDLE param_1, LONG param_2)	
+FUNC	1181	_GL_TestIfDdraw@0	undefined4 _GL_TestIfDdraw@0(void)	
+FUNC	1186	_GL_ResetAllScreen@0	undefined _GL_ResetAllScreen@0(void)	
+FUNC	118b	_GL_SaveTga@8	undefined4 _GL_SaveTga@8(uint * param_1, LPCVOID param_2)	
+FUNC	1195	_GL_SetHwnd@4	undefined _GL_SetHwnd@4(undefined4 param_1)	
+FUNC	119f	_GL_ViewEcran@0	undefined _GL_ViewEcran@0(void)	
+FUNC	11a4	_GL_GetMessages@0	WPARAM _GL_GetMessages@0(void)	
+FUNC	11b3	_GL_ClsLogicalScreen@0	undefined _GL_ClsLogicalScreen@0(void)	
+FUNC	11b8	_GL_GetTime@0	ulonglong _GL_GetTime@0(void)	
+FUNC	11bd	_GL_FreeDirectSoundAdr@4	undefined _GL_FreeDirectSoundAdr@4(void)	
+FUNC	11c7	_GL_SetGraphColor@12	undefined _GL_SetGraphColor@12(uint param_1, uint param_2, uint param_3)	
+FUNC	11cc	_GL_TestIfExeRunning@4	int _GL_TestIfExeRunning@4(uint * param_1)	
+FUNC	11d1	_GL_RestoreSurfaces@0	undefined4 _GL_RestoreSurfaces@0(void)	
+FUNC	11d6	_GL_AdjustFreqSoundHnm@8	undefined _GL_AdjustFreqSoundHnm@8(int param_1, int param_2)	
+FUNC	11db	_GL_PlayMusic@16	undefined _GL_PlayMusic@16(uint * param_1, int param_2, int param_3, undefined4 param_4)	
+FUNC	11ea	_GL_HNM6_Init_All_16@0	undefined _GL_HNM6_Init_All_16@0(void)	
+FUNC	11ef	_GL_StopHnmSound@0	undefined _GL_StopHnmSound@0(void)	
+FUNC	11f9	_GL_HNM6_Init_All_15@0	undefined _GL_HNM6_Init_All_15@0(void)	
+FUNC	11fe	_GL_OpenHnm@8	undefined4 * _GL_OpenHnm@8(undefined4 * param_1, uint * param_2, int param_3)	
+FUNC	1208	_GL_LoadTga@8	undefined4 _GL_LoadTga@8(uint * param_1, byte * param_2)	
+FUNC	120d	_GL_WaitForAppActive@0	undefined _GL_WaitForAppActive@0(void)	
+FUNC	1212	_GL_SetFilePointer@16	DWORD _GL_SetFilePointer@16(HANDLE param_1, int param_2, undefined4 param_3, DWORD param_4)	
+FUNC	1217	_GL_ReadFile@20	undefined4 _GL_ReadFile@20(HANDLE param_1, byte * param_2, DWORD param_3, int * param_4)	
+FUNC	1221	_GL_FlipToGDI@0	undefined _GL_FlipToGDI@0(void)	
+FUNC	1230	_GL_SetDirectSoundVolume@8	undefined _GL_SetDirectSoundVolume@8(void)	
+FUNC	1235	_GL_PBox@16	undefined4 _GL_PBox@16(int param_1, int param_2, int param_3, int param_4)	
+FUNC	123a	_GL_CopyFromLogicalScreen@4	undefined _GL_CopyFromLogicalScreen@4(void * this, int param_1)	
+FUNC	123f	_GL_SetDirectSoundPan@8	undefined _GL_SetDirectSoundPan@8(void)	
+FUNC	1244	_GL_FileRead@12	int _GL_FileRead@12(HANDLE param_1, byte * param_2, DWORD param_3)	
+FUNC	1249	_GL_FreeScreen@4	undefined _GL_FreeScreen@4(int param_1)	
+FUNC	124e	_GL_Line@16	undefined4 _GL_Line@16(int param_1, int param_2, int param_3, int param_4)	
+FUNC	1253	_GL_ClrKeybTable@8	undefined4 _GL_ClrKeybTable@8(uint param_1, uint param_2)	
+FUNC	1258	_GL_BlitImage@0	undefined _GL_BlitImage@0(void)	
+FUNC	1262	_GL_LoadPackLZW@8	byte * _GL_LoadPackLZW@8(byte * param_1, uint * param_2)	
+FUNC	1271	_GL_UnlockScreen@4	undefined4 _GL_UnlockScreen@4(void)	
+FUNC	1276	_GL_QuitWithErrorCode@12	undefined4 _GL_QuitWithErrorCode@12(LPCSTR param_1, uint * param_2, int param_3)	
+FUNC	1280	_GL_InitAllScreen@0	undefined _GL_InitAllScreen@0(void)	
+FUNC	1285	_GL_FileClose@4	undefined _GL_FileClose@4(HANDLE param_1)	
+FUNC	128a	_GL_SetDebugFlag@4	undefined _GL_SetDebugFlag@4(undefined4 param_1)	
+FUNC	1294	_GL_OpenDdraw@20	undefined4 _GL_OpenDdraw@20(void)	
+FUNC	1299	_GL_InitDirectSound@0	undefined4 _GL_InitDirectSound@0(void)	
+FUNC	129e	_GL_GetLastKey@0	int _GL_GetLastKey@0(void)	
+FUNC	12a3	_GL_KbHit@0	undefined4 _GL_KbHit@0(void)	
+FUNC	12ad	_GL_ReleaseGraphColor@0	undefined _GL_ReleaseGraphColor@0(void)	
+FUNC	12b2	_GL_AddProgramItems@12	undefined4 _GL_AddProgramItems@12(undefined4 param_1, uint * param_2, uint * param_3)	
+FUNC	12b7	_GL_CreateList@0	undefined _GL_CreateList@0(void)	
+FUNC	12bc	_GL_SavePackLZW@44	undefined4 _GL_SavePackLZW@44(void)	
+FUNC	12c1	_GL_LoadDirectSound@12	undefined _GL_LoadDirectSound@12(void)	
+FUNC	12c6	_GL_FileWrite@12	DWORD _GL_FileWrite@12(HANDLE param_1, LPCVOID param_2, DWORD param_3)	
+FUNC	12d5	_GL_GetMessages2@0	WPARAM _GL_GetMessages2@0(void)	
+FUNC	12da	_GL_LockDirectSoundAdr@16	undefined4 _GL_LockDirectSoundAdr@16(undefined4 param_1)	
+FUNC	12df	_GL_GetNextArg@0	byte * _GL_GetNextArg@0(void)	
+FUNC	12e4	_GL_DeleteKey@4	bool _GL_DeleteKey@4(char * param_1)	
+FUNC	12e9	_GL_EnableBreakHnm@4	undefined _GL_EnableBreakHnm@4(undefined4 param_1)	
+FUNC	12ee	_GL_BlitScreen@24	undefined _GL_BlitScreen@24(int param_1, HWND param_2, int param_3, int param_4, int param_5, int param_6)	
+FUNC	12f3	_GL_FileCopy@8	undefined _GL_FileCopy@8(HANDLE param_1, HANDLE param_2)	
+FUNC	12f8	_GL_PlayDirectSound@8	undefined _GL_PlayDirectSound@8(void)	
+FUNC	1307	_GL_FileOpen@8	HANDLE _GL_FileOpen@8(uint * param_1, int param_2)	
+FUNC	1311	_GL_load_one_block_ubb@0	int _GL_load_one_block_ubb@0(void)	
+FUNC	1316	_GL_GetFileSize@8	DWORD _GL_GetFileSize@8(HANDLE param_1, undefined4 * param_2)	
+FUNC	131b	_GL_GetFirstArg@4	byte * _GL_GetFirstArg@4(byte * param_1)	
+FUNC	1325	_GL_OpenBigFile@4	HANDLE _GL_OpenBigFile@4(uint * param_1)	
+FUNC	132f	_GL_TexteOpaque@16	undefined4 _GL_TexteOpaque@16(int param_1, int param_2, char * param_3, int param_4)	
+FUNC	1339	_GL_InitTestIfExeRunning@0	undefined4 _GL_InitTestIfExeRunning@0(void)	
+FUNC	133e	_GL_SetDdrawCooperativeLevel@4	undefined4 _GL_SetDdrawCooperativeLevel@4(undefined4 param_1)	
+FUNC	1343	_InitAudioCard@4	undefined _InitAudioCard@4(int param_1)	
+FUNC	1348	_GL_CloseDdraw@0	undefined _GL_CloseDdraw@0(void)	
+FUNC	134d	_GL_OutVal@8	undefined _GL_OutVal@8(LPCSTR param_1)	
+FUNC	1357	_GL_WaitKey@0	undefined _GL_WaitKey@0(void)	
+FUNC	135c	_GL_StopDirectSound@4	undefined _GL_StopDirectSound@4(void)	
+FUNC	1361	_GL_GetDirectSoundStatus@4	undefined4 _GL_GetDirectSoundStatus@4(undefined4 param_1)	
+FUNC	1366	_GL_OpenWAV@4	HANDLE _GL_OpenWAV@4(uint * param_1)	
+FUNC	136b	_GL_QuitWithoutError@0	undefined4 _GL_QuitWithoutError@0(void)	
+FUNC	1370	_GL_SetTgaInfo@24	undefined _GL_SetTgaInfo@24(undefined2 param_1, undefined2 param_2, undefined2 param_3, undefined2 param_4, char param_5, undefined1 * param_6)	
+FUNC	1375	_GL_ReplaceFileBigFile@12	undefined4 _GL_ReplaceFileBigFile@12(uint * param_1, uint * param_2, undefined4 param_3)	
+FUNC	137a	_GL_SethInstance@4	undefined _GL_SethInstance@4(undefined4 param_1)	
+FUNC	1384	_GL_PlayWav@4	undefined _GL_PlayWav@4(int param_1)	
+FUNC	1389	_GL_CallExe@8	undefined4 _GL_CallExe@8(uint * param_1, char * param_2)	
+FUNC	138e	_GL_SaveWAV@8	DWORD _GL_SaveWAV@8(uint * param_1, LPCVOID param_2)	
+FUNC	1393	_GL_KeyHit@4	bool _GL_KeyHit@4(int param_1)	
+FUNC	1398	_GL_ShowMouse@0	undefined _GL_ShowMouse@0(void)	
+FUNC	139d	_GL_StopMusic@0	undefined _GL_StopMusic@0(void)	
+FUNC	13a2	_GL_ReleaseScreenHdc@8	undefined _GL_ReleaseScreenHdc@8(void)	
+FUNC	13a7	_GL_PlayHnmDDRAW@24	bool _GL_PlayHnmDDRAW@24(uint * param_1, int param_2, int param_3, char * param_4, double param_5)	
+FUNC	13ac	_GL_CreateKey@4	bool _GL_CreateKey@4(char * param_1)	
+FUNC	13c5	_GL_CloseHnm6@0	undefined _GL_CloseHnm6@0(void)	
+FUNC	13ca	_GL_CloseFileMapping@0	undefined _GL_CloseFileMapping@0(void)	
+FUNC	13d4	_GL_AllocDirectSound@20	undefined _GL_AllocDirectSound@20(void)	
+FUNC	13e3	_GL_GetFileSizeBigFile@4	undefined4 _GL_GetFileSizeBigFile@4(int param_1)	
+FUNC	13e8	_GL_IconifyWindow@0	undefined _GL_IconifyWindow@0(void)	
+FUNC	13ed	_GL_GetDirectSoundPosition@12	undefined _GL_GetDirectSoundPosition@12(void)	
+FUNC	13f2	_GL_ShowGroup@4	undefined4 _GL_ShowGroup@4(uint * param_1)	
+FUNC	13fc	_GL_GetScreenHdc@4	undefined4 _GL_GetScreenHdc@4(undefined4 param_1)	
+FUNC	1401	_GL_CreateBigFile@8	undefined4 _GL_CreateBigFile@8(uint * param_1, LPCSTR param_2)	
+FUNC	1406	_SetBigFileDebug@4	undefined _SetBigFileDebug@4(undefined4 param_1)	
+FUNC	140b	_GL_CopyToLogicalScreen@4	undefined _GL_CopyToLogicalScreen@4(void * this, int param_1)	
+FUNC	1415	_GL_ReadFileBigFile@12	int _GL_ReadFileBigFile@12(uint param_1, byte * param_2, int param_3)	
+FUNC	141a	_GL_SetKeybTable@8	undefined4 _GL_SetKeybTable@8(uint param_1, uint param_2)	
+FUNC	1424	_GL_SetDirectSoundPosition@8	undefined _GL_SetDirectSoundPosition@8(void)	
+FUNC	1433	_GL_UnlockLogicalScreen@0	undefined4 _GL_UnlockLogicalScreen@0(void)	
+FUNC	1456	_GL_GetWAVHeader@8	undefined4 _GL_GetWAVHeader@8(HANDLE param_1, byte * param_2)	
+FUNC	145b	_GL_WindowProc@16	undefined _GL_WindowProc@16(HWND param_1, uint param_2, uint param_3, uint param_4)	
+FUNC	1460	_GL_UnlockBufferSound@0	undefined _GL_UnlockBufferSound@0(void)	
+FUNC	1465	_GL_ClearDirectSoundAdr@12	undefined _GL_ClearDirectSoundAdr@12(void)	
+FUNC	146a	_GL_MouseK@0	undefined4 _GL_MouseK@0(void)	
+FUNC	1474	_GL_ShellExec@12	undefined4 _GL_ShellExec@12(LPCSTR param_1, LPCSTR param_2, LPCSTR param_3)	
+FUNC	1479	_GL_FileMoveIn@8	undefined _GL_FileMoveIn@8(HANDLE param_1, LONG param_2)	
+FUNC	1483	_GL_ExecRoutine@8	HANDLE _GL_ExecRoutine@8(LPTHREAD_START_ROUTINE param_1, LPVOID param_2)	
+FUNC	1488	_GL_CloseHnmSound@0	undefined _GL_CloseHnmSound@0(void)	
+FUNC	148d	_GL_LockBufferSound@0	undefined4 _GL_LockBufferSound@0(undefined4 param_1)	
+FUNC	1492	_GL_search_blocks@0	undefined _GL_search_blocks@0(void)	
+FUNC	14a1	_GL_PackLZW@16	size_t _GL_PackLZW@16(undefined4 * param_1, void * param_2, void * param_3, size_t param_4)	
+FUNC	14b0	_GL_FlipScreen@0	undefined _GL_FlipScreen@0(void)	
+FUNC	14b5	_GL_StartHnmSound@0	undefined _GL_StartHnmSound@0(void)	
+FUNC	14bf	_GL_CreateFile@28	HANDLE _GL_CreateFile@28(uint * param_1)	
+FUNC	14c4	_GL_HideMouse@0	undefined _GL_HideMouse@0(void)	
+FUNC	14c9	_GL_IsMusicFinished@0	bool _GL_IsMusicFinished@0(void)	
+FUNC	14ce	_GL_Box@16	undefined4 _GL_Box@16(int param_1, int param_2, int param_3, int param_4)	
+FUNC	14d3	_GL_SetGraphScreen@4	undefined _GL_SetGraphScreen@4(undefined4 param_1)	
+FUNC	14d8	_GL_HNM6_Decompression@16	undefined _GL_HNM6_Decompression@16(undefined4 param_1, undefined4 param_2, undefined4 param_3, undefined4 param_4)	
+FUNC	14dd	_GL_SelectScreen@8	undefined _GL_SelectScreen@8(HDC param_1, int param_2)	
+FUNC	14e2	_GL_OpenFileBigFile@4	int _GL_OpenFileBigFile@4(uint * param_1)	
+FUNC	14ec	_GL_FreeHnmScreen@0	undefined _GL_FreeHnmScreen@0(void)	
+FUNC	14f6	_GL_PlayWavDirectSound@12	undefined _GL_PlayWavDirectSound@12(void)	
+FUNC	14fb	_GL_WaitTime@4	undefined _GL_WaitTime@4(int param_1)	
+FUNC	150a	_GL_LockScreen@4	undefined4 _GL_LockScreen@4(int param_1)	
+FUNC	13aa0	_strncpy	char * _strncpy(char * _Dest, char * _Source, size_t _Count)	Library Function - Single Match\n _strncpy\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	13ba0	_strncmp	int _strncmp(char * _Str1, char * _Str2, size_t _MaxCount)	Library Function - Single Match\n _strncmp\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	13d40	__exit	void __exit(int _Code)	Library Function - Single Match\n __exit\n\nLibrary: Visual Studio 2003 Debug
+FUNC	13e80	__initterm	undefined __initterm(int * param_1, int * param_2)	Library Function - Single Match\n __initterm\n\nLibrary: Visual Studio 2003 Debug
+FUNC	13eb0	FID_conflict:_memcpy	void * FID_conflict:_memcpy(void * _Dst, void * _Src, size_t _Size)	Library Function - Multiple Matches With Different Base Names\n _memcpy\n _memmove\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	141f0	_memset	void * _memset(void * _Dst, int _Val, size_t _Size)	Library Function - Single Match\n _memset\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	14260	FID_conflict:_strcat	char * FID_conflict:_strcat(char * _Dest, char * _Source)	Library Function - Multiple Matches With Different Base Names\n __mbscat\n _strcat\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	14410	__nh_malloc	void * __nh_malloc(size_t _Size, int _NhFlag)	Library Function - Single Match\n __nh_malloc\n\nLibrary: Visual Studio 2003 Debug
+FUNC	14430	__nh_malloc_dbg	int * __nh_malloc_dbg(uint param_1, int param_2, uint param_3, int param_4, int param_5)	Library Function - Single Match\n __nh_malloc_dbg\n\nLibrary: Visual Studio 2003 Debug
+FUNC	147e0	__calloc_dbg	undefined1 * __calloc_dbg(int param_1, int param_2, uint param_3, int param_4, int param_5)	Library Function - Single Match\n __calloc_dbg\n\nLibrary: Visual Studio 2003 Debug
+FUNC	14860	__realloc_dbg	int * __realloc_dbg(void * param_1, uint param_2, uint param_3, int param_4, int param_5)	Library Function - Single Match\n __realloc_dbg\n\nLibrary: Visual Studio 2003 Debug
+FUNC	14dd0	__expand_dbg	int * __expand_dbg(void * param_1, uint param_2, uint param_3, int param_4, int param_5)	Library Function - Single Match\n __expand_dbg\n\nLibrary: Visual Studio 2003 Debug
+FUNC	158d0	FID_conflict:AtlIsValidAddress	undefined4 FID_conflict:AtlIsValidAddress(void * param_1, UINT_PTR param_2, int param_3)	Library Function - Multiple Matches With Different Base Names\n int __cdecl ATL::AtlIsValidAddress(void const *,unsigned int,int)\n __CrtIsValidPointer\n\nLibrary: Visual Studio 2003 Debug
+FUNC	16250	_strcmp	int _strcmp(char * _Str1, char * _Str2)	Library Function - Single Match\n _strcmp\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	162e0	_strlen	size_t _strlen(char * _Str)	Library Function - Single Match\n _strlen\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	16410	_JumpToContinuation	void _JumpToContinuation(void * param_1, EHRegistrationNode * param_2)	Library Function - Single Match\n void __stdcall _JumpToContinuation(void *,struct EHRegistrationNode *)\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	16450	_CallMemberFunction0	void _CallMemberFunction0(void * param_1, void * param_2)	Library Function - Single Match\n void __stdcall _CallMemberFunction0(void *,void *)\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+FUNC	164e0	FID_conflict:___CxxFrameHandler3	undefined4 FID_conflict:___CxxFrameHandler3(EHExceptionRecord * param_1, EHRegistrationNode * param_2, _CONTEXT * param_3, void * param_4)	Library Function - Multiple Matches With Different Base Names\n ___CxxFrameHandler\n ___CxxFrameHandler2\n ___CxxFrameHandler3\n\nLibraries: Visual Studio 2003, Visual Studio 2005, Visual Studio 2008, Visual Studio 2010
+FUNC	16520	___CxxLongjmpUnwind@4	undefined ___CxxLongjmpUnwind@4(int param_1)	Library Function - Single Match\n ___CxxLongjmpUnwind@4\n\nLibraries: Visual Studio 2003, Visual Studio 2005, Visual Studio 2008, Visual Studio 2010
+FUNC	167f0	__global_unwind2	undefined __global_unwind2(PVOID param_1)	Library Function - Single Match\n __global_unwind2\n\nLibraries: Visual Studio, vc6
+FUNC	16832	__local_unwind2	undefined __local_unwind2(int param_1, int param_2)	Library Function - Single Match\n __local_unwind2\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, Visual Studio 2003 Debug, Visual Studio 2003 Release
+FUNC	1689a	__abnormal_termination	int __abnormal_termination(void)	Library Function - Single Match\n __abnormal_termination\n\nLibrary: Visual Studio
+FUNC	168bd	__NLG_Notify1	undefined __NLG_Notify1(undefined4 param_1)	Library Function - Single Match\n __NLG_Notify1\n\nLibraries: Visual Studio 2017 Debug, Visual Studio 2017 Release, Visual Studio 2019 Debug, Visual Studio 2019 Release
+FUNC	17040	_strstr	char * _strstr(char * _Str, char * _SubStr)	Library Function - Single Match\n _strstr\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	17244	__ftol	longlong __ftol(void)	Library Function - Single Match\n __ftol\n\nLibrary: Visual Studio
+FUNC	17270	entry	undefined entry(void)	
+FUNC	174a0	__amsg_exit	void __amsg_exit(int param_1)	Library Function - Single Match\n __amsg_exit\n\nLibrary: Visual Studio 2003 Debug
+FUNC	18660	__CrtSetReportFile	undefined4 __CrtSetReportFile(int param_1, int param_2)	Library Function - Single Match\n __CrtSetReportFile\n\nLibrary: Visual Studio 2003 Debug
+FUNC	19110	__callnewh	int __callnewh(size_t _Size)	Library Function - Single Match\n __callnewh\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1ac70	ArrayUnwindFilter	int ArrayUnwindFilter(_EXCEPTION_POINTERS * param_1)	Library Function - Single Match\n int __cdecl ArrayUnwindFilter(struct _EXCEPTION_POINTERS *)\n\nLibrary: Visual Studio
+FUNC	1aca0	CatchIt	void CatchIt(EHExceptionRecord * param_1, EHRegistrationNode * param_2, _CONTEXT * param_3, void * param_4, _s_FuncInfo * param_5, _s_HandlerType * param_6, _s_CatchableType * param_7, _s_TryBlockMapEntry * param_8, int param_9, EHRegistrationNode * param_10, uchar param_11)	Library Function - Single Match\n void __cdecl CatchIt(struct EHExceptionRecord *,struct EHRegistrationNode *,struct _CONTEXT *,void *,struct _s_FuncInfo const *,struct _s_HandlerType const *,struct _s_CatchableType const *,struct _s_TryBlockMapEntry const *,int,struct EHRegistrationNode *,unsigned char)\n\nLibrary: Visual Studio
+FUNC	1b190	___DestructExceptionObject	undefined ___DestructExceptionObject(int param_1)	Library Function - Single Match\n ___DestructExceptionObject\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+FUNC	1b220	FID_conflict:___AdjustPointer	int FID_conflict:___AdjustPointer(int param_1, int * param_2)	Library Function - Multiple Matches With Different Base Names\n void * __cdecl AdjustPointer(void *,struct PMD const &)\n ___AdjustPointer\n\nLibrary: Visual Studio
+FUNC	1b270	__CallSettingFrame@12	undefined __CallSettingFrame@12(undefined4 param_1, undefined4 param_2, int param_3)	Library Function - Single Match\n __CallSettingFrame@12\n\nLibraries: Visual Studio 2017 Debug, Visual Studio 2017 Release, Visual Studio 2019 Debug, Visual Studio 2019 Release
+FUNC	1be00	__setdefaultprecision	undefined __setdefaultprecision(void)	Library Function - Single Match\n __setdefaultprecision\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1be80	__ms_p5_mp_test_fdiv	undefined __ms_p5_mp_test_fdiv(void)	Library Function - Single Match\n __ms_p5_mp_test_fdiv\n\nLibraries: Visual Studio 2003, Visual Studio 2005, Visual Studio 2008
+FUNC	1bf80	__cropzeros	void __cropzeros(char * _Buf)	Library Function - Single Match\n __cropzeros\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+FUNC	1c060	__positive	int __positive(double * arg)	Library Function - Single Match\n __positive\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+FUNC	1c090	__fassign	void __fassign(int flag, char * argument, char * number)	Library Function - Single Match\n __fassign\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+FUNC	1c530	__cftoe_g	undefined1 * __cftoe_g(undefined4 param_1, undefined1 * param_2, int param_3, int param_4)	Library Function - Single Match\n __cftoe_g\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+FUNC	1c570	__cftof_g	char * __cftof_g(undefined4 param_1, char * param_2, size_t param_3)	Library Function - Single Match\n __cftof_g\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+FUNC	1c5a0	__cfltcvt	errno_t __cfltcvt(double * arg, char * buffer, size_t sizeInBytes, int format, int precision, int caps)	Library Function - Single Match\n __cfltcvt\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+FUNC	1c600	__shift	undefined __shift(char * param_1, int param_2)	Library Function - Single Match\n __shift\n\nLibrary: Visual Studio
+FUNC	1c630	__allmul	longlong __allmul(uint param_1, int param_2, uint param_3, int param_4)	Library Function - Single Match\n __allmul\n\nLibraries: Visual Studio, vc6
+FUNC	1c686	___from_strstr_to_strchr	uint * ___from_strstr_to_strchr(uint * param_1)	Library Function - Single Match\n ___from_strstr_to_strchr\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	1c740	__dosmaperr	void __dosmaperr(ulong param_1)	Library Function - Single Match\n __dosmaperr\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1c9e0	__XcptFilter	int __XcptFilter(ulong _ExceptionNum, _EXCEPTION_POINTERS * _ExceptionPtr)	Library Function - Single Match\n __XcptFilter\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1cb90	xcptlookup	int * xcptlookup(int param_1)	Library Function - Single Match\n _xcptlookup\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1cd30	__ismbbkana	int __ismbbkana(uint _C)	Library Function - Single Match\n __ismbbkana\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1dba0	getSystemCP	UINT getSystemCP(UINT param_1)	Library Function - Single Match\n _getSystemCP\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1e020	__ioterm	void __ioterm(void)	Library Function - Single Match\n __ioterm\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1e160	__FF_MSGBANNER	void __FF_MSGBANNER(void)	Library Function - Single Match\n __FF_MSGBANNER\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1e3b0	__GET_RTERRMSG	wchar_t * __GET_RTERRMSG(int param_1)	Library Function - Single Match\n __GET_RTERRMSG\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1e870	__isatty	int __isatty(int _FileHandle)	Library Function - Single Match\n __isatty\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1e940	__aulldiv	undefined8 __aulldiv(uint param_1, uint param_2, uint param_3, uint param_4)	Library Function - Single Match\n __aulldiv\n\nLibraries: Visual Studio, vc6
+FUNC	1e9b0	__aullrem	undefined8 __aullrem(uint param_1, uint param_2, uint param_3, uint param_4)	Library Function - Single Match\n __aullrem\n\nLibraries: Visual Studio, vc6
+FUNC	1ea30	__itoa	char * __itoa(int _Value, char * _Dest, int _Radix)	Library Function - Single Match\n __itoa\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1ea80	xtoa	undefined xtoa(uint param_1, char * param_2, uint param_3, int param_4)	Library Function - Single Match\n _xtoa\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1eb50	__ltoa	char * __ltoa(long _Value, char * _Dest, int _Radix)	Library Function - Single Match\n __ltoa\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1eb90	__ultoa	char * __ultoa(ulong _Value, char * _Dest, int _Radix)	Library Function - Single Match\n __ultoa\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1ebb0	__i64toa	char * __i64toa(longlong _Val, char * _DstBuf, int _Radix)	Library Function - Single Match\n __i64toa\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1ece0	__ui64toa	char * __ui64toa(ulonglong _Val, char * _DstBuf, int _Radix)	Library Function - Single Match\n __ui64toa\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1ef00	__alloca_probe	undefined __alloca_probe(void)	Library Function - Single Match\n __alloca_probe\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	1f0d0	ctrlevent_capture	undefined4 ctrlevent_capture(int param_1)	Library Function - Single Match\n _ctrlevent_capture@4\n\nLibrary: Visual Studio 2003 Debug\n__stdcall ctrlevent_capture,4
+FUNC	1f300	siglookup	undefined4 * siglookup(int param_1)	Library Function - Single Match\n _siglookup\n\nLibrary: Visual Studio 2003 Debug
+FUNC	1f950	_ValidateExecute	int _ValidateExecute(_func_int * param_1)	Library Function - Single Match\n int __cdecl _ValidateExecute(int (__stdcall*)(void))\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+FUNC	1f980	FID_conflict:_memcpy	void * FID_conflict:_memcpy(void * _Dst, void * _Src, size_t _Size)	Library Function - Multiple Matches With Different Base Names\n _memcpy\n _memmove\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+FUNC	1fe20	__set_osfhnd	int __set_osfhnd(int param_1, intptr_t param_2)	Library Function - Single Match\n __set_osfhnd\n\nLibrary: Visual Studio 2003 Debug
+FUNC	205f0	FID_conflict:__open	int FID_conflict:__open(char * _Filename, int _OpenFlag, ...)	Library Function - Multiple Matches With Different Base Names\n __open\n __wopen\n\nLibrary: Visual Studio 2003 Debug
+FUNC	20bc0	__controlfp	uint __controlfp(uint _NewValue, uint _Mask)	Library Function - Single Match\n __controlfp\n\nLibrary: Visual Studio 2003 Debug
+FUNC	21330	__CopyMan	undefined __CopyMan(undefined4 * param_1, undefined4 * param_2)	Library Function - Single Match\n __CopyMan\n\nLibrary: Visual Studio
+FUNC	21380	__FillZeroMan	undefined __FillZeroMan(int param_1)	Library Function - Single Match\n __FillZeroMan\n\nLibrary: Visual Studio
+FUNC	213b0	__IsZeroMan	undefined4 __IsZeroMan(int param_1)	Library Function - Single Match\n __IsZeroMan\n\nLibrary: Visual Studio
+FUNC	21bd0	__fptrap	void __fptrap(void)	Library Function - Single Match\n __fptrap\n\nLibrary: Visual Studio 2003 Debug
+FUNC	224a0	___addl	undefined4 ___addl(uint param_1, uint param_2, uint * param_3)	Library Function - Single Match\n ___addl\n\nLibrary: Visual Studio 2012 Debug
+FUNC	224e0	___add_12	undefined ___add_12(uint * param_1, uint * param_2)	Library Function - Single Match\n ___add_12\n\nLibrary: Visual Studio
+FUNC	22590	___shl_12	undefined ___shl_12(uint * param_1)	Library Function - Single Match\n ___shl_12\n\nLibraries: Visual Studio 2003, Visual Studio 2005, Visual Studio 2008, Visual Studio 2010
+FUNC	225f0	___shr_12	undefined ___shr_12(uint * param_1)	Library Function - Single Match\n ___shr_12\n\nLibraries: Visual Studio 2003, Visual Studio 2005, Visual Studio 2008, Visual Studio 2010
+FUNC	244a0	___initconin	void ___initconin(void)	Library Function - Single Match\n ___initconin\n\nLibrary: Visual Studio
+FUNC	244d0	___initconout	void ___initconout(void)	Library Function - Single Match\n ___initconout\n\nLibrary: Visual Studio
+FUNC	24500	___termcon	undefined ___termcon(void)	Library Function - Single Match\n ___termcon\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2005 Debug, Visual Studio 2008 Debug
+CMT	178	eol	.text
+CMT	1a0	eol	.rdata
+CMT	1c8	eol	.data
+CMT	1f0	eol	.idata
+CMT	218	eol	.rsrc
+CMT	240	eol	.reloc
+CMT	470a0	eol	IMAGE_THUNK_DATA32
+CMT	470a4	eol	IMAGE_THUNK_DATA32
+CMT	470a8	eol	IMAGE_THUNK_DATA32
+CMT	470ac	eol	IMAGE_THUNK_DATA32
+CMT	470b0	eol	IMAGE_THUNK_DATA32
+CMT	470b4	eol	IMAGE_THUNK_DATA32
+CMT	470e8	eol	IMAGE_THUNK_DATA32
+CMT	470ec	eol	IMAGE_THUNK_DATA32
+CMT	470f0	eol	IMAGE_THUNK_DATA32
+CMT	470f4	eol	IMAGE_THUNK_DATA32
+CMT	470f8	eol	IMAGE_THUNK_DATA32
+CMT	470fc	eol	IMAGE_THUNK_DATA32
+CMT	47100	eol	IMAGE_THUNK_DATA32
+CMT	47104	eol	IMAGE_THUNK_DATA32
+CMT	47108	eol	IMAGE_THUNK_DATA32
+CMT	4710c	eol	IMAGE_THUNK_DATA32
+CMT	47110	eol	IMAGE_THUNK_DATA32
+CMT	47114	eol	IMAGE_THUNK_DATA32
+CMT	47118	eol	IMAGE_THUNK_DATA32
+CMT	4711c	eol	IMAGE_THUNK_DATA32
+CMT	47120	eol	IMAGE_THUNK_DATA32
+CMT	47124	eol	IMAGE_THUNK_DATA32
+CMT	47128	eol	IMAGE_THUNK_DATA32
+CMT	4712c	eol	IMAGE_THUNK_DATA32
+CMT	47130	eol	IMAGE_THUNK_DATA32
+CMT	47134	eol	IMAGE_THUNK_DATA32
+CMT	47138	eol	IMAGE_THUNK_DATA32
+CMT	4713c	eol	IMAGE_THUNK_DATA32
+CMT	4717c	eol	IMAGE_THUNK_DATA32
+CMT	47180	eol	IMAGE_THUNK_DATA32
+CMT	47184	eol	IMAGE_THUNK_DATA32
+CMT	47188	eol	IMAGE_THUNK_DATA32
+CMT	4718c	eol	IMAGE_THUNK_DATA32
+CMT	47190	eol	IMAGE_THUNK_DATA32
+CMT	47194	eol	IMAGE_THUNK_DATA32
+CMT	47198	eol	IMAGE_THUNK_DATA32
+CMT	4719c	eol	IMAGE_THUNK_DATA32
+CMT	471a0	eol	IMAGE_THUNK_DATA32
+CMT	471a4	eol	IMAGE_THUNK_DATA32
+CMT	471a8	eol	IMAGE_THUNK_DATA32
+CMT	471ac	eol	IMAGE_THUNK_DATA32
+CMT	471b0	eol	IMAGE_THUNK_DATA32
+CMT	471b4	eol	IMAGE_THUNK_DATA32
+CMT	471b8	eol	IMAGE_THUNK_DATA32
+CMT	471bc	eol	IMAGE_THUNK_DATA32
+CMT	471c0	eol	IMAGE_THUNK_DATA32
+CMT	471c4	eol	IMAGE_THUNK_DATA32
+CMT	471c8	eol	IMAGE_THUNK_DATA32
+CMT	471cc	eol	IMAGE_THUNK_DATA32
+CMT	471d0	eol	IMAGE_THUNK_DATA32
+CMT	471d4	eol	IMAGE_THUNK_DATA32
+CMT	471d8	eol	IMAGE_THUNK_DATA32
+CMT	471dc	eol	IMAGE_THUNK_DATA32
+CMT	471e0	eol	IMAGE_THUNK_DATA32
+CMT	471e4	eol	IMAGE_THUNK_DATA32
+CMT	471e8	eol	IMAGE_THUNK_DATA32
+CMT	471ec	eol	IMAGE_THUNK_DATA32
+CMT	471f0	eol	IMAGE_THUNK_DATA32
+CMT	471f4	eol	IMAGE_THUNK_DATA32
+CMT	471f8	eol	IMAGE_THUNK_DATA32
+CMT	471fc	eol	IMAGE_THUNK_DATA32
+CMT	47200	eol	IMAGE_THUNK_DATA32
+CMT	47204	eol	IMAGE_THUNK_DATA32
+CMT	47208	eol	IMAGE_THUNK_DATA32
+CMT	4720c	eol	IMAGE_THUNK_DATA32
+CMT	47210	eol	IMAGE_THUNK_DATA32
+CMT	47214	eol	IMAGE_THUNK_DATA32
+CMT	47218	eol	IMAGE_THUNK_DATA32
+CMT	4721c	eol	IMAGE_THUNK_DATA32
+CMT	47220	eol	IMAGE_THUNK_DATA32
+CMT	47224	eol	IMAGE_THUNK_DATA32
+CMT	47228	eol	IMAGE_THUNK_DATA32
+CMT	4722c	eol	IMAGE_THUNK_DATA32
+CMT	47230	eol	IMAGE_THUNK_DATA32
+CMT	47234	eol	IMAGE_THUNK_DATA32
+CMT	47238	eol	IMAGE_THUNK_DATA32
+CMT	4723c	eol	IMAGE_THUNK_DATA32
+CMT	47240	eol	IMAGE_THUNK_DATA32
+CMT	47244	eol	IMAGE_THUNK_DATA32
+CMT	47248	eol	IMAGE_THUNK_DATA32
+CMT	4724c	eol	IMAGE_THUNK_DATA32
+CMT	47250	eol	IMAGE_THUNK_DATA32
+CMT	47254	eol	IMAGE_THUNK_DATA32
+CMT	47258	eol	IMAGE_THUNK_DATA32
+CMT	4725c	eol	IMAGE_THUNK_DATA32
+CMT	47260	eol	IMAGE_THUNK_DATA32
+CMT	47264	eol	IMAGE_THUNK_DATA32
+CMT	47268	eol	IMAGE_THUNK_DATA32
+CMT	4726c	eol	IMAGE_THUNK_DATA32
+CMT	47270	eol	IMAGE_THUNK_DATA32
+CMT	47274	eol	IMAGE_THUNK_DATA32
+CMT	47278	eol	IMAGE_THUNK_DATA32
+CMT	4727c	eol	IMAGE_THUNK_DATA32
+CMT	47280	eol	IMAGE_THUNK_DATA32
+CMT	47284	eol	IMAGE_THUNK_DATA32
+CMT	47288	eol	IMAGE_THUNK_DATA32
+CMT	4728c	eol	IMAGE_THUNK_DATA32
+CMT	47290	eol	IMAGE_THUNK_DATA32
+CMT	47294	eol	IMAGE_THUNK_DATA32
+CMT	47298	eol	IMAGE_THUNK_DATA32
+CMT	4729c	eol	IMAGE_THUNK_DATA32
+CMT	472a0	eol	IMAGE_THUNK_DATA32
+CMT	472a4	eol	IMAGE_THUNK_DATA32
+CMT	472a8	eol	IMAGE_THUNK_DATA32
+CMT	472ac	eol	IMAGE_THUNK_DATA32
+CMT	472b0	eol	IMAGE_THUNK_DATA32
+CMT	472b4	eol	IMAGE_THUNK_DATA32
+CMT	472b8	eol	IMAGE_THUNK_DATA32
+CMT	472bc	eol	IMAGE_THUNK_DATA32
+CMT	472c0	eol	IMAGE_THUNK_DATA32
+CMT	472c4	eol	IMAGE_THUNK_DATA32
+CMT	472c8	eol	IMAGE_THUNK_DATA32
+CMT	472cc	eol	IMAGE_THUNK_DATA32
+CMT	472d0	eol	IMAGE_THUNK_DATA32
+CMT	472d4	eol	IMAGE_THUNK_DATA32
+CMT	472d8	eol	IMAGE_THUNK_DATA32
+CMT	472dc	eol	IMAGE_THUNK_DATA32
+CMT	472e0	eol	IMAGE_THUNK_DATA32
+CMT	472e4	eol	IMAGE_THUNK_DATA32
+CMT	472e8	eol	IMAGE_THUNK_DATA32
+CMT	47360	eol	IMAGE_THUNK_DATA32
+CMT	47364	eol	IMAGE_THUNK_DATA32
+CMT	47394	eol	IMAGE_THUNK_DATA32
+CMT	47398	eol	IMAGE_THUNK_DATA32
+CMT	4739c	eol	IMAGE_THUNK_DATA32
+CMT	473a0	eol	IMAGE_THUNK_DATA32
+CMT	473a4	eol	IMAGE_THUNK_DATA32
+CMT	473a8	eol	IMAGE_THUNK_DATA32
+CMT	473ac	eol	IMAGE_THUNK_DATA32
+CMT	473b0	eol	IMAGE_THUNK_DATA32
+CMT	473b4	eol	IMAGE_THUNK_DATA32
+CMT	473b8	eol	IMAGE_THUNK_DATA32
+CMT	473bc	eol	IMAGE_THUNK_DATA32
+CMT	473c0	eol	IMAGE_THUNK_DATA32
+CMT	473c4	eol	IMAGE_THUNK_DATA32
+CMT	473c8	eol	IMAGE_THUNK_DATA32
+CMT	473cc	eol	IMAGE_THUNK_DATA32
+CMT	473d0	eol	IMAGE_THUNK_DATA32
+CMT	473d4	eol	IMAGE_THUNK_DATA32
+CMT	473d8	eol	IMAGE_THUNK_DATA32
+CMT	473dc	eol	IMAGE_THUNK_DATA32
+CMT	473e0	eol	IMAGE_THUNK_DATA32
+CMT	473e4	eol	IMAGE_THUNK_DATA32
+CMT	473e8	eol	IMAGE_THUNK_DATA32
+CMT	473ec	eol	IMAGE_THUNK_DATA32
+CMT	473f0	eol	IMAGE_THUNK_DATA32
+CMT	473f4	eol	IMAGE_THUNK_DATA32
+CMT	473f8	eol	IMAGE_THUNK_DATA32
+CMT	473fc	eol	IMAGE_THUNK_DATA32
+CMT	47400	eol	IMAGE_THUNK_DATA32
+CMT	47404	eol	IMAGE_THUNK_DATA32
+CMT	47408	eol	IMAGE_THUNK_DATA32
+CMT	4740c	eol	IMAGE_THUNK_DATA32
+CMT	47410	eol	IMAGE_THUNK_DATA32
+CMT	47414	eol	IMAGE_THUNK_DATA32
+CMT	47418	eol	IMAGE_THUNK_DATA32
+CMT	4741c	eol	IMAGE_THUNK_DATA32
+CMT	47420	eol	IMAGE_THUNK_DATA32
+CMT	47424	eol	IMAGE_THUNK_DATA32
+CMT	47428	eol	IMAGE_THUNK_DATA32
+CMT	4742c	eol	IMAGE_THUNK_DATA32
+CMT	47430	eol	IMAGE_THUNK_DATA32
+CMT	47434	eol	IMAGE_THUNK_DATA32
+CMT	47438	eol	IMAGE_THUNK_DATA32
+CMT	4743c	eol	IMAGE_THUNK_DATA32
+CMT	47440	eol	IMAGE_THUNK_DATA32
+CMT	47444	eol	IMAGE_THUNK_DATA32
+CMT	47448	eol	IMAGE_THUNK_DATA32
+CMT	4744c	eol	IMAGE_THUNK_DATA32
+CMT	47450	eol	IMAGE_THUNK_DATA32
+CMT	47454	eol	IMAGE_THUNK_DATA32
+CMT	47458	eol	IMAGE_THUNK_DATA32
+CMT	4745c	eol	IMAGE_THUNK_DATA32
+CMT	47460	eol	IMAGE_THUNK_DATA32
+CMT	47464	eol	IMAGE_THUNK_DATA32
+CMT	47468	eol	IMAGE_THUNK_DATA32
+CMT	4746c	eol	IMAGE_THUNK_DATA32
+CMT	47470	eol	IMAGE_THUNK_DATA32
+CMT	47474	eol	IMAGE_THUNK_DATA32
+CMT	474c8	eol	IMAGE_THUNK_DATA32
+CMT	474cc	eol	IMAGE_THUNK_DATA32
+CMT	474d0	eol	IMAGE_THUNK_DATA32
+CMT	474d4	eol	IMAGE_THUNK_DATA32
+CMT	474d8	eol	IMAGE_THUNK_DATA32
+CMT	474dc	eol	IMAGE_THUNK_DATA32
+CMT	474e0	eol	IMAGE_THUNK_DATA32
+CMT	474e4	eol	IMAGE_THUNK_DATA32
+CMT	474e8	eol	IMAGE_THUNK_DATA32
+CMT	474ec	eol	IMAGE_THUNK_DATA32
+CMT	474f0	eol	IMAGE_THUNK_DATA32
+CMT	474f4	eol	IMAGE_THUNK_DATA32
+CMT	474f8	eol	IMAGE_THUNK_DATA32
+CMT	47530	eol	IMAGE_THUNK_DATA32
+CMT	47534	eol	IMAGE_THUNK_DATA32
+CMT	49ea8	eol	Rsrc String ID 0
+CMT	49eaa	eol	Rsrc String ID 1
+CMT	49eac	eol	Rsrc String ID 2
+CMT	49eb4	eol	Rsrc String ID 3
+CMT	49ebc	eol	Rsrc String ID 4
+CMT	49ecc	eol	Rsrc String ID 5
+CMT	49ece	eol	Rsrc String ID 6
+CMT	49ed0	eol	Rsrc String ID 7
+CMT	49ed2	eol	Rsrc String ID 8
+CMT	49ed4	eol	Rsrc String ID 9
+CMT	49ed6	eol	Rsrc String ID 10
+CMT	49ed8	eol	Rsrc String ID 11
+CMT	49eda	eol	Rsrc String ID 12
+CMT	49edc	eol	Rsrc String ID 13
+CMT	49ede	eol	Rsrc String ID 14
+CMT	49ee0	eol	Rsrc String ID 15
+CMT	49ee4	eol	Rsrc String ID 0
+CMT	49ee6	eol	Rsrc String ID 1
+CMT	49f04	eol	Rsrc String ID 2
+CMT	49f0c	eol	Rsrc String ID 3
+CMT	49f14	eol	Rsrc String ID 4
+CMT	49f24	eol	Rsrc String ID 5
+CMT	49f26	eol	Rsrc String ID 6
+CMT	49f28	eol	Rsrc String ID 7
+CMT	49f2a	eol	Rsrc String ID 8
+CMT	49f2c	eol	Rsrc String ID 9
+CMT	49f2e	eol	Rsrc String ID 10
+CMT	49f30	eol	Rsrc String ID 11
+CMT	49f32	eol	Rsrc String ID 12
+CMT	49f34	eol	Rsrc String ID 13
+CMT	49f36	eol	Rsrc String ID 14
+CMT	49f38	eol	Rsrc String ID 15
+CMT	1000	pre	0x1000  60  _GL_GetKeyStrValue@8
+CMT	1005	pre	0x1005  173  _GL_dcpt_one_frame_ubb@0
+CMT	100a	pre	0x100a  97  _GL_LoadWAV@8
+CMT	1023	pre	0x1023  140  _GL_SetErrorMode@4
+CMT	1028	pre	0x1028  145  _GL_SetKeyStrValue@8
+CMT	102d	pre	0x102d  98  _GL_LoadWav@8
+CMT	1032	pre	0x1032  92  _GL_LoadBlockMusic@0
+CMT	1037	pre	0x1037  68  _GL_GetTgaInfo@24
+CMT	103c	pre	0x103c  18  _GL_CloseHnm@0
+CMT	1041	pre	0x1041  65  _GL_GetNumLogicalScreen@0
+CMT	104b	pre	0x104b  116  _GL_PlayHnmGDI@12
+CMT	1050	pre	0x1050  59  _GL_GetFlags@4
+CMT	1055	pre	0x1055  80  _GL_InitHnmScreen@0
+CMT	1064	pre	0x1064  81  _GL_InitHnmSound@0
+CMT	1069	pre	0x1069  96  _GL_LoadTgaInfo@28
+CMT	106e	pre	0x106e  83  _GL_InitWarp@0
+CMT	107d	pre	0x107d  159  _GL_TestIfExistKey@4
+CMT	1091	pre	0x1091  66  _GL_GetScreen@20
+CMT	109b	pre	0x109b  72  _GL_HNM6_Decompression_Warp@8
+CMT	10a0	pre	0x10a0  11  _GL_CloseBigFile@0
+CMT	10af	pre	0x10af  31  _GL_CreateGroup@4
+CMT	10b4	pre	0x10b4  34  _GL_DcptOneBlockSound@4
+CMT	10b9	pre	0x10b9  21  _GL_CloseWarp@0
+CMT	10be	pre	0x10be  88  _GL_IsWavFinished@4
+CMT	10c3	pre	0x10c3  5  _GL_BlitDdrawScreen@20
+CMT	10c8	pre	0x10c8  162  _GL_ToggleWinFullScreen@0
+CMT	10d2	pre	0x10d2  16  _GL_CloseHandle@4
+CMT	10e6	pre	0x10e6  160  _GL_Texte@16
+CMT	10eb	pre	0x10eb  26  _GL_CopyEcran@8
+CMT	10f0	pre	0x10f0  24  _GL_ClsScreen@4
+CMT	10f5	pre	0x10f5  136  _GL_SetDirectSoundFrequency@8
+CMT	10fa	pre	0x10fa  86  _GL_IsFileExist@4
+CMT	10ff	pre	0x10ff  79  _GL_InitHnm6@4
+CMT	1104	pre	0x1104  41  _GL_FileGetLen@4
+CMT	1109	pre	0x1109  105  _GL_MouseY@0
+CMT	1113	pre	0x1113  156  _GL_TestAppAlreadyRunning@4
+CMT	1118	pre	0x1118  20  _GL_CloseWAV@4
+CMT	111d	pre	0x111d  104  _GL_MouseX@0
+CMT	1122	pre	0x1122  14  _GL_CloseFileBigFile@4
+CMT	1127	pre	0x1127  1  _CloseAudioCard@4
+CMT	112c	pre	0x112c  50  _GL_FreeDirectSound@4
+CMT	1136	pre	0x1136  169  _GL_WaitForEndMusic@0
+CMT	113b	pre	0x113b  166  _GL_UnpackLZW@8
+CMT	1140	pre	0x1140  101  _GL_LockLogicalScreen@0
+CMT	114a	pre	0x114a  85  _GL_IsExeRunning@4
+CMT	114f	pre	0x114f  120  _GL_QuitWithError@8
+CMT	1154	pre	0x1154  38  _GL_FileBrowse@16
+CMT	1159	pre	0x1159  25  _GL_ConvertTrueColors@4
+CMT	1163	pre	0x1163  84  _GL_IsAppActive@0
+CMT	1168	pre	0x1168  44  _GL_FilePackAndCopy@8
+CMT	116d	pre	0x116d  13  _GL_CloseDirectSound@0
+CMT	117c	pre	0x117c  46  _GL_FileRelatifMoveIn@8
+CMT	1181	pre	0x1181  157  _GL_TestIfDdraw@0
+CMT	1186	pre	0x1186  128  _GL_ResetAllScreen@0
+CMT	118b	pre	0x118b  131  _GL_SaveTga@8
+CMT	1195	pre	0x1195  144  _GL_SetHwnd@4
+CMT	119f	pre	0x119f  167  _GL_ViewEcran@0
+CMT	11a4	pre	0x11a4  63  _GL_GetMessages@0
+CMT	11b3	pre	0x11b3  23  _GL_ClsLogicalScreen@0
+CMT	11b8	pre	0x11b8  69  _GL_GetTime@0
+CMT	11bd	pre	0x11bd  51  _GL_FreeDirectSoundAdr@4
+CMT	11c7	pre	0x11c7  142  _GL_SetGraphColor@12
+CMT	11cc	pre	0x11cc  158  _GL_TestIfExeRunning@4
+CMT	11d1	pre	0x11d1  129  _GL_RestoreSurfaces@0
+CMT	11d6	pre	0x11d6  3  _GL_AdjustFreqSoundHnm@8
+CMT	11db	pre	0x11db  117  _GL_PlayMusic@16
+CMT	11ea	pre	0x11ea  74  _GL_HNM6_Init_All_16@0
+CMT	11ef	pre	0x11ef  154  _GL_StopHnmSound@0
+CMT	11f9	pre	0x11f9  73  _GL_HNM6_Init_All_15@0
+CMT	11fe	pre	0x11fe  109  _GL_OpenHnm@8
+CMT	1208	pre	0x1208  95  _GL_LoadTga@8
+CMT	120d	pre	0x120d  168  _GL_WaitForAppActive@0
+CMT	1212	pre	0x1212  141  _GL_SetFilePointer@16
+CMT	1217	pre	0x1217  123  _GL_ReadFile@20
+CMT	1221	pre	0x1221  49  _GL_FlipToGDI@0
+CMT	1230	pre	0x1230  139  _GL_SetDirectSoundVolume@8
+CMT	1235	pre	0x1235  112  _GL_PBox@16
+CMT	123a	pre	0x123a  27  _GL_CopyFromLogicalScreen@4
+CMT	123f	pre	0x123f  137  _GL_SetDirectSoundPan@8
+CMT	1244	pre	0x1244  45  _GL_FileRead@12
+CMT	1249	pre	0x1249  53  _GL_FreeScreen@4
+CMT	124e	pre	0x124e  91  _GL_Line@16
+CMT	1253	pre	0x1253  22  _GL_ClrKeybTable@8
+CMT	1258	pre	0x1258  6  _GL_BlitImage@0
+CMT	1262	pre	0x1262  94  _GL_LoadPackLZW@8
+CMT	1271	pre	0x1271  165  _GL_UnlockScreen@4
+CMT	1276	pre	0x1276  121  _GL_QuitWithErrorCode@12
+CMT	1280	pre	0x1280  77  _GL_InitAllScreen@0
+CMT	1285	pre	0x1285  39  _GL_FileClose@4
+CMT	128a	pre	0x128a  135  _GL_SetDebugFlag@4
+CMT	1294	pre	0x1294  107  _GL_OpenDdraw@20
+CMT	1299	pre	0x1299  78  _GL_InitDirectSound@0
+CMT	129e	pre	0x129e  61  _GL_GetLastKey@0
+CMT	12a3	pre	0x12a3  89  _GL_KbHit@0
+CMT	12ad	pre	0x12ad  125  _GL_ReleaseGraphColor@0
+CMT	12b2	pre	0x12b2  2  _GL_AddProgramItems@12
+CMT	12b7	pre	0x12b7  33  _GL_CreateList@0
+CMT	12bc	pre	0x12bc  130  _GL_SavePackLZW@44
+CMT	12c1	pre	0x12c1  93  _GL_LoadDirectSound@12
+CMT	12c6	pre	0x12c6  47  _GL_FileWrite@12
+CMT	12d5	pre	0x12d5  62  _GL_GetMessages2@0
+CMT	12da	pre	0x12da  100  _GL_LockDirectSoundAdr@16
+CMT	12df	pre	0x12df  64  _GL_GetNextArg@0
+CMT	12e4	pre	0x12e4  35  _GL_DeleteKey@4
+CMT	12e9	pre	0x12e9  36  _GL_EnableBreakHnm@4
+CMT	12ee	pre	0x12ee  7  _GL_BlitScreen@24
+CMT	12f3	pre	0x12f3  40  _GL_FileCopy@8
+CMT	12f8	pre	0x12f8  114  _GL_PlayDirectSound@8
+CMT	1307	pre	0x1307  43  _GL_FileOpen@8
+CMT	1311	pre	0x1311  174  _GL_load_one_block_ubb@0
+CMT	1316	pre	0x1316  56  _GL_GetFileSize@8
+CMT	131b	pre	0x131b  58  _GL_GetFirstArg@4
+CMT	1325	pre	0x1325  106  _GL_OpenBigFile@4
+CMT	132f	pre	0x132f  161  _GL_TexteOpaque@16
+CMT	1339	pre	0x1339  82  _GL_InitTestIfExeRunning@0
+CMT	133e	pre	0x133e  134  _GL_SetDdrawCooperativeLevel@4
+CMT	1343	pre	0x1343  176  _InitAudioCard@4
+CMT	1348	pre	0x1348  12  _GL_CloseDdraw@0
+CMT	134d	pre	0x134d  111  _GL_OutVal@8
+CMT	1357	pre	0x1357  170  _GL_WaitKey@0
+CMT	135c	pre	0x135c  153  _GL_StopDirectSound@4
+CMT	1361	pre	0x1361  55  _GL_GetDirectSoundStatus@4
+CMT	1366	pre	0x1366  110  _GL_OpenWAV@4
+CMT	136b	pre	0x136b  122  _GL_QuitWithoutError@0
+CMT	1370	pre	0x1370  147  _GL_SetTgaInfo@24
+CMT	1375	pre	0x1375  127  _GL_ReplaceFileBigFile@12
+CMT	137a	pre	0x137a  148  _GL_SethInstance@4
+CMT	1384	pre	0x1384  118  _GL_PlayWav@4
+CMT	1389	pre	0x1389  9  _GL_CallExe@8
+CMT	138e	pre	0x138e  132  _GL_SaveWAV@8
+CMT	1393	pre	0x1393  90  _GL_KeyHit@4
+CMT	1398	pre	0x1398  151  _GL_ShowMouse@0
+CMT	139d	pre	0x139d  155  _GL_StopMusic@0
+CMT	13a2	pre	0x13a2  126  _GL_ReleaseScreenHdc@8
+CMT	13a7	pre	0x13a7  115  _GL_PlayHnmDDRAW@24
+CMT	13ac	pre	0x13ac  32  _GL_CreateKey@4
+CMT	13c5	pre	0x13c5  17  _GL_CloseHnm6@0
+CMT	13ca	pre	0x13ca  15  _GL_CloseFileMapping@0
+CMT	13d4	pre	0x13d4  4  _GL_AllocDirectSound@20
+CMT	13e3	pre	0x13e3  57  _GL_GetFileSizeBigFile@4
+CMT	13e8	pre	0x13e8  76  _GL_IconifyWindow@0
+CMT	13ed	pre	0x13ed  54  _GL_GetDirectSoundPosition@12
+CMT	13f2	pre	0x13f2  150  _GL_ShowGroup@4
+CMT	13fc	pre	0x13fc  67  _GL_GetScreenHdc@4
+CMT	1401	pre	0x1401  29  _GL_CreateBigFile@8
+CMT	1406	pre	0x1406  177  _SetBigFileDebug@4
+CMT	140b	pre	0x140b  28  _GL_CopyToLogicalScreen@4
+CMT	1415	pre	0x1415  124  _GL_ReadFileBigFile@12
+CMT	141a	pre	0x141a  146  _GL_SetKeybTable@8
+CMT	1424	pre	0x1424  138  _GL_SetDirectSoundPosition@8
+CMT	1433	pre	0x1433  164  _GL_UnlockLogicalScreen@0
+CMT	1456	pre	0x1456  70  _GL_GetWAVHeader@8
+CMT	145b	pre	0x145b  172  _GL_WindowProc@16
+CMT	1460	pre	0x1460  163  _GL_UnlockBufferSound@0
+CMT	1465	pre	0x1465  10  _GL_ClearDirectSoundAdr@12
+CMT	146a	pre	0x146a  103  _GL_MouseK@0
+CMT	1474	pre	0x1474  149  _GL_ShellExec@12
+CMT	1479	pre	0x1479  42  _GL_FileMoveIn@8
+CMT	1483	pre	0x1483  37  _GL_ExecRoutine@8
+CMT	1488	pre	0x1488  19  _GL_CloseHnmSound@0
+CMT	148d	pre	0x148d  99  _GL_LockBufferSound@0
+CMT	1492	pre	0x1492  175  _GL_search_blocks@0
+CMT	14a1	pre	0x14a1  113  _GL_PackLZW@16
+CMT	14b0	pre	0x14b0  48  _GL_FlipScreen@0
+CMT	14b5	pre	0x14b5  152  _GL_StartHnmSound@0
+CMT	14bf	pre	0x14bf  30  _GL_CreateFile@28
+CMT	14c4	pre	0x14c4  75  _GL_HideMouse@0
+CMT	14c9	pre	0x14c9  87  _GL_IsMusicFinished@0
+CMT	14ce	pre	0x14ce  8  _GL_Box@16
+CMT	14d3	pre	0x14d3  143  _GL_SetGraphScreen@4
+CMT	14d8	pre	0x14d8  71  _GL_HNM6_Decompression@16
+CMT	14dd	pre	0x14dd  133  _GL_SelectScreen@8
+CMT	14e2	pre	0x14e2  108  _GL_OpenFileBigFile@4
+CMT	14ec	pre	0x14ec  52  _GL_FreeHnmScreen@0
+CMT	14f6	pre	0x14f6  119  _GL_PlayWavDirectSound@12
+CMT	14fb	pre	0x14fb  171  _GL_WaitTime@4
+CMT	150a	pre	0x150a  102  _GL_LockScreen@4
+CMT	47564	pre	279  RegCloseKey  <<not bound>>
+CMT	47568	pre	283  RegCreateKeyExA  <<not bound>>
+CMT	4756c	pre	302  RegOpenKeyExA  <<not bound>>
+CMT	47570	pre	321  RegSetValueExA  <<not bound>>
+CMT	47574	pre	309  RegQueryValueA  <<not bound>>
+CMT	47578	pre	286  RegDeleteKeyA  <<not bound>>
+CMT	475ac	pre	64  CreateSolidBrush  <<not bound>>
+CMT	475b0	pre	70  DeleteObject  <<not bound>>
+CMT	475b4	pre	280  LineTo  <<not bound>>
+CMT	475b8	pre	283  MoveToEx  <<not bound>>
+CMT	475bc	pre	330  SelectObject  <<not bound>>
+CMT	475c0	pre	314  Rectangle  <<not bound>>
+CMT	475c4	pre	387  TextOutA  <<not bound>>
+CMT	475c8	pre	337  SetBkMode  <<not bound>>
+CMT	475cc	pre	370  SetTextColor  <<not bound>>
+CMT	475d0	pre	336  SetBkColor  <<not bound>>
+CMT	475d4	pre	43  CreateFontA  <<not bound>>
+CMT	475d8	pre	53  CreatePalette  <<not bound>>
+CMT	475dc	pre	164  GdiSetBatchLimit  <<not bound>>
+CMT	475e0	pre	36  CreateDIBSection  <<not bound>>
+CMT	475e4	pre	311  RealizePalette  <<not bound>>
+CMT	475e8	pre	331  SelectPalette  <<not bound>>
+CMT	475ec	pre	67  DeleteDC  <<not bound>>
+CMT	475f0	pre	382  StretchBlt  <<not bound>>
+CMT	475f4	pre	342  SetDIBColorTable  <<not bound>>
+CMT	475f8	pre	31  CreateCompatibleDC  <<not bound>>
+CMT	475fc	pre	366  SetStretchBltMode  <<not bound>>
+CMT	47600	pre	55  CreatePen  <<not bound>>
+CMT	47640	pre	341  GlobalAlloc  <<not bound>>
+CMT	47644	pre	352  GlobalLock  <<not bound>>
+CMT	47648	pre	577  SuspendThread  <<not bound>>
+CMT	4764c	pre	482  ResumeThread  <<not bound>>
+CMT	47650	pre	358  GlobalUnlock  <<not bound>>
+CMT	47654	pre	108  ExitThread  <<not bound>>
+CMT	47658	pre	231  GetExitCodeThread  <<not bound>>
+CMT	4765c	pre	563  SetThreadPriority  <<not bound>>
+CMT	47660	pre	61  CreateProcessA  <<not bound>>
+CMT	47664	pre	219  GetDiskFreeSpaceA  <<not bound>>
+CMT	47668	pre	223  GetDriveTypeA  <<not bound>>
+CMT	4766c	pre	42  CreateDirectoryA  <<not bound>>
+CMT	47670	pre	479  RemoveDirectoryA  <<not bound>>
+CMT	47674	pre	107  ExitProcess  <<not bound>>
+CMT	47678	pre	78  DeleteFileA  <<not bound>>
+CMT	4767c	pre	130  FindFirstFileA  <<not bound>>
+CMT	47680	pre	152  FreeLibrary  <<not bound>>
+CMT	47684	pre	348  GlobalFree  <<not bound>>
+CMT	47688	pre	330  GetUserDefaultLangID  <<not bound>>
+CMT	4768c	pre	454  QueryPerformanceFrequency  <<not bound>>
+CMT	47690	pre	453  QueryPerformanceCounter  <<not bound>>
+CMT	47694	pre	244  GetLastError  <<not bound>>
+CMT	47698	pre	50  CreateFileMappingA  <<not bound>>
+CMT	4769c	pre	432  OpenFileMappingA  <<not bound>>
+CMT	476a0	pre	606  VirtualFree  <<not bound>>
+CMT	476a4	pre	603  VirtualAlloc  <<not bound>>
+CMT	476a8	pre	254  GetModuleHandleA  <<not bound>>
+CMT	476ac	pre	528  SetEndOfFile  <<not bound>>
+CMT	476b0	pre	459  ReadConsoleInputA  <<not bound>>
+CMT	476b4	pre	514  SetConsoleMode  <<not bound>>
+CMT	476b8	pre	201  GetConsoleMode  <<not bound>>
+CMT	476bc	pre	444  PeekConsoleInputA  <<not bound>>
+CMT	476c0	pre	263  GetNumberOfConsoleInputEvents  <<not bound>>
+CMT	476c4	pre	624  WriteConsoleA  <<not bound>>
+CMT	476c8	pre	400  LoadLibraryA  <<not bound>>
+CMT	476cc	pre	278  GetProcAddress  <<not bound>>
+CMT	476d0	pre	667  lstrcpyA  <<not bound>>
+CMT	476d4	pre	232  GetFileAttributesA  <<not bound>>
+CMT	476d8	pre	237  GetFileSize  <<not bound>>
+CMT	476dc	pre	24  CloseHandle  <<not bound>>
+CMT	476e0	pre	635  WriteFile  <<not bound>>
+CMT	476e4	pre	470  ReadFile  <<not bound>>
+CMT	476e8	pre	49  CreateFileA  <<not bound>>
+CMT	476ec	pre	537  SetFilePointer  <<not bound>>
+CMT	476f0	pre	67  CreateThread  <<not bound>>
+CMT	476f4	pre	442  OutputDebugStringA  <<not bound>>
+CMT	476f8	pre	575  Sleep  <<not bound>>
+CMT	476fc	pre	566  SetUnhandledExceptionFilter  <<not bound>>
+CMT	47700	pre	384  IsBadCodePtr  <<not bound>>
+CMT	47704	pre	553  SetStdHandle  <<not bound>>
+CMT	47708	pre	142  FlushFileBuffers  <<not bound>>
+CMT	4770c	pre	397  LCMapStringA  <<not bound>>
+CMT	47710	pre	398  LCMapStringW  <<not bound>>
+CMT	47714	pre	531  SetErrorMode  <<not bound>>
+CMT	47718	pre	209  GetCurrentDirectoryA  <<not bound>>
+CMT	4771c	pre	135  FindNextFileA  <<not bound>>
+CMT	47720	pre	539  SetHandleCount  <<not bound>>
+CMT	47724	pre	157  GetACP  <<not bound>>
+CMT	47728	pre	163  GetCPInfo  <<not bound>>
+CMT	4772c	pre	265  GetOEMCP  <<not bound>>
+CMT	47730	pre	227  GetEnvironmentStringsW  <<not bound>>
+CMT	47734	pre	225  GetEnvironmentStrings  <<not bound>>
+CMT	47738	pre	622  WideCharToMultiByte  <<not bound>>
+CMT	4773c	pre	427  MultiByteToWideChar  <<not bound>>
+CMT	47740	pre	150  FreeEnvironmentStringsA  <<not bound>>
+CMT	47744	pre	151  FreeEnvironmentStringsW  <<not bound>>
+CMT	47748	pre	362  HeapCreate  <<not bound>>
+CMT	4774c	pre	364  HeapDestroy  <<not bound>>
+CMT	47750	pre	302  GetStringTypeW  <<not bound>>
+CMT	47754	pre	592  UnhandledExceptionFilter  <<not bound>>
+CMT	47758	pre	366  HeapFree  <<not bound>>
+CMT	4775c	pre	369  HeapReAlloc  <<not bound>>
+CMT	47760	pre	360  HeapAlloc  <<not bound>>
+CMT	47764	pre	252  GetModuleFileNameA  <<not bound>>
+CMT	47768	pre	382  InterlockedIncrement  <<not bound>>
+CMT	4776c	pre	379  InterlockedDecrement  <<not bound>>
+CMT	47770	pre	298  GetStdHandle  <<not bound>>
+CMT	47774	pre	72  DebugBreak  <<not bound>>
+CMT	47778	pre	332  GetVersion  <<not bound>>
+CMT	4777c	pre	170  GetCommandLineA  <<not bound>>
+CMT	47780	pre	296  GetStartupInfoA  <<not bound>>
+CMT	47784	pre	524  SetCurrentDirectoryA  <<not bound>>
+CMT	47788	pre	529  SetEnvironmentVariableA  <<not bound>>
+CMT	4778c	pre	485  RtlUnwind  <<not bound>>
+CMT	47790	pre	374  HeapValidate  <<not bound>>
+CMT	47794	pre	387  IsBadReadPtr  <<not bound>>
+CMT	47798	pre	390  IsBadWritePtr  <<not bound>>
+CMT	4779c	pre	211  GetCurrentProcess  <<not bound>>
+CMT	477a0	pre	582  TerminateProcess  <<not bound>>
+CMT	477a4	pre	239  GetFileType  <<not bound>>
+CMT	477a8	pre	501  SetConsoleCtrlHandler  <<not bound>>
+CMT	477ac	pre	299  GetStringTypeA  <<not bound>>
+CMT	47824	pre	97  ShellExecuteA  <<not bound>>
+CMT	47828	pre	99  ShellExecuteExA  <<not bound>>
+CMT	47858	pre	300  GetSystemMetrics  <<not bound>>
+CMT	4785c	pre	85  CreateWindowExA  <<not bound>>
+CMT	47860	pre	54  ClientToScreen  <<not bound>>
+CMT	47864	pre	228  GetClientRect  <<not bound>>
+CMT	47868	pre	557  ShowWindow  <<not bound>>
+CMT	4786c	pre	249  GetForegroundWindow  <<not bound>>
+CMT	47870	pre	128  DefWindowProcA  <<not bound>>
+CMT	47874	pre	482  SetActiveWindow  <<not bound>>
+CMT	47878	pre	374  LoadIconA  <<not bound>>
+CMT	4787c	pre	593  UpdateWindow  <<not bound>>
+CMT	47880	pre	541  SetWindowPlacement  <<not bound>>
+CMT	47884	pre	520  SetRect  <<not bound>>
+CMT	47888	pre	446  RegisterClassA  <<not bound>>
+CMT	4788c	pre	370  LoadCursorA  <<not bound>>
+CMT	47890	pre	314  GetWindowLongA  <<not bound>>
+CMT	47894	pre	405  MessageBoxA  <<not bound>>
+CMT	47898	pre	138  DestroyWindow  <<not bound>>
+CMT	4789c	pre	433  PostMessageA  <<not bound>>
+CMT	478a0	pre	431  PeekMessageA  <<not bound>>
+CMT	478a4	pre	581  TranslateMessage  <<not bound>>
+CMT	478a8	pre	144  DispatchMessageA  <<not bound>>
+CMT	478ac	pre	1  AdjustWindowRect  <<not bound>>
+CMT	478b0	pre	387  LoadStringA  <<not bound>>
+CMT	478b4	pre	316  GetWindowPlacement  <<not bound>>
+CMT	478b8	pre	338  InvalidateRect  <<not bound>>
+CMT	478bc	pre	406  MessageBoxExA  <<not bound>>
+CMT	478c0	pre	170  DrawTextA  <<not bound>>
+CMT	478c4	pre	498  SetDlgItemTextA  <<not bound>>
+CMT	478c8	pre	108  DdeInitializeA  <<not bound>>
+CMT	478cc	pre	97  DdeCreateStringHandleA  <<not bound>>
+CMT	478d0	pre	94  DdeConnect  <<not bound>>
+CMT	478d4	pre	96  DdeCreateDataHandle  <<not bound>>
+CMT	478d8	pre	92  DdeClientTransaction  <<not bound>>
+CMT	478dc	pre	105  DdeGetLastError  <<not bound>>
+CMT	478e0	pre	103  DdeFreeStringHandle  <<not bound>>
+CMT	478e4	pre	99  DdeDisconnect  <<not bound>>
+CMT	478e8	pre	121  DdeUninitialize  <<not bound>>
+CMT	478ec	pre	9  BeginPaint  <<not bound>>
+CMT	478f0	pre	182  EndPaint  <<not bound>>
+CMT	478f4	pre	553  ShowCursor  <<not bound>>
+CMT	478f8	pre	356  IsIconic  <<not bound>>
+CMT	478fc	pre	461  ReleaseDC  <<not bound>>
+CMT	47900	pre	58  CloseWindow  <<not bound>>
+CMT	47904	pre	305  GetTopWindow  <<not bound>>
+CMT	47908	pre	319  GetWindowTextA  <<not bound>>
+CMT	4790c	pre	50  CheckRadioButton  <<not bound>>
+CMT	47910	pre	311  GetWindow  <<not bound>>
+CMT	47914	pre	142  DialogBoxParamA  <<not bound>>
+CMT	47918	pre	180  EndDialog  <<not bound>>
+CMT	4791c	pre	354  IsDlgButtonChecked  <<not bound>>
+CMT	47920	pre	472  SendDlgItemMessageA  <<not bound>>
+CMT	47924	pre	545  SetWindowTextA  <<not bound>>
+CMT	47928	pre	238  GetDC  <<not bound>>
+CMT	4792c	pre	245  GetDlgItemTextA  <<not bound>>
+CMT	47930	pre	75  CreateDialogParamA  <<not bound>>
+CMT	47934	pre	10  BringWindowToTop  <<not bound>>
+CMT	47938	pre	501  SetFocus  <<not bound>>
+CMT	4798c	pre	191  waveOutUnprepareHeader  <<not bound>>
+CMT	47990	pre	171  waveOutClose  <<not bound>>
+CMT	47994	pre	147  timeBeginPeriod  <<not bound>>
+CMT	47998	pre	151  timeGetTime  <<not bound>>
+CMT	4799c	pre	192  waveOutWrite  <<not bound>>
+CMT	479a0	pre	185  waveOutPrepareHeader  <<not bound>>
+CMT	479a4	pre	186  waveOutReset  <<not bound>>
+CMT	479a8	pre	148  timeEndPeriod  <<not bound>>
+CMT	479ac	pre	153  timeSetEvent  <<not bound>>
+CMT	479b0	pre	183  waveOutOpen  <<not bound>>
+CMT	479b4	pre	46  mciGetErrorStringA  <<not bound>>
+CMT	479b8	pre	50  mciSendCommandA  <<not bound>>
+CMT	479bc	pre	152  timeKillEvent  <<not bound>>
+CMT	479f4	pre	11  GetSaveFileNameA  <<not bound>>
+CMT	479f8	pre	9  GetOpenFileNameA  <<not bound>>
+CMT	13aa0	plate	Library Function - Single Match\n _strncpy\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+CMT	13ba0	plate	Library Function - Single Match\n _strncmp\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+CMT	13d40	plate	Library Function - Single Match\n __exit\n\nLibrary: Visual Studio 2003 Debug
+CMT	13e80	plate	Library Function - Single Match\n __initterm\n\nLibrary: Visual Studio 2003 Debug
+CMT	13eb0	plate	Library Function - Multiple Matches With Different Base Names\n _memcpy\n _memmove\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+CMT	141f0	plate	Library Function - Single Match\n _memset\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+CMT	14260	plate	Library Function - Multiple Matches With Different Base Names\n __mbscat\n _strcat\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+CMT	14410	plate	Library Function - Single Match\n __nh_malloc\n\nLibrary: Visual Studio 2003 Debug
+CMT	14430	plate	Library Function - Single Match\n __nh_malloc_dbg\n\nLibrary: Visual Studio 2003 Debug
+CMT	147e0	plate	Library Function - Single Match\n __calloc_dbg\n\nLibrary: Visual Studio 2003 Debug
+CMT	14860	plate	Library Function - Single Match\n __realloc_dbg\n\nLibrary: Visual Studio 2003 Debug
+CMT	14dd0	plate	Library Function - Single Match\n __expand_dbg\n\nLibrary: Visual Studio 2003 Debug
+CMT	158d0	plate	Library Function - Multiple Matches With Different Base Names\n int __cdecl ATL::AtlIsValidAddress(void const *,unsigned int,int)\n __CrtIsValidPointer\n\nLibrary: Visual Studio 2003 Debug
+CMT	16250	plate	Library Function - Single Match\n _strcmp\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+CMT	162e0	plate	Library Function - Single Match\n _strlen\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, vc6 sp5 libc, vc6 sp5 libcmt
+CMT	16410	plate	Library Function - Single Match\n void __stdcall _JumpToContinuation(void *,struct EHRegistrationNode *)\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+CMT	16450	plate	Library Function - Single Match\n void __stdcall _CallMemberFunction0(void *,void *)\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+CMT	164e0	plate	Library Function - Multiple Matches With Different Base Names\n ___CxxFrameHandler\n ___CxxFrameHandler2\n ___CxxFrameHandler3\n\nLibraries: Visual Studio 2003, Visual Studio 2005, Visual Studio 2008, Visual Studio 2010
+CMT	16520	plate	Library Function - Single Match\n ___CxxLongjmpUnwind@4\n\nLibraries: Visual Studio 2003, Visual Studio 2005, Visual Studio 2008, Visual Studio 2010
+CMT	167f0	plate	Library Function - Single Match\n __global_unwind2\n\nLibraries: Visual Studio, vc6
+CMT	16832	plate	Library Function - Single Match\n __local_unwind2\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, Visual Studio 2003 Debug, Visual Studio 2003 Release
+CMT	1689a	plate	Library Function - Single Match\n __abnormal_termination\n\nLibrary: Visual Studio
+CMT	168bd	plate	Library Function - Single Match\n __NLG_Notify1\n\nLibraries: Visual Studio 2017 Debug, Visual Studio 2017 Release, Visual Studio 2019 Debug, Visual Studio 2019 Release
+CMT	17040	plate	Library Function - Single Match\n _strstr\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+CMT	17244	plate	Library Function - Single Match\n __ftol\n\nLibrary: Visual Studio
+CMT	174a0	plate	Library Function - Single Match\n __amsg_exit\n\nLibrary: Visual Studio 2003 Debug
+CMT	18660	plate	Library Function - Single Match\n __CrtSetReportFile\n\nLibrary: Visual Studio 2003 Debug
+CMT	19110	plate	Library Function - Single Match\n __callnewh\n\nLibrary: Visual Studio 2003 Debug
+CMT	1ac70	plate	Library Function - Single Match\n int __cdecl ArrayUnwindFilter(struct _EXCEPTION_POINTERS *)\n\nLibrary: Visual Studio
+CMT	1aca0	plate	Library Function - Single Match\n void __cdecl CatchIt(struct EHExceptionRecord *,struct EHRegistrationNode *,struct _CONTEXT *,void *,struct _s_FuncInfo const *,struct _s_HandlerType const *,struct _s_CatchableType const *,struct _s_TryBlockMapEntry const *,int,struct EHRegistrationNode *,unsigned char)\n\nLibrary: Visual Studio
+CMT	1b190	plate	Library Function - Single Match\n ___DestructExceptionObject\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+CMT	1b220	plate	Library Function - Multiple Matches With Different Base Names\n void * __cdecl AdjustPointer(void *,struct PMD const &)\n ___AdjustPointer\n\nLibrary: Visual Studio
+CMT	1b270	plate	Library Function - Single Match\n __CallSettingFrame@12\n\nLibraries: Visual Studio 2017 Debug, Visual Studio 2017 Release, Visual Studio 2019 Debug, Visual Studio 2019 Release
+CMT	1be00	plate	Library Function - Single Match\n __setdefaultprecision\n\nLibrary: Visual Studio 2003 Debug
+CMT	1be80	plate	Library Function - Single Match\n __ms_p5_mp_test_fdiv\n\nLibraries: Visual Studio 2003, Visual Studio 2005, Visual Studio 2008
+CMT	1bf80	plate	Library Function - Single Match\n __cropzeros\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+CMT	1c060	plate	Library Function - Single Match\n __positive\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+CMT	1c090	plate	Library Function - Single Match\n __fassign\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+CMT	1c530	plate	Library Function - Single Match\n __cftoe_g\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+CMT	1c570	plate	Library Function - Single Match\n __cftof_g\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+CMT	1c5a0	plate	Library Function - Single Match\n __cfltcvt\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+CMT	1c600	plate	Library Function - Single Match\n __shift\n\nLibrary: Visual Studio
+CMT	1c630	plate	Library Function - Single Match\n __allmul\n\nLibraries: Visual Studio, vc6
+CMT	1c686	plate	Library Function - Single Match\n ___from_strstr_to_strchr\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+CMT	1c740	plate	Library Function - Single Match\n __dosmaperr\n\nLibrary: Visual Studio 2003 Debug
+CMT	1c9e0	plate	Library Function - Single Match\n __XcptFilter\n\nLibrary: Visual Studio 2003 Debug
+CMT	1cb90	plate	Library Function - Single Match\n _xcptlookup\n\nLibrary: Visual Studio 2003 Debug
+CMT	1cd30	plate	Library Function - Single Match\n __ismbbkana\n\nLibrary: Visual Studio 2003 Debug
+CMT	1dba0	plate	Library Function - Single Match\n _getSystemCP\n\nLibrary: Visual Studio 2003 Debug
+CMT	1e020	plate	Library Function - Single Match\n __ioterm\n\nLibrary: Visual Studio 2003 Debug
+CMT	1e160	plate	Library Function - Single Match\n __FF_MSGBANNER\n\nLibrary: Visual Studio 2003 Debug
+CMT	1e3b0	plate	Library Function - Single Match\n __GET_RTERRMSG\n\nLibrary: Visual Studio 2003 Debug
+CMT	1e870	plate	Library Function - Single Match\n __isatty\n\nLibrary: Visual Studio 2003 Debug
+CMT	1e940	plate	Library Function - Single Match\n __aulldiv\n\nLibraries: Visual Studio, vc6
+CMT	1e9b0	plate	Library Function - Single Match\n __aullrem\n\nLibraries: Visual Studio, vc6
+CMT	1ea30	plate	Library Function - Single Match\n __itoa\n\nLibrary: Visual Studio 2003 Debug
+CMT	1ea80	plate	Library Function - Single Match\n _xtoa\n\nLibrary: Visual Studio 2003 Debug
+CMT	1eb50	plate	Library Function - Single Match\n __ltoa\n\nLibrary: Visual Studio 2003 Debug
+CMT	1eb90	plate	Library Function - Single Match\n __ultoa\n\nLibrary: Visual Studio 2003 Debug
+CMT	1ebb0	plate	Library Function - Single Match\n __i64toa\n\nLibrary: Visual Studio 2003 Debug
+CMT	1ece0	plate	Library Function - Single Match\n __ui64toa\n\nLibrary: Visual Studio 2003 Debug
+CMT	1ef00	plate	Library Function - Single Match\n __alloca_probe\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+CMT	1f0d0	plate	Library Function - Single Match\n _ctrlevent_capture@4\n\nLibrary: Visual Studio 2003 Debug\n__stdcall ctrlevent_capture,4
+CMT	1f300	plate	Library Function - Single Match\n _siglookup\n\nLibrary: Visual Studio 2003 Debug
+CMT	1f950	plate	Library Function - Single Match\n int __cdecl _ValidateExecute(int (__stdcall*)(void))\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2003 Release
+CMT	1f980	plate	Library Function - Multiple Matches With Different Base Names\n _memcpy\n _memmove\n\nLibraries: vc6 sp5 libc, vc6 sp5 libcmt
+CMT	1fe20	plate	Library Function - Single Match\n __set_osfhnd\n\nLibrary: Visual Studio 2003 Debug
+CMT	205f0	plate	Library Function - Multiple Matches With Different Base Names\n __open\n __wopen\n\nLibrary: Visual Studio 2003 Debug
+CMT	20bc0	plate	Library Function - Single Match\n __controlfp\n\nLibrary: Visual Studio 2003 Debug
+CMT	21330	plate	Library Function - Single Match\n __CopyMan\n\nLibrary: Visual Studio
+CMT	21380	plate	Library Function - Single Match\n __FillZeroMan\n\nLibrary: Visual Studio
+CMT	213b0	plate	Library Function - Single Match\n __IsZeroMan\n\nLibrary: Visual Studio
+CMT	21bd0	plate	Library Function - Single Match\n __fptrap\n\nLibrary: Visual Studio 2003 Debug
+CMT	224a0	plate	Library Function - Single Match\n ___addl\n\nLibrary: Visual Studio 2012 Debug
+CMT	224e0	plate	Library Function - Single Match\n ___add_12\n\nLibrary: Visual Studio
+CMT	22590	plate	Library Function - Single Match\n ___shl_12\n\nLibraries: Visual Studio 2003, Visual Studio 2005, Visual Studio 2008, Visual Studio 2010
+CMT	225f0	plate	Library Function - Single Match\n ___shr_12\n\nLibraries: Visual Studio 2003, Visual Studio 2005, Visual Studio 2008, Visual Studio 2010
+CMT	244a0	plate	Library Function - Single Match\n ___initconin\n\nLibrary: Visual Studio
+CMT	244d0	plate	Library Function - Single Match\n ___initconout\n\nLibrary: Visual Studio
+CMT	24500	plate	Library Function - Single Match\n ___termcon\n\nLibraries: Visual Studio 2003 Debug, Visual Studio 2005 Debug, Visual Studio 2008 Debug
+CMT	2c7c8	plate	Export Function Pointers
+CMT	2ca8c	plate	Export Name Pointers
+CMT	2cd50	plate	Export Ordinal Values
+CMT	2ceb2	plate	Export Library Name
+CMT	47000	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	47014	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	47028	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	4703c	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	47050	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	47064	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	47078	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	47a28	plate	IMAGE_IMPORT_BY_NAME
+CMT	47a36	plate	IMAGE_IMPORT_BY_NAME
+CMT	47a46	plate	IMAGE_IMPORT_BY_NAME
+CMT	47a58	plate	IMAGE_IMPORT_BY_NAME
+CMT	47a68	plate	IMAGE_IMPORT_BY_NAME
+CMT	47a78	plate	IMAGE_IMPORT_BY_NAME
+CMT	47a8a	plate	IMAGE_IMPORT_BY_NAME
+CMT	47aa0	plate	IMAGE_IMPORT_BY_NAME
+CMT	47aae	plate	IMAGE_IMPORT_BY_NAME
+CMT	47abe	plate	IMAGE_IMPORT_BY_NAME
+CMT	47ad8	plate	IMAGE_IMPORT_BY_NAME
+CMT	47ae8	plate	IMAGE_IMPORT_BY_NAME
+CMT	47b00	plate	IMAGE_IMPORT_BY_NAME
+CMT	47b10	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	47b1a	plate	IMAGE_IMPORT_BY_NAME
+CMT	47b22	plate	IMAGE_IMPORT_BY_NAME
+CMT	47b38	plate	IMAGE_IMPORT_BY_NAME
+CMT	47b48	plate	IMAGE_IMPORT_BY_NAME
+CMT	47b5a	plate	IMAGE_IMPORT_BY_NAME
+CMT	47b68	plate	IMAGE_IMPORT_BY_NAME
+CMT	47b74	plate	IMAGE_IMPORT_BY_NAME
+CMT	47b80	plate	IMAGE_IMPORT_BY_NAME
+CMT	47b8e	plate	IMAGE_IMPORT_BY_NAME
+CMT	47b9c	plate	IMAGE_IMPORT_BY_NAME
+CMT	47bb2	plate	IMAGE_IMPORT_BY_NAME
+CMT	47bbe	plate	IMAGE_IMPORT_BY_NAME
+CMT	47bd0	plate	IMAGE_IMPORT_BY_NAME
+CMT	47be0	plate	IMAGE_IMPORT_BY_NAME
+CMT	47bee	plate	IMAGE_IMPORT_BY_NAME
+CMT	47bfc	plate	IMAGE_IMPORT_BY_NAME
+CMT	47c0c	plate	IMAGE_IMPORT_BY_NAME
+CMT	47c1a	plate	IMAGE_IMPORT_BY_NAME
+CMT	47c28	plate	IMAGE_IMPORT_BY_NAME
+CMT	47c36	plate	IMAGE_IMPORT_BY_NAME
+CMT	47c46	plate	IMAGE_IMPORT_BY_NAME
+CMT	47c56	plate	IMAGE_IMPORT_BY_NAME
+CMT	47c6a	plate	IMAGE_IMPORT_BY_NAME
+CMT	47c7e	plate	IMAGE_IMPORT_BY_NAME
+CMT	47c8c	plate	IMAGE_IMPORT_BY_NAME
+CMT	47c9e	plate	IMAGE_IMPORT_BY_NAME
+CMT	47cb2	plate	IMAGE_IMPORT_BY_NAME
+CMT	47cc2	plate	IMAGE_IMPORT_BY_NAME
+CMT	47cd6	plate	IMAGE_IMPORT_BY_NAME
+CMT	47cea	plate	IMAGE_IMPORT_BY_NAME
+CMT	47cfa	plate	IMAGE_IMPORT_BY_NAME
+CMT	47d08	plate	IMAGE_IMPORT_BY_NAME
+CMT	47d1a	plate	IMAGE_IMPORT_BY_NAME
+CMT	47d2a	plate	IMAGE_IMPORT_BY_NAME
+CMT	47d42	plate	IMAGE_IMPORT_BY_NAME
+CMT	47d5a	plate	IMAGE_IMPORT_BY_NAME
+CMT	47d76	plate	IMAGE_IMPORT_BY_NAME
+CMT	47d90	plate	IMAGE_IMPORT_BY_NAME
+CMT	47da0	plate	IMAGE_IMPORT_BY_NAME
+CMT	47db6	plate	IMAGE_IMPORT_BY_NAME
+CMT	47dca	plate	IMAGE_IMPORT_BY_NAME
+CMT	47dd8	plate	IMAGE_IMPORT_BY_NAME
+CMT	47de8	plate	IMAGE_IMPORT_BY_NAME
+CMT	47dfc	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	47e0a	plate	IMAGE_IMPORT_BY_NAME
+CMT	47e1e	plate	IMAGE_IMPORT_BY_NAME
+CMT	47e32	plate	IMAGE_IMPORT_BY_NAME
+CMT	47e42	plate	IMAGE_IMPORT_BY_NAME
+CMT	47e52	plate	IMAGE_IMPORT_BY_NAME
+CMT	47e62	plate	IMAGE_IMPORT_BY_NAME
+CMT	47e70	plate	IMAGE_IMPORT_BY_NAME
+CMT	47e82	plate	IMAGE_IMPORT_BY_NAME
+CMT	47e90	plate	IMAGE_IMPORT_BY_NAME
+CMT	47e9c	plate	IMAGE_IMPORT_BY_NAME
+CMT	47ea4	plate	IMAGE_IMPORT_BY_NAME
+CMT	47eb6	plate	IMAGE_IMPORT_BY_NAME
+CMT	47ec8	plate	IMAGE_IMPORT_BY_NAME
+CMT	47ede	plate	IMAGE_IMPORT_BY_NAME
+CMT	47eee	plate	IMAGE_IMPORT_BY_NAME
+CMT	47efc	plate	IMAGE_IMPORT_BY_NAME
+CMT	47f0e	plate	IMAGE_IMPORT_BY_NAME
+CMT	47f22	plate	IMAGE_IMPORT_BY_NAME
+CMT	47f34	plate	IMAGE_IMPORT_BY_NAME
+CMT	47f44	plate	IMAGE_IMPORT_BY_NAME
+CMT	47f58	plate	IMAGE_IMPORT_BY_NAME
+CMT	47f62	plate	IMAGE_IMPORT_BY_NAME
+CMT	47f74	plate	IMAGE_IMPORT_BY_NAME
+CMT	47f82	plate	IMAGE_IMPORT_BY_NAME
+CMT	47f8e	plate	IMAGE_IMPORT_BY_NAME
+CMT	47fa4	plate	IMAGE_IMPORT_BY_NAME
+CMT	47fba	plate	IMAGE_IMPORT_BY_NAME
+CMT	47fcc	plate	IMAGE_IMPORT_BY_NAME
+CMT	47fdc	plate	IMAGE_IMPORT_BY_NAME
+CMT	47fe8	plate	IMAGE_IMPORT_BY_NAME
+CMT	47ffa	plate	IMAGE_IMPORT_BY_NAME
+CMT	48010	plate	IMAGE_IMPORT_BY_NAME
+CMT	4801c	plate	IMAGE_IMPORT_BY_NAME
+CMT	4802e	plate	IMAGE_IMPORT_BY_NAME
+CMT	48044	plate	IMAGE_IMPORT_BY_NAME
+CMT	48058	plate	IMAGE_IMPORT_BY_NAME
+CMT	4806a	plate	IMAGE_IMPORT_BY_NAME
+CMT	48076	plate	IMAGE_IMPORT_BY_NAME
+CMT	48084	plate	IMAGE_IMPORT_BY_NAME
+CMT	48096	plate	IMAGE_IMPORT_BY_NAME
+CMT	480a6	plate	IMAGE_IMPORT_BY_NAME
+CMT	480b8	plate	IMAGE_IMPORT_BY_NAME
+CMT	480ce	plate	IMAGE_IMPORT_BY_NAME
+CMT	480da	plate	IMAGE_IMPORT_BY_NAME
+CMT	480e8	plate	IMAGE_IMPORT_BY_NAME
+CMT	480f4	plate	IMAGE_IMPORT_BY_NAME
+CMT	48102	plate	IMAGE_IMPORT_BY_NAME
+CMT	48114	plate	IMAGE_IMPORT_BY_NAME
+CMT	48124	plate	IMAGE_IMPORT_BY_NAME
+CMT	4813a	plate	IMAGE_IMPORT_BY_NAME
+CMT	4814c	plate	IMAGE_IMPORT_BY_NAME
+CMT	48164	plate	IMAGE_IMPORT_BY_NAME
+CMT	4817a	plate	IMAGE_IMPORT_BY_NAME
+CMT	48188	plate	IMAGE_IMPORT_BY_NAME
+CMT	481a2	plate	IMAGE_IMPORT_BY_NAME
+CMT	481b4	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	481c0	plate	IMAGE_IMPORT_BY_NAME
+CMT	481d4	plate	IMAGE_IMPORT_BY_NAME
+CMT	481e0	plate	IMAGE_IMPORT_BY_NAME
+CMT	481f0	plate	IMAGE_IMPORT_BY_NAME
+CMT	481fa	plate	IMAGE_IMPORT_BY_NAME
+CMT	48206	plate	IMAGE_IMPORT_BY_NAME
+CMT	48216	plate	IMAGE_IMPORT_BY_NAME
+CMT	48222	plate	IMAGE_IMPORT_BY_NAME
+CMT	4822e	plate	IMAGE_IMPORT_BY_NAME
+CMT	4823a	plate	IMAGE_IMPORT_BY_NAME
+CMT	4824a	plate	IMAGE_IMPORT_BY_NAME
+CMT	48258	plate	IMAGE_IMPORT_BY_NAME
+CMT	48266	plate	IMAGE_IMPORT_BY_NAME
+CMT	48276	plate	IMAGE_IMPORT_BY_NAME
+CMT	4828a	plate	IMAGE_IMPORT_BY_NAME
+CMT	4829e	plate	IMAGE_IMPORT_BY_NAME
+CMT	482b0	plate	IMAGE_IMPORT_BY_NAME
+CMT	482c0	plate	IMAGE_IMPORT_BY_NAME
+CMT	482cc	plate	IMAGE_IMPORT_BY_NAME
+CMT	482da	plate	IMAGE_IMPORT_BY_NAME
+CMT	482ee	plate	IMAGE_IMPORT_BY_NAME
+CMT	48304	plate	IMAGE_IMPORT_BY_NAME
+CMT	48318	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	48322	plate	IMAGE_IMPORT_BY_NAME
+CMT	48336	plate	IMAGE_IMPORT_BY_NAME
+CMT	4834a	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	48358	plate	IMAGE_IMPORT_BY_NAME
+CMT	48366	plate	IMAGE_IMPORT_BY_NAME
+CMT	48378	plate	IMAGE_IMPORT_BY_NAME
+CMT	48388	plate	IMAGE_IMPORT_BY_NAME
+CMT	4839a	plate	IMAGE_IMPORT_BY_NAME
+CMT	483ac	plate	IMAGE_IMPORT_BY_NAME
+CMT	483bc	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	483ca	plate	IMAGE_IMPORT_BY_NAME
+CMT	483da	plate	IMAGE_IMPORT_BY_NAME
+CMT	483ec	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	483f8	plate	IMAGE_IMPORT_BY_NAME
+CMT	4840c	plate	IMAGE_IMPORT_BY_NAME
+CMT	48420	plate	IMAGE_IMPORT_BY_NAME
+CMT	48430	plate	IMAGE_IMPORT_BY_NAME
+CMT	48440	plate	IMAGE_IMPORT_BY_NAME
+CMT	48450	plate	IMAGE_IMPORT_BY_NAME
+CMT	4845c	plate	IMAGE_IMPORT_BY_NAME
+CMT	48476	plate	IMAGE_IMPORT_BY_NAME
+CMT	4848e	plate	IMAGE_IMPORT_BY_NAME
+CMT	484a0	plate	IMAGE_IMPORT_BY_NAME
+CMT	484b2	plate	IMAGE_IMPORT_BY_NAME
+CMT	484c0	plate	IMAGE_IMPORT_BY_NAME
+CMT	484ce	plate	IMAGE_IMPORT_BY_NAME
+CMT	484de	plate	IMAGE_IMPORT_BY_NAME
+CMT	484f6	plate	IMAGE_IMPORT_BY_NAME
+CMT	4850e	plate	IMAGE_IMPORT_BY_NAME
+CMT	48524	plate	IMAGE_IMPORT_BY_NAME
+CMT	48530	plate	IMAGE_IMPORT_BY_NAME
+CMT	4853e	plate	IMAGE_IMPORT_BY_NAME
+CMT	4854a	plate	IMAGE_IMPORT_BY_NAME
+CMT	48558	plate	IMAGE_IMPORT_BY_NAME
+CMT	48566	plate	IMAGE_IMPORT_BY_NAME
+CMT	48582	plate	IMAGE_IMPORT_BY_NAME
+CMT	4859c	plate	IMAGE_IMPORT_BY_NAME
+CMT	485b2	plate	IMAGE_IMPORT_BY_NAME
+CMT	485cc	plate	IMAGE_IMPORT_BY_NAME
+CMT	485e4	plate	IMAGE_IMPORT_BY_NAME
+CMT	485fe	plate	IMAGE_IMPORT_BY_NAME
+CMT	48614	plate	IMAGE_IMPORT_BY_NAME
+CMT	48620	plate	IMAGE_IMPORT_BY_NAME
+CMT	4862a	plate	IMAGE_IMPORT_BY_NAME
+CMT	48636	plate	IMAGE_IMPORT_BY_NAME
+CMT	48648	plate	IMAGE_IMPORT_BY_NAME
+CMT	48656	plate	IMAGE_IMPORT_BY_NAME
+CMT	4866e	plate	IMAGE_IMPORT_BY_NAME
+CMT	48680	plate	IMAGE_IMPORT_BY_NAME
+CMT	48692	plate	IMAGE_IMPORT_BY_NAME
+CMT	486b0	plate	IMAGE_IMPORT_BY_NAME
+CMT	486c0	plate	IMAGE_IMPORT_BY_NAME
+CMT	486d0	plate	IMAGE_IMPORT_BY_NAME
+CMT	486e4	plate	IMAGE_IMPORT_BY_NAME
+CMT	486f4	plate	IMAGE_IMPORT_BY_NAME
+CMT	48704	plate	IMAGE_IMPORT_BY_NAME
+CMT	48714	plate	IMAGE_IMPORT_BY_NAME
+CMT	48728	plate	IMAGE_IMPORT_BY_NAME
+CMT	4873a	plate	IMAGE_IMPORT_BY_NAME
+CMT	4874c	plate	IMAGE_IMPORT_BY_NAME
+CMT	48760	plate	IMAGE_IMPORT_BY_NAME
+CMT	48780	plate	IMAGE_IMPORT_BY_NAME
+CMT	48790	plate	IMAGE_IMPORT_BY_NAME
+CMT	487a4	plate	IMAGE_IMPORT_BY_NAME
+CMT	493b0	plate	Rsrc_Dialog_70_40c Size of resource: 0x234 bytes\n
+CMT	495e4	plate	Rsrc_Dialog_75_40c Size of resource: 0x9a bytes\n\nNumber of Items in Dialog: 3\nMenu: None\nClass: Predefined\nTitle: None\nFont Size: Ah\nFont Name: "MS Sans Serif"\n\nItem 1: \n   Class: Button\n   Title: "OK"\n   Data: None\nItem 2: \n   Class: Button\n   Title: "CANCEL"\n   Data: None\nItem 3: \n   Class: Edit\n   Title: ""\n   Data: None
+CMT	49680	plate	Rsrc_Dialog_76_40c Size of resource: 0x72 bytes\n\nNumber of Items in Dialog: 2\nMenu: None\nClass: Predefined\nTitle: None\nFont Size: Ah\nFont Name: "MS Sans Serif"\n\nItem 1: \n   Class: Button\n   Title: "OK"\n   Data: None\nItem 2: \n   Class: Edit\n   Title: ""\n   Data: None
+CMT	496f4	plate	Rsrc_Dialog_66_40c Size of resource: 0x84 bytes\n\nNumber of Items in Dialog: 1\nMenu: None\nClass: Predefined\nTitle: None\nFont Size: 8h\nFont Name: "MS Sans Serif"\n\nItem 1: \n   Class: "msctls_progress32"\n   Title: "Progress1"\n   Data: None
+CMT	49778	plate	Rsrc_Icon_1_40c Size of resource: 0x130 bytes
+CMT	498a8	plate	Rsrc_Icon_2_40c Size of resource: 0x2e8 bytes
+CMT	49b90	plate	Rsrc_Icon_3_40c Size of resource: 0x2e8 bytes
+CMT	49e78	plate	Rsrc_GroupIcon_6f_40c Size of resource: 0x30 bytes
+CMT	49ee2	plate	Rsrc_StringTable_1_409 Size of resource: 0x3a bytes
+CMT	49f3a	plate	Rsrc_StringTable_1_40c Size of resource: 0x56 bytes

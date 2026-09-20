@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ghidra": {
+      "command": "${DREAMS_GHIDRA_BRIDGE:-E:/tools/ghidra-mcp/mcp_bridge.exe}",
+      "args": ["--host", "localhost", "--port", "8765"]
+    }
+  }
+}

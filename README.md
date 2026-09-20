@@ -1,0 +1,150 @@
+# dreams
+
+Reverse-engineering toolkit and research notes for **Dreams to Reality**
+(Cryo Interactive Entertainment, 1997 — DOS / Windows).
+
+The goal is to understand and decode the game's proprietary formats. The engine
+target is undecided; right now this is exploration and decoding.
+
+**No game data lives in this repo.** The discs are copyrighted; `.gitignore`
+blocks every asset extension, extraction directory and derived media type. Keep
+the images on local disk and point the toolkit at them.
+
+## Setup
+
+```bash
+uv sync
+uv run dreams --help
+```
+
+Tell it where your extracted discs are — environment variables:
+
+```bash
+export DREAMS_DISC1=/path/to/Disc-1/extracted
+export DREAMS_DISC2=/path/to/Disc-2/extracted
+```
+
+…or a gitignored `dreams.local.toml` in the repo root:
+
+```toml
+[paths]
+disc1 = "E:/dev_game/Dreams-to-Reality_Win_EN_Disc-Image-Disk-1/extracted"
+disc2 = "E:/dev_game/Dreams-to-Reality_Win_EN_Disc-Image-Disk-2/extracted"
+out   = "./out"
+```
+
+Check it resolved: `uv run dreams config`
+
+## Getting the files off a disc image
+
+The dumps are MODE1/2352 — 16-byte sector header, 2048 bytes of payload,
+288 bytes of ECC. Strip it, then unpack the ISO9660 filesystem:
+
+```bash
+uv run dreams disc cue "Dreams to Reality (Europe) (Disc 1).cue"
+uv run dreams disc iso "...(Track 01).bin" disc1.iso
+7z x disc1.iso -oextracted
+```
+
+Tracks 2+ are redbook audio and hold the game's music. They never appear as
+files — **mount the `.cue`, never the `.iso`**, or the game runs silent and
+throws MCI errors.
+
+## What works
+
+| Command | Status |
+|---|---|
+| `dreams audio info/unpack` | **solved** — extracts all 202 clips as WAV |
+| `dreams video` | **solved** — HNM4/HNM6 headers |
+| `dreams res` | **solved** — 30 items, 150 levels from `DREAMS.INI` |
+| `dreams disc iso/cue` | **solved** |
+| `dreams pe` | **solved** — sections, imports, exports, toolchain |
+| `dreams scene` / `anim` | partial — headers and name tables; bodies are packed |
+| `dreams model` | partial — `F3DC` header, materials, `PAK0` chunk bounds |
+| `dreams bundle` | unsolved — `UBIK` header only |
+
+Exploration helpers: `census`, `identify`, `stats`, `regions`, `tags`,
+`strings`, `dump`, `render`, `stride`.
+
+## Examples
+
+```bash
+# Every clip in the voice bank, as .wav
+uv run dreams audio unpack "$DREAMS_DISC1/DATA/3DC/DIALOG.DRD"
+
+# What is this file?
+uv run dreams identify "$DREAMS_DISC1/DATA/3DC" --pattern "*.DSN"
+
+# Raw or packed? (raw controls here sit at 18-31%, compressed video at 69%)
+uv run dreams stats "$DREAMS_DISC1/DATA/3DC/E01GROTT.DSN"
+
+# Room construction: walls by compass direction, floor, ceiling
+uv run dreams scene "$DREAMS_DISC1/DATA/3DC/E01GROTT.DSN"
+
+# CryoLib's 165 exports, including the HNM6 decoder
+uv run dreams pe "$DREAMS_DISC2/DEMOS2/CRYO.DLL" --exports --grep HNM
+
+# Test a pixel-layout hypothesis
+uv run dreams stride "$DREAMS_DISC1/DATA/ICONE/ICONES.BF"
+uv run dreams render "$DREAMS_DISC1/DATA/ICONE/ICONES.BF" --offset 16 --width 64 --fmt rgb555
+```
+
+## What we know
+
+Full write-ups in [`docs/`](docs/README.md); [`AGENTS.md`](AGENTS.md) is the
+orientation summary. Headlines:
+
+- The engine is **Cryo's own C/C++ code, built with Watcom** for all three
+  targets (DOS, DOS+3dfx, Windows). Software rasterizer, 16-bit RGB555. Glide is
+  the only hardware path and exists only in DOS. Windows uses **DirectDraw only**
+  — no Direct3D anywhere.
+- `CRYO.DLL` on disc 2 is **CryoLib**, a *debug build* with 165 named exports
+  including `_GL_HNM6_Decompression_Warp@8`. A working HNM6 decoder shipped on
+  the retail disc. It is a separate codebase from the game.
+- **All audio is plain PCM WAV** inside two custom banks: `FSB.DAT` (24 effects,
+  16-bit) and `DIALOG.DRD` (178 voice clips, 8-bit). Music is CD audio.
+- **There are no texture files.** Level textures are packed inside the 98 `.DSN`
+  scene files — 157 MB, and the top unsolved target.
+
+Claims in the docs are tagged **[verified]** (measured here), **[sourced]**
+(external, linked) or **[unverified]** (inference). Please keep that up.
+
+## Development
+
+```bash
+uv run pytest          # disc-dependent tests skip if paths aren't configured
+uv run ruff check .
+uv run ruff format .
+```
+
+## Legal
+
+**This game is not abandonware in any legal sense.** Cryo Interactive went
+bankrupt in 2002; DreamCatcher Interactive absorbed most of its assets, and
+**Microïds acquired the intellectual property rights to the entire former Cryo
+catalogue in October 2008**. Microïds is an active publisher today. Bankruptcy
+transfers copyright, it does not extinguish it, and a 1997 French work stays
+protected for decades yet.
+
+"Abandonware" describes enforcement behaviour, not ownership, and has no
+standing in law.
+
+What this repo therefore does and does not do:
+
+- **Does**: document file formats, and provide tools that operate on a copy you
+  already own. In the EU, the Software Directive (2009/24/EC) Art. 5(3) permits
+  studying a program you are licensed to use and Art. 6 permits decompilation
+  for interoperability. France implements both.
+- **Does not**: include, redistribute or reproduce any Cryo code, asset, binary
+  or disc image. `.gitignore` enforces this — see the asset block at the top.
+
+Do not commit extracted audio, textures, models, executables or disc images,
+and do not publish a playable build. Supply your own copy of the game.
+
+Not legal advice.
+
+## License
+
+[MIT](LICENSE) for everything in this repository — the notes, the Python
+toolkit and the Ghidra scripts. Third-party material (the mirrored MultimediaWiki
+HNM6 description, the GhidraMCP patch) is acknowledged in `LICENSE`.
