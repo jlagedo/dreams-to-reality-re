@@ -32,6 +32,11 @@ FSB_MAGIC = b"DREAMS FSB  "
 DRD_MAGIC = b"DRDF"
 
 
+#: WAVE format tags we care about.
+WAVE_PCM = 1
+WAVE_IEEE_FLOAT = 3
+
+
 @dataclass
 class Clip:
     index: int
@@ -40,6 +45,20 @@ class Clip:
     channels: int
     rate: int
     bits: int
+    format_tag: int = WAVE_PCM
+
+    @property
+    def needs_repair(self) -> bool:
+        """True if the ``fmt `` chunk declares an impossible format.
+
+        ``FSB.DAT`` clip 12 ships with ``wFormatTag = 3`` (IEEE float) and
+        ``wBitsPerSample = 16``. There is no such thing as 16-bit IEEE float, and
+        its ``nAvgBytesPerSec`` of 22050 (= 11025 x 1 x 2) confirms the payload is
+        ordinary 16-bit PCM. Decoders reject the file outright. **[verified]**
+
+        This is a defect in the shipped game data, not in our parsing.
+        """
+        return self.format_tag == WAVE_IEEE_FLOAT and self.bits in (8, 16)
 
     @property
     def seconds(self) -> float:
@@ -58,20 +77,28 @@ class Bank:
     clips: list[Clip]
 
 
-def _wave_format(data: bytes, riff_at: int) -> tuple[int, int, int]:
-    """Read (channels, rate, bits) from the ``fmt `` chunk of a RIFF at offset."""
+def _fmt_offset(data: bytes, riff_at: int) -> int | None:
+    """Byte offset of the ``fmt `` chunk payload for the RIFF starting at ``riff_at``."""
     pos = riff_at + 12
     end = min(len(data), riff_at + 256)
     while pos + 8 <= end:
         cid = data[pos : pos + 4]
         csz = struct.unpack_from("<I", data, pos + 4)[0]
         if cid == b"fmt ":
-            _tag, ch, rate, _bps, _align, bits = struct.unpack_from("<HHIIHH", data, pos + 8)
-            return ch, rate, bits
+            return pos + 8
         if csz <= 0 or csz > len(data):
             break
         pos += 8 + csz + (csz & 1)
-    return 0, 0, 0
+    return None
+
+
+def _wave_format(data: bytes, riff_at: int) -> tuple[int, int, int, int]:
+    """Read (channels, rate, bits, format_tag) from a RIFF's ``fmt `` chunk."""
+    at = _fmt_offset(data, riff_at)
+    if at is None:
+        return 0, 0, 0, 0
+    tag, ch, rate, _bps, _align, bits = struct.unpack_from("<HHIIHH", data, at)
+    return ch, rate, bits, tag
 
 
 def _valid_riff(data: bytes, off: int) -> int | None:
@@ -96,8 +123,8 @@ def read_fsb(path: str | Path) -> Bank:
 
     clips = []
     for i, size in enumerate(sizes):
-        ch, rate, bits = _wave_format(data, offset)
-        clips.append(Clip(i, offset, size, ch, rate, bits))
+        ch, rate, bits, tag = _wave_format(data, offset)
+        clips.append(Clip(i, offset, size, ch, rate, bits, tag))
         offset += size
     return Bank(p, "fsb", count, clips)
 
@@ -120,11 +147,11 @@ def read_drd(path: str | Path) -> Bank:
         if size is None:
             pos += 4
             continue
-        ch, rate, bits = _wave_format(data, pos)
+        ch, rate, bits, tag = _wave_format(data, pos)
         if rate == 0:  # false positive inside PCM data
             pos += 4
             continue
-        clips.append(Clip(len(clips), pos, size + 8, ch, rate, bits))
+        clips.append(Clip(len(clips), pos, size + 8, ch, rate, bits, tag))
         pos += 8 + size
     return Bank(p, "drd", declared, clips)
 
@@ -139,19 +166,35 @@ def read_bank(path: str | Path) -> Bank:
     raise ValueError(f"{Path(path).name}: not a recognised Dreams audio bank")
 
 
-def extract(bank: Bank, out_dir: str | Path, prefix: str | None = None) -> list[Path]:
-    """Write every clip as a standalone ``.wav``."""
+def extract(
+    bank: Bank, out_dir: str | Path, prefix: str | None = None, repair: bool = True
+) -> tuple[list[Path], list[int]]:
+    """Write every clip as a standalone ``.wav``.
+
+    Returns ``(written, repaired_indices)``. When ``repair`` is set, a clip whose
+    ``fmt `` chunk declares an impossible format (see :attr:`Clip.needs_repair`)
+    has its two-byte ``wFormatTag`` corrected to PCM. Sample data is never
+    touched, so the result is still bit-for-bit the original audio - only a
+    provably-wrong header field changes, and the indices are reported so the
+    correction can be recorded rather than hidden.
+    """
     data = bank.path.read_bytes()
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     stem = prefix or bank.path.stem.lower()
 
-    written = []
+    written: list[Path] = []
+    repaired: list[int] = []
     for clip in bank.clips:
-        blob = data[clip.offset : clip.offset + clip.size]
+        blob = bytearray(data[clip.offset : clip.offset + clip.size])
         if not blob.startswith(b"RIFF"):
             continue
+        if repair and clip.needs_repair:
+            at = _fmt_offset(blob, 0)
+            if at is not None:
+                struct.pack_into("<H", blob, at, WAVE_PCM)
+                repaired.append(clip.index)
         target = out / f"{stem}_{clip.index:03d}.wav"
-        target.write_bytes(blob)
+        target.write_bytes(bytes(blob))
         written.append(target)
-    return written
+    return written, repaired

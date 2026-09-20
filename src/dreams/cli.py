@@ -16,9 +16,11 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
 from dreams import binio, paths, pe, probe
+from dreams import extract as extractor
 from dreams.formats import audio, disc, image, model, resource, scene, video
 
 app = typer.Typer(
@@ -198,8 +200,13 @@ def audio_unpack(
     """Extract every clip from a bank as a standalone .wav."""
     bank = audio.read_bank(file)
     target = out or paths.out_dir("audio", bank.path.stem.lower())
-    written = audio.extract(bank, target)
+    written, repaired = audio.extract(bank, target)
     console.print(f"[green]wrote {len(written)} wav files[/] to {target}")
+    if repaired:
+        console.print(
+            f"[yellow]repaired wFormatTag on clip(s) {repaired}[/] — declared IEEE float "
+            "at 16-bit, which cannot exist; payload is PCM. Sample data untouched."
+        )
 
 
 @app.command("scene")
@@ -417,6 +424,77 @@ def disc_cue(file: Path) -> None:
         table.add_row(str(num), mode, name)
     console.print(table)
     console.print("[dim]Audio tracks are the game's music. Mount the .cue, never the .iso.[/]")
+
+
+@app.command()
+def extract(
+    out: Annotated[
+        Path | None, typer.Option(help="Destination root. Defaults to the 'extract' path.")
+    ] = None,
+    only: Annotated[
+        str | None, typer.Option(help="Comma-separated groups to run. Default: all.")
+    ] = None,
+    skip: Annotated[str | None, typer.Option(help="Comma-separated groups to skip.")] = None,
+    force: Annotated[bool, typer.Option(help="Re-encode files that already exist.")] = False,
+    list_groups: Annotated[bool, typer.Option("--list", help="List groups and exit.")] = False,
+) -> None:
+    """Decode every solved asset format to a folder, losslessly.
+
+    Audio becomes FLAC, video FFV1-in-MKV, images PNG, headers JSON. Game
+    content only - the engine and the still-packed level bodies are not here.
+    """
+    if list_groups:
+        table = Table("group", "output", "contents")
+        for g in extractor.ALL_GROUPS:
+            table.add_row(g, extractor.LAYOUT[g], extractor.DESCRIPTIONS.get(g, ""))
+        console.print(table)
+        return
+
+    groups = [g.strip() for g in only.split(",")] if only else list(extractor.ALL_GROUPS)
+    if skip:
+        drop = {g.strip() for g in skip.split(",")}
+        groups = [g for g in groups if g not in drop]
+
+    unknown = [g for g in groups if g not in extractor.LAYOUT]
+    if unknown:
+        console.print(f"[red]unknown group(s):[/] {', '.join(unknown)}")
+        console.print(f"[dim]valid: {', '.join(extractor.ALL_GROUPS)}[/]")
+        raise typer.Exit(1)
+
+    root = out or paths.get("extract")
+    console.print(f"extracting [cyan]{', '.join(groups)}[/] -> [cyan]{root}[/]\n")
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description:<12}"),
+        BarColumn(),
+        TextColumn("{task.completed}/{task.total}"),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        manifest = extractor.run(root, groups, force=force, progress=progress)
+
+    t = manifest["totals"]
+    table = Table("group", "ok", "skip", "fail", "files", title="extraction")
+    for g in groups:
+        rows = [i for i in manifest["items"] if i["group"] == g]
+        table.add_row(
+            g,
+            str(sum(1 for r in rows if r["status"] == "ok")),
+            str(sum(1 for r in rows if r["status"] == "skipped")),
+            str(sum(1 for r in rows if r["status"] == "failed")),
+            str(sum(len(r["outputs"]) for r in rows)),
+        )
+    console.print()
+    console.print(table)
+    console.print(
+        f"\n[green]{t['files_written']} files[/], {t['bytes'] / 1048576:,.0f} MB -> {root}"
+    )
+    console.print(f"[dim]manifest.json and README.md written to {root}[/]")
+
+    for item in manifest["items"]:
+        if item["status"] == "failed":
+            console.print(f"[red]failed[/] {item['group']}: {item['source']} — {item['note']}")
 
 
 if __name__ == "__main__":

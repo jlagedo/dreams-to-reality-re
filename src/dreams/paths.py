@@ -24,6 +24,9 @@ DEFAULTS = {
     # startup sources off the compiler CD. See docs/toolchain.md.
     "watcom": r"E:\dev_game\watcom",
     "out": str(REPO_ROOT / "out"),
+    # Where `dreams extract` writes decoded assets. Outside the repo on purpose:
+    # it is derived game content and must never reach git.
+    "extract": r"E:\dreams-work\extract",
 }
 
 
@@ -58,4 +61,4 @@ def out_dir(*parts: str) -> Path:
 
 def describe() -> list[tuple[str, Path, bool]]:
     """(key, resolved path, exists) for every configured path."""
-    return [(k, get(k), get(k).exists()) for k in ("disc1", "disc2", "watcom", "out")]
+    return [(k, get(k), get(k).exists()) for k in ("disc1", "disc2", "watcom", "out", "extract")]

@@ -52,6 +52,20 @@ class Video:
         return self.frames / self.fps if self.frames else 0.0
 
 
+FIFTH_GEN = (b"UBB2", b"UBS2")
+
+#: NihAV / na_game_tool input-format plugin per magic. The ``S`` spellings are
+#: structurally identical to the ``M``/``B`` ones and need a one-line patch to
+#: the tool's tag gate before it will accept them. See docs/hnm-video.md.
+PLUGIN = {
+    "HNM4": "hnm4",
+    "UBB2": "hnm5",
+    "UBS2": "hnm5",
+    "HNM6": "hnm6",
+    "HNS6": "hnm6",
+}
+
+
 def read_header(path: str | Path) -> Video:
     p = Path(path)
     data = p.read_bytes()[:64]
@@ -59,8 +73,19 @@ def read_header(path: str | Path) -> Video:
     size = p.stat().st_size
 
     if magic == b"HNM4":
+        # Shorter, different layout - do not apply the generation-6 parse.
         w, h = struct.unpack_from("<HH", data, 8)
-        return Video(p, "HNM4", w, h, 8, 0, 0, 0, "", "", size)
+        frames = struct.unpack_from("<I", data, 16)[0]
+        copyright_ = data[48:64].rstrip(b"\0").decode("latin-1")
+        # HNM4 runs at 24 fps; the rate is not stored anywhere in the header.
+        return Video(p, "HNM4", w, h, 8, frames, 24, 0, "", copyright_, size)
+
+    if magic in FIFTH_GEN:
+        w, h = struct.unpack_from("<HH", data, 8)
+        frames = struct.unpack_from("<I", data, 16)[0]
+        note = data[32:48].rstrip(b"\0").decode("latin-1", "replace")
+        copyright_ = data[48:64].rstrip(b"\0").decode("latin-1")
+        return Video(p, magic.decode("latin-1"), w, h, 8, frames, 0, 0, note, copyright_, size)
 
     if magic not in SIXTH_GEN:
         raise ValueError(f"{p.name}: not an HNM file ({magic!r})")

@@ -50,18 +50,46 @@ Tracks 2+ are redbook audio and hold the game's music. They never appear as
 files — **mount the `.cue`, never the `.iso`**, or the game runs silent and
 throws MCI errors.
 
+## Extracting everything
+
+One command decodes every asset whose format is solved, losslessly:
+
+```bash
+uv run dreams extract              # -> E:\dreams-work\extract
+uv run dreams extract --list       # show the groups
+uv run dreams extract --only music,sprites --force
+```
+
+| Output | Format | Contents |
+|---|---|---|
+| `audio/music/` | FLAC | 21 redbook CD tracks, de-duplicated across discs |
+| `audio/sfx/` | FLAC | 24 effects from `FSB.DAT` |
+| `audio/voice/` | FLAC | 178 clips from `DIALOG.DRD` |
+| `video/` | FFV1 in MKV | 113 HNM4/5/6 files, mathematically lossless |
+| `images/` | PNG | sprites, icon-bundle members, TGA gallery |
+| `metadata/` | JSON | decoded headers for the formats whose bodies stay packed |
+| `text/` | UTF-8 | `DREAMS.INI`, manifests, transcoded from CP1252 |
+
+It writes a `manifest.json` recording every output with its provenance, and a
+`README.md` listing the caveats. Needs `ffmpeg` on PATH, plus `na_game_tool` for
+video (see [docs/hnm-video.md](docs/hnm-video.md)) — groups whose tool is missing
+are skipped, not failed.
+
+Output goes **outside the repo** by design: it is derived game content.
+
 ## What works
 
 | Command | Status |
 |---|---|
+| `dreams extract` | **solved** — every decodable asset, lossless |
 | `dreams audio info/unpack` | **solved** — extracts all 202 clips as WAV |
-| `dreams video` | **solved** — HNM4/HNM6 headers |
+| `dreams video` | **solved** — HNM4/5/6 headers |
 | `dreams res` | **solved** — 30 items, 150 levels from `DREAMS.INI` |
 | `dreams disc iso/cue` | **solved** |
 | `dreams pe` | **solved** — sections, imports, exports, toolchain |
-| `dreams scene` / `anim` | partial — headers and name tables; bodies are packed |
+| `dreams bundle` | **solved** — `UBIK` table and members |
+| `dreams scene` / `anim` | partial — headers exact; bodies are packed |
 | `dreams model` | partial — `F3DC` header, materials, `PAK0` chunk bounds |
-| `dreams bundle` | unsolved — `UBIK` header only |
 
 Exploration helpers: `census`, `identify`, `stats`, `regions`, `tags`,
 `strings`, `dump`, `render`, `stride`.
