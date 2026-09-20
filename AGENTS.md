@@ -397,7 +397,7 @@ Recommended: Windows 95, 32 MB RAM, 1 GB disk, Direct3D/Glide GPU.
 ### Open questions
 
 1. **Unpack the `.DSN` body** — 157 MB of level geometry and textures. The body
-   offset is now exact (`24 + 31·countB`, verified 98/98), so there is a precise
+   offset is now exact (`16 + 31·countB`, read off the loader), so there is a precise
    starting byte for the first time.
 2. **Decode the `.3DC` geometry payload.** The descriptor pairs are mapped; vertex
    and index semantics are not, and the `CUBE.ASC` shortcut failed.

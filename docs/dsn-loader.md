@@ -26,16 +26,29 @@ The packed body is consumed elsewhere — see [Next](#next).
 Everything is read through a buffered stream with a **peek/commit** pair, not by
 indexing a flat buffer. `FUN_00454feb()` returns the stream context.
 
-| Function | Role |
-|---|---|
-| `FUN_00454feb` | get stream context pointer |
-| `FUN_004154db` | **peek(n)** — ensure n bytes buffered, return pointer to them |
-| `FUN_004155a2` | **commit()** — advance past the bytes last peeked |
-| `FUN_0045c278` | **`memcpy`** — dword loop then byte tail, 35 call sites |
-| `FUN_0045fd67` | **`memcmp`/`strcmp`** — returns 0 on match |
-| `FUN_0045fd4e` | **`strlen`**-like |
-| `FUN_00460d12` | buffer compaction (`memmove` to base) |
-| `FUN_00460d5f` / `FUN_00460d82` | refill from file |
+**[verified]** against the Watcom 10.6 libraries in `E:\dev_game\watcom`
+(`sigs/windream.csv`, produced by `python -m dreams.watcom`). Four entries in the
+original version of this table were guesses and three of them were **wrong** —
+they are stock C runtime, not Cryo stream code:
+
+| Function | Role | Source |
+|---|---|---|
+| `FUN_00454feb` | **`__CHK`** — Watcom stack-overflow probe | library match |
+| `FUN_004154db` | **peek(stream, n)** — ensure n bytes buffered | Cryo code |
+| `FUN_004155a2` | **commit(stream)** — advance past the last peek | Cryo code |
+| `FUN_0045c278` | **`memcpy_`** | library match |
+| `FUN_0045fd67` | **`strncmp_`** | library match |
+| `FUN_0045fd4e` | **`strlen_`** | library match |
+| `FUN_00460d12` | **`memmove_`** | library match |
+| `FUN_00460d5f` | **`printf_`** | library match |
+| `FUN_00460d82` | still unidentified | Cryo code |
+
+`FUN_00454feb` is the important correction. It is Watcom's stack probe, called
+at entry with the frame size in EAX — **not** a "get stream context" accessor.
+The `CryoStream` layout below was reconstructed on the assumption that it
+returned a context pointer, so **treat that struct as unverified**: the field
+offsets came from a decompilation made under the wrong calling convention.
+`FUN_00460d5f` being `printf_` likewise kills the "refill from file" reading.
 
 ### Stream context layout
 
@@ -62,51 +75,58 @@ That matters: a 1.8 MB scene is never fully resident.
 
 ## `FUN_004175bc` reconstructed
 
-Cleaned up, with the stream calls named:
+**Re-decompiled under `__watcall`.** The peek lengths were invisible before —
+they travel in EDX — and they are what pins the body offset:
 
 ```c
 int load_dsn_header(void)
 {
-    ctx = stream_ctx();
-    FUN_0041754e();                 // ? setup
-    FUN_0043b0e2();                 // ?
-    FUN_0045505e(..., ctx);         // ? path/string build
-    if (!FUN_004152f2())            // open — returns bool
-        return 0;
+    __CHK(frame);                           // FUN_00454feb — stack probe
+    /* ... open + path/string build ... */
+    if (!open(g_file, path)) return 0;      // FUN_004152f2
 
-    FUN_004153fe();                 // ? post-open init
-    /* ... two more string ops, one writing to global 0x5dfa84 ... */
-
-    hdr = peek(n);                  // FUN_004154db
+    hdr = peek(g_file, 9);                  // magic + u8 + u32 size
     if (!hdr) return 0;
-
-    if (memcmp(hdr, "DSNF", 4) != 0)        // DAT_004c421e
+    if (strncmp(hdr, "DSNF", strlen("DSNF")) != 0)
         return 0;
-
     g_dsn_size = *(uint32_t *)(hdr + 5);    // <-- OFFSET 5, unaligned
-    commit();
+    commit(g_file);
 
-    p = peek(n);
-    if (!p || *p != 0) return 0;            // <-- the u8 flag must be zero
-    commit();
+    p = peek(g_file, 5);                    // u8 flag + u32 headerSpan A
+    if (!p || *p != 0) return 0;            // the u8 must be zero; A is SKIPPED
+    commit(g_file);
 
-    p16 = peek(n);
+    p16 = peek(g_file, 2);
     if (!p16) return 0;
-    g_dsn_count = *(uint16_t *)p16;         // <-- u16, our name_count
-    commit();
+    g_dsn_count = *(uint16_t *)p16;         // <-- our name_count, B
+    commit(g_file);
 
-    blk = peek(n);  if (!blk) return 0;
-    memcpy(dst, blk, len);                  // FUN_0045c278
-    commit();
+    len = g_dsn_count * 0xb;                // 11-byte name records
+    blk = peek(g_file, len);  if (!blk) return 0;
+    memcpy(0x5df720, blk, len);
+    commit(g_file);
 
-    blk = peek(n);  if (!blk) return 0;
-    memcpy(dst, blk, len);
-    commit();
+    len = g_dsn_count * 0x14;               // 20-byte per-object records
+    blk = peek(g_file, len);  if (!blk) return 0;
+    memcpy(0x5df4a0, blk, len);
+    commit(g_file);
 
     g_dsn_loaded = 1;
     return 1;
 }
 ```
+
+### This settles the body offset
+
+The loader consumes `9 + 5 + 2 = 16` bytes of header, then `11B`, then `20B`
+**with nothing in between**. So the packed body begins at **`16 + 31B`**, which
+equals `9 + A` — the same relation `.DAN` uses. `file-formats.md` previously said
+`24 + 31B` and postulated an 8-byte "scene-wide block" to explain the gap. There
+is no such block; the 8 bytes belong to the body, and they are an `01` tag plus
+a `u32`, exactly matching how `.DAN` bodies open. Corrected everywhere.
+
+Note also that **`A` is never read.** The loader derives everything from `B`, so
+`A = 31B + 7` is a redundant field the exporter wrote for seek-ahead.
 
 ### Globals it populates
 
@@ -144,17 +164,33 @@ So `memcpy(EAX=dst, EDX=src, EBX=len)`. Likewise `peek()` takes its length in
 `EDX` — which is why `FUN_004154db()` appears to take no arguments while
 comparing against `extraout_EDX` internally.
 
-**Fixing this is the highest-value next action.** Until it is fixed every
-function signature is wrong and argument values are invisible. Options:
+### Fixed — `tools/watcall-cspec.patch`
 
-1. Add a `__watcall` prototype model to a custom compiler spec (`.cspec`) and
-   re-import with it. Correct and permanent, but needs a Ghidra cspec written.
-2. Override the convention per function in the GUI (Edit Function Signature →
-   Calling Convention). Fast for a handful of functions, unscalable.
-3. Manually set storage for the handful of runtime helpers (`memcpy`, `memcmp`,
-   `strlen`, `peek`) so at least their call sites read correctly.
+**[verified]** Ghidra 12.1.3 ships **no Watcom compiler spec** (zero matches for
+"watcom" under `Ghidra/Processors/x86/data/`). One was added:
 
-Option 3 unblocks reading immediately; option 1 is the real fix.
+1. `tools/watcall-cspec.patch` adds a `__watcall` prototype model to
+   `x86win.cspec` — inputs `EAX, EDX, EBX, ECX` then stack, output `EAX` /
+   `EDX:EAX` / `ST0`, callee stack cleanup, the four argument registers marked
+   `killedbycall` (which is why `EBX` differs from `__fastcall`).
+2. `ghidra_scripts/ApplyWatcall.java` applies it program-wide, skipping the 31
+   runtime helpers that have bespoke register contracts. Watcom decorates
+   register-convention symbols with a **trailing underscore** (`memcpy_`,
+   `strlen_`), so `sigs/windream.csv` classifies them for free: 88 take
+   `__watcall`, 31 (`__CHK`, `__STK`, `IF@DSIN`, `__FDD`, …) do not.
+3. It also resets each signature to `SourceType.DEFAULT` — while a signature
+   inferred under the wrong convention stands, the decompiler will not promote
+   `EBX`/`ECX` to parameters no matter what the prototype model says. This step
+   is essential and easy to miss.
+
+Applied to `WINDREAM.EXE`: **1251 functions converted, 26 skipped.**
+
+Ground truth: `FUN_0045c278` is `memcpy_` per the library match, and under
+`__watcall` it decompiles as a textbook `memcpy(param_1, param_2, param_3)`
+returning `param_1` — a dword loop plus a byte tail. Two independent methods
+agreeing.
+
+Re-apply the cspec patch after any Ghidra upgrade, as with the GhidraMCP patch.
 
 Pairs with `src/dreams/watcom.py`, which recovers Watcom 10.6 runtime symbol
 names from the stock OMF libraries — see [toolchain.md](toolchain.md). Between a

@@ -123,14 +123,14 @@ def test_sprite_record_size_rounds_up_to_four():
 
 @needs_discs
 def test_dsn_span_formula_holds_for_every_scene():
-    """A = 31*name_count + 7, and the body starts at 24 + 31*name_count."""
+    """A = 31*name_count + 7, and the body starts at 9 + A == 16 + 31*name_count."""
     scenes = extract.merge_discs("*.DSN")
     assert scenes, "no .DSN files found"
     for s in scenes:
         sc = scene.read_dsn(s.path)
         assert sc.span_ok, f"{s.rel}: A={sc.count_a} names={sc.name_count}"
         assert sc.size_ok
-        assert sc.body_offset == 24 + 31 * sc.name_count
+        assert sc.body_offset == 16 + 31 * sc.name_count == 9 + sc.count_a
 
 
 @needs_discs

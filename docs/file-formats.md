@@ -68,22 +68,29 @@ offset  9  u8     0x00
 offset 10  u32    headerSpan  A           (38 .. 999)
 offset 14  u16    objectCount B           (1 .. 32)
 offset 16  char[11][B]   object-name table
-offset 16+11B u32[2]     8-byte scene-wide block
-offset 24+11B u32[5][B]  one 20-byte record per object
-offset 24+31B ...        packed payload
+offset 16+11B u32[5][B]  one 20-byte record per object
+offset 16+31B ...        packed payload
 ```
 
 **`A` is not an independent count.** In every one of the 98 files:
 
 ```
-A = 31 * B + 7          body starts at 17 + A  ==  24 + 31*B
+A = 31 * B + 7          body starts at 9 + A  ==  16 + 31*B
 ```
 
 So the field is a **header span**, not a second count — it exists so the loader
 can skip straight to the payload without walking the tables. Naming it "count A"
 was a misreading.
 
-Worked example, `E01GROTT.DSN`: `B` = 26, `A` = 813, body at `0x33E`.
+Worked example, `E01GROTT.DSN`: `B` = 26, `A` = 813, body at `0x336`.
+
+**[verified]** The offset comes from the loader, not from arithmetic.
+`FUN_004175bc` in `WINDREAM.EXE` peeks 9, then 5, then 2 bytes of header, then
+`B * 0xb` for the name table and `B * 0x14` for the records — **back to back,
+with no gap**. An earlier pass read the body as starting at `24 + 31B` and
+invented an 8-byte "scene-wide block" to account for the difference; there is no
+such block, and every body-parsing attempt before this was starting 8 bytes
+late. `body == 9 + A` is the same relation `.DAN` uses.
 
 The 8-byte block and the 20-byte per-object records are confirmed present and
 correctly sized in all 98 files; their **field meanings are [unverified]**.
@@ -106,10 +113,53 @@ but consistent across every sample. See [assets.md](assets.md).
 Across all files there are **2,145 records, 1,642 distinct names**, 4–8 printable
 characters each with 3–7 trailing NULs.
 
-**[verified]** The payload is genuinely packed: entropy 4.46–7.79 bits/byte
-(median 6.93), and zlib -9 only reaches 46.7–91.6% (median 78.0%). It is not a
-raw fixed-stride image stream. ASCII fragments such as `DEFAULT`, `E01_SOL1` and
-`PIECE` do occur inside it.
+#### The 20-byte object records
+
+**[verified]** Column 0 is `3` in 1,719 of 2,145 records. Column 2 stays within
+`0..255` in every record — a count or flag byte widened to `u32`. Columns 3 and 4
+are **both zero or both non-zero**, and when non-zero they hold values in
+`0x0045xxxx`–`0x0047xxxx`: the same **stale pointers** found in `.3DM` and `.DAN`
+(see [assets.md](assets.md)). So a record is partly a serialized struct with
+pointer fields, not pure geometry, and columns 3–4 carry no offset information
+about the body.
+
+#### The body has its own header, and its own version
+
+**[verified]** Every one of the 95 distinct scene bodies opens with the same
+seven bytes, differing only in a leading `u16` version:
+
+```
+b4 00  fd ff 01 be ff        86 files   version 180
+b5 00  fd ff 01 be ff         9 files   version 181
+```
+
+A version field in the body, exactly as `F3DC` carries revision 450, means the
+body is a **versioned stream in its own right** rather than an opaque blob.
+
+Three measurements describe it. **[verified]**
+
+- **Literal text survives, in about half the files.** `DEFAULT` appears within
+  the first 64 body bytes in **37/95**, and an object name from the header table
+  within the first 128 bytes in **51/95** — with binary control bytes
+  interleaved (`Objec` `c3 30 dc` `t0 `). Names also recur far deeper
+  (`L14_HNM5` at `+0x1bd8`, `E01_SOL7` at `+0x425b`), well past any plausible
+  directory. A uniformly LZ- or Huffman-coded stream does not leak contiguous
+  ASCII at all, so at minimum the packing is **interrupted by literal runs**.
+- **The byte histogram is far from flat.** Over 95 × 256 KB: `0x00` 6.6%,
+  `0xfc` 2.0%, `0xe0` 1.9%, `0xfd` 1.7%, against 0.39% for a uniform stream.
+- **Byte-aligned markers recur at roughly 1 per 170 bytes.** `e0 fd 09` occurs
+  143,764 times and `e0 fc 19` 133,005 times in that same sample, alongside
+  `fc 19 a0`, `3f e0 fc` and `38 3f e0`. Whatever the payload coding is, it is
+  **byte-oriented** and punctuated by a small marker vocabulary.
+
+Delta entropy *rises* (7.62 → 7.80), which rules out raw fixed-stride pixel
+data — so the body is neither plain imagery nor a clean single LZ stream.
+
+**`.DSN` and `.DAN` bodies share an opening.** Both begin `01` followed by a
+`u32` — visible in `.DSN` only once the body offset is corrected, because the
+old offset skipped straight past it. The `u32` is not a length in either format
+(`.DSN` body/`u32` ratios run 9.8–78). Its meaning is **[unverified]**, but the
+two formats can now be attacked together rather than separately.
 
 Which scene belongs to which level is now fully mapped — see
 [level-map.md](level-map.md).

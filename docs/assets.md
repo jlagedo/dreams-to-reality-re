@@ -108,10 +108,13 @@ name versus texture name. At offset 0x4c sits `ef 3d ef 3d` = **0x3DEF twice**,
 which in RGB555 is mid-grey (R=G=B=15) — a default material colour, and
 independent confirmation of the RGB555 colour format.
 
-`ESSAI.3DM` stores what look like **16.16 fixed-point** values: `4669872 / 65536
-= 71.257`, `4573748 / 65536 = 69.790`. Fixed point rather than float is the
-expected choice for a 1997 software rasterizer targeting a Pentium. **[unverified]**
-that these specific fields are coordinates.
+`ESSAI.3DM` stores `4669872` and `4573748` in fixed header slots. Reading them
+as **16.16 fixed-point** coordinates (`71.257`, `69.790`) was **wrong**. In hex
+they are `0x004741B0` and `0x0045CA34`, and the byte-identical values recur
+across `.3DM`, `.DSN` *and* `.DAN` — `0x004741A0` appears in all three. A
+coordinate cannot be bit-identical in a shadow LUT, an animation and a cave.
+These are **stale pointers** into a `0x400000`-based address space, written out
+by the exporter and fixed up at load. **[verified]**
 
 ### `.PAK` — `PAK0`
 
@@ -183,16 +186,16 @@ u16       nameCount                 (1 .. 32)
 --- 0x10 ---
 char[11][nameCount]                 object names, null-padded, DOS FCB style
 --- 0x10 + 11*n ---
-u32[2]                              8-byte scene block
 u32[5][nameCount]                   20-byte record per object
---- 0x18 + 31*n  ( == 17 + A ) ---
+--- 0x10 + 31*n  ( == 9 + A ) ---
           packed body
 ```
 
 `nameCount` is confirmed exact in all 98 files, and `A` turned out to be a
 **derived header span**, not a second count: `A = 31·nameCount + 7` holds in
-98/98, putting the body at `24 + 31·nameCount`. For `E01GROTT.DSN` that is
-`0x33E`. Full detail in [file-formats.md](file-formats.md).
+98/98, putting the body at `9 + A == 16 + 31·nameCount` — confirmed against the
+loader in `WINDREAM.EXE`. For `E01GROTT.DSN` that is `0x336`. Full detail in
+[file-formats.md](file-formats.md).
 
 ### The naming scheme decodes to room construction
 
@@ -313,7 +316,7 @@ version — and an earlier `MENU.ALP` was dropped before release.
 ## Priority targets
 
 1. **Unpack the `.DSN` body.** 157 MB, all the level geometry and textures. The
-   exact body offset is now known (`24 + 31·nameCount`, verified 98/98), so the
+   exact body offset is now known (`16 + 31·nameCount`, read off the loader), so the
    attack has a precise starting byte for the first time. Everything visual
    depends on this.
 2. **Decode the `.3DC` descriptor pairs.** The `(count, absolute-offset)` pairs

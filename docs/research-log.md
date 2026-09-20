@@ -22,6 +22,10 @@ they are not re-asserted.
 | `DREAMS.DAT` is a whole-file u32 offset table | **wrong** | Only the first 151 entries. It is self-indexing: table, 420 zero bytes, then 150 `ProjectN` records at `0x400`. |
 | `.DSN` "count A" is a count | **wrong** | A derived header span: `A = 31·countB + 7` in all 98 files. |
 | `HNS6`/`HNM6` marks audio multiplexing | **wrong** | The 73 `HNS6` files hold 20,576 `SD` sound chunks despite `audioflags = 0`; the one `HNM6` file has none. The letter does not encode audio. |
+| `ESSAI.3DM` holds 16.16 fixed-point coordinates | **wrong** | `4669872` = `0x004741B0` is a **stale pointer**. The identical value recurs across `.3DM`, `.DSN` and `.DAN` — impossible for a coordinate. |
+| The `.DSN` body starts at `24 + 31B`, after an 8-byte scene block | **wrong** | It starts at **`16 + 31B` == `9 + A`**. `FUN_004175bc` reads the 11-byte and 20-byte tables back to back with no gap. There is no 8-byte block — those bytes are the body's own `01` + `u32` opening, the same as `.DAN`. Every body-parsing attempt before this began 8 bytes late. |
+| `FUN_00454feb` gets the stream context; `FUN_00460d5f` refills from file | **wrong** | They are Watcom runtime: **`__CHK`** (stack probe) and **`printf_`**. Matched against the stock 10.6 libraries. The `CryoStream` struct built on that assumption is now marked unverified. |
+| The `.DSN` body is one opaque compressed blob | **imprecise** | It is a **byte-oriented record stream**: a constant 7-byte preamble with its own `u16` version (180/181, 95/95 files), literal ASCII names surviving inside it (37/95 carry `DEFAULT` in the first 64 body bytes), a skewed byte histogram (`0x00` 6.6%) and markers `e0 fd 09` / `e0 fc 19` recurring roughly once per 170 bytes. |
 | `GAME.DAT` / `GAME0.DAT` are zero-filled | **wrong** | `GAME.DAT` has `01` at `0x104`; `GAME0.DAT` has `Project0` at `0x2484` plus a structured tail. |
 
 ## Dead ends

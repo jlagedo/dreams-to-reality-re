@@ -13,12 +13,19 @@ then a u32 span field and a u16 count. Verified against every file on the discs 
     0x0A  u32      count_a              A = 31*name_count + 7   <- DERIVED
     0x0E  u16      name_count           1 .. 32
     0x10  char[11][name_count]          object names, DOS FCB 8+3 style
-          u32[2]                        8-byte scene block
           u32[5][name_count]            20-byte record per object
-          ----                          packed body at 24 + 31*name_count
+          ----                          packed body at 16 + 31*name_count
 
 ``count_a`` is not a second count. It is a **header span** - a precomputed
-offset so the loader can skip the tables and jump straight to the payload.
+offset so the loader can skip the tables and jump straight to the payload:
+``body_offset == 9 + count_a``, the same rule ``.DAN`` uses.
+
+The body offset comes from the loader itself, not from arithmetic:
+``FUN_004175bc`` in ``WINDREAM.EXE`` consumes 9 + 5 + 2 bytes of header, then
+``name_count * 0xb`` for the name table and ``name_count * 0x14`` for the
+records - 16 + 31*name_count, with no gap between the two tables. An earlier
+reading put the body 8 bytes later and invented an 8-byte "scene block" to
+explain the difference. See docs/dsn-loader.md.
 
 ``.DAN``::
 
@@ -67,8 +74,12 @@ class Scene:
 
     @property
     def span_ok(self) -> bool:
-        """``A = 31*name_count + 7`` — holds in all 98 scenes on the discs."""
-        return self.count_a == 31 * self.name_count + 7
+        """``A = 31*name_count + 7`` — holds in all 98 scenes on the discs.
+
+        Equivalently ``body_offset == 9 + A``, the same relation ``.DAN`` uses.
+        """
+        return (self.count_a == 31 * self.name_count + 7
+                and self.body_offset == 9 + self.count_a)
 
     @property
     def body_size(self) -> int:
@@ -115,7 +126,8 @@ def read_dsn(path: str | Path) -> Scene:
 
     ``count_a`` is a derived header span, not a count: ``A = 31*name_count + 7``
     holds in all 98 files on the discs, putting the packed body at
-    ``17 + A == 24 + 31*name_count``. Verified 98/98.
+    ``9 + A == 16 + 31*name_count`` - confirmed against the loader in
+    ``WINDREAM.EXE``, which reads the two tables back to back.
     """
     p = Path(path)
     data = p.read_bytes()
@@ -129,7 +141,7 @@ def read_dsn(path: str | Path) -> Scene:
         off = 16 + i * NAME_RECORD
         names.append(data[off : off + NAME_RECORD].split(b"\0")[0].decode("latin-1"))
 
-    body_offset = 24 + 31 * name_count
+    body_offset = 16 + 31 * name_count
     return Scene(p, magic, declared, len(data), count_a, name_count, names, body_offset)
 
 
