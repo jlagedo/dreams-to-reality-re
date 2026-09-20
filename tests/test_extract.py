@@ -12,7 +12,7 @@ import zlib
 import pytest
 
 from dreams import extract, paths, png
-from dreams.formats import audio, cdaudio, image, scene, video
+from dreams.formats import audio, cdaudio, image, lz, scene, video
 
 DISCS_PRESENT = paths.disc(1).exists()
 needs_discs = pytest.mark.skipif(not DISCS_PRESENT, reason="disc images not configured")
@@ -267,3 +267,42 @@ def test_rgb565_expands_to_full_range():
     # green has the extra bit, so 565 and 555 disagree - this is the bug that
     # put cyan speckles through every texture when they were read as 555.
     assert scene.rgb565_to_rgb(0x07E0) == (0, 255, 0)
+
+
+@needs_discs
+def test_lz_decodes_every_packed_record():
+    """Tags 1 and 2 are LZ streams; all 610 across both formats must decode."""
+    total = 0
+    for pat, kind in (("*.DSN", "dsn"), ("*.DAN", "dan")):
+        for s in extract.merge_discs(pat):
+            for r in scene.read_records(s.path, kind=kind):
+                if r.tag in (scene.TAG_GEOMETRY, scene.TAG_PACKED):
+                    out = lz.decompress(r.payload)
+                    assert len(out) > len(r.payload), f"{s.rel} tag {r.tag}"
+                    total += 1
+    assert total == 610, total
+
+
+@needs_discs
+def test_tag1_carries_the_object_names():
+    """Decompressed tag 1 holds the material table, so the names reappear in it.
+
+    69 of 95 scenes carry every one of their header names. The other 26 are
+    short a few because a header name table can reference objects belonging to
+    another scene - ``E30_CERV`` asks for ``E14_COT2`` - so this asserts the
+    measured coverage rather than perfection.
+    """
+    full = 0
+    for s in extract.merge_discs("*.DSN"):
+        sc = scene.read_dsn(s.path)
+        pay = next(r.payload for r in scene.read_records(s.path)
+                   if r.tag == scene.TAG_GEOMETRY)
+        blob = lz.decompress(pay)
+        if all(n.encode() in blob for n in sc.names if n):
+            full += 1
+    assert full == 69, full
+
+
+def test_lz_rejects_a_truncated_stream():
+    with pytest.raises(lz.LZError):
+        lz.decompress(b"\xff\xff\xff\xff")  # all-literal control, no data
