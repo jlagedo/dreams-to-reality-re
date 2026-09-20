@@ -396,9 +396,11 @@ Recommended: Windows 95, 32 MB RAM, 1 GB disk, Direct3D/Glide GPU.
 
 ### Open questions
 
-1. **Unpack the `.DSN` body** — 157 MB of level geometry and textures. The body
-   offset is now exact (`16 + 31·countB`, read off the loader), so there is a precise
-   starting byte for the first time.
+1. **Unpack `.DSN` record tags 1 and 2** — all that is left of the body. The
+   chain is solved (`u8 tag, u32 size`, exact in 95/95) and tags 3-4 are the
+   **decoded level textures**, uncompressed, ~97% of the volume. Tags 1-2 are
+   roughly 40 KB per scene and still packed; tag 1 carries the object and
+   material names, so geometry is most likely there.
 2. **Decode the `.3DC` geometry payload.** The descriptor pairs are mapped; vertex
    and index semantics are not, and the `CUBE.ASC` shortcut failed.
 3. **Extract HNM audio.** Video decodes; the `SD` chunks do not yet.

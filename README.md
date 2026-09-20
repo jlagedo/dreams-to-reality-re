@@ -66,6 +66,7 @@ uv run dreams extract --only music,sprites --force
 | `audio/sfx/` | FLAC | 24 effects from `FSB.DAT` |
 | `audio/voice/` | FLAC | 178 clips from `DIALOG.DRD` |
 | `video/` | FFV1 in MKV | 113 HNM4/5/6 files, mathematically lossless |
+| `images/level-textures/` | PNG | **level textures** — 64 tiles of 32x32 per object, 95 scenes |
 | `images/` | PNG | sprites, icon-bundle members, TGA gallery |
 | `metadata/` | JSON | decoded headers for the formats whose bodies stay packed |
 | `text/` | UTF-8 | `DREAMS.INI`, manifests, transcoded from CP1252 |
@@ -131,8 +132,10 @@ orientation summary. Headlines:
   the retail disc. It is a separate codebase from the game.
 - **All audio is plain PCM WAV** inside two custom banks: `FSB.DAT` (24 effects,
   16-bit) and `DIALOG.DRD` (178 voice clips, 8-bit). Music is CD audio.
-- **There are no texture files.** Level textures are packed inside the 98 `.DSN`
-  scene files — 157 MB, and the top unsolved target.
+- **The level textures are decoded.** They live inside the 98 `.DSN` scene
+  files as fixed-size uncompressed records: a 256-entry **RGB565** palette plus
+  64 distinct 32x32 8-bit tiles per object. That is ~97% of the 157 MB. Only
+  record tags 1 and 2 (~40 KB per scene) are still packed.
 
 Claims in the docs are tagged **[verified]** (measured here), **[sourced]**
 (external, linked) or **[unverified]** (inference). Please keep that up.

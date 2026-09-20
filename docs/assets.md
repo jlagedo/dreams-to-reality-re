@@ -11,18 +11,22 @@ marked otherwise.
 | **Sound effects** | `DATA\SOUND\FSB.DAT` | 1 bank / 24 clips | 741 KB | no | **format fully decoded** |
 | **Voice** | `DATA\3DC\DIALOG.DRD` | 1 bank / 178 clips | 23.5 MB | no | **format fully decoded** |
 | **Music** | redbook CD audio tracks | 11 + 13 tracks | ~700 MB | n/a | mount the `.cue` |
-| **Scenes / levels** | `DATA\3DC\*.DSN` | 98 | **157 MB** | **yes** | **header fully decoded**, body packed |
-| **Animation** | `DATA\3DC\*.DAN` | 191 | 23.4 MB | **yes** | **header fully decoded**, body packed |
+| **Scenes / levels** | `DATA\3DC\*.DSN` | 98 | **157 MB** | ~3% | **header + record chain + textures decoded**; only tags 1-2 packed |
+| **Animation** | `DATA\3DC\*.DAN` | 191 | 23.4 MB | **yes** | **header + record chain decoded**; all payloads packed |
 | **Models** | `DATA\3DC\*.3DC` | 32 | ~0.5 MB | no | object/material directory decoded |
-| **Textures?** | `DATA\3DC\*.3DM` | 8 | 0.8 MB | no | fixed 3×32 KB blocks, likely 128×128 RGB555 |
+| **Shading LUTs** | `DATA\3DC\*.3DM` | 8 | 0.8 MB | no | 3×32 KB blocks — **not** textures, see below |
 | **Model archive** | `DATA\OBJET\*.PAK` | 2 | 62 KB | no | one `F3DC` chunk at `0x0C` |
 | **Sprites / fonts** | `*.SPR` | 16 | 0.9 MB | no | **fully decoded** — indexed, inline palette |
 | **Alpha maps** | `*.ALP` | 2 | small | no | raw, very sparse |
 | **Icons** | `ICONE\ICONES.BF` | 1 + 4 old copies | 372 KB | no | **fully decoded** — named-asset container |
 | **Video** | 113 × HNM4/5/6 | 113 | ~300 MB | yes | **all decodable** — see `hnm-video.md` |
 
-There is **no standalone texture file anywhere on either disc.** That is the
-central structural fact: level textures are inside the `.DSN` scene files.
+There is no standalone texture file anywhere on either disc — **because the
+level textures are inside the `.DSN` scene files, and they are now decoded.**
+Each object owns a 256-entry RGB565 palette plus 64 distinct 32x32 8-bit tiles,
+stored uncompressed as fixed-size records. See
+[file-formats.md](file-formats.md); extract with
+`uv run dreams extract --only leveltex`.
 
 ---
 

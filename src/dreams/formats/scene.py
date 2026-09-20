@@ -204,3 +204,134 @@ def classify_name(name: str) -> str:
         if body.startswith(prefix):
             return meaning
     return "?"
+
+
+# --------------------------------------------------------------- body records
+
+#: Record tags seen in ``.DSN`` bodies. ``.DAN`` uses 1, 2 and 3 only.
+TAG_GEOMETRY = 1  # variable size, carries object and material names
+TAG_PACKED = 2  # variable size, no readable names
+TAG_PALETTE = 3  # exactly 5 + 1024*N: one 256-entry palette per object
+TAG_TILES = 4  # exactly 5 + 1024*N: one 32x32 tile per object, 64 records
+
+TILE_W = TILE_H = 32
+TILE_BYTES = TILE_W * TILE_H  # 1024, and also 256 palette entries x 4 bytes
+TILES_PER_OBJECT = 64
+PALETTE_ENTRIES = 256
+
+
+@dataclass
+class Record:
+    tag: int
+    offset: int  # from the start of the body
+    size: int  # including the 5-byte header
+    payload: bytes
+
+    @property
+    def per_object(self) -> int:
+        return len(self.payload)
+
+
+def read_records(path: str | Path, kind: str = "dsn") -> list[Record]:
+    """Walk a ``.DSN`` or ``.DAN`` body as a chain of ``u8 tag, u32 size`` records.
+
+    ``size`` includes the 5-byte header. The chain reaches EOF exactly in 95/95
+    distinct scenes and 129/129 distinct animations, so a short walk means the
+    body offset is wrong rather than the file being damaged.
+
+    The grammar came from ``FUN_00417afd`` in ``WINDREAM.EXE``, which reads the
+    tag, takes the ``u32`` length, then hands each object ``0x400`` bytes of the
+    payload. See docs/dsn-loader.md.
+    """
+    p = Path(path)
+    header = read_dsn(p) if kind == "dsn" else read_dan(p)
+    body = p.read_bytes()[header.body_offset :]
+
+    records: list[Record] = []
+    pos = 0
+    while pos + 5 <= len(body):
+        tag = body[pos]
+        size = struct.unpack_from("<I", body, pos + 1)[0]
+        if size < 5 or pos + size > len(body):
+            break
+        records.append(Record(tag, pos, size, body[pos + 5 : pos + size]))
+        pos += size
+    return records
+
+
+@dataclass
+class ObjectTexture:
+    """One object's 64-tile texture bank plus the palette it indexes."""
+
+    name: str
+    index: int
+    palette: list[int]  # 256 RGB565 words
+    tiles: list[bytes]  # 64 x 1024 bytes of 8-bit indices
+
+    def tile_rgb(self, n: int) -> bytes:
+        """Tile ``n`` as 32x32 packed RGB, ready for :func:`dreams.png.write`."""
+        pal = [rgb565_to_rgb(c) for c in self.palette]
+        return b"".join(bytes(pal[b]) for b in self.tiles[n])
+
+    def sheet_rgb(self, cols: int = 8) -> bytes:
+        """All 64 tiles laid out as a ``cols``-wide grid, packed RGB."""
+        pal = [rgb565_to_rgb(c) for c in self.palette]
+        rows_of_tiles = (len(self.tiles) + cols - 1) // cols
+        out = []
+        for gy in range(rows_of_tiles):
+            for y in range(TILE_H):
+                line = []
+                for gx in range(cols):
+                    i = gy * cols + gx
+                    tile = self.tiles[i] if i < len(self.tiles) else bytes(TILE_BYTES)
+                    row = tile[y * TILE_W : (y + 1) * TILE_W]
+                    line.append(b"".join(bytes(pal[b]) for b in row))
+                out.append(b"".join(line))
+        return b"".join(out)
+
+
+def rgb565_to_rgb(word: int) -> tuple[int, int, int]:
+    """Expand an RGB565 word to full-range 8-bit RGB.
+
+    **RGB565, not RGB555.** Decoding these palettes as 555 puts impossible cyan
+    and magenta speckles through every texture; 565 renders clean rock, ice and
+    lava that match the scenes' own French names. Verified visually across six
+    scenes. Material colours in ``.3DC`` still read as 555 - see docs/assets.md.
+    """
+    return (
+        ((word >> 11) & 0x1F) * 255 // 31,
+        ((word >> 5) & 0x3F) * 255 // 63,
+        (word & 0x1F) * 255 // 31,
+    )
+
+
+def read_textures(path: str | Path) -> list[ObjectTexture]:
+    """Decode every object's texture bank from a ``.DSN`` scene.
+
+    Layout, recovered from the loader and confirmed against all 95 scenes::
+
+        tag 3   x1    1024 B per object   256 entries of (u16 zero, u16 rgb565)
+        tag 4   x64   1024 B per object   one 32x32 8-bit indexed tile
+
+    So each object owns a 256-colour palette and 64 distinct 32x32 tiles -
+    65,536 bytes of image data. These are the level textures, and they are
+    **uncompressed**: tags 3 and 4 are ~97% of the body by volume, which makes
+    the old "157 MB of packed data" description of ``.DSN`` badly wrong.
+    """
+    sc = read_dsn(path)
+    records = read_records(path)
+
+    palettes = next((r.payload for r in records if r.tag == TAG_PALETTE), None)
+    tiles = [r.payload for r in records if r.tag == TAG_TILES]
+    if palettes is None or not tiles:
+        return []
+
+    out = []
+    for i in range(sc.name_count):
+        lo, hi = i * TILE_BYTES, (i + 1) * TILE_BYTES
+        pal = [
+            struct.unpack_from("<H", palettes, lo + k * 4 + 2)[0]
+            for k in range(PALETTE_ENTRIES)
+        ]
+        out.append(ObjectTexture(sc.names[i], i, pal, [t[lo:hi] for t in tiles]))
+    return out

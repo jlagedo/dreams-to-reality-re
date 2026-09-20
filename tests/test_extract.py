@@ -211,3 +211,59 @@ def test_fsb_clip_12_needs_repair():
     src = next(s for s in extract.merge_discs("FSB.DAT") if "SOUND" in s.rel)
     bank = audio.read_bank(src.path)
     assert [c.index for c in bank.clips if c.needs_repair] == [12]
+
+
+@needs_discs
+def test_scene_body_is_a_complete_record_chain():
+    """u8 tag + u32 size must walk to EOF exactly - a short walk means a bad offset."""
+    for s in extract.merge_discs("*.DSN"):
+        sc = scene.read_dsn(s.path)
+        recs = scene.read_records(s.path)
+        assert recs, s.rel
+        consumed = recs[-1].offset + recs[-1].size
+        assert consumed == sc.body_size, f"{s.rel}: {consumed} of {sc.body_size}"
+
+
+@needs_discs
+def test_animation_body_uses_the_same_chain():
+    """.DAN shares the container: same framing, tags 1-3, never tag 4."""
+    for s in extract.merge_discs("*.DAN"):
+        an = scene.read_dan(s.path)
+        recs = scene.read_records(s.path, kind="dan")
+        assert recs, s.rel
+        assert recs[-1].offset + recs[-1].size == an.body_size, s.rel
+        assert all(r.tag != scene.TAG_TILES for r in recs), s.rel
+
+
+@needs_discs
+def test_texture_records_are_fixed_size_and_count_64():
+    """tag 3 x1 and tag 4 x64, each exactly 5 + 1024*N. Fixed size => uncompressed."""
+    for s in extract.merge_discs("*.DSN"):
+        n = scene.read_dsn(s.path).name_count
+        recs = scene.read_records(s.path)
+        pal = [r for r in recs if r.tag == scene.TAG_PALETTE]
+        tiles = [r for r in recs if r.tag == scene.TAG_TILES]
+        assert len(pal) == 1, s.rel
+        assert len(tiles) == scene.TILES_PER_OBJECT, f"{s.rel}: {len(tiles)}"
+        for r in pal + tiles:
+            assert r.size == 5 + scene.TILE_BYTES * n, s.rel
+
+
+@needs_discs
+def test_every_object_gets_a_palette_and_64_tiles():
+    for s in extract.merge_discs("*.DSN"):
+        sc = scene.read_dsn(s.path)
+        banks = scene.read_textures(s.path)
+        assert len(banks) == sc.name_count, s.rel
+        for b in banks:
+            assert len(b.palette) == scene.PALETTE_ENTRIES
+            assert len(b.tiles) == scene.TILES_PER_OBJECT
+            assert all(len(t) == scene.TILE_BYTES for t in b.tiles)
+
+
+def test_rgb565_expands_to_full_range():
+    assert scene.rgb565_to_rgb(0xFFFF) == (255, 255, 255)
+    assert scene.rgb565_to_rgb(0x0000) == (0, 0, 0)
+    # green has the extra bit, so 565 and 555 disagree - this is the bug that
+    # put cyan speckles through every texture when they were read as 555.
+    assert scene.rgb565_to_rgb(0x07E0) == (0, 255, 0)

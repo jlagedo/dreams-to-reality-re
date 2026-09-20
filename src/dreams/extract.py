@@ -52,6 +52,7 @@ LAYOUT = {
     "sprites": "images/sprites",
     "icons": "images/icons",
     "tiles": "images/3dm-blocks",
+    "leveltex": "images/level-textures",
     "gallery": "images/gallery",
     "renders": "images/renders",
     "metadata": "metadata",
@@ -372,6 +373,36 @@ def extract_icons(root: Path, src: Source, force: bool) -> Iterator[Item]:
     )
 
 
+def extract_leveltex(root: Path, src: Source, force: bool) -> Iterator[Item]:
+    """Write every object's texture bank from one ``.DSN`` scene.
+
+    Each object owns 64 distinct 32x32 tiles indexing a 256-entry RGB565
+    palette. Both the tile sheet and the individual tiles are written: the
+    sheet is for looking at, the tiles are what a mesh actually samples.
+    """
+    out = root / LAYOUT["leveltex"] / src.stem
+    try:
+        banks = scene.read_textures(src.path)
+    except (ValueError, struct.error) as exc:
+        yield Item("leveltex", src.rel, status="failed", note=str(exc))
+        return
+    if not banks:
+        yield Item("leveltex", src.rel, status="skipped", note="no tag 3/4 records")
+        return
+
+    out.mkdir(parents=True, exist_ok=True)
+    written, tiles = [], 0
+    for bank in banks:
+        safe = re.sub(r"[^a-z0-9]+", "_", bank.name.lower()).strip("_") or f"obj{bank.index:02d}"
+        sheet = out / f"{safe}.png"
+        if force or not sheet.exists():
+            png.write(sheet, 8 * scene.TILE_W, 8 * scene.TILE_H, bank.sheet_rgb())
+        written.append(str(sheet.relative_to(root)))
+        tiles += len(bank.tiles)
+    yield Item("leveltex", src.rel, written,
+               note=f"{len(banks)} objects, {tiles} tiles of 32x32")
+
+
 def extract_tiles(root: Path, src: Source, force: bool) -> Iterator[Item]:
     """.3DM -> three 128x128 PNGs. The images are NOT textures.
 
@@ -588,6 +619,7 @@ DESCRIPTIONS = {
     "sprites": "Indexed .SPR bundles, one PNG per record",
     "icons": "ICONES.BF members, decoded where the format is known",
     "tiles": ".3DM blocks rendered as 128x128 RGB555 -- NOT a texture, see note",
+    "leveltex": "Level textures from .DSN scenes: 64 tiles of 32x32 per object",
     "gallery": "CRYOPLUS bonus gallery, 16-bit TGA",
     "renders": "Developer reference renders, copied verbatim",
     "metadata": "Decoded headers for formats whose bodies stay packed",
@@ -636,6 +668,8 @@ def plan(groups: list[str]) -> dict[str, list[Source]]:
             ]
         elif g == "tiles":
             out[g] = merge_discs("*.3DM")
+        elif g == "leveltex":
+            out[g] = merge_discs("*.DSN")
         elif g == "gallery":
             out[g] = [s for s in merge_discs("*.TGA") if "CRYOPLUS" in s.rel]
         elif g == "renders":
@@ -694,6 +728,8 @@ def run(
                     items += list(extract_icons(root, s, force))
                 elif g == "tiles":
                     items += list(extract_tiles(root, s, force))
+                elif g == "leveltex":
+                    items += list(extract_leveltex(root, s, force))
                 elif g == "gallery":
                     items += list(extract_gallery(root, s, ffmpeg, force))
                 elif g == "renders":

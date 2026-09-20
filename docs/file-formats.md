@@ -123,43 +123,64 @@ are **both zero or both non-zero**, and when non-zero they hold values in
 pointer fields, not pure geometry, and columns 3–4 carry no offset information
 about the body.
 
-#### The body has its own header, and its own version
+#### The body is a chain of tagged records
 
-**[verified]** Every one of the 95 distinct scene bodies opens with the same
-seven bytes, differing only in a leading `u16` version:
+**[verified]** The body is **not** an opaque blob. It is a record chain:
 
 ```
-b4 00  fd ff 01 be ff        86 files   version 180
-b5 00  fd ff 01 be ff         9 files   version 181
+u8   tag
+u32  size          <- includes this 5-byte header
+...  payload       <- size - 5 bytes
 ```
 
-A version field in the body, exactly as `F3DC` carries revision 450, means the
-body is a **versioned stream in its own right** rather than an opaque blob.
+Walking it reaches EOF **exactly** in 95/95 distinct scenes, zero slack. The
+grammar came from `FUN_00417afd` in `WINDREAM.EXE`, which checks the tag, takes
+the `u32`, then hands each object `0x400` bytes of the payload. See
+[dsn-loader.md](dsn-loader.md).
 
-Three measurements describe it. **[verified]**
+| tag | per file | size | contents |
+|---|---|---|---|
+| 1 | 1 | variable, 7,366–322,183 | packed; carries object and material names |
+| 2 | 1 | variable, 3,964–328,027 | packed; no readable names |
+| 3 | 1 | **exactly `5 + 1024*B`** | one 256-entry palette per object |
+| 4 | **exactly 64** | **exactly `5 + 1024*B`** | one 32x32 tile per object |
 
-- **Literal text survives, in about half the files.** `DEFAULT` appears within
-  the first 64 body bytes in **37/95**, and an object name from the header table
-  within the first 128 bytes in **51/95** — with binary control bytes
-  interleaved (`Objec` `c3 30 dc` `t0 `). Names also recur far deeper
-  (`L14_HNM5` at `+0x1bd8`, `E01_SOL7` at `+0x425b`), well past any plausible
-  directory. A uniformly LZ- or Huffman-coded stream does not leak contiguous
-  ASCII at all, so at minimum the packing is **interrupted by literal runs**.
-- **The byte histogram is far from flat.** Over 95 × 256 KB: `0x00` 6.6%,
-  `0xfc` 2.0%, `0xe0` 1.9%, `0xfd` 1.7%, against 0.39% for a uniform stream.
-- **Byte-aligned markers recur at roughly 1 per 170 bytes.** `e0 fd 09` occurs
-  143,764 times and `e0 fc 19` 133,005 times in that same sample, alongside
-  `fc 19 a0`, `3f e0 fc` and `38 3f e0`. Whatever the payload coding is, it is
-  **byte-oriented** and punctuated by a small marker vocabulary.
+`.DAN` uses the same framing — 129/129 distinct animations walk to EOF — with
+tags 1, 2 and 3 only, all variable-size. One container, two formats.
 
-Delta entropy *rises* (7.62 → 7.80), which rules out raw fixed-stride pixel
-data — so the body is neither plain imagery nor a clean single LZ stream.
+#### Tags 3 and 4 are the level textures
 
-**`.DSN` and `.DAN` bodies share an opening.** Both begin `01` followed by a
-`u32` — visible in `.DSN` only once the body offset is corrected, because the
-old offset skipped straight past it. The `u32` is not a length in either format
-(`.DSN` body/`u32` ratios run 9.8–78). Its meaning is **[unverified]**, but the
-two formats can now be attacked together rather than separately.
+**[verified]** Fixed-size records mean **uncompressed**, and tags 3+4 are about
+**97% of the body by volume**. Each object gets:
+
+```
+tag 3    1024 B = 256 entries of (u16 zero, u16 RGB565)   <- palette
+tag 4    1024 B x 64 records = 64 distinct 32x32 tiles    <- 8-bit indices
+```
+
+`u16 zero` is exact: the low half of every tag-3 entry is zero in 100% of
+entries across all objects. All 64 tiles are distinct in every object sampled.
+
+**The palette is RGB565, not RGB555.** Reading it as 555 puts impossible cyan
+and magenta speckles through every texture. As 565 the same bytes render clean
+imagery that matches the scenes' own French names: `M06GLACE` (glace = ice) is
+ice, `F20_FEU` (feu = fire) is lava, `E29USINE` (usine = factory) is riveted
+metal plate, `E01GROTT` (grotte = cave) is rock. This is the one place the
+engine's otherwise uniform RGB555 does not hold — `.3DC` material colours still
+read as 555. **[verified]** visually across six scenes.
+
+Extract them with `uv run dreams extract --only leveltex` — 2,059 sheets, 118 MB.
+
+#### What is left packed
+
+Only tags 1 and 2: roughly 40 KB per scene against 1.7 MB of raw texture. Both
+are genuinely packed — entropy 7.1–7.5, zlib -9 still needs 68–92%, and sizes do
+not divide evenly by any small record width (only 19/95 are even divisible by 4).
+
+Tag 1 contains a header object name in **90/95** files, plus `DEFAULT` (60/95)
+and 3D Studio's `Object0` (21/95), so it holds the object/material directory.
+Tag 2 contains an object name in **0/95** and looks more thoroughly packed.
+Geometry is **[unverified]** but tag 1 is the likely home.
 
 Which scene belongs to which level is now fully mapped — see
 [level-map.md](level-map.md).
