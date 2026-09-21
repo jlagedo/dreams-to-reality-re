@@ -1,7 +1,7 @@
 # Reverse-engineering setup
 
-Ghidra, the MCP bridge, and how this repo is organised so the analysis survives
-in git without any game data going near it.
+Ghidra, and how this repo is organised so the analysis survives in git without
+any game data going near it.
 
 ## The organising principle
 
@@ -32,56 +32,10 @@ from their own copy of the discs.
 |---|---|---|
 | Ghidra | 12.1.3 (2026-08-18) | `E:\tools\ghidra_12.1.3_PUBLIC` |
 | JDK | Temurin 25.0.3 LTS | already on PATH; Ghidra needs 21+ |
-| Gradle | 9.7.1 | scoop; only needed to rebuild the plugin |
-| Go | installed | only needed to rebuild the bridge |
-| GhidraMCP | 0.2.2, built from `13bm/GhidraMCP@master` | `…\Ghidra\Extensions\GhidraMCP` |
-| MCP bridge | built from source | `E:\tools\ghidra-mcp\mcp_bridge.exe` |
 
-### Why the plugin was built from source
-
-`13bm/GhidraMCP` pins each release to an exact Ghidra version, and its newest
-*release* targets 12.0.4. Ghidra rejects extensions whose `extension.properties`
-version does not match the running install, so the 12.0.4 zip would not load in
-12.1.3. Master is already stamped `version=12.1.3` (bumped 2026-08-19) but no
-release has been cut, so we built it:
-
-```powershell
-$env:GHIDRA_INSTALL_DIR = "E:\tools\ghidra_12.1.3_PUBLIC"
-cd E:\tools\GhidraMCP-src
-gradle buildExtension --no-daemon
-cd mcp-bridge; go build -o mcp_bridge.exe .
-```
-
-Rebuild both after any Ghidra upgrade.
-
-> The older and more widely linked `LaurieWired/GhidraMCP` was last released in
-> June 2025 against Ghidra 11.x and will not load here.
-
-## Using the MCP bridge
-
-The plugin runs **inside a live Ghidra GUI session** — it is not a headless
-tool. The chain is:
-
-```
-Claude Code  --stdio/MCP-->  mcp_bridge.exe  --TCP :8765-->  Ghidra plugin
-```
-
-One-time setup in the GUI:
-
-1. `E:\tools\ghidra_12.1.3_PUBLIC\ghidraRun.bat`
-2. Open the `dreams` project and a program (start with `WINDREAM.EXE`)
-3. **File > Configure > GhidraMCP** → tick **MCPServerPlugin**
-4. The plugin starts a TCP server on `localhost:8765` automatically
-
-`.mcp.json` in the repo root already points Claude Code at the bridge. Approve
-it once with `claude` (it shows as *Pending approval* until you do). Override the
-binary location with `DREAMS_GHIDRA_BRIDGE` if yours lives elsewhere.
-
-The bridge exposes ~70 tools: decompile, rename, list functions/imports/exports,
-define structs, search, and async decompilation for large functions.
-
-**Nothing is annotated until you save.** MCP edits live in the Ghidra session;
-run `ExportSymbols.java` to get them into git.
+The GUI is `E:\tools\ghidra_12.1.3_PUBLIC\ghidraRun.bat`. Use it to look at a
+program and to run scripts from the Script Manager; everything reproducible goes
+through headless.
 
 ## Headless workflow
 

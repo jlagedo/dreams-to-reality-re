@@ -2,9 +2,9 @@
 
 Technical documentation for *Dreams to Reality* (Cryo Interactive, 1997).
 
-`../AGENTS.md` is the top-level summary and orientation for an agent picking up
-this work — Claude Code, Codex and any other AGENTS.md-aware tool all read it.
-These docs hold the detail.
+`../AGENTS.md` is the agent guide — rules, paths and commands, read by Claude
+Code, Codex and any other AGENTS.md-aware tool. It holds no findings; these docs
+do.
 
 | Doc | Contents |
 |---|---|

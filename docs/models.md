@@ -210,12 +210,27 @@ the bug.
 ## Still open
 
 - **UV mapping**, above.
-- **Animation.** Tag 3 is one record per animation — `MI0.DAN` has 7
-  `frame_refs` and 7 tag-3 records, `AR0.DAN` 5 and 5. A record opens with a
-  count at `+0x14` (19 where the model has 18 parts) and a table of `u32`
-  offsets from `+0x1c`. The per-part payload at those offsets is not decoded.
-  No orthonormal Q15 matrices occur in tag 3, so the pose is not stored the way
-  the header transforms are.
+- **Animation** — partially decoded. Tag 3 is one clip per record: `MI0.DAN`
+  has 7 `frame_refs` and 7 tag-3 records, `AR0.DAN` 5 and 5. The layout is a
+  count `N` at `+0x14`, a span `4*(N+1)` at `+0x18`, then `N-1` record offsets
+  from `+0x1c` with a final word that is a frame/time value rather than an
+  offset.
+
+  **The rotations are keyframed unit quaternions, not matrices** — which is why
+  searching tag 3 for orthonormal Q15 matrices found none. Each record holds a
+  Q15 quaternion in `[x, y, z, w]` order at `+0x2c`, with `(0,0,0,32768)` as
+  identity, followed by `K` 20-byte entries that appear to be
+  `{qx, qy, qz, qw, u32 time}` keys.
+
+  **[verified]** the quaternion slot: across **14,304 records in all 159
+  models** the norm is 32768 to within integer rounding in **100%** of cases,
+  and 14,104 are exactly identity. A field that is a unit quaternion 14,304
+  times out of 14,304 is not a coincidence.
+
+  **[unverified]** everything else in the record — the endpoint words, the
+  meaning of the type field at `+0x1c`, and how a frame composes onto the
+  node's rest transform. The worker that decoded it reports several codec
+  variants reusing the same space differently. Not implemented in the exporter.
 - Whether `E_POULP2` is a level-of-detail copy or a separate variant. It is a
   different decomposition with many small `Patte` structs, and nothing in the
   file distinguishes the two cases. **[unverified]**

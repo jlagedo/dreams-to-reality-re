@@ -130,7 +130,7 @@ uv run dreams render "$DREAMS_DISC1/DATA/ICONE/ICONES.BF" --offset 16 --width 64
 ## What we know
 
 Full write-ups in [`docs/`](docs/README.md); [`AGENTS.md`](AGENTS.md) is the
-orientation summary. Headlines:
+guide for coding agents. Headlines:
 
 - The engine is **Cryo's own C/C++ code, built with Watcom** for all three
   targets (DOS, DOS+3dfx, Windows). Software rasterizer, 16-bit RGB555. Glide is
