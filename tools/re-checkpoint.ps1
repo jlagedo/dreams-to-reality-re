@@ -3,20 +3,19 @@
   Persist Ghidra analysis into git. Run this often.
 
 .DESCRIPTION
-  Nothing Claude does over MCP is written to disk. The GhidraMCP plugin has 70
-  tools and NONE of them saves — every rename, comment and struct is an
-  in-memory Ghidra transaction that dies with the process.
+  A Ghidra project is gitignored, unmergeable and embeds the game executables,
+  so it is not the record of what was learned — re/symbols/*.tsv is.
 
-  This script closes that gap. It exports named functions and comments from each
-  program in the project into re/symbols/*.tsv, then optionally commits them.
-  The TSV is the durable record; the Ghidra project is disposable.
+  This script exports named functions and comments from each program in the
+  project into re/symbols/*.tsv, then optionally commits them. The TSV is the
+  durable record; the Ghidra project is disposable.
 
   IMPORTANT: headless cannot open a project that the Ghidra GUI holds open — the
   project is locked. Two ways to checkpoint:
 
+    GUI closed -> just run this script; it does both.
     GUI open   -> Ctrl+S, then Script Manager > Dreams > ExportSymbols.java,
                   then run this script with -SkipExport to commit the result.
-    GUI closed -> just run this script; it does both.
 
 .PARAMETER Message
   Commit message. Defaults to a timestamped one.

@@ -8,7 +8,7 @@ do.
 
 | Doc | Contents |
 |---|---|
-| [re-setup.md](re-setup.md) | **Ghidra + MCP setup**, repo layout for RE, suggested order of attack |
+| [re-setup.md](re-setup.md) | **Ghidra setup**, repo layout for RE, suggested order of attack |
 | [engine.md](engine.md) | Engine architecture, toolchain, the four binaries, subsystem layout, Windows video API |
 | [toolchain.md](toolchain.md) | **Watcom C/C++ 10.6** pinned down; reference material; ~290 runtime symbols recovered per DOS binary |
 | [cryolib.md](cryolib.md) | `CRYO.DLL` = CryoLib: 165 exports incl. a working **HNM6 decoder** |

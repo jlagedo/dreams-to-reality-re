@@ -190,7 +190,8 @@ Ground truth: `FUN_0045c278` is `memcpy_` per the library match, and under
 returning `param_1` — a dword loop plus a byte tail. Two independent methods
 agreeing.
 
-Re-apply the cspec patch after any Ghidra upgrade, as with the GhidraMCP patch.
+Re-apply the cspec patch after any Ghidra upgrade — it patches a file inside the
+Ghidra install, which an upgrade replaces.
 
 Pairs with `src/dreams/watcom.py`, which recovers Watcom 10.6 runtime symbol
 names from the stock OMF libraries — see [toolchain.md](toolchain.md). Between a

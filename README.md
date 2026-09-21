@@ -193,4 +193,4 @@ Not legal advice.
 
 [MIT](LICENSE) for everything in this repository — the notes, the Python
 toolkit and the Ghidra scripts. Third-party material (the mirrored MultimediaWiki
-HNM6 description, the GhidraMCP patch) is acknowledged in `LICENSE`.
+HNM6 description) is acknowledged in `LICENSE`.

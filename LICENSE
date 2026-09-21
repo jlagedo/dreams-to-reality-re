@@ -26,8 +26,6 @@ Third-party material acknowledged in this repository:
 
 - docs/hnm6-spec.md mirrors the HNM6 container and codec description from
   MultimediaWiki (https://wiki.multimedia.cx/index.php/HNM6).
-- tools/ghidramcp-save-program.patch is a patch against GhidraMCP
-  (https://github.com/13bm/GhidraMCP), Apache License 2.0.
 
 This repository contains no game data. Dreams to Reality is copyright
 Cryo Interactive Entertainment and its successors in title.

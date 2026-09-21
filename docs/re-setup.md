@@ -153,11 +153,7 @@ skipped so re-analysis does not churn the diff.
 
 ## Not losing work
 
-### Ghidra saves normally
-
-To be clear up front, because this is easy to misread: **Ghidra persists your
-analysis perfectly well.** The project at `ghidra/dreams.rep` already holds all
-four analysed programs.
+### How Ghidra saves
 
 - **Headless saves automatically** — the import run logged
   `Save succeeded for processed file: /WINDREAM.EXE`. Pass `-readOnly` to
@@ -167,44 +163,10 @@ four analysed programs.
   well, but those are *crash* recovery — they will not save you from closing a
   program without saving.
 
-### The one real gap, and how we closed it
-
-The GhidraMCP plugin shipped **70 tools, none of which saved**. Its own docs
-describe mutations as *"undo-able transactions in Ghidra"* — in-memory only. So
-Claude could rename sixty functions and have no way to commit any of them; a
-human had to remember to press Ctrl+S.
-
-Since we build the plugin from source anyway, we added the missing tool:
-
-```
-save_program   Persist the current program to its Ghidra project file on disk.
-```
-
-Three small changes — a `saveProgram()` method on `MCPContextProvider`, a case in
-`MCPClientHandler`, and a declaration in the Go bridge's `tools.go`. The bridge
-now advertises **71 tools**.
-
-Implementation: `currentProgram.getDomainFile().save(TaskMonitor.DUMMY)`, with
-guards for no program loaded, no domain file, and read-only files. It reports
-whether there were unsaved changes, so a no-op save is visible rather than
-silent.
-
-**The patch is preserved at `tools/ghidramcp-save-program.patch`.** Upstream does
-not have this, so re-apply it after any plugin update:
-
-```powershell
-cd E:	ools\GhidraMCP-src
-git apply E:\dev\dreams	ools\ghidramcp-save-program.patch
-$env:GHIDRA_INSTALL_DIR = "E:	ools\ghidra_12.1.3_PUBLIC"
-gradle buildExtension --no-daemon
-cd mcp-bridge; go build -o mcp_bridge.exe .
-```
-
-### Three layers of durability
+### Two layers of durability
 
 | Layer | What | Durability |
 |---|---|---|
-| Ghidra program database | live analysis, what MCP edits | volatile until saved — now savable by Claude via `save_program` |
 | `ghidra/dreams.rep` | the saved project | durable on disk, but **gitignored** — binary, unmergeable, embeds the game executables |
 | `re/symbols/*.tsv` | exported names + comments | **durable and in git** — the record that outlives everything |
 
@@ -217,23 +179,21 @@ Ghidra locks a project while it is open — a `dreams.lock` appears beside
 `dreams.gpr`, and **headless cannot touch a project the GUI holds**. That gives
 two checkpoint routes.
 
-**GUI open (Claude working over MCP):**
-
-1. Ask Claude to call `save_program`, or press Ctrl+S.
-2. **Window → Script Manager → Dreams → `ExportSymbols.java`** — writes the TSV
-   from the live program, no lock conflict.
-3. `.	ools
-e-checkpoint.ps1 -SkipExport -Message "name the DSN header reader"`
-
-**GUI closed:**
+**GUI closed** — the normal one:
 
 ```powershell
-.	ools
-e-checkpoint.ps1 -Message "batch rename stream helpers"
+.\tools\re-checkpoint.ps1 -Message "batch rename stream helpers"
 ```
 
 Exports every program headless, then commits. It detects the lock and redirects
 you to the GUI route rather than failing obscurely.
+
+**GUI open:**
+
+1. Ctrl+S.
+2. **Window → Script Manager → Dreams → `ExportSymbols.java`** — writes the TSV
+   from the live program, no lock conflict.
+3. `.\tools\re-checkpoint.ps1 -SkipExport -Message "name the DSN header reader"`
 
 Flags: `-NoCommit` to inspect first, `-SkipExport` to commit an existing export.
 
