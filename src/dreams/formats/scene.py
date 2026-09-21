@@ -218,6 +218,31 @@ TILE_W = TILE_H = 32
 TILE_BYTES = TILE_W * TILE_H  # 1024, and also 256 palette entries x 4 bytes
 TILES_PER_OBJECT = 64
 PALETTE_ENTRIES = 256
+SURFACE = 256  # each object owns one 256x256 8-bit surface
+
+
+def plane_origin(record: int) -> tuple[int, int]:
+    """Where plane ``record`` starts inside each 8x8 destination microcell.
+
+    The row takes the even bits of the record index and the column the odd
+    bits, each reversed - so the 64 planes enumerate all 64 sub-positions
+    exactly once. Verified: 64 distinct pairs, no duplicates, both axes 0..7.
+    """
+    row = ((record & 1) << 2) | ((record & 4) >> 1) | ((record & 0x10) >> 4)
+    col = ((record & 2) << 1) | ((record & 8) >> 2) | ((record & 0x20) >> 5)
+    return row, col
+
+
+def plane_fill(record: int) -> tuple[int, int]:
+    """The V x H rectangle plane ``record`` paints per source pixel.
+
+    Early planes paint coarse blocks and later ones refine over the top, so a
+    partly-loaded texture is a blocky preview rather than a hole. Read from the
+    engine's static tables at 0x0049d7f0 (H) and 0x0049d8f0 (V).
+    """
+    h = 8 if record < 2 else 4 if record < 8 else 2 if record < 16 else 1
+    v = 8 if record < 1 else 4 if record < 4 else 2 if record < 16 else 1
+    return v, h
 
 
 @dataclass
@@ -268,26 +293,48 @@ class ObjectTexture:
     palette: list[int]  # 256 RGB565 words
     tiles: list[bytes]  # 64 x 1024 bytes of 8-bit indices
 
+    def surface(self) -> bytearray:
+        """Interleave the 64 planes into the object's 256x256 index surface.
+
+        Each plane is a 32x32 **subsample** of one texture, offset by its own
+        sub-pixel position - which is why the planes look near-identical in
+        isolation and why laying them out as a tile grid produced smearing.
+        Source pixel ``(x, y)`` of plane ``r`` lands at
+        ``(col + 8x + dx, row + 8y + dy)`` for the plane's V x H fill.
+
+        Recovered from the 16 handlers behind the jump table at 0x0040148a in
+        ``WINDREAM.EXE``. Fills all 65,536 pixels with no gaps.
+        """
+        surf = bytearray(SURFACE * SURFACE)
+        for r, plane in enumerate(self.tiles):
+            row, col = plane_origin(r)
+            v, h = plane_fill(r)
+            i = 0
+            for y in range(TILE_H):
+                base_y = row + y * 8
+                for x in range(TILE_W):
+                    p = plane[i]
+                    i += 1
+                    base_x = col + x * 8
+                    for dy in range(v):
+                        yy = base_y + dy
+                        if yy >= SURFACE:
+                            break
+                        off = yy * SURFACE + base_x
+                        for dx in range(h):
+                            if base_x + dx < SURFACE:
+                                surf[off + dx] = p
+        return surf
+
+    def surface_rgb(self) -> bytes:
+        """The 256x256 surface as packed RGB, ready for :func:`dreams.png.write`."""
+        pal = [rgb565_to_rgb(c) for c in self.palette]
+        return b"".join(bytes(pal[b]) for b in self.surface())
+
     def tile_rgb(self, n: int) -> bytes:
-        """Tile ``n`` as 32x32 packed RGB, ready for :func:`dreams.png.write`."""
+        """One raw 32x32 plane, for debugging. Not a texture on its own."""
         pal = [rgb565_to_rgb(c) for c in self.palette]
         return b"".join(bytes(pal[b]) for b in self.tiles[n])
-
-    def sheet_rgb(self, cols: int = 8) -> bytes:
-        """All 64 tiles laid out as a ``cols``-wide grid, packed RGB."""
-        pal = [rgb565_to_rgb(c) for c in self.palette]
-        rows_of_tiles = (len(self.tiles) + cols - 1) // cols
-        out = []
-        for gy in range(rows_of_tiles):
-            for y in range(TILE_H):
-                line = []
-                for gx in range(cols):
-                    i = gy * cols + gx
-                    tile = self.tiles[i] if i < len(self.tiles) else bytes(TILE_BYTES)
-                    row = tile[y * TILE_W : (y + 1) * TILE_W]
-                    line.append(b"".join(bytes(pal[b]) for b in row))
-                out.append(b"".join(line))
-        return b"".join(out)
 
 
 def rgb565_to_rgb(word: int) -> tuple[int, int, int]:

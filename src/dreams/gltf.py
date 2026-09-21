@@ -143,16 +143,12 @@ def write(target: str | Path, doc: Scene, scale: float = 0.01) -> Path:
     return out
 
 
-def from_scene(path, out_dir: str | Path, textures: bool = False) -> tuple[Path, dict]:
+def from_scene(path, out_dir: str | Path, textures: bool = True) -> tuple[Path, dict]:
     """Export one ``.DSN`` as glTF. Returns ``(gltf_path, stats)``.
 
-    ``textures`` is **off by default and produces wrong results when on.**
-    The UVs address a 256x256 space in steps of 0, 127.5 and 255, which is
-    consistent with each face mapping one whole texture. But the 64 tag-4
-    records that should assemble into that 256x256 image have no confirmed
-    layout: pasting them as an 8x8 grid of 32x32 tiles renders as diagonal
-    smearing in Blender. Until the layout is known, flat materials are the
-    honest output. See docs/file-formats.md.
+    Writes one 256x256 PNG per object - the surface interleaved from that
+    object's 64 subsampled planes, which is exactly the space the UVs address
+    (they take the values 0, 127.5 and 255 of a 256-unit range).
     """
     from dreams import png
     from dreams.formats import mesh as _mesh
@@ -179,7 +175,7 @@ def from_scene(path, out_dir: str | Path, textures: bool = False) -> tuple[Path,
             safe = "".join(c if c.isalnum() else "_" for c in obj.name.lower())
             img = out / f"{stem}_{safe}.png"
             if not img.exists():
-                png.write(img, 8 * _scene.TILE_W, 8 * _scene.TILE_H, bank.sheet_rgb())
+                png.write(img, _scene.SURFACE, _scene.SURFACE, bank.surface_rgb())
             tex = img.name
         if obj.name not in slot:
             slot[obj.name] = len(doc.materials)

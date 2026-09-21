@@ -363,3 +363,34 @@ def test_clean_scene_floors_are_planar():
         if any(len({q[a] for q in pts}) == 1 for a in range(3)):
             flat += 1
     assert flat == 8, flat   # 8 of 9; E01_SOL5 is a sculpted floor, not a tile
+
+
+def test_plane_origins_tile_the_microcell_exactly():
+    """64 planes must land on 64 distinct sub-positions of an 8x8 cell.
+
+    The worker that recovered this got `col` wrong - `(r & 8) >> 1` collides
+    with `(r & 2) << 1`, giving 32 pairs and a column range of 0..5. The fix is
+    `>> 2`, mirroring how `row` reverses the even bits.
+    """
+    seen = [scene.plane_origin(r) for r in range(scene.TILES_PER_OBJECT)]
+    assert len(set(seen)) == 64
+    assert {r for r, _ in seen} == set(range(8))
+    assert {c for _, c in seen} == set(range(8))
+
+
+def test_plane_fill_is_coarse_first_then_refines():
+    assert scene.plane_fill(0) == (8, 8)
+    assert scene.plane_fill(1) == (4, 8)
+    assert scene.plane_fill(15) == (2, 2)
+    assert all(scene.plane_fill(r) == (1, 1) for r in range(16, 64))
+
+
+@needs_discs
+def test_texture_surface_is_completely_filled():
+    """The interleave must write all 65,536 pixels - no gaps, no overflow."""
+    s = next(x for x in extract.merge_discs("*.DSN") if x.path.stem == "E01GROTT")
+    for bank in scene.read_textures(s.path)[:3]:
+        surf = bank.surface()
+        assert len(surf) == scene.SURFACE * scene.SURFACE
+        rgb = bank.surface_rgb()
+        assert len(rgb) == scene.SURFACE * scene.SURFACE * 3

@@ -376,9 +376,8 @@ def extract_icons(root: Path, src: Source, force: bool) -> Iterator[Item]:
 def extract_leveltex(root: Path, src: Source, force: bool) -> Iterator[Item]:
     """Write every object's texture bank from one ``.DSN`` scene.
 
-    Each object owns 64 distinct 32x32 tiles indexing a 256-entry RGB565
-    palette. Both the tile sheet and the individual tiles are written: the
-    sheet is for looking at, the tiles are what a mesh actually samples.
+    Each object owns one 256x256 8-bit surface, interleaved from 64 subsampled
+    32x32 planes, indexing a 256-entry RGB565 palette.
     """
     out = root / LAYOUT["leveltex"] / src.stem
     try:
@@ -396,7 +395,7 @@ def extract_leveltex(root: Path, src: Source, force: bool) -> Iterator[Item]:
         safe = re.sub(r"[^a-z0-9]+", "_", bank.name.lower()).strip("_") or f"obj{bank.index:02d}"
         sheet = out / f"{safe}.png"
         if force or not sheet.exists():
-            png.write(sheet, 8 * scene.TILE_W, 8 * scene.TILE_H, bank.sheet_rgb())
+            png.write(sheet, scene.SURFACE, scene.SURFACE, bank.surface_rgb())
         written.append(str(sheet.relative_to(root)))
         tiles += len(bank.tiles)
     yield Item("leveltex", src.rel, written,
@@ -619,7 +618,7 @@ DESCRIPTIONS = {
     "sprites": "Indexed .SPR bundles, one PNG per record",
     "icons": "ICONES.BF members, decoded where the format is known",
     "tiles": ".3DM blocks rendered as 128x128 RGB555 -- NOT a texture, see note",
-    "leveltex": "Level textures from .DSN scenes: 64 tiles of 32x32 per object",
+    "leveltex": "Level textures from .DSN scenes: one 256x256 per object",
     "gallery": "CRYOPLUS bonus gallery, 16-bit TGA",
     "renders": "Developer reference renders, copied verbatim",
     "metadata": "Decoded headers for formats whose bodies stay packed",

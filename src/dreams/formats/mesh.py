@@ -42,6 +42,7 @@ the room. **[unverified]** beyond the scenes reported by ``dreams mesh``.
 
 from __future__ import annotations
 
+import math
 import struct
 from dataclasses import dataclass, field
 from functools import reduce
@@ -86,6 +87,45 @@ class Mesh:
     ref_stride: int = 0
     ref_slots: int = 0
     declared: int = 0
+
+    @property
+    def edge_sanity(self) -> float:
+        """Fraction of triangle edges that are short relative to their object.
+
+        The direct test of whether the vertex mapping is right. A scrambled
+        mapping makes triangles join distant points, so edges stretch across the
+        whole object and the score collapses; correct geometry keeps every edge
+        well inside its own bounding box.
+
+        **Necessary but not sufficient, so it is NOT the export gate.** 70 of 95
+        scenes score above 0.98, but a mapping can be wrong and still local:
+        ``E02ARAI0`` scores a perfect 1.0 with **0 of 5** floors planar. Across
+        scenes with at least three ``SOL`` objects, the contiguity-clean scenes
+        have 8/14 floors planar against 3/176 for the rest - so the others are
+        genuinely wrong, not merely unproven. Use :attr:`mapping_is_clean`.
+        """
+        bad = total = 0
+        for obj in self.objects:
+            used = {i for f in obj.faces for i in f}
+            if len(used) < 3:
+                continue
+            pts = [self.vertices[i] for i in used]
+            lo = tuple(min(q[a] for q in pts) for a in range(3))
+            hi = tuple(max(q[a] for q in pts) for a in range(3))
+            diag = math.dist(lo, hi)
+            if diag == 0:
+                continue
+            for f in obj.faces:
+                for a, b in ((0, 1), (1, 2), (2, 0)):
+                    total += 1
+                    if math.dist(self.vertices[f[a]], self.vertices[f[b]]) > diag * 0.95:
+                        bad += 1
+        return 1 - bad / total if total else 0.0
+
+    @property
+    def looks_sane(self) -> bool:
+        """Edge sanity above 0.98. A weak screen, not proof - see above."""
+        return self.edge_sanity > 0.98
 
     @property
     def mapping_is_clean(self) -> bool:

@@ -513,14 +513,16 @@ def mesh_cmd(
     ] = None,
     force: Annotated[bool, typer.Option("--force", help="Export unclean scenes too")] = False,
     textures: Annotated[
-        bool, typer.Option("--textures", help="Attach textures (KNOWN WRONG - see docs)")
-    ] = False,
+        bool, typer.Option("--textures/--no-textures", help="Attach textures")
+    ] = True,
 ) -> None:
     """Decode scene geometry from `.DSN` tags 1 and 2, and export glTF.
 
-    Only 4 of 95 scenes currently decode with a provably correct vertex mapping;
-    the rest split their references across several arrays whose bases are not
-    yet resolved. Those are listed as `unclean` and are skipped unless --force.
+    Only 4 of 95 scenes decode with a provably correct vertex mapping. The rest
+    split their references across arrays whose bases are unresolved; they often
+    look plausible - 70 pass an edge-sanity screen - but their floors come out
+    non-planar 176 times out of 179, so the geometry is wrong. Skipped unless
+    --force.
     """
     from dreams import gltf
     from dreams.formats import mesh as meshmod
@@ -532,7 +534,7 @@ def mesh_cmd(
             console.print(f"[red]no scene named {name}")
             raise typer.Exit(1)
 
-    table = Table("scene", "objects", "verts", "faces", "mapping")
+    table = Table("scene", "objects", "verts", "faces", "mapping", "edge sanity")
     exported = 0
     for s in sources:
         try:
@@ -540,10 +542,11 @@ def mesh_cmd(
         except (ValueError, struct.error) as exc:
             table.add_row(s.path.stem, "-", "-", "-", f"[red]{exc}")
             continue
-        state = "[green]clean" if m.mapping_is_clean else "[yellow]unclean"
+        q = m.edge_sanity
+        state = "[green]verified" if m.mapping_is_clean else "[yellow]unverified"
         table.add_row(
             s.path.stem, str(len(m.objects)), str(len(m.vertices)),
-            str(m.face_count), state,
+            str(m.face_count), state, f"{q:.3f}",
         )
         if out and (m.mapping_is_clean or force):
             gltf.from_scene(s.path, out, textures=textures)
