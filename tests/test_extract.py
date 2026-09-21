@@ -340,13 +340,12 @@ def test_every_scene_decodes_to_a_mesh():
 
 
 @needs_discs
-def test_eight_scenes_have_a_clean_vertex_mapping():
-    """One contiguous run from 221 makes rank the index - see mapping_is_clean."""
+def test_four_scenes_have_a_clean_vertex_mapping():
+    """Contiguous run, base 221, AND length matching the pool - all three."""
     from dreams.formats import mesh
     clean = {s.path.stem for s in extract.merge_discs("*.DSN")
              if mesh.read_mesh(s.path).mapping_is_clean}
-    assert clean == {"E01GROTT", "E19_GARD", "F31CIEL", "L03_REQI",
-                     "L14_PETI", "L15_EAU", "L16_BOMB", "O01EAU01"}
+    assert clean == {"E01GROTT", "L03_REQI", "L16_BOMB", "O01EAU01"}
 
 
 @needs_discs
@@ -424,3 +423,15 @@ def test_uv_records_start_five_bytes_before_the_reference():
     assert all(0.0 <= u <= 1.0 and 0.0 <= v <= 1.0 for u, v in uvs)
     # A real mapping is varied; the mid-record read collapses the spread.
     assert len({round(u, 4) for u, _ in uvs}) > 40
+
+
+@needs_discs
+def test_preview_renders_all_three_views(tmp_path):
+    from dreams import preview
+    from dreams.formats import mesh
+    s = next(x for x in extract.merge_discs("*.DSN") if x.path.stem == "E01GROTT")
+    out = preview.render(mesh.read_mesh(s.path), tmp_path / "p.png", size=64)
+    blob = out.read_bytes()
+    assert blob.startswith(png.SIGNATURE)
+    width, height = struct.unpack_from(">II", blob, 16)
+    assert (width, height) == (64 * len(preview.VIEWS), 64)

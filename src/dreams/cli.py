@@ -515,6 +515,10 @@ def mesh_cmd(
     textures: Annotated[
         bool, typer.Option("--textures/--no-textures", help="Attach textures")
     ] = True,
+    preview: Annotated[
+        Path | None,
+        typer.Option("--preview", help="Write three-view PNG previews here"),
+    ] = None,
 ) -> None:
     """Decode scene geometry from `.DSN` tags 1 and 2, and export glTF.
 
@@ -548,6 +552,10 @@ def mesh_cmd(
             s.path.stem, str(len(m.objects)), str(len(m.vertices)),
             str(m.face_count), state, f"{q:.3f}",
         )
+        if preview:
+            from dreams import preview as pv
+            preview.mkdir(parents=True, exist_ok=True)
+            pv.render(m, preview / f"{s.path.stem.lower()}.png")
         if out and (m.mapping_is_clean or force):
             gltf.from_scene(s.path, out, textures=textures)
             exported += 1

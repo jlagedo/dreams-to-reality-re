@@ -134,26 +134,33 @@ class Mesh:
     def mapping_is_clean(self) -> bool:
         """True when the reference-to-vertex mapping is provably right.
 
-        References are stale pointers into 40-byte slots. When a scene's
-        distinct references form **one contiguous run starting at 221**, then
-        ``ref_i == 221 + 40*i`` and rank is the index by construction, so the
-        decode is trustworthy. That holds in **8 of 95 scenes**.
+        References are stale pointers into 40-byte slots. Three conditions
+        together make rank the index: the references form **one contiguous run
+        of stride 40**, it **starts at 221**, and its length **matches the u32
+        at tag 2 + 0x14**. That holds in **4 of 95 scenes** - E01GROTT,
+        L03_REQI, L16_BOMB and O01EAU01.
 
-        The count in the ``u32`` at tag 2 + 0x14 is deliberately *not* required
-        to match: it disagrees for half of the eight (``L15_EAU`` declares 1,325
-        against 56 references) yet the mapping is still exact, and demanding it
-        cost four scenes for nothing.
+        All three conditions are needed. Dropping the count match admits four
+        more scenes whose references are still one clean run - E19_GARD,
+        F31CIEL, L14_PETI, L15_EAU - and every one of them renders as debris:
+        ``L14_PETI`` is a twisted ribbon from all three axes and ``E19_GARD`` a
+        spray of spikes, against a closed room for E01GROTT and a submarine
+        hull for L03_REQI. Degenerate-triangle rate does not catch it (all four
+        sit under 6%), and neither does :attr:`edge_sanity`. Rendering does.
 
-        The other 87 split their references across several runs with unrelated
-        bases - ``E10_PIEC`` has nine, starting at 221, 22,281, 24,225 and on -
-        so rank and index diverge and the geometry scrambles. Ordering those
-        runs by pointer value or by first use both leave floor planarity at
-        8/39, so the run order is not the missing piece.
+        When the run is shorter than the pool, some pool entries go unreferenced
+        and rank silently slips past them.
+
+        The other 87 split across several runs with unrelated bases - E10_PIEC
+        has nine, starting 221, 22,281, 24,225 and on. Ordering those runs by
+        pointer value or by first use both leave floor planarity at 8/39, no
+        better than doing nothing, so run order is not the missing piece.
         """
         return (
             self.ref_stride == 40
             and self.ref_slots == self.ref_count
             and self.ref_base == 221
+            and self.declared == self.ref_count
         )
 
     @property
