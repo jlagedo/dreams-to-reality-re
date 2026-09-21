@@ -65,8 +65,17 @@ def read(path: str | Path) -> list[Entry]:
     count = struct.unpack_from("<I", raw, 8)[0]
     words = struct.unpack_from(f"<{count}I", raw, TABLE)
     out: list[Entry] = []
+    bank, prev = 0, -1
     for i, w in enumerate(words):
-        at = ((w & 0xFF) << 24) | (w >> 8)
+        low24 = w >> 8
+        # Offsets rise monotonically, so a drop means the 24-bit field wrapped.
+        # The low byte is NOT the bank: at entry 122 it is still 0 while the
+        # true offset has already crossed into bank 1, which is why reading it
+        # as the high byte loses exactly that one entry.
+        if low24 < prev:
+            bank += 1
+        prev = low24
+        at = (bank << 24) | low24
         if at + HEADER > len(raw):
             continue
         size = struct.unpack_from("<I", raw, at + 1)[0]

@@ -48,9 +48,20 @@ The tool's own `FORMATS.md` cautions that for hnm6 "framerate and colours may be
 wrong" — cross-check against the vendor DLL or ScummVM before trusting colour.
 **[sourced]**
 
-**[verified]** Audio did *not* come out: `-ofmt wav` on an HNS6 file reports
-"nothing was sent to output". Video works, muxed audio extraction does not — at
-least for these files.
+**[verified]** Audio did *not* come out of `na_game_tool`: `-ofmt wav` on an
+HNS6 file reports "nothing was sent to output". That is a limitation of the
+tool, **not of the format** — the audio is decodable.
+
+**The `SD` payloads are table-driven 16-bit DPCM, not APC.** A per-file
+256-entry signed delta table opens the first `SD` chunk (512 bytes), then raw
+code bytes interleaved L/R, the predictor persisting across chunk boundaries
+from zero. No adaptive index, no step table. 73 of 94 `.HNM` files carry
+audio, 20,576 `SD` chunks in all; the 20 `HNM4` texture animations correctly
+have none. APC is real but belongs to the `AA`/`BB` chunks this game does not
+use. Decoded output checks out: zero-crossing rate 0.101, DC offset −1.3 and
+**zero** clipped samples across 592,410 frames — a wrong predictor would
+random-walk and saturate. Sample rate 22,050 Hz is inferred from 2,940 code
+bytes per 15 fps block, not read from the container. **[unverified]**
 
 ### ScummVM — an independent second decoder **[sourced]**
 

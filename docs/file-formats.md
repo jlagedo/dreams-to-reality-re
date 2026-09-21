@@ -11,11 +11,11 @@ a single shared chunk-IO layer under all asset loading.
 |---|---|---|---|---|---|
 | `.3DC` | `F3DC` | `46 33 44 43` | `ARC.3DC` | 22,112 | 3D geometry |
 | `.3DM` | `F3DC` | `46 33 44 43` | `ESSAI.3DM` | 98,332 | **Different structure** — fixed 3×32 KB blocks, likely textures |
-| `.DAN` | `DANF` | `44 41 4E 46` | `AR0.DAN` | 58,862 | Animation |
+| `.DAN` | `DANF` | `44 41 4E 46` | `AR0.DAN` | 58,862 | **Character and prop models** + animation — see [models.md](models.md) |
 | `.DSN` | `DSNF` | `44 53 4E 46` | `E01GROTT.DSN` | 1,771,734 | Scene / level |
-| `.DRD` | `DRDF` | `44 52 44 46` | `DIALOG.DRD` | **24,592,952** | Dialog bundle |
+| `.DRD` | `DRDF` | `44 52 44 46` | `DIALOG.DRD` | **24,592,952** | **Voice bank** — 178 WAVE clips (72.6% by size) plus 575 timed script lines |
 | `.PAK` | `PAK0` | `50 41 4B 30` | `OBJET1.PAK` | 62,008 | Container of `F3DC` chunks |
-| `.BF` | `UBIK` | `55 42 49 4B` | `ICONES.BF` | 372,358 | Icon/bitmap bundle |
+| `.BF` | `UBIK` | `55 42 49 4B` | `ICONES.BF` | 372,358 | **Named-file container** — 267-byte table rows; disc 2 has 6 members, disc 1 five |
 | `.UBB` | `UBB2` / `UBS2` | — | `ARENTRAD.UBB` | 1,715,124 | **Video** — HNM generation 5 |
 | `.HNM` | `HNM4` / `HNM6` / `HNS6` | — | see `hnm-video.md` | — | Video |
 | `.DIG` | `AIL3DIG` | `41 49 4C 33 44 49 47` | `SB16.DIG` | 2,853 | **Miles sound-card driver** |
@@ -203,7 +203,13 @@ Geometry is **[unverified]** but tag 1 is the likely home.
 Which scene belongs to which level is now fully mapped — see
 [level-map.md](level-map.md).
 
-### `.DAN` — animation (`DANF`)
+### `.DAN` — character and prop models (`DANF`)
+
+Tag 1 is the **model**, built from the same scene-graph node as `.DSN`
+tag 1; tag 2 is a fixed 98,324-byte texture bank; tag 3 holds animation
+clips whose rotations are keyframed unit quaternions. 159/159 models
+decode — full detail in [models.md](models.md). The header below was
+solved first and still stands.
 
 **Header fully decoded**, validated against **all 191 files**. **[verified]**
 

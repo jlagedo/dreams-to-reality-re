@@ -12,8 +12,8 @@ marked otherwise.
 | **Voice** | `DATA\3DC\DIALOG.DRD` | 1 bank / 178 clips | 23.5 MB | no | **format fully decoded** |
 | **Music** | redbook CD audio tracks | 11 + 13 tracks | ~700 MB | n/a | mount the `.cue` |
 | **Scenes / levels** | `DATA\3DC\*.DSN` | 98 | **157 MB** | ~3% | **header + record chain + textures decoded**; only tags 1-2 packed |
-| **Animation** | `DATA\3DC\*.DAN` | 191 | 23.4 MB | **yes** | **header + record chain decoded**; all payloads packed |
-| **Models** | `DATA\3DC\*.3DC` | 32 | ~0.5 MB | no | object/material directory decoded |
+| **Models + animation** | `DATA\3DC\*.DAN` | 191 | 23.4 MB | **yes** | **solved** — 159 models, 1,886 parts, 41,614 triangles, texture pages; animation partly read. [models.md](models.md) |
+| **Props / weapons** | `DATA\3DC\*.3DC` | 32 | ~0.5 MB | no | **geometry solved** — raw `F3DC`, same node, 165 nodes over 16 files; only `ARC` still open |
 | **Shading LUTs** | `DATA\3DC\*.3DM` | 8 | 0.8 MB | no | 3×32 KB blocks — **not** textures, see below |
 | **Model archive** | `DATA\OBJET\*.PAK` | 2 | 62 KB | no | one `F3DC` chunk at `0x0C` |
 | **Sprites / fonts** | `*.SPR` | 16 | 0.9 MB | no | **fully decoded** — indexed, inline palette |

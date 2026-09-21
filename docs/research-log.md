@@ -33,7 +33,8 @@ zero-crossing rate 0.101, DC offset −1.3, **zero** clipped samples across
 
 24.6 MB was never plausible for dialogue text, and it is not: **72.6% is 178
 RIFF/WAVE clips** (mono, 11,025 Hz, 8-bit), 27.3% is type-4 binary, and only
-**0.084%** is the script. Decoded in `dreams.formats.dialog`: 178 entries, 573 lines, every one printable ASCII, each carrying a timing field. A
+**0.084%** is the script. Decoded in `dreams.formats.dialog`: 178 entries, 575 lines, every one printable ASCII, each carrying a timing field.
+The 178 clips total 17,848,529 bytes and the entry chain walks exactly to EOF. A
 table word is not a plain offset - its low byte is a bank and the upper
 three bytes the offset, so a naive read breaks at entry 123.
 
@@ -256,8 +257,12 @@ Full analysis in [assets.md](assets.md).
    of 26,827 corners land inside the record, 85 distinct `u`, 78 distinct `v`,
    at `ref - 5 + delta` — but rasterising gives flat colour blocks and no
    value exceeds 128 of a 256-wide atlas. See [models.md](models.md).
-2. **Decode `.DAN` animation.** Tag 3 is one record per animation with a
-   per-part offset table at `+0x1c`; the payload at those offsets is unread.
+2. **Finish `.DAN` animation.** Tag 3 is one clip per record and the
+   rotations are **keyframed unit quaternions**, Q15 `[x,y,z,w]` at `+0x2c` —
+   norm 32768 in **14,304 of 14,304** records across all 159 models, 14,104
+   of them exactly identity. How a frame composes onto the node's rest
+   transform is not established, and several codec variants reuse the record
+   differently. Not implemented in the exporter. See [models.md](models.md).
 3. **`ARC.3DC`.** `.3DC` geometry is otherwise solved — it is a raw `F3DC`
    blob carrying the same node, no LZ, 165 nodes across 16 files, and `BOULE`,
    `EPEE` and `GUN` all close to **0 boundary edges**. `ARC` still has 15.
