@@ -234,6 +234,42 @@ def test_model_texture_page_is_fixed_size():
     assert len(page) == node.TEX_PAGE
 
 
+@needs_discs
+def test_model_uvs_cover_the_texture_page():
+    """A UV is an exact reference to two 16.16 texels - no byte fudge.
+
+    The earlier decode subtracted 5 from the reference, which is ``.DSN``'s
+    relocation delta and not a field offset. It left every corner inside the
+    pool, so a bounds check passed, while the bytes read were wrong: the
+    values collapsed towards zero and the model rendered as flat colour. The
+    test that catches that is coverage, not validity.
+    """
+    hero = paths.disc(1) / "DATA" / "3DC" / "XH_.DAN"
+    if not hero.exists():
+        pytest.skip("XH_.DAN not present")
+    uvs = [uv for f in node.read_model(hero).faces for uv in f.uvs]
+    assert len(uvs) == 3 * 504
+    assert all(0.0 <= c <= 1.0 for uv in uvs for c in uv)
+    # Both axes must span most of the page; the broken decode reached 0.5 in
+    # u and nothing in v.
+    for axis in (0, 1):
+        values = [uv[axis] for uv in uvs]
+        assert max(values) > 0.95, axis
+        assert len(set(values)) > 100, axis
+
+
+@needs_discs
+def test_model_preview_renders_textured(tmp_path):
+    """The only check that distinguishes a wrong UV from a right one."""
+    from dreams import preview
+
+    hero = paths.disc(1) / "DATA" / "3DC" / "XH_.DAN"
+    if not hero.exists():
+        pytest.skip("XH_.DAN not present")
+    out = preview.render_model(node.read_model(hero), node.texture_page(hero), tmp_path / "p.png")
+    assert out.exists() and out.stat().st_size > 2000
+
+
 # ---------------------------------------------------------- DIALOG.DRD ---
 
 

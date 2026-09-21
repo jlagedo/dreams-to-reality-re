@@ -54,6 +54,27 @@ and the 24 `HNM` surfaces split 6/18 across the two record forms. What *is*
 exact is the variant rule — the pointer form of `word 3` occurs only when words
 0 and 1 are both zero, in 2,059/2,059 records.
 
+### A reference that resolves in range is not a reference that resolves
+
+Model UVs were reported as "located, not solved": the references resolved,
+**100% of 26,827 corners landed inside the pool**, and the result still
+rendered as flat colour. That 100% was the whole of the evidence, and it was
+worthless — it measured only that an address was in bounds, not that it was the
+right address.
+
+Two bugs, both ours:
+
+1. The reference was read at `ref − 5`. The −5 is right for `.DSN`, where it is
+   that format's relocation delta; a model's delta is positive, so the
+   subtraction landed five bytes into the previous record.
+2. `UV_SCALE` was `65536 * 255` instead of `65536 * 256`, dividing a texel by
+   255 twice and flattening every coordinate to about 0.004.
+
+The two reported symptoms — "flat colour blocks" and "no value exceeds 128 of a
+256-wide atlas" — were measurements of the bug. Rasterising the model and
+looking at it settled it in one step, which is why `dreams model --preview`
+now exists and why the `models` group writes a picture per model.
+
 ### The player character is `XH_`, not `CH0`
 
 `CH0.DAN` is in every level manifest, which made it look like the player. Its

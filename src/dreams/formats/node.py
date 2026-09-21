@@ -62,10 +62,17 @@ FACE_STRIDE_AT = 32  #: holds 68
 FACE_DATA = 44
 VERTEX_WORDS = (1, 4, 7)
 UV_WORDS = (12, 13, 14)
-UV_OFFSET = -5  #: a UV reference points 5 bytes into its 8-byte record
 
-#: A UV is stored as ``pixel * 255`` in 16.16, i.e. divide by this for pixels.
-UV_SCALE = 65536 * 255
+#: The UV atlas is the 256x256 texture page, addressed in texels.
+ATLAS = 256
+
+#: A UV is a texel in 16.16 fixed point, so ``value / 65536`` is a pixel in
+#: 0..255 and dividing again by :data:`ATLAS` normalises it for glTF. There is
+#: no extra byte offset: a UV reference is **exact**, and adding the record's
+#: relocation delta lands on the first of the two words. The ``-5`` that
+#: ``mesh.py`` applies is not a field offset either - it is ``.DSN``'s own
+#: relocation delta, which happens to be -5 where a model's is positive.
+UV_SCALE = 65536 * ATLAS
 
 
 @dataclass
@@ -276,8 +283,10 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
                 continue
             uvs = []
             for k in range(3):
-                a = (row[UV_WORDS[k]] + UV_OFFSET + delta) if row else -1
+                a = (row[UV_WORDS[k]] + delta) if row else -1
                 if 0 <= a and a + 8 <= len(buf):
+                    # 0xFFFFFFFF stands in for zero at a texture edge, as in
+                    # .DSN; anything else out of range would be a decode bug.
                     u, v = struct.unpack_from("<2i", buf, a)
                     uvs.append((max(u, 0) / UV_SCALE, max(v, 0) / UV_SCALE))
                 else:
@@ -295,7 +304,7 @@ TEX_HEADER = 0x14
 TEX_PALETTES = 0x8000  #: 32 palettes x 256 entries x 4 bytes
 TEX_PAGE = 0x10000  #: one 256x256 indexed page
 TEX_TOTAL = TEX_HEADER + TEX_PALETTES + TEX_PAGE  # == 98,324
-TEX_SIZE = 256
+TEX_SIZE = ATLAS
 
 
 def read_model(path: str | Path) -> Model:

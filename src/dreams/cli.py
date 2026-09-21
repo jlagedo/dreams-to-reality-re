@@ -248,8 +248,35 @@ def anim_info(file: Path) -> None:
 
 
 @app.command("model")
-def model_info(file: Path) -> None:
-    """Parse an F3DC model or a PAK0 archive."""
+def model_info(
+    file: Path,
+    out: Annotated[
+        Path | None, typer.Option("--gltf", help="Export glTF and the texture page here")
+    ] = None,
+    preview: Annotated[
+        Path | None,
+        typer.Option("--preview", help="Write a textured three-view PNG here"),
+    ] = None,
+) -> None:
+    """Parse an F3DC model or a PAK0 archive, or export a `.DAN` / `.3DC`.
+
+    With `--gltf` or `--preview` the file goes through the scene-graph node
+    decoder in :mod:`dreams.formats.node`, which is what actually reads these
+    models; without them this prints the old header survey.
+    """
+    if out or preview:
+        from dreams import gltf
+
+        target, stats = gltf.from_model(file, out or paths.out_dir("models"), preview=preview)
+        console.print(
+            f"[green]wrote[/] {target}\n"
+            f"  {stats['drawn']}/{stats['parts']} parts drawn, {stats['proxies']} proxies, "
+            f"{stats['faces']} faces ({stats['bridges']} bridging), "
+            f"texture={'yes' if stats['texture'] else 'no'}"
+        )
+        if preview:
+            console.print(f"[green]wrote[/] {preview}")
+        return
     head = file.open("rb").read(4)
     if head == b"PAK0":
         pk = model.read_pak(file)

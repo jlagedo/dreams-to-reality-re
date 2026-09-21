@@ -411,6 +411,10 @@ def extract_models(root: Path, src: Source, force: bool) -> Iterator[Item]:
 
     ``.DAN`` tag 1 carries the same scene-graph node as ``.DSN``, so the level
     decode solved these too - see :mod:`dreams.formats.node`.
+
+    A textured three-view PNG goes to ``models/preview/`` beside the glTF. It
+    costs about 0.2s per model and is the only check that catches a UV decode
+    which is arithmetically in range but pointing at the wrong bytes.
     """
     from dreams import gltf
 
@@ -419,8 +423,9 @@ def extract_models(root: Path, src: Source, force: bool) -> Iterator[Item]:
     if not force and (out / f"{stem}.gltf").exists():
         yield Item("models", src.rel, [f"{LAYOUT['models']}/{stem}.gltf"], "skipped", "exists")
         return
+    shot = out / "preview" / f"{stem}.png"
     try:
-        target, stats = gltf.from_model(src.path, out)
+        target, stats = gltf.from_model(src.path, out, preview=shot)
     except Exception as exc:  # noqa: BLE001 - one bad file must not stop the run
         yield Item("models", src.rel, status="failed", note=f"{type(exc).__name__}: {exc}")
         return
@@ -429,6 +434,8 @@ def extract_models(root: Path, src: Source, force: bool) -> Iterator[Item]:
     if tex.exists():
         written.append(str(tex.relative_to(root)))
     written.append(str(target.with_suffix(".bin").relative_to(root)))
+    if shot.exists():
+        written.append(str(shot.relative_to(root)))
     yield Item(
         "models", src.rel, written,
         note=(f"{stats['drawn']}/{stats['parts']} parts, {stats['faces']} faces, "
@@ -704,7 +711,8 @@ DESCRIPTIONS = {
     "icons": "ICONES.BF members, decoded where the format is known",
     "tiles": ".3DM blocks rendered as 128x128 RGB555 -- NOT a texture, see note",
     "leveltex": "Level textures from .DSN scenes: one 256x256 per object",
-    "models": "Character and prop models (.DAN, .3DC) as glTF, with texture pages",
+    "models": "Character and prop models (.DAN, .3DC) as glTF, with texture pages"
+              " and textured previews",
     "dialogue": "DIALOG.DRD script: 575 timed lines (the audio is the voice group)",
     "scenes": "Level geometry from .DSN as glTF, with textures",
     "gallery": "CRYOPLUS bonus gallery, 16-bit TGA",

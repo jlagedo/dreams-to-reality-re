@@ -142,6 +142,15 @@ The palette entry is a `u16` at `+2` of each 4-byte slot, **RGB565** — the sam
 packing as level textures and the save thumbnail. One colour format across the
 whole game.
 
+**The 32 "palettes" are one palette in 32 brightness steps** — a light ramp, as
+a 1997 software rasteriser would carry. Row 0 is full brightness and row 31 is
+49% of it, with hue preserved the whole way down: entry 200 runs `(0, 93, 131)`
+at row 0 to `(0, 0, 32)` at row 31. So **row 0 is the correct unlit palette**,
+which is the one `texture_page()` returns and the one the exported PNGs use.
+The ramp is how the engine shaded a face without per-pixel lighting, and it is
+why nothing in the face record needs to hold a colour. **[verified]** on
+`XH_.DAN`.
+
 There are **126 distinct pages across 191 files**, shared exactly where you
 would expect: 13 `MCHAPO` files share one page, 10 `CAISSE` files another —
 crates share a crate texture.
@@ -150,21 +159,77 @@ Rendered, the pages are unambiguous. `XH_` is a bare-chested man with a carved
 mask panel; `MHE` is a red-haired woman with a white and teal top and trainers
 with treaded soles.
 
-### UVs — located, not solved **[unverified]**
+### UVs — solved **[verified]**
 
-The references resolve. Words 12, 13, 14 are UV references, the 8-byte record
-starts at `ref - 5`, and — the step an earlier pass missed — the value is an
-**address**, so the record is at `ref - 5 + delta` where
-`delta = node.offset + 0xf0 - node.base`. Reading without the delta yields
-near-zero garbage, which is why the rule was first reported as not applying.
+A UV reference is **exact**. Add the record's relocation delta and it lands on
+an 8-byte record holding `u32 u` then `u32 v`, both **16.16 fixed point in
+texels**, so `value / 65536` is a pixel in 0..255 and dividing again by 256
+normalises it for glTF.
 
-With it: **100% of 26,827 corners land inside the record**, 85 distinct `u`
-and 78 distinct `v`, and the values are `pixel * 255` in 16.16.
+The records sit in a dedicated pool, three per face, mostly consecutive at a
+stride of 8.
 
-But **rasterising gives flat colour blocks**, not the detail on the page, and
-no value exceeds 128 of a 256-wide atlas. So the scale — and probably the
-per-corner pairing — is still wrong. `node.UV_SCALE` is provisional and the
-exporter writes UVs that should not yet be trusted.
+Two errors had to be undone, and each one alone is enough to destroy the
+mapping:
+
+**The reference was read five bytes early.** `mesh.py` subtracts 5 for `.DSN`
+and that is correct *there* — but it is not a field offset, it is `.DSN`'s own
+relocation delta, which happens to be −5. A model's delta is positive (267 in
+`XH_.DAN`), so subtracting 5 on top of it lands mid-record, five bytes into the
+previous pair. Every corner still fell inside the pool, so the bounds check
+that was used as proof passed at 100%.
+
+**The scale carried a spurious ×255.** `UV_SCALE` was `65536 * 255`, which
+divides a texel by 255 a second time and collapses every coordinate to roughly
+0.004. That is what produced "flat colour blocks" and "no value exceeds 128 of
+256" — both were measurements of the bug, not of the format.
+
+With both fixed, `XH_.DAN`'s 1,512 corners give `u` 0..254 over 166 distinct
+values and `v` 1..255 over 168, and the model renders as a bare-chested man in
+teal shorts. `dreams model FILE --preview` writes that picture, and the
+`models` group writes one per model to `models/preview/`.
+
+**The proof is `CAISSE`, the crate.** Its texture carries the French words
+*HAUT* and *BAS* - top and bottom. They render **legibly and the right way up**
+in `models/preview/cai.png`. Readable text out of an atlas is a check no
+statistic can fake: u, v, the axis order and the orientation all have to be
+right at once for letters to come out as letters.
+
+The lesson is recorded in [research-log.md](research-log.md): a reference that
+resolves in range is **not** evidence that it resolves correctly. Only
+rasterising the result separated the two.
+
+**One small gap.** 168 of 175 exported models keep every corner inside 0..1.
+Seven do not: `f37` reaches 1.77, and `cg1`, `e_p`, `f24`, `gg1` and two others
+have a handful of corners at 115.38, which is a whole word read as a texel and
+therefore a reference that did not resolve. It is 1 to 9 faces per model and at
+most **0.35%** of corners, so it does not show, but it is unexplained.
+**[unverified]**
+
+## The rest of the 68-byte face record
+
+Indexing words from the start of a record:
+
+| word | what it is |
+|---|---|
+| `w0` | address of the **next** record — the block is a linked list |
+| `w1` `w4` `w7` | the three corner vertices, `slot = (ref − base) / 40` |
+| `w2` `w5` `w8` | into a 16-byte-stride array, one entry per vertex |
+| `w3` `w6` `w9` | into an 88-byte-stride array, one entry per corner |
+| `w10` | into a 16-byte-stride array, one entry per **face** |
+| `w11` | a small **signed** int, −14..+70 in `XH_` |
+| `w12` `w13` `w14` | the three UV records |
+| `w15` `w16` | unknown; 0 and 8 in the sample read |
+
+`w0` chaining by exactly 68 is what confirms the record stride independently of
+the `68` stored at the block's `+0x20`. The block header carries the object
+name in its first 8 bytes, the face count at `+0x10`, the address of the first
+record at `+0x14`, and at `+0x24` a pointer that is the same for every block in
+a file.
+
+**[unverified]** — `w2`/`w5`/`w8`, `w3`/`w6`/`w9`, `w10`, `w11`, `w15`, `w16`
+and the block header's `+0x1c` are named by their stride and their arity, not
+by anything found in the binary.
 
 ## Who is who
 
@@ -209,7 +274,7 @@ the bug.
 
 ## Still open
 
-- **UV mapping**, above.
+- **The unnamed face-record fields** in the table above.
 - **Animation** — partially decoded. Tag 3 is one clip per record: `MI0.DAN`
   has 7 `frame_refs` and 7 tag-3 records, `AR0.DAN` 5 and 5. The layout is a
   count `N` at `+0x14`, a span `4*(N+1)` at `+0x18`, then `N-1` record offsets
