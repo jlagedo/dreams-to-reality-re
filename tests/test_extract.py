@@ -340,12 +340,13 @@ def test_every_scene_decodes_to_a_mesh():
 
 
 @needs_discs
-def test_only_four_scenes_have_a_clean_vertex_mapping():
-    """References split across several arrays elsewhere - see Mesh.mapping_is_clean."""
+def test_eight_scenes_have_a_clean_vertex_mapping():
+    """One contiguous run from 221 makes rank the index - see mapping_is_clean."""
     from dreams.formats import mesh
     clean = {s.path.stem for s in extract.merge_discs("*.DSN")
              if mesh.read_mesh(s.path).mapping_is_clean}
-    assert clean == {"E01GROTT", "L03_REQI", "L16_BOMB", "O01EAU01"}
+    assert clean == {"E01GROTT", "E19_GARD", "F31CIEL", "L03_REQI",
+                     "L14_PETI", "L15_EAU", "L16_BOMB", "O01EAU01"}
 
 
 @needs_discs

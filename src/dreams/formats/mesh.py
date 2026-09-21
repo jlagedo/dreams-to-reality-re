@@ -88,6 +88,7 @@ class Mesh:
     ref_count: int = 0
     ref_stride: int = 0
     ref_slots: int = 0
+    ref_base: int = 0
     declared: int = 0
 
     @property
@@ -133,21 +134,26 @@ class Mesh:
     def mapping_is_clean(self) -> bool:
         """True when the reference-to-vertex mapping is provably right.
 
-        References are stale pointers into 40-byte slots. When every distinct
-        reference in a scene forms **one contiguous run** and the count agrees
-        with the ``u32`` at tag 2 + 0x14, rank and index coincide and the decode
-        is trustworthy. That holds in only **4 of 95 scenes** - E01GROTT,
-        L03_REQI, L16_BOMB and O01EAU01.
+        References are stale pointers into 40-byte slots. When a scene's
+        distinct references form **one contiguous run starting at 221**, then
+        ``ref_i == 221 + 40*i`` and rank is the index by construction, so the
+        decode is trustworthy. That holds in **8 of 95 scenes**.
 
-        Elsewhere the references split across several arrays with unrelated
-        bases (E10_PIEC has runs starting at 221, 22,281 and 24,225), so rank
-        and index diverge and the geometry comes out scrambled. Those scenes
-        need the per-array bases resolved before they can be exported.
+        The count in the ``u32`` at tag 2 + 0x14 is deliberately *not* required
+        to match: it disagrees for half of the eight (``L15_EAU`` declares 1,325
+        against 56 references) yet the mapping is still exact, and demanding it
+        cost four scenes for nothing.
+
+        The other 87 split their references across several runs with unrelated
+        bases - ``E10_PIEC`` has nine, starting at 221, 22,281, 24,225 and on -
+        so rank and index diverge and the geometry scrambles. Ordering those
+        runs by pointer value or by first use both leave floor planarity at
+        8/39, so the run order is not the missing piece.
         """
         return (
             self.ref_stride == 40
             and self.ref_slots == self.ref_count
-            and self.declared == self.ref_count
+            and self.ref_base == 221
         )
 
     @property
@@ -271,5 +277,6 @@ def read_mesh(path: str | Path) -> Mesh:
     return Mesh(
         p, vertices, materials, objects,
         ref_count=len(rank), ref_stride=stride, ref_slots=slots,
+        ref_base=sorted_refs[0] if sorted_refs else 0,
         declared=struct.unpack_from("<I", tag2, 0x14)[0],
     )
