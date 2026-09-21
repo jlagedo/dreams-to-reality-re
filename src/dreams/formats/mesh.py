@@ -337,7 +337,7 @@ def read_tri_mesh(path: str | Path) -> Mesh:
     vertices = [
         struct.unpack_from("<3i", tag2, 0x30 + TAG2_STRIDE * i) for i in range(count)
     ]
-    obj = Object("collision", "default")
+    obj = Object(p.stem.lower(), "default")
     for f in range(faces_n):
         refs = struct.unpack_from("<3I", tag2, start + TRI_RECORD * f)
         idx = []
@@ -351,4 +351,4 @@ def read_tri_mesh(path: str | Path) -> Mesh:
         obj.faces.append(tuple(idx))
         obj.uvs.extend([(0.0, 0.0)] * 3)
 
-    return Mesh(p, vertices, [Material("default", "", 0)], [obj], ref_count=count)
+    return Mesh(p, vertices, [Material(p.stem.lower(), "", 0)], [obj], ref_count=count)
