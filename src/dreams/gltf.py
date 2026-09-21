@@ -147,23 +147,22 @@ def from_scene(path, out_dir: str | Path, textures: bool = True) -> tuple[Path, 
     """Export one ``.DSN`` as glTF. Returns ``(gltf_path, stats)``.
 
     Writes one 256x256 PNG per object - the surface interleaved from that
-    object's 64 subsampled planes, which is exactly the space the UVs address
-    (they take the values 0, 127.5 and 255 of a 256-unit range).
+    object's 64 subsampled planes, which is exactly the space the UVs address.
+
+    Three decoders, in order of what they preserve. The **scene-graph node**
+    is tried first and taken when it agrees with tag 2's geometry to within a
+    unit or two; it is the only one that keeps per-object names and UVs, so it
+    is the only one that yields a textured level. Failing that, tag 1 where its
+    references verify exactly, and tag 2 - correct geometry, one nameless
+    merged object - as the floor.
     """
     from dreams import png
     from dreams.formats import mesh as _mesh
     from dreams.formats import scene as _scene
 
-    m = _mesh.read_mesh(path)
-    source = "tag1"
-    hit, total = _mesh.verify_against_tag2(path)
-    if not (total and hit == total):
-        # Tag 1's references only resolve for 4 of 95 scenes. Tag 2 carries its
-        # own triangle array whose references resolve arithmetically, so it
-        # decodes everywhere - at the cost of object names, materials and UVs.
-        m = _mesh.read_tri_mesh(path)
-        source = "tag2"
-        textures = False
+    m, source = _mesh.read_scene(path)
+    if source == "tag2":
+        textures = False  # tag 2 has no object names to hang a texture on
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     stem = Path(path).stem.lower()

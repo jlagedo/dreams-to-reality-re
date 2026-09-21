@@ -54,6 +54,33 @@ and the 24 `HNM` surfaces split 6/18 across the two record forms. What *is*
 exact is the variant rule — the pointer form of `word 3` occurs only when words
 0 and 1 are both zero, in 2,059/2,059 records.
 
+### Level geometry was never unsolved — the metric was
+
+"The node decode does not give levels" rested on one number: composing world
+transforms and comparing against tag 2's pool reached ≥99% in **8 of 95**
+scenes, median 11.4%. From that came the conclusion that level graphs contain
+**group nodes carrying a transform but no geometry**, and that finding them was
+the remaining work.
+
+The comparison was exact integer equality. World positions compose with an
+integer `>> 15` at every level of the tree, so a node a few levels down lands a
+unit or two away. At a tolerance of ±2 — one part in 50,000 of scene size — it
+is **58 of 95 at ≥99%, median 100%**, and widening to ±8 or ±32 changes
+nothing. A sharp step then a flat line is a fixed rounding offset, not a
+misplaced object.
+
+`H03PAQUE` has 24 nodes for its 24 named objects, 23 of 24 parents resolving
+and none dangling: no missing group nodes in that scene at all.
+
+The cost of the wrong metric was that levels exported through tag 2 as one
+nameless merged triangle array, so every scene drew as a blank hull and no
+level could be textured. 58 scenes now carry names and UVs where 5 did.
+
+A decode was judged by a check that could only ever have passed by luck, and
+the check's failure was attributed to the data. That is the same mistake as the
+model UVs, where 100%-in-bounds was offered as proof of a mapping that was
+pointing at the wrong bytes.
+
 ### `.DAN` does not carry two copies of the model
 
 The second root, and the pair of names in every model, were read as "most

@@ -229,28 +229,45 @@ parent/child/sibling triple at `+0x24`/`+0x28`/`+0x2c`, a local transform at
 That decode gives `.DAN` models completely: 159/159, 1,886 parts, 41,614
 triangles.
 
-**It does not give levels.** Composing world transforms through the parent
-links and comparing against tag 2's world-space pool reaches ≥99% in only
-**8 of 95 scenes**, median **11.4%**. The reason is structural: a level's graph
-contains **group nodes that carry a transform but no geometry**. `find_nodes`
-cannot see them — they have no vertex array, so no `+0xd4 == 40` — and a
-geometry node whose parent is a group node therefore looks like a root and
-loses the rest of its transform chain. The symptom is visible directly: **206
-of 2,248** nodes have a zero local translation yet demonstrably need a real
-world position.
+### It gives levels too — the old score was measuring rounding
 
-Two supporting measurements, both consistent with that reading:
+This was recorded as *"it does not give levels"*: composing world transforms
+through the parent links and comparing against tag 2's pool reached ≥99% in
+only **8 of 95 scenes**, median **11.4%**, which was read as proof that the
+graph contains **group nodes carrying a transform but no geometry** that
+`find_nodes` cannot see.
 
-- Assuming a flat tree parented to node 0 predicts the correct translation for
-  **1,741 of 2,248** nodes (77.4%) — right for the majority, wrong wherever a
-  group node intervenes.
-- No word of any geometry node holds another geometry node's address. Searched
-  at every offset `0..0xf4` and every delta in `-32..+64` across 2,239 nodes;
-  zero hits. The links point at allocations the directory never lists.
+**That score compared integers for exact equality.** World positions are
+composed with an integer `>> 15` at every level of the tree, so a node a few
+levels down lands a unit or two from where the engine put it. Allowing that:
 
-So the level exporter keeps its existing split — tag 1 where the references
-verify against tag 2's triangles, tag 2 otherwise — and finding the group nodes
-is the remaining work. Ruled out already, so they are not retried: ordering
-arenas by pointer value or first use, one index offset per arena,
-directory-order concatenation, `(ref-base)/20`, CSP over faces, connected
-components as objects, and a pivot at the bounding-sphere centre.
+| tolerance | scenes at ≥99% | median |
+|---|---:|---:|
+| exact | 8 / 95 | 11.4% |
+| **±2 units** | **58 / 95** | **100%** |
+| ±8 units | unchanged | unchanged |
+| ±32 units | unchanged | unchanged |
+
+±2 on a scene spanning ~100,000 units is **one part in 50,000**. And the
+flatness is the argument: this is not loosening until it passes. A sharp step
+at 2 and then nothing is the signature of a **fixed rounding offset**, which
+is what a flooring shift produces against an engine that rounds differently.
+A genuinely misplaced object does not come back at ±2 and stay put at ±32.
+
+Corroborating, on the same decode: the face count equals tag 2's in **57 of 95**
+scenes, the bounds agree in 54 of those, and `H03PAQUE` yields **24 nodes for
+its 24 named objects with 23 of 24 parents resolving and none dangling** — no
+missing group nodes in that scene at all. **[verified]**
+
+So `dreams.formats.mesh.read_scene` now prefers the node decode, and **58 of 95
+scenes export with per-object names and UVs** where 5 did before. That is what
+makes a level *textured*: tag 2 is one nameless merged triangle array, so a
+scene exported from it draws as a blank hull — `H18ANGKR` came out a smooth
+sphere instead of a grass plateau carrying a temple and its roots.
+
+The remaining 37 scenes still fall back to tag 2, and the group-node reading may
+yet be right for some of them; `E15_RIDE` reaches only 8.3% at ±2. Ruled out
+already, so not retried: ordering arenas by pointer value or first use, one
+index offset per arena, directory-order concatenation, `(ref-base)/20`, CSP over
+faces, connected components as objects, and a pivot at the bounding-sphere
+centre.

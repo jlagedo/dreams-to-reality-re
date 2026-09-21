@@ -466,3 +466,123 @@ def verify_against_tag2(path: str | Path) -> tuple[int, int]:
             if frozenset(f) in truth:
                 matched += 1
     return matched, total
+
+
+# ------------------------------------------------- the scene-graph decode --
+
+
+def read_node_mesh(path: str | Path) -> Mesh:
+    """Decode a ``.DSN`` through the scene-graph node, as models are decoded.
+
+    ``.DSN`` tag 1 and ``.DAN`` tag 1 hold the same struct, so the decoder in
+    :mod:`dreams.formats.node` reads both. What it adds over tag 2 is what tag
+    2 throws away: **per-object names and UVs**. Tag 2 is one nameless merged
+    triangle array, which is why a level exported from it draws as a blank
+    hull - on ``H18ANGKR`` you see a smooth sphere instead of a grass plateau
+    with a temple and roots on it.
+
+    Geometry agrees with tag 2: the face count is identical in 57 of 95 scenes
+    and the bounds too. See :func:`verify_nodes` for why the older exact-match
+    score said otherwise.
+    """
+    from dreams.formats import node as _node
+
+    p = Path(path)
+    tag1 = lz.decompress(next(r.payload for r in scene.read_records(p) if r.tag == 1))
+    nodes = _node.find_nodes(tag1)
+    faces, _ = _node.read_faces(tag1, nodes)
+
+    index: dict[tuple[int, int, int], int] = {}
+    vertices: list[tuple[int, int, int]] = []
+    objects: dict[str, Object] = {}
+    for f in faces:
+        obj = objects.get(f.group)
+        if obj is None:
+            obj = objects[f.group] = Object(f.group, f.group)
+        tri = []
+        for corner in f.corners:
+            at = index.get(corner)
+            if at is None:
+                at = index[corner] = len(vertices)
+                vertices.append(corner)
+            tri.append(at)
+        obj.faces.append(tuple(tri))
+        obj.uvs += list(f.uvs)
+    return Mesh(
+        path=p,
+        vertices=vertices,
+        materials=[Material(n, n, 0) for n in objects],
+        objects=list(objects.values()),
+    )
+
+
+#: World positions are composed with an integer ``>> 15`` at every level, so a
+#: node deep in the tree can land a unit or two from where the engine put it.
+NODE_TOLERANCE = 2
+
+
+def verify_nodes(path: str | Path, tol: int = NODE_TOLERANCE) -> float:
+    """Fraction of node-composed positions that tag 2 also has, within ``tol``.
+
+    **The tolerance is the whole point.** Scored on exact integer equality this
+    reaches 99% in only 8 of 95 scenes, median 11.4%, and that number is what
+    made level geometry look unsolved. At ``tol=2`` - one part in 50,000 of a
+    scene that spans ~100,000 units - it is **58 of 95 at 99%, median 100%**.
+
+    The reading is not "loosen until it passes": widening to 8 or to 32 moves
+    nothing. A sharp step at 2 followed by a flat line is the signature of a
+    fixed rounding offset, which is exactly what composing Q15 transforms with
+    a flooring shift produces against an engine that rounds differently.
+    """
+    m = read_node_mesh(path)
+    truth = read_tri_mesh(path).vertices
+    if not m.vertices:
+        return 0.0
+    cell = max(tol, 1)
+    grid: dict[tuple[int, int, int], list[tuple[int, int, int]]] = {}
+    for v in truth:
+        grid.setdefault(tuple(c // cell for c in v), []).append(tuple(v))
+    hit = 0
+    for c in set(m.vertices):
+        base = tuple(x // cell for x in c)
+        near = (
+            v
+            for dx in (-1, 0, 1)
+            for dy in (-1, 0, 1)
+            for dz in (-1, 0, 1)
+            for v in grid.get((base[0] + dx, base[1] + dy, base[2] + dz), ())
+        )
+        hit += any(max(abs(v[i] - c[i]) for i in range(3)) <= tol for v in near)
+    return hit / len(set(m.vertices))
+
+
+def read_scene(path: str | Path) -> tuple[Mesh, str]:
+    """Decode a ``.DSN`` by the best available route. Returns ``(mesh, source)``.
+
+    One chooser, used by both the exporter and the CLI - they each had their
+    own copy, and they drifted.
+
+    Order is by what survives the decode:
+
+    ``nodes``
+        The scene-graph node, taken when :func:`verify_nodes` agrees with tag
+        2 to within a unit or two. The only route that keeps per-object names
+        and UVs, so the only one that can produce a **textured** level.
+    ``tag1``
+        The reference-mapped decode, taken when every face it makes is also a
+        tag 2 triangle. Exact, and rare.
+    ``tag2``
+        Correct geometry as one nameless merged triangle array. Always works,
+        and a level exported from it draws as a blank hull.
+    """
+    p = Path(path)
+    try:
+        if verify_nodes(p) >= 0.99:
+            return read_node_mesh(p), "nodes"
+    except (ValueError, struct.error, StopIteration, KeyError):
+        pass
+    m = read_mesh(p)
+    hit, total = verify_against_tag2(p)
+    if total and hit == total:
+        return m, "tag1"
+    return read_tri_mesh(p), "tag2"

@@ -357,6 +357,56 @@ def test_exported_palette_row_loses_no_colour():
     assert len(set(palette)) == 256
 
 
+@needs_discs
+def test_level_decodes_through_the_node_with_names():
+    """A level is decodable by the same node as a model, names and all.
+
+    The first map, `H18ANGKR` - Project 0, Ile d'Angkor. Exported through tag
+    2 it is one nameless merged object that draws as a blank sphere; through
+    the node it is 31 named objects with UVs, including `H18RACIN` (racine,
+    root) and `H18TETA1`-`5` (tete, the face towers).
+    """
+    from dreams.formats import mesh as meshmod
+
+    angkor = next(
+        (d / "DATA" / "3DC" / "H18ANGKR.DSN" for d in (paths.disc(1), paths.disc(2))
+         if (d / "DATA" / "3DC" / "H18ANGKR.DSN").exists()),
+        None,
+    )
+    if angkor is None:
+        pytest.skip("H18ANGKR.DSN not present")
+    m, source = meshmod.read_scene(angkor)
+    assert source == "nodes"
+    names = {o.name for o in m.objects}
+    assert "H18RACIN" in names and "H18TETA1" in names
+    assert len(m.objects) == 31
+    assert all(o.uvs for o in m.objects)
+    # Geometry must still agree with tag 2, which is known correct.
+    assert m.face_count == meshmod.read_tri_mesh(angkor).face_count
+
+
+@needs_discs
+def test_node_level_score_needs_a_rounding_tolerance():
+    """Exact integer equality rejects a correct level decode.
+
+    Composing Q15 transforms with a flooring shift lands a unit or two from
+    the engine. Scored exactly, `H18ANGKR` is 51%; at +/-2 it is 100%, and
+    widening further changes nothing - a fixed offset, not a misplaced object.
+    """
+    from dreams.formats import mesh as meshmod
+
+    angkor = next(
+        (d / "DATA" / "3DC" / "H18ANGKR.DSN" for d in (paths.disc(1), paths.disc(2))
+         if (d / "DATA" / "3DC" / "H18ANGKR.DSN").exists()),
+        None,
+    )
+    if angkor is None:
+        pytest.skip("H18ANGKR.DSN not present")
+    assert meshmod.verify_nodes(angkor, tol=0) < 0.6
+    assert meshmod.verify_nodes(angkor, tol=2) == 1.0
+    assert meshmod.verify_nodes(angkor, tol=32) == 1.0
+
+
 # ---------------------------------------------------------- DIALOG.DRD ---
 
 

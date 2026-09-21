@@ -549,10 +549,11 @@ def mesh_cmd(
 ) -> None:
     """Decode scene geometry from `.DSN` tags 1 and 2, and export glTF.
 
-    A tag 1 decode is accepted only when **every** face it produces is also a
-    triangle in tag 2, which is known-correct geometry. Five scenes pass, and
-    those carry object names, materials and UVs. The rest fall back to tag 2's
-    own triangle array - correct geometry, no materials. Every scene exports.
+    Three decoders, chosen by :func:`dreams.formats.mesh.read_scene`. The
+    scene-graph node is preferred because it is the only one that keeps object
+    names and UVs, and so the only one that gives a textured level; tag 1 is
+    taken when its references verify exactly; tag 2 - correct geometry, one
+    nameless object - is the floor. Every scene exports.
     """
     from dreams import gltf
     from dreams.formats import mesh as meshmod
@@ -568,20 +569,15 @@ def mesh_cmd(
     exported = 0
     for s in sources:
         try:
-            m = meshmod.read_mesh(s.path)
+            m, source = meshmod.read_scene(s.path)
         except (ValueError, struct.error) as exc:
             table.add_row(s.path.stem, "-", "-", "-", f"[red]{exc}")
             continue
-        hit, total = meshmod.verify_against_tag2(s.path)
-        if total and hit == total:
-            state = f"[green]tag1 + uv ({total})"
-        else:
-            try:
-                m = meshmod.read_tri_mesh(s.path)
-                state = "[cyan]tag2"
-            except (ValueError, struct.error) as exc:
-                table.add_row(s.path.stem, "-", "-", "-", f"[red]{exc}")
-                continue
+        state = {
+            "nodes": "[green]nodes + names + uv",
+            "tag1": "[green]tag1 + uv",
+            "tag2": "[cyan]tag2",
+        }[source]
         table.add_row(
             s.path.stem, str(len(m.objects)), str(len(m.vertices)),
             str(m.face_count), state,
