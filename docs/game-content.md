@@ -88,7 +88,7 @@ roots — Angkor, and specifically Ta Prohm. Its object names say so outright:
 `H18_C_BK`/`FT`/`LF`/`RT`, the four walls of a cube skybox.
 
 It loads five things besides the scene: `F84.DAN` (the floating island, 15,000
-units up), `CH0.DAN` (a creature standing on it), four copies of `F07BLEU.DAN`
+units out past the rim), `CH0.DAN` (a creature standing on it), four copies of `F07BLEU.DAN`
 (*bleu* — the blue gnomes), and `MINE.DAN`, whose mesh is internally named
 `GRILLE` — a grate, so either the mine or the grating an explosion removes.
 **[unverified]** which.

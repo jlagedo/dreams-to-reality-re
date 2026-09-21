@@ -577,31 +577,42 @@ def copy_verbatim(root: Path, group: str, src: Source, force: bool) -> Iterator[
 
 
 def _projects() -> dict:
-    """DREAMS.DAT: u32[151] index, 420 zero bytes, 150 ProjectN records."""
+    """DREAMS.DAT decoded: the level graph, with link volumes and placements."""
+    from dreams.formats import project
+
     src = next((s for s in merge_discs("DREAMS.DAT") if not s.suffix or s.suffix == "_d1"), None)
     if src is None:
         return {}
-    data = src.path.read_bytes()
-    offsets = list(struct.unpack_from("<151I", data, 0))
-    records = []
-    for i in range(150):
-        start, end = 0x400 + offsets[i], 0x400 + offsets[i + 1]
-        blob = data[start:end]
-        name = blob.split(b"\x00")[0].decode("latin-1", "replace")
-        refs = sorted({
-            s.decode("latin-1")
-            for s in __import__("re").findall(rb"[A-Za-z0-9_~\-]{1,12}\.[A-Za-z0-9]{2,3}", blob)
-        })
-        records.append({"index": i, "name": name, "offset": start, "size": end - start,
-                        "asset_refs": refs})
+    pjs = project.read(src.path)
+    reach = project.reachable(pjs)
     return {
         "source": src.rel,
         "disc": src.disc,
-        "size": len(data),
-        "index_entries": len(offsets),
-        "tail_matches_filesize": 0x400 + offsets[150] == len(data),
-        "padding_all_zero": data[0x25C:0x400] == bytes(420),
-        "records": records,
+        "record_size": project.RECORD_SIZE,
+        "reachable_from_0": sorted(reach),
+        "records": [
+            {
+                "index": pj.index,
+                "name": pj.name,
+                "scene": pj.scene,
+                "asset_refs": sorted({o.asset for o in pj.objets if o.asset}),
+                "links": [
+                    {"name": ln.name, "destination": ln.destination, "project": ln.project,
+                     "min": list(ln.lo), "max": list(ln.hi)}
+                    for ln in pj.links
+                ],
+                "objects": [
+                    {"name": o.name, "asset": o.asset, "position": list(o.position)}
+                    for o in pj.objets
+                ],
+                "boxes": [
+                    {"name": b.name, "kind": b.kind, "points": [list(q) for q in b.points]}
+                    for b in pj.boxes
+                ],
+                "advents": pj.advents,
+            }
+            for pj in pjs
+        ],
     }
 
 

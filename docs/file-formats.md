@@ -600,30 +600,43 @@ program disc.
 Joining these 150 records to `DREAMS.INI` gives the complete level map — see
 [level-map.md](level-map.md).
 
-#### The record is a list of named entries **[verified]**
+#### The record codec and layout **[verified]**
 
-A body is a sequence of entries, each `<name> ` then a type byte then a value.
-Over all 150 records there are exactly four key names:
+Each of the 150 records is **zero-run compressed**: a nonzero byte is literal,
+and `00 N` expands to `N` zero bytes. That is the engine's own loop,
+`FUN_00448e25` in `WINDREAM.EXE`, applied per record by `FUN_00449bf9`. Every
+record decompresses to exactly **`0x2200` bytes** - 150 of 150, which is the
+validation: a wrong codec does not land on a constant.
 
-| key | count | what it holds |
-|---|---:|---|
-| `OBJET<n>` | 711 | an asset filename, then a position |
-| `BOX<n>` | 420 | a run of coordinate triples — a volume, not an AABB |
-| `LINKADVENT<n>` | 326 | never named a project in a first pass |
-| `LINK<n>` | 244 | `"Project<n>"` — the destination, 239 of them |
+```
++0x0000  header         0x200   starts "ProjectN"
++0x0200  Link[8]        0x80    name[12], destination[12], ..., i32 min[3] @+0x24, i32 max[3] @+0x30
++0x0600  Objet[16]      0xc0    name[12], asset[32], ..., i32 position[3] @+0x40
++0x1200  Box[12]        0x100   name[12], i32 points[16][3] @+0x24, count @+0xe4, type @+0xf0
++0x1e00  LinkAdvent[16] 0x40    name[12], 8 x i32, asset[16] @+0x2c
+```
 
-**There is no `FLINK` or `DLINK`.** This file previously listed both, and they
-are misreadings: a key is preceded by the trailing byte of the previous
-entry's value, and **131 distinct bytes** appear in that position across the
-corpus — `0x03` 210 times, `0x8b` 150, `0x17` 134, with `F` only 63 and `b` 83.
-The same artefact reads as `bOBJET2`, `3OBJET3`, `KOBJET4` in Project 0, which
-nobody would mistake for key names.
+An active slot starts with its family name; an all-zero slot is unused. Counts
+over the corpus: `LINK` 244 (239 naming a project), `OBJET` 711, `BOX` 420,
+`LINKADVENT` 328. `OBJET0` is the project's scene in 150 of 150. Decoded by
+[`dreams.formats.project`](../src/dreams/formats/project.py).
 
-The value encoding is **[unverified]**. Positions are recoverable — Project 0
-places `F84.DAN` at `(2500, 4000, -15000)` and `CH0.DAN` at
-`(2383, 2715, -14539)` — but the fields are variable width, three bytes
-followed by a byte such as `02` in some entries and four bytes in others, and
-no reading yet consumes all 150 records end to end.
+Coordinates use **the scene's own axes** - `(x, y, z)`, up at negative Y.
+Calibrated, not assumed: read that way, Project 0's `LINK0` box centres 165
+units from `H18TETA1`, a face tower; read with the last component vertical it
+is 910 units from anything.
+
+**There is no `FLINK` or `DLINK`**, and no "type byte" after a key. Both came
+from reading the *compressed* stream as if it were the format. The byte after
+a name's terminator is a zero-run count, and so is the byte before the next
+name - `F` is `0x46`, a run of seventy zeros. That is why 131 distinct bytes
+appear in that position, and why `c4 09 00 02` looked like a three-byte integer
+with a tag when it is just 2500.
+
+`BOX` is typed point geometry - types 0:159, 1:91, 7:47, 8:57, 5:29, 3:15,
+9:13, 6:8, 2:1 - and what each type does is **[unverified]**. `LINKADVENT`
+never names a project; 11 carry an HNM/UBB filename. **[unverified]** beyond
+that.
 
 ### `.ANTI-VIR.DAT`
 

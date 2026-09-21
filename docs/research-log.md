@@ -54,19 +54,35 @@ and the 24 `HNM` surfaces split 6/18 across the two record forms. What *is*
 exact is the variant rule — the pointer form of `word 3` occurs only when words
 0 and 1 are both zero, in 2,059/2,059 records.
 
-### `FLINK` and `DLINK` were never key names
+### The project record was read in its compressed form
 
-`file-formats.md` listed `LINK0`, `FLINKn`, `DLINKn`, `OBJETn`, `BOXn` and
-`LINKADVENTn` as the keys in a `DREAMS.DAT` project record. There are four:
-`LINK`, `OBJET`, `BOX`, `LINKADVENT`.
+Three wrong readings of `DREAMS.DAT`, one cause: the records are **zero-run
+compressed** (`00 N` = N zero bytes), and they were being read as if the
+compressed stream were the format.
 
-A key is preceded by the trailing byte of the previous entry's value, and
-**131 distinct bytes** occupy that position across the 150 records — `0x03`
-210 times, `0x8b` 150, `0x17` 134, with `F` only 63 and `b` 83. Reading that
-byte as part of the name also yields `bOBJET2`, `3OBJET3` and `KOBJET4` in
-Project 0 alone, which is the same artefact and obviously not a key name.
+- **`FLINK` and `DLINK` as key names** - listed in `file-formats.md` for
+  months. The byte before a key is the run count that pads the previous slot;
+  `F` is `0x46`, seventy zeros. 131 distinct bytes appear in that position,
+  which should have been the clue long before it was.
+- **A "type byte" after each key, and variable-width integers** - my own
+  reading, one pass ago. `c4 09 00 02` is 2500 with two zeros run-length
+  encoded, not a three-byte value with a tag.
+- **`BOX5` as the floating island's trigger**, because its first coordinate
+  matched the island's X. The triggers are the `LINK` entries themselves, which
+  carry two corners; `BOX` is separate typed geometry.
 
-Found by grepping a record for printable runs and believing the output.
+Decompressed, every record is exactly `0x2200` bytes of fixed slots, 150 of
+150. The engine's decoder is `FUN_00448e25`.
+
+### "15,000 units up" was 15,000 units out
+
+Project 0 places the floating island at (2500, 4000, -15000), and the last
+component was taken as height because the number was large and the island
+floats. The record uses the scene's own axes, up at negative Y: calibrated by
+`LINK0`, whose box centres 165 units from the face tower `H18TETA1` under that
+reading and 910 units from anything under the other. The island is past the
+plateau's rim, at rim height. The creature-on-the-island reading survived the
+correction; the picture of where the island *is* did not.
 
 ### Level geometry was never unsolved — the metric was
 

@@ -46,16 +46,37 @@ Project 0, *Ile d'Angkor*, has exactly two exits:
 | `LINK0` | P134 *Grotte au Pics* | `F08_GPIC.DSN` |
 | `LINK1` | P62 *Ile du Hamam* | `E13_ANGK.DSN` |
 
-`OBJET<n>` entries place the scene and its actors, each with a position, and
-`BOX<n>` gives 420 coordinate volumes across the game — the obvious candidate
-for trigger volumes, **[unverified]** until the record encoding is settled.
+**A `LINK` is the transition itself: a destination and an axis-aligned
+volume.** All 239 have component-wise ordered corners. Project 0's are
+
+| | destination | volume |
+|---|---|---|
+| `LINK0` | P134 | (−1227, −1796, 237) → (−1152, −1640, 339) |
+| `LINK1` | P62 | (−500, 1000, −19000) → (5500, 5000, −12500) |
+
+`LINK0` is a box 75 × 156 × 102 whose centre is **165 units from
+`H18TETA1`**, a face tower, at face height: the statue's mouth. `LINK1` is a
+6000 × 4000 × 6500 region out past the plateau's rim, and **`F84.DAN` stands
+inside it** — as does `CH0.DAN`. Enter the box, load the project.
+
+The five projects not reachable from P0 are 10, 67, 101, 104 and 105.
+
+`BOX<n>` is **not** the trigger system for links, which was the first guess:
+it is typed point geometry, and none of P0's boxes accounts for the island.
+See [file-formats.md](file-formats.md).
 
 ### The flying landmarks are scale models of their destination
 
-**[verified]** Project 0 places `F84.DAN` 15,000 units above the map — up is
-negative Y and the skybox reaches -24,286 — and `CH0.DAN` 461 units above
-that, inside the island's 4,542 x 4,406 footprint. A creature standing on a
-floating island, which is what the game shows.
+**[verified]** Project 0 places `F84.DAN` at (2500, 4000, −15000): **15,000
+units out past the plateau's rim** — the terrain ends near z = −6,858 — and
+at about rim height, since the dome falls away from its crown and y = +4000 is
+below it. `CH0.DAN` at (2383, 2715, −14539) is 1,285 units above the island's
+origin and within its footprint: a creature standing on a floating island,
+which is what the game shows.
+
+> **Correction.** This first read "15,000 units above the map", taking the
+> last component as vertical. Calibrating against the scene says otherwise —
+> see the axis note in [file-formats.md](file-formats.md).
 
 That island **is** its destination, modelled small. Strip the sky objects and
 compare extents:
@@ -71,8 +92,8 @@ compare extents:
 One uniform scale on all three axes for `E13_ANGK`; a factor of four out
 vertically for `F08_GPIC`. Rendered, both `F84` and `E13_ANGK` are a shallow
 rocky bowl with a raised rim and pale stone inside. **So flying to the island
-loads P62, *Ile du Hamam*** — and by elimination the other exit, into a
-*grotte*, is the cave the statue's mouth opens onto.
+loads P62, *Ile du Hamam*** — which the link volume above then confirmed
+outright — and the other exit, into a *grotte*, is the statue's mouth.
 
 `F89.DAN` in P62 is the same kind of object: 11,043 units across, parts named
 `F37FACE`, `F37TETE`, `F37TOP`.

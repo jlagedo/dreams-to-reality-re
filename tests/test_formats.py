@@ -11,7 +11,7 @@ import struct
 import pytest
 
 from dreams import binio, paths, probe
-from dreams.formats import audio, dialog, disc, node, resource, scene
+from dreams.formats import audio, dialog, disc, node, project, resource, scene
 
 DISCS_PRESENT = paths.disc(1).exists()
 needs_discs = pytest.mark.skipif(not DISCS_PRESENT, reason="disc images not configured")
@@ -425,6 +425,68 @@ def test_scene_palette_is_rgb565_full_range():
     assert rgb565_to_rgb(0xF800) == (255, 0, 0)  # top 5 bits are red
     assert rgb565_to_rgb(0x07E0) == (0, 255, 0)  # middle 6 are green
     assert rgb565_to_rgb(0x001F) == (0, 0, 255)  # low 5 are blue
+
+
+# ---------------------------------------------------------- DREAMS.DAT ---
+
+
+def test_project_codec_expands_zero_runs():
+    """``00 N`` is N zero bytes; everything else is literal.
+
+    ``c4 09 00 02`` is the int 2500 - which, read without the codec, looked
+    like a three-byte value followed by a type tag, and sent the record
+    grammar down the wrong road.
+    """
+    assert project.decompress(bytes([0xC4, 0x09, 0x00, 0x02])) == (2500).to_bytes(4, "little")
+    assert project.decompress(bytes([0x41, 0x00, 0x03, 0x42])) == b"A" + bytes(3) + b"B"
+    with pytest.raises(ValueError):
+        project.decompress(bytes([0x41, 0x00]))  # an escape with no count
+
+
+def test_project_parse_reads_fixed_slots():
+    rec = bytearray(project.RECORD_SIZE)
+    rec[0:8] = b"Project7"
+    at = project.LINK_AT + project.LINK_SIZE  # slot 1; slot 0 stays empty
+    rec[at : at + 5] = b"LINK1"
+    rec[at + 12 : at + 21] = b"Project42"
+    rec[at + 0x24 : at + 0x3C] = struct.pack("<6i", -5, -6, -7, 5, 6, 7)
+    stale = project.LINK_AT + project.LINK_SIZE * 2
+    rec[stale : stale + 4] = b"INK2"  # a fragment, as unused slots really hold
+    pj = project.parse(7, bytes(rec))
+    assert pj.name == "Project7"
+    assert [ln.name for ln in pj.links] == ["LINK1"]
+    assert pj.links[0].project == 42
+    assert pj.links[0].contains((0, 0, 0)) and not pj.links[0].contains((0, 0, 8))
+    with pytest.raises(ValueError):
+        project.parse(0, bytes(16))
+
+
+@needs_discs
+def test_project_bank_is_the_level_graph():
+    """All 150 records decode to exactly 0x2200, and the links are volumes.
+
+    The floating island over the first map is a scale model of its
+    destination, and the data says so directly: `F84.DAN` stands inside
+    `LINK1`'s box, and `LINK1` names Project62, *Ile du Hamam*.
+    """
+    dat = paths.disc(1) / "DREAMS.DAT"
+    if not dat.exists():
+        pytest.skip("DREAMS.DAT not present")
+    pjs = project.read(dat)  # raises unless every record is exactly 0x2200
+    assert len(pjs) == 150
+    assert sum(len(p.links) for p in pjs) == 244
+    edges = [ln for p in pjs for ln in p.links if ln.project is not None]
+    assert len(edges) == 239
+    assert all(ln.lo[i] <= ln.hi[i] for ln in edges for i in range(3))
+    assert all(p.scene.upper().endswith(".DSN") for p in pjs)
+    assert len(project.reachable(pjs)) == 145
+
+    p0 = pjs[0]
+    assert p0.scene == "H18ANGKR.DSN"
+    assert [ln.project for ln in p0.links] == [134, 62]
+    island = next(o for o in p0.objets if o.asset == "F84.DAN")
+    assert p0.links[1].contains(island.position)
+    assert not p0.links[0].contains(island.position)
 
 
 # ---------------------------------------------------------- DIALOG.DRD ---
