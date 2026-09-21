@@ -59,6 +59,8 @@ ATLAS = 256  # UVs are pixel coordinates in a 256x256 atlas
 #: Word offsets within a face record.
 VERTEX_REFS = (1, 4, 7)
 UV_REFS = (12, 13, 14)
+#: A UV reference points 5 bytes past the start of its 8-byte record.
+UV_OFFSET = -5
 
 
 @dataclass
@@ -248,10 +250,15 @@ def read_mesh(path: str | Path) -> Mesh:
         for row in raw[name]:
             obj.faces.append(tuple(rank[row[w]] for w in VERTEX_REFS))
             for w in UV_REFS:
-                at = row[w] - 1
-                if at + 8 <= len(tag1):
+                # UV references are congruent to 5 mod 8, so the 8-byte record
+                # starts at p - 5. Reading at p - 1 - the rule that works for
+                # the other reference classes - lands mid-record and renders as
+                # diagonal streaking. Verified by rasterising a wall both ways.
+                at = row[w] + UV_OFFSET
+                if 0 <= at and at + 8 <= len(tag1):
                     u, v = struct.unpack_from("<2i", tag1, at)
-                    obj.uvs.append((u / 65536 / ATLAS, v / 65536 / ATLAS))
+                    # 0xFFFFFFFF stands in for zero at a texture edge.
+                    obj.uvs.append((max(u, 0) / 65536 / ATLAS, max(v, 0) / 65536 / ATLAS))
                 else:
                     obj.uvs.append((0.0, 0.0))
         objects.append(obj)

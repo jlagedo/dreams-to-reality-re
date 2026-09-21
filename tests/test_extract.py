@@ -394,3 +394,32 @@ def test_texture_surface_is_completely_filled():
         assert len(surf) == scene.SURFACE * scene.SURFACE
         rgb = bank.surface_rgb()
         assert len(rgb) == scene.SURFACE * scene.SURFACE * 3
+
+
+@needs_discs
+def test_uv_records_start_five_bytes_before_the_reference():
+    """UV refs are 5 mod 8, so the record begins at p-5, not p-1.
+
+    Reading at p-1 - the rule that holds for the vertex and edge references -
+    lands mid-record and textures render as diagonal streaks.
+    """
+    from dreams.formats import mesh
+    s = next(x for x in extract.merge_discs("*.DSN") if x.path.stem == "E01GROTT")
+    t1 = lz.decompress(
+        next(r.payload for r in scene.read_records(s.path) if r.tag == scene.TAG_GEOMETRY)
+    )
+    sc = scene.read_dsn(s.path)
+    refs = []
+    for _name, at in mesh._blocks(t1, sc.names).items():
+        n = struct.unpack_from("<I", t1, at + 16)[0]
+        for f in range(n):
+            row = struct.unpack_from("<17I", t1, at + 44 + 68 * f)
+            refs += [row[w] for w in mesh.UV_REFS]
+    assert refs and all(r % 8 == 5 for r in refs)
+    assert mesh.UV_OFFSET == -5
+
+    m = mesh.read_mesh(s.path)
+    uvs = [uv for o in m.objects for uv in o.uvs]
+    assert all(0.0 <= u <= 1.0 and 0.0 <= v <= 1.0 for u, v in uvs)
+    # A real mapping is varied; the mid-record read collapses the spread.
+    assert len({round(u, 4) for u, _ in uvs}) > 40
