@@ -156,7 +156,8 @@ def from_scene(path, out_dir: str | Path, textures: bool = True) -> tuple[Path, 
 
     m = _mesh.read_mesh(path)
     source = "tag1"
-    if not m.mapping_is_clean:
+    hit, total = _mesh.verify_against_tag2(path)
+    if not (total and hit == total):
         # Tag 1's references only resolve for 4 of 95 scenes. Tag 2 carries its
         # own triangle array whose references resolve arithmetically, so it
         # decodes everywhere - at the cost of object names, materials and UVs.

@@ -89,22 +89,61 @@ bytes into its own record, and the offset differs per class — UV references ar
 right for the other classes, straddles two entries and textures render as
 diagonal streaks.
 
-## Coverage — 4 of 95, and why
+## The arena directory
 
-Three conditions make the mapping provable: one contiguous stride-40 run,
-starting at 221, whose length matches the pool. That holds for **E01GROTT,
-L03_REQI, L16_BOMB and O01EAU01**.
+**[verified] 95/95.** Tag 1 records where each source vertex array began. The
+directory is reached through a bias any object block reveals, since a block
+stores both its own address and its own offset:
 
-The other 91 split their references across several runs with unrelated bases.
-`E10_PIEC` has nine, starting 221, 22,281, 24,281, 29,685, 32,301, 34,917,
-35,157, 35,237 and 35,397. Stride is 40 inside every run; only the bases are
-unrelated, and nothing yet maps a run to its position in the pool.
+```
+D       = name_offset - u32(name_offset + 20)
+bias    = D - 200
+n       = u32(tag1 + 0x14)            arena count
+O[j]    = u32(tag1 + 0x18 + 4*j)      descriptor offsets
+base[j] = O[j] - bias                 base in reference space
+
+at tag1 + O[j]:
+    +0x90  u32  count
+    +0x94  u32  base[j]               confirms the bias
+    +0x9c  u32  base[j] + 40*count    confirms the extent
+```
+
+Both identities hold in every scene, and every vertex reference falls inside
+some arena. A reference belongs to the arena with the greatest `base <= ref`,
+at local slot `(ref - base) // 40`.
+
+This **classifies** a reference without **resolving** it. Arena counts sum to
+the pool size in only 15 of 95 scenes, and even there, searching one index
+offset per arena matches 26-57% of faces. The remaining step is a shared-vertex
+merge that is not affine: `E10_PIEC` has 94 distinct references for 64 pool
+entries, with zero duplicate coordinates in the pool, so several references
+resolve to the same vertex.
+
+Tag 1 carries no coordinates of its own — searching all 100,496 bytes of
+`E01GROTT`'s tag 1 at every alignment for any of the pool's 193 triples returns
+zero hits — so the information to undo that merge is not in the file.
+
+## Coverage — 5 of 95, and why
+
+The gate is **proof, not a heuristic**: a tag 1 decode is accepted only when
+*every* face it produces is also a triangle in tag 2, which is known-correct
+geometry. Five scenes pass — **E01GROTT, E98ARAI1, L03_REQI, L16_BOMB and
+O01EAU01** — and they are exactly the single-arena scenes. Those carry object
+names, materials and UVs. The other 90 fall back to
+:func:`read_tri_mesh`: correct geometry, no materials.
 
 Ruled out, so they are not retried:
 
-- ordering runs by pointer value, or by the object that first references them —
-  both leave floor planarity at 8/39, no better than doing nothing
+- ordering arenas by pointer value, or by the object that first references them
+  — both leave floor planarity at 8/39, no better than doing nothing
+- one index offset per arena, searched against tag 2's triangles — 26-57%
+- directory-order concatenation, even on the 15 scenes where arena counts sum
+  to the pool size exactly — only the single-arena ones reach 100%
 - `index = (ref - base) / 20` — overruns the pool in every scene
+- constraint propagation over faces against tag 2's triangle set — no solution
+  inside a 3-second budget, ~10k nodes
+- connected components as objects — `E01GROTT` is one welded component for 26
+  named objects
 - references indexing tag 1 directly — lands in the material-name table
 
 ## Checking a decode

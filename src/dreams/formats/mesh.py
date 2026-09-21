@@ -240,18 +240,40 @@ def read_mesh(path: str | Path) -> Mesh:
         raw[name] = rows
         refs.update(r[w] for r in rows for w in VERTEX_REFS)
 
-    # The pool's length is not in the header: the u32 at tag 2 + 0x14 matches the
-    # reference count in only 3 of 30 scenes sampled. Take the count from the
-    # data instead - one vertex per distinct reference - and let the geometric
-    # checks in `dreams mesh` say whether the result is sane.
-    rank = {v: i for i, v in enumerate(sorted(refs))}
-    need = 0x30 + VERTEX_STRIDE * len(rank)
-    if need > len(tag2):
+    # Resolve references through tag 1's own arena directory rather than by
+    # rank. An arena's local slot is (ref - base) // 40, and arenas are laid
+    # into the pool in directory order. Rank only coincides with the slot when
+    # every slot is referenced, which is why it missed E98ARAI1.
+    arenas = read_arenas(tag1, blocks)
+    rank: dict[int, int] = {}
+    if arenas:
+        cumulative, run = {}, 0
+        for abase, acount in arenas:
+            cumulative[abase] = run
+            run += acount
+        bases = sorted(cumulative)
+        for v in refs:
+            owner = None
+            for b in bases:
+                if b <= v:
+                    owner = b
+                else:
+                    break
+            if owner is not None:
+                rank[v] = cumulative[owner] + (v - owner) // 40
+    # The arena mapping indexes the pool directly, so size the vertex array by
+    # the largest index it produces rather than by the number of references.
+    # Fall back to rank if the arenas are missing or point past the pool.
+    capacity = max((len(tag2) - 0x30) // VERTEX_STRIDE, 0)
+    if not rank or max(rank.values(), default=0) >= capacity:
+        rank = {v: i for i, v in enumerate(sorted(refs))}
+    top = max(rank.values(), default=-1) + 1
+    if top > capacity:
         raise ValueError(
-            f"{p.name}: {len(rank)} vertices need {need} bytes, tag 2 has {len(tag2)}"
+            f"{p.name}: needs {top} vertices, tag 2 holds at most {capacity}"
         )
     vertices = [
-        struct.unpack_from("<3i", tag2, 0x30 + VERTEX_STRIDE * i) for i in range(len(rank))
+        struct.unpack_from("<3i", tag2, 0x30 + VERTEX_STRIDE * i) for i in range(top)
     ]
 
     objects = []
@@ -352,3 +374,95 @@ def read_tri_mesh(path: str | Path) -> Mesh:
         obj.uvs.extend([(0.0, 0.0)] * 3)
 
     return Mesh(p, vertices, [Material(p.stem.lower(), "", 0)], [obj], ref_count=count)
+
+
+# ------------------------------------------------------- the arena directory --
+
+ARENA_COUNT_AT = 0x90
+ARENA_BASE_AT = 0x94
+ARENA_END_AT = 0x9C
+
+
+def read_arenas(tag1: bytes, blocks: dict[str, int]) -> list[tuple[int, int]]:
+    """The scene's vertex arenas as ``(base, count)`` pairs, from tag 1's own directory.
+
+    Vertex references are stale pointers, but tag 1 records where each source
+    array began. The directory is reached through a bias derived from any object
+    block, since the block stores its own address alongside its own offset::
+
+        D       = name_offset - u32(name_offset + 20)
+        bias    = D - 200
+        n       = u32(tag1 + 0x14)                arena count
+        O[j]    = u32(tag1 + 0x18 + 4*j)          descriptor offsets
+        base[j] = O[j] - bias                     base in reference space
+
+        at tag1 + O[j]:
+            +0x90  u32  count
+            +0x94  u32  base[j]                   confirms the bias
+            +0x9c  u32  base[j] + 40*count        confirms the extent
+
+    Both identities hold in **95/95** scenes, and every vertex reference falls
+    inside some arena in 95/95. This supersedes guessing arena boundaries from
+    gaps in the reference values.
+
+    It classifies a reference but does not resolve it. ``ref`` belongs to the
+    arena with the greatest ``base <= ref``, at local slot ``(ref - base) // 40``
+    - and for 90 scenes that slot is **not** the tag 2 index. Arena counts sum
+    to the pool size in only 15 scenes, and even there, searching a single index
+    offset per arena matches 26-57% of faces. The remaining step is a
+    shared-vertex merge that is not affine.
+    """
+    if not blocks:
+        return []
+    name_off = min(blocks.values())
+    if name_off + 24 > len(tag1):
+        return []
+    bias = (name_off - struct.unpack_from("<I", tag1, name_off + 20)[0]) - 200
+    n = struct.unpack_from("<I", tag1, 0x14)[0]
+    if n == 0 or 0x18 + 4 * n > len(tag1):
+        return []
+
+    out = []
+    for j in range(n):
+        off = struct.unpack_from("<I", tag1, 0x18 + 4 * j)[0]
+        if off + ARENA_END_AT + 4 > len(tag1):
+            return []
+        count = struct.unpack_from("<I", tag1, off + ARENA_COUNT_AT)[0]
+        base = struct.unpack_from("<I", tag1, off + ARENA_BASE_AT)[0]
+        end = struct.unpack_from("<I", tag1, off + ARENA_END_AT)[0]
+        if base != off - bias or end != base + 40 * count:
+            return []
+        out.append((base, count))
+    return out
+
+
+def verify_against_tag2(path: str | Path) -> tuple[int, int]:
+    """Score a tag 1 decode against tag 2's triangles. Returns ``(matched, total)``.
+
+    Tag 2's triangle array is known-correct geometry, so every face that
+    :func:`read_mesh` produces should appear in it. A full match is proof the
+    reference mapping is right - far stronger than planarity or edge heuristics,
+    and it needs no judgement.
+    """
+    m = read_mesh(path)
+    t2 = lz.decompress(
+        next(r.payload for r in scene.read_records(path) if r.tag == scene.TAG_PACKED)
+    )
+    count, base, faces_n = (struct.unpack_from("<I", t2, o)[0] for o in (0x14, 0x18, 0x1C))
+    start = 0x30 + TAG2_STRIDE * count
+    if start + TRI_RECORD * faces_n > len(t2):
+        return 0, 0
+    truth = {
+        frozenset(
+            (x - base) // TAG2_STRIDE
+            for x in struct.unpack_from("<3I", t2, start + TRI_RECORD * f)
+        )
+        for f in range(faces_n)
+    }
+    total = matched = 0
+    for obj in m.objects:
+        for f in obj.faces:
+            total += 1
+            if frozenset(f) in truth:
+                matched += 1
+    return matched, total

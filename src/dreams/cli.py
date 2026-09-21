@@ -522,10 +522,10 @@ def mesh_cmd(
 ) -> None:
     """Decode scene geometry from `.DSN` tags 1 and 2, and export glTF.
 
-    Four scenes decode from tag 1, which carries object names, materials and
-    UVs. The other 91 fall back to tag 2's own triangle array, which resolves
-    arithmetically and works everywhere but has no materials or UVs. Every
-    scene exports.
+    A tag 1 decode is accepted only when **every** face it produces is also a
+    triangle in tag 2, which is known-correct geometry. Five scenes pass, and
+    those carry object names, materials and UVs. The rest fall back to tag 2's
+    own triangle array - correct geometry, no materials. Every scene exports.
     """
     from dreams import gltf
     from dreams.formats import mesh as meshmod
@@ -545,8 +545,9 @@ def mesh_cmd(
         except (ValueError, struct.error) as exc:
             table.add_row(s.path.stem, "-", "-", "-", f"[red]{exc}")
             continue
-        if m.mapping_is_clean:
-            state = "[green]tag1 + uv"
+        hit, total = meshmod.verify_against_tag2(s.path)
+        if total and hit == total:
+            state = f"[green]tag1 + uv ({total})"
         else:
             try:
                 m = meshmod.read_tri_mesh(s.path)

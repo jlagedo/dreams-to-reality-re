@@ -340,12 +340,30 @@ def test_every_scene_decodes_to_a_mesh():
 
 
 @needs_discs
-def test_four_scenes_have_a_clean_vertex_mapping():
-    """Contiguous run, base 221, AND length matching the pool - all three."""
+def test_five_scenes_verify_against_tag2():
+    """Every tag-1 face must also be a tag-2 triangle - proof, not a heuristic."""
     from dreams.formats import mesh
-    clean = {s.path.stem for s in extract.merge_discs("*.DSN")
-             if mesh.read_mesh(s.path).mapping_is_clean}
-    assert clean == {"E01GROTT", "L03_REQI", "L16_BOMB", "O01EAU01"}
+    good = set()
+    for s in extract.merge_discs("*.DSN"):
+        hit, total = mesh.verify_against_tag2(s.path)
+        if total and hit == total:
+            good.add(s.path.stem)
+    assert good == {"E01GROTT", "E98ARAI1", "L03_REQI", "L16_BOMB", "O01EAU01"}
+
+
+@needs_discs
+def test_arena_directory_holds_for_every_scene():
+    """tag 1 records where each source vertex array began - 95/95."""
+    from dreams.formats import lz, mesh
+    for s in extract.merge_discs("*.DSN"):
+        sc = scene.read_dsn(s.path)
+        t1 = lz.decompress(
+            next(r.payload for r in scene.read_records(s.path)
+                 if r.tag == scene.TAG_GEOMETRY)
+        )
+        arenas = mesh.read_arenas(t1, mesh._blocks(t1, sc.names))
+        assert arenas, s.rel
+        assert all(c > 0 for _, c in arenas), s.rel
 
 
 @needs_discs
