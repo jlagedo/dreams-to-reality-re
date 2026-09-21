@@ -143,12 +143,16 @@ def write(target: str | Path, doc: Scene, scale: float = 0.01) -> Path:
     return out
 
 
-def from_scene(path, out_dir: str | Path, textures: bool = True) -> tuple[Path, dict]:
-    """Export one ``.DSN`` as glTF, with its textures beside it.
+def from_scene(path, out_dir: str | Path, textures: bool = False) -> tuple[Path, dict]:
+    """Export one ``.DSN`` as glTF. Returns ``(gltf_path, stats)``.
 
-    Returns ``(gltf_path, stats)``. Writes one PNG per object - the object's
-    64-tile texture bank as an 8x8 sheet, which is the 256x256 atlas the UVs
-    address.
+    ``textures`` is **off by default and produces wrong results when on.**
+    The UVs address a 256x256 space in steps of 0, 127.5 and 255, which is
+    consistent with each face mapping one whole texture. But the 64 tag-4
+    records that should assemble into that 256x256 image have no confirmed
+    layout: pasting them as an 8x8 grid of 32x32 tiles renders as diagonal
+    smearing in Blender. Until the layout is known, flat materials are the
+    honest output. See docs/file-formats.md.
     """
     from dreams import png
     from dreams.formats import mesh as _mesh

@@ -512,6 +512,9 @@ def mesh_cmd(
         Path | None, typer.Option("--gltf", help="Write glTF here")
     ] = None,
     force: Annotated[bool, typer.Option("--force", help="Export unclean scenes too")] = False,
+    textures: Annotated[
+        bool, typer.Option("--textures", help="Attach textures (KNOWN WRONG - see docs)")
+    ] = False,
 ) -> None:
     """Decode scene geometry from `.DSN` tags 1 and 2, and export glTF.
 
@@ -543,7 +546,7 @@ def mesh_cmd(
             str(m.face_count), state,
         )
         if out and (m.mapping_is_clean or force):
-            gltf.from_scene(s.path, out)
+            gltf.from_scene(s.path, out, textures=textures)
             exported += 1
     console.print(table)
     if out:
