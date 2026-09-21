@@ -123,6 +123,37 @@ Tag 1 carries no coordinates of its own — searching all 100,496 bytes of
 `E01GROTT`'s tag 1 at every alignment for any of the pool's 193 triples returns
 zero hits — so the information to undo that merge is not in the file.
 
+### Why it is not in the file
+
+**[verified]** in `WINDREAM.EXE`: the engine never converts a reference to an
+index. It does **pointer relocation**. `FUN_00456e24` decodes a record into an
+arena and hands it to `FUN_00456368`, which walks the structure through
+`FUN_00455eb4` / `FUN_00455e48` / `FUN_00455d6c` down to `FUN_00455700`. That
+function strides the 68-byte records with an explicit `+= 0x44` and adds one
+relocation delta to every pointer field:
+
+```c
+for (i = 0; i < object->count; ++i) {
+    p = object->records + i * 0x44;
+    if (*(u32 *)(p + 4) != 0) *(u32 *)(p + 4) += delta;
+    *(u32 *)(p + 8) += delta;   /* ... through +0x3c */
+}
+```
+
+There is no subtract-and-divide by 40, no sorted-rank table, no hash, and no
+tag 2 lookup anywhere in that chain. A stored value simply becomes a valid
+pointer.
+
+So the mapping we want **never existed**. The arena directory's bias makes
+`ref + bias` a tag 1 offset, and that lands on 40-byte records holding Q15
+values (`32768` = 1.0) — per-vertex attributes, not positions. Positions live
+only in tag 2, and the two are parallel arrays that happen to coincide in order
+when a scene has a single arena. That is exactly the set of scenes that verify.
+
+`FUN_00473014` installs the render callback and walks the object list, so the
+face records **are** rendered; tag 2's triangle array with its normals, edge
+half-spaces and bounding boxes is the separate collision or spatial structure.
+
 ## Coverage — 5 of 95, and why
 
 The gate is **proof, not a heuristic**: a tag 1 decode is accepted only when
