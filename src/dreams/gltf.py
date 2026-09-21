@@ -227,9 +227,10 @@ def from_model(path, out_dir: str | Path, textures: bool = True) -> tuple[Path, 
     out.mkdir(parents=True, exist_ok=True)
     stem = Path(path).stem.lower().rstrip("_") or "model"
 
-    model = _node.read_model(path)
+    suffix = Path(path).suffix.lower()
+    model = _node.read_3dc(path) if suffix == ".3dc" else _node.read_model(path)
     tex = None
-    if textures:
+    if textures and suffix != ".3dc":
         bank = _node.texture_page(path)
         if bank is not None:
             palette, page = bank

@@ -188,6 +188,25 @@ thing to read.
 Names elsewhere are French and legible: `E_POULP` octopus, `M14MINO` minotaur,
 `CAISSE` crate, `GRILLE` grate, `M01GUN`, `L08_TANK`, `Patte` (paw).
 
+## `.3DC` props and weapons
+
+`F3DC` is **not** a tagged record chain and is **not** LZ-packed — it is a raw
+blob holding the same node, so it decodes by signature straight off the file
+bytes. **165 nodes across the 16 unique `.3DC` files**, exported by the same
+`models` group.
+
+| model | nodes | vertices | faces | boundary edges |
+|---|---:|---:|---:|---:|
+| `BOULE` | 1 | 98 | 192 | **0** — was 18 |
+| `EPEE` | 1 | 28 | 52 | **0** |
+| `GUN` | 2 | 19 | 56 | **0** |
+| `CARRE` | 1 | 4 | 2 | 4 — correct, see below |
+| `ARC` | 2 | 49 | 75 | 15 — still open |
+
+`CARRE` was listed for two passes as "fails to decode as a box". It is a quad,
+and *carré* is French for **square**. The decode was right; the expectation was
+the bug.
+
 ## Still open
 
 - **UV mapping**, above.

@@ -242,7 +242,7 @@ All proprietary Cryo formats. **[verified]** unless noted.
 | `.DSN` | `DSNF` | Scene / level definition. **Fully decodable**: tagged records, LZ, geometry + textures |
 | `.PAK` | `PAK0` | Container of `F3DC` chunks |
 | `.BF` | `UBIK` | **Named-file container** — 267-byte table rows; disc 2 holds 6 members, disc 1 five |
-| `.DRD` | `DRDF` | **Voice bank**, not text — 178 WAVE clips (17.8 MB) plus 589 lines of timed English dialogue |
+| `.DRD` | `DRDF` | **Voice bank**, not text — 178 WAVE clips (17.8 MB, mono 11 kHz) plus 573 lines of timed English script. Decoded, `dreams.formats.dialog` |
 | `.DIG` | `AIL3DIG` | **Miles sound-card drivers, not game audio.** Audio bank is `SOUND\FSB.DAT` |
 | `.SPR` / `.ALP` | none | Sprite bundles — 8-bit indexed + inline palette; alpha maps |
 | `.ASC` / `.BAK` | text | **3D Studio developer leftovers** shipped on the retail disc |
@@ -413,10 +413,10 @@ Recommended: Windows 95, 32 MB RAM, 1 GB disk, Direct3D/Glide GPU.
    value exceeds 128 of a 256-wide atlas. See [docs/models.md](docs/models.md).
 2. **Decode `.DAN` animation.** Tag 3 is one record per animation with a
    per-part offset table at `+0x1c`; the payload at those offsets is unread.
-3. **Finish the `.3DC` mesh decode.** Vertices, faces and UVs come out for
-   `BOULE` and `EPEE` — a verified sphere and sword — but `BOULE` still has 18
-   boundary edges, `CARRE` fails to decode as a box, and `ARC`/`GUN` use a
-   compact UV variant that is not solved.
+3. **`ARC.3DC`.** `.3DC` geometry is otherwise solved — it is a raw `F3DC`
+   blob carrying the same node, no LZ, 165 nodes across 16 files, and `BOULE`,
+   `EPEE` and `GUN` all close to **0 boundary edges**. `ARC` still has 15.
+   `.3DC` UVs are unverified, as for models.
 4. **Name the object behaviour classes.** Every `.DSN` object carries a
    20-byte record whose first word is a shared handler pointer with only five
    distinct values; 505 of 2,059 objects carry one. The 63 distinct

@@ -319,6 +319,27 @@ def read_model(path: str | Path) -> Model:
     return Model(p, nodes, faces, [nd for nd in nodes if nd.base not in used])
 
 
+def read_3dc(path: str | Path) -> Model:
+    """Decode a ``.3DC`` prop or weapon.
+
+    ``F3DC`` is **not** a tagged record chain and is **not** LZ-packed - it is a
+    raw blob holding the same node as everything else, so it decodes by
+    signature straight off the file bytes. 165 nodes across the 16 unique
+    ``.3DC`` files on the discs.
+
+    This closes a long-standing defect: ``BOULE`` reaches **0 boundary edges**
+    (it was 18), as do ``EPEE`` and ``GUN``. ``CARRE`` comes out as 4 vertices
+    and 2 triangles - *carre* is French for **square**, so a quad is correct and
+    the old expectation of a box was the error. ``ARC`` still has 15 boundary
+    edges and is unresolved.
+    """
+    p = Path(path)
+    buf = p.read_bytes()
+    nodes = find_nodes(buf)
+    faces, used = read_faces(buf, nodes)
+    return Model(p, nodes, faces, [nd for nd in nodes if nd.base not in used])
+
+
 def texture_page(path: str | Path) -> tuple[list[tuple[int, int, int]], bytes] | None:
     """A model's ``(palette, page)`` from ``.DAN`` tag 2, or ``None``.
 

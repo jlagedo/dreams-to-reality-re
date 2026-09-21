@@ -54,6 +54,7 @@ LAYOUT = {
     "tiles": "images/3dm-blocks",
     "leveltex": "images/level-textures",
     "models": "models",
+    "dialogue": "audio/dialogue",
     "scenes": "scenes",
     "gallery": "images/gallery",
     "renders": "images/renders",
@@ -375,6 +376,46 @@ def extract_icons(root: Path, src: Source, force: bool) -> Iterator[Item]:
     )
 
 
+def extract_dialogue(root: Path, src: Source, force: bool) -> Iterator[Item]:
+    """Split `DIALOG.DRD` into one WAV per line and a plain-text script.
+
+    The file is 72.6% audio by size - it is a voice bank that happens to carry
+    its script. See :mod:`dreams.formats.dialog`.
+    """
+    from dreams.formats import dialog
+
+    out = root / LAYOUT["dialogue"]
+    try:
+        entries = dialog.read(src.path)
+    except (ValueError, struct.error) as exc:
+        yield Item("dialogue", src.rel, status="failed", note=str(exc))
+        return
+
+    out.mkdir(parents=True, exist_ok=True)
+    written = []
+    for e in entries:
+        if not e.wave:
+            continue
+        clip = out / f"line{e.index:03d}.wav"
+        if force or not clip.exists():
+            clip.write_bytes(e.wave)
+        written.append(str(clip.relative_to(root)))
+
+    text_dir = root / LAYOUT["text"]
+    text_dir.mkdir(parents=True, exist_ok=True)
+    doc = text_dir / "dialogue.txt"
+    if force or not doc.exists():
+        doc.write_bytes(dialog.script(entries).encode("utf-8"))
+    written.append(str(doc.relative_to(root)))
+
+    lines = sum(len(e.lines) for e in entries)
+    audio_bytes = sum(len(e.wave) for e in entries)
+    yield Item(
+        "dialogue", src.rel, written,
+        note=f"{len(entries)} entries, {lines} lines, {audio_bytes / 1e6:.1f} MB of audio",
+    )
+
+
 def extract_models(root: Path, src: Source, force: bool) -> Iterator[Item]:
     """Export one ``.DAN`` model as glTF plus its 256x256 texture page.
 
@@ -673,7 +714,8 @@ DESCRIPTIONS = {
     "icons": "ICONES.BF members, decoded where the format is known",
     "tiles": ".3DM blocks rendered as 128x128 RGB555 -- NOT a texture, see note",
     "leveltex": "Level textures from .DSN scenes: one 256x256 per object",
-    "models": "Character and prop models from .DAN as glTF, with texture pages",
+    "models": "Character and prop models (.DAN, .3DC) as glTF, with texture pages",
+    "dialogue": "DIALOG.DRD: 178 voice clips as WAV, plus the timed script",
     "scenes": "Level geometry from .DSN as glTF, with textures",
     "gallery": "CRYOPLUS bonus gallery, 16-bit TGA",
     "renders": "Developer reference renders, copied verbatim",
@@ -726,7 +768,9 @@ def plan(groups: list[str]) -> dict[str, list[Source]]:
         elif g == "leveltex":
             out[g] = merge_discs("*.DSN")
         elif g == "models":
-            out[g] = merge_discs("*.DAN")
+            out[g] = merge_discs("*.DAN") + merge_discs("*.3DC")
+        elif g == "dialogue":
+            out[g] = merge_discs("DIALOG.DRD")
         elif g == "scenes":
             out[g] = merge_discs("*.DSN")
         elif g == "gallery":
@@ -791,6 +835,8 @@ def run(
                     items += list(extract_leveltex(root, s, force))
                 elif g == "models":
                     items += list(extract_models(root, s, force))
+                elif g == "dialogue":
+                    items += list(extract_dialogue(root, s, force))
                 elif g == "scenes":
                     items += list(extract_scenes(root, s, force))
                 elif g == "gallery":

@@ -2,6 +2,15 @@
 
 ## Corrections
 
+### `CARRE.3DC` was never broken — *carre* means square
+
+The open questions asked why `CARRE` "fails to decode as a box". It decodes as
+**4 vertices and 2 triangles**, which is a quad, and *carré* is French for
+**square**. The decode was right and the expectation was wrong. With the node
+struct applied to raw `F3DC`, `BOULE` reaches **0 boundary edges** (it was 18),
+as do `EPEE` and `GUN`. Only `ARC` is still open, at 15.
+
+
 ### `.DAN` is not "just animation" — it is the model
 
 Catalogued for two passes as *"Animation. Same container and LZ as `.DSN`;
@@ -24,7 +33,9 @@ zero-crossing rate 0.101, DC offset −1.3, **zero** clipped samples across
 
 24.6 MB was never plausible for dialogue text, and it is not: **72.6% is 178
 RIFF/WAVE clips** (mono, 11,025 Hz, 8-bit), 27.3% is type-4 binary, and only
-**0.084%** is the 589 lines of script.
+**0.084%** is the script. Decoded in `dreams.formats.dialog`: 178 entries, 573 lines, every one printable ASCII, each carrying a timing field. A
+table word is not a plain offset - its low byte is a bank and the upper
+three bytes the offset, so a naive read breaks at entry 123.
 
 ### `ICONES.BF` is a named-file container
 
@@ -239,7 +250,31 @@ Full analysis in [assets.md](assets.md).
 
 ## Open questions
 
-Ordered by expected value.
+### Current list
+
+1. **Map a model's UVs onto its texture page.** The references resolve — 100%
+   of 26,827 corners land inside the record, 85 distinct `u`, 78 distinct `v`,
+   at `ref - 5 + delta` — but rasterising gives flat colour blocks and no
+   value exceeds 128 of a 256-wide atlas. See [models.md](models.md).
+2. **Decode `.DAN` animation.** Tag 3 is one record per animation with a
+   per-part offset table at `+0x1c`; the payload at those offsets is unread.
+3. **`ARC.3DC`.** `.3DC` geometry is otherwise solved — it is a raw `F3DC`
+   blob carrying the same node, no LZ, 165 nodes across 16 files, and `BOULE`,
+   `EPEE` and `GUN` all close to **0 boundary edges**. `ARC` still has 15.
+   `.3DC` UVs are unverified, as for models.
+4. **Name the object behaviour classes.** Every `.DSN` object carries a
+   20-byte record whose first word is a shared handler pointer with only five
+   distinct values; 505 of 2,059 objects carry one. The 63 distinct
+   `(word 0, word 1)` pairs do **not** align with object-name families, so the
+   classes stay unnamed.
+5. Does a merged install with `FULL.ID` present actually suppress disc swapping?
+6. Why is disc 2's `HD.ID` binary (`01 00 00 00`) when disc 1's is text (`toto`)?
+
+### Earlier list
+
+Kept for context, ordered by expected value at the time. Items 1–3 below are
+since resolved — see Corrections above and [scene-geometry.md](scene-geometry.md),
+[models.md](models.md).
 
 ### 1. Unpack the `.DSN` body
 

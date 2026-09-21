@@ -11,7 +11,7 @@ import struct
 import pytest
 
 from dreams import binio, paths, probe
-from dreams.formats import audio, disc, node, resource, scene
+from dreams.formats import audio, dialog, disc, node, resource, scene
 
 DISCS_PRESENT = paths.disc(1).exists()
 needs_discs = pytest.mark.skipif(not DISCS_PRESENT, reason="disc images not configured")
@@ -232,3 +232,36 @@ def test_model_texture_page_is_fixed_size():
     palette, page = bank
     assert len(palette) == 256
     assert len(page) == node.TEX_PAGE
+
+
+# ---------------------------------------------------------- DIALOG.DRD ---
+
+
+def test_drd_table_word_is_bank_plus_offset():
+    """The low byte is a bank, not part of the address.
+
+    Reading the word as a plain offset works for entries 0-122 and breaks at
+    123, where the bank flips to 1.
+    """
+    def decode(word: int) -> int:
+        return ((word & 0xFF) << 24) | (word >> 8)
+
+    assert decode(0x0002DD00) == 0x0002DD
+    assert decode(0x00EE2800) == 0x00EE28
+    assert decode(0x02BC3B01) == 0x0102BC3B
+
+
+@needs_discs
+def test_dialogue_carries_script_and_audio():
+    drd = next(paths.disc(1).rglob("DIALOG.DRD"), None)
+    if drd is None:
+        pytest.skip("DIALOG.DRD not present")
+    entries = dialog.read(drd)
+    assert len(entries) == 178
+    assert sum(1 for e in entries if e.wave) >= 177
+    assert all(e.wave[:4] == b"RIFF" for e in entries if e.wave)
+    first = entries[0]
+    assert first.timings[0] == 0
+    assert "world of dreams" in " ".join(first.lines)
+    # every recovered line is printable ASCII
+    assert all(ch.isprintable() for e in entries for line in e.lines for ch in line)
