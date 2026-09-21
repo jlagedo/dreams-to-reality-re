@@ -155,6 +155,14 @@ def from_scene(path, out_dir: str | Path, textures: bool = True) -> tuple[Path, 
     from dreams.formats import scene as _scene
 
     m = _mesh.read_mesh(path)
+    source = "tag1"
+    if not m.mapping_is_clean:
+        # Tag 1's references only resolve for 4 of 95 scenes. Tag 2 carries its
+        # own triangle array whose references resolve arithmetically, so it
+        # decodes everywhere - at the cost of object names, materials and UVs.
+        m = _mesh.read_tri_mesh(path)
+        source = "tag2"
+        textures = False
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     stem = Path(path).stem.lower()
@@ -191,6 +199,7 @@ def from_scene(path, out_dir: str | Path, textures: bool = True) -> tuple[Path, 
 
     target = write(out / f"{stem}.gltf", doc)
     return target, {
+        "source": source,
         "objects": len(m.objects),
         "vertices": len(m.vertices),
         "faces": m.face_count,

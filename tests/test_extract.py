@@ -435,3 +435,29 @@ def test_preview_renders_all_three_views(tmp_path):
     assert blob.startswith(png.SIGNATURE)
     width, height = struct.unpack_from(">II", blob, 16)
     assert (width, height) == (64 * len(preview.VIEWS), 64)
+
+
+@needs_discs
+def test_tag2_triangle_mesh_decodes_every_scene():
+    """Tag 2's own triangle array resolves arithmetically - all 95, no gate."""
+    from dreams.formats import mesh
+    total_v = total_f = 0
+    for s in extract.merge_discs("*.DSN"):
+        m = mesh.read_tri_mesh(s.path)
+        assert m.vertices and m.face_count
+        for o in m.objects:
+            assert all(0 <= i < len(m.vertices) for f in o.faces for i in f), s.rel
+        total_v += len(m.vertices)
+        total_f += m.face_count
+    assert (total_v, total_f) == (86450, 152536)
+
+
+@needs_discs
+def test_tag2_agrees_with_tag1_where_both_work():
+    """On a verified scene the two paths must describe the same room."""
+    from dreams.formats import mesh
+    s = next(x for x in extract.merge_discs("*.DSN") if x.path.stem == "E01GROTT")
+    a, b = mesh.read_mesh(s.path), mesh.read_tri_mesh(s.path)
+    assert len(a.vertices) == len(b.vertices) == 193
+    assert a.vertices == b.vertices          # same pool, same order
+    assert b.face_count >= a.face_count      # tag 2 carries a few extra faces

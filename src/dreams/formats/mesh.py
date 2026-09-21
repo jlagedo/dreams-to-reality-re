@@ -287,3 +287,68 @@ def read_mesh(path: str | Path) -> Mesh:
         ref_base=sorted_refs[0] if sorted_refs else 0,
         declared=struct.unpack_from("<I", tag2, 0x14)[0],
     )
+
+
+# ------------------------------------------------- tag 2's own triangle mesh --
+
+TRI_RECORD = 96
+TAG2_STRIDE = 12
+
+
+def read_tri_mesh(path: str | Path) -> Mesh:
+    """Build a scene mesh from **tag 2 alone**, ignoring tag 1's references.
+
+    Tag 2 is not just a bag of points: it carries its own triangle array, each
+    record holding three vertex references, a normal reference, edge half-space
+    normals and plane constants, and an axis-aligned bounding box. That shape
+    says collision or spatial acceleration rather than rendering - but the point
+    pool is the scene's geometry either way, and the triangles index it directly.
+
+    ::
+
+        +0x14  u32        V, point count
+        +0x18  u32        29, the base vertex references are measured from
+        +0x1c  u32        F, triangle count
+        +0x20  u32        29 + 12*V, the triangle array (relative)
+        +0x30  i32[3] x V points
+        +0x30 + 12*V      F records of 96 bytes:
+                 +0x00 u32 x3   vertex refs, each 29 + 12*index
+
+    The decisive advantage over :func:`read_mesh`: these references resolve
+    arithmetically, so **all 95 scenes decode** rather than the 4 whose tag 1
+    references happen to form one clean run. ``E10_PIEC`` renders as a clean
+    rectangular chamber here and as debris through tag 1.
+
+    The cost is that tag 2 has no object names, materials or UVs. Use
+    :func:`read_mesh` when :attr:`Mesh.mapping_is_clean`, this otherwise.
+    """
+    p = Path(path)
+    recs = scene.read_records(p)
+    try:
+        tag2 = lz.decompress(next(r.payload for r in recs if r.tag == scene.TAG_PACKED))
+    except StopIteration as exc:
+        raise ValueError(f"{p.name}: no tag 2") from exc
+
+    count, base, faces_n = (struct.unpack_from("<I", tag2, o)[0] for o in (0x14, 0x18, 0x1C))
+    start = 0x30 + TAG2_STRIDE * count
+    if faces_n == 0 or start + TRI_RECORD * faces_n > len(tag2):
+        raise ValueError(f"{p.name}: triangle array overruns tag 2")
+
+    vertices = [
+        struct.unpack_from("<3i", tag2, 0x30 + TAG2_STRIDE * i) for i in range(count)
+    ]
+    obj = Object("collision", "default")
+    for f in range(faces_n):
+        refs = struct.unpack_from("<3I", tag2, start + TRI_RECORD * f)
+        idx = []
+        for r in refs:
+            if (r - base) % TAG2_STRIDE:
+                raise ValueError(f"{p.name}: reference {r} is not on a vertex")
+            i = (r - base) // TAG2_STRIDE
+            if not 0 <= i < count:
+                raise ValueError(f"{p.name}: vertex index {i} out of range")
+            idx.append(i)
+        obj.faces.append(tuple(idx))
+        obj.uvs.extend([(0.0, 0.0)] * 3)
+
+    return Mesh(p, vertices, [Material("default", "", 0)], [obj], ref_count=count)

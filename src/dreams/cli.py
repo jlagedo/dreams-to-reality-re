@@ -522,11 +522,10 @@ def mesh_cmd(
 ) -> None:
     """Decode scene geometry from `.DSN` tags 1 and 2, and export glTF.
 
-    Only 4 of 95 scenes decode with a provably correct vertex mapping. The rest
-    split their references across arrays whose bases are unresolved; they often
-    look plausible - 70 pass an edge-sanity screen - but their floors come out
-    non-planar 176 times out of 179, so the geometry is wrong. Skipped unless
-    --force.
+    Four scenes decode from tag 1, which carries object names, materials and
+    UVs. The other 91 fall back to tag 2's own triangle array, which resolves
+    arithmetically and works everywhere but has no materials or UVs. Every
+    scene exports.
     """
     from dreams import gltf
     from dreams.formats import mesh as meshmod
@@ -538,7 +537,7 @@ def mesh_cmd(
             console.print(f"[red]no scene named {name}")
             raise typer.Exit(1)
 
-    table = Table("scene", "objects", "verts", "faces", "mapping", "edge sanity")
+    table = Table("scene", "objects", "verts", "faces", "source")
     exported = 0
     for s in sources:
         try:
@@ -546,17 +545,24 @@ def mesh_cmd(
         except (ValueError, struct.error) as exc:
             table.add_row(s.path.stem, "-", "-", "-", f"[red]{exc}")
             continue
-        q = m.edge_sanity
-        state = "[green]verified" if m.mapping_is_clean else "[yellow]unverified"
+        if m.mapping_is_clean:
+            state = "[green]tag1 + uv"
+        else:
+            try:
+                m = meshmod.read_tri_mesh(s.path)
+                state = "[cyan]tag2"
+            except (ValueError, struct.error) as exc:
+                table.add_row(s.path.stem, "-", "-", "-", f"[red]{exc}")
+                continue
         table.add_row(
             s.path.stem, str(len(m.objects)), str(len(m.vertices)),
-            str(m.face_count), state, f"{q:.3f}",
+            str(m.face_count), state,
         )
         if preview:
             from dreams import preview as pv
             preview.mkdir(parents=True, exist_ok=True)
             pv.render(m, preview / f"{s.path.stem.lower()}.png")
-        if out and (m.mapping_is_clean or force):
+        if out:
             gltf.from_scene(s.path, out, textures=textures)
             exported += 1
     console.print(table)
