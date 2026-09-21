@@ -214,8 +214,11 @@ def from_model(
 ) -> tuple[Path, dict]:
     """Export one ``.DAN`` character or prop model as glTF. ``(path, stats)``.
 
-    Writes the model's 256x256 texture page alongside, when it has one, and
-    UVs that address it correctly: a UV reference is exact, and the two words
+    Writes **one primitive and one 256x256 page per face-block name**: the
+    name is the texture selector, so a model with `XH_IMG_A` and `XH_IMG_B`
+    gets two materials over one shared mesh, not two copies of a model.
+
+    UVs address the page correctly: a UV reference is exact, and the two words
     it points at are texels in 16.16, so ``value / 65536 / 256`` normalises
     them. Reading five bytes early - a rule that belongs to ``.DSN``, where it
     is that format's relocation delta and not a field offset - put every
@@ -231,35 +234,44 @@ def from_model(
 
     suffix = Path(path).suffix.lower()
     model = _node.read_3dc(path) if suffix == ".3dc" else _node.read_model(path)
-    tex = None
-    bank = _node.texture_page(path) if suffix != ".3dc" else None
-    if textures and bank is not None:
-        palette, page = bank
-        img = out / f"{stem}_tex.png"
-        if not img.exists():
-            png.write(
-                img, _node.TEX_SIZE, _node.TEX_SIZE, b"".join(bytes(palette[b]) for b in page)
-            )
-        tex = img.name
+    banks = _node.texture_pages(path) if (textures and suffix != ".3dc") else []
 
-    positions, uvs = [], []
-    for face in model.faces:
-        positions += [tuple(float(c) for c in corner) for corner in face.corners]
-        uvs += list(face.uvs)
+    # One material per face-block name, because the name is the texture page.
+    groups = sorted({f.group for f in model.faces})
+    slot = _node.page_for_group(groups)
 
-    doc = Scene(name=stem, materials=[(stem, tex)])
-    doc.primitives.append(Primitive(stem, positions, uvs, 0))
+    doc = Scene(name=stem)
+    for n, name in enumerate(groups):
+        tex = None
+        bank = banks[slot[name]] if slot[name] < len(banks) else None
+        if bank is not None:
+            palette, page = bank
+            img = out / (f"{stem}_tex.png" if len(groups) < 2 else f"{stem}_tex{n}.png")
+            if not img.exists():
+                png.write(
+                    img, _node.TEX_SIZE, _node.TEX_SIZE, b"".join(bytes(palette[b]) for b in page)
+                )
+            tex = img.name
+        positions, uvs = [], []
+        for face in model.faces:
+            if face.group != name:
+                continue
+            positions += [tuple(float(c) for c in corner) for corner in face.corners]
+            uvs += list(face.uvs)
+        doc.materials.append((name or stem, tex))
+        doc.primitives.append(Primitive(name or stem, positions, uvs, n))
     target = write(out / f"{stem}.gltf", doc)
     if preview is not None:
         from dreams import preview as _preview
 
         Path(preview).parent.mkdir(parents=True, exist_ok=True)
-        _preview.render_model(model, bank, preview)
+        _preview.render_model(model, banks, preview)
     return target, {
         "parts": len(model.nodes),
         "drawn": len(model.nodes) - len(model.empty),
         "proxies": len(model.empty),
         "faces": len(model.faces),
         "bridges": model.bridge_count,
-        "texture": bool(tex),
+        "texture": len([1 for _, t in doc.materials if t]),
+        "groups": len(groups),
     }

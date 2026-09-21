@@ -430,16 +430,17 @@ def extract_models(root: Path, src: Source, force: bool) -> Iterator[Item]:
         yield Item("models", src.rel, status="failed", note=f"{type(exc).__name__}: {exc}")
         return
     written = [str(target.relative_to(root))]
-    tex = target.with_name(f"{stem}_tex.png")
-    if tex.exists():
-        written.append(str(tex.relative_to(root)))
+    # One page per face-block name, so the count is not fixed: a model with
+    # XH_IMG_A and XH_IMG_B writes two, and six groups write six.
+    written += [str(t.relative_to(root)) for t in sorted(out.glob(f"{stem}_tex*.png"))]
     written.append(str(target.with_suffix(".bin").relative_to(root)))
     if shot.exists():
         written.append(str(shot.relative_to(root)))
     yield Item(
         "models", src.rel, written,
         note=(f"{stats['drawn']}/{stats['parts']} parts, {stats['faces']} faces, "
-              f"{stats['bridges']} bridging, {stats['proxies']} proxies"),
+              f"{stats['bridges']} bridging, {stats['proxies']} proxies, "
+              f"{stats['groups']} texture group(s)"),
     )
 
 

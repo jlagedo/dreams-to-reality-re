@@ -84,16 +84,20 @@ def render(mesh, target: str | Path, size: int = 260) -> Path:
     return png.write(target, width, size, bytes(img))
 
 
-def render_model(model, bank, target: str | Path, size: int = 260) -> Path:
+def render_model(model, banks, target: str | Path, size: int = 260) -> Path:
     """Write a three-view **textured** preview of a ``.DAN`` / ``.3DC`` model.
 
     The same reason as :func:`render`: a UV decode passes every numeric check
     while rendering as flat colour. Reading ``u`` and ``v`` five bytes early
     put 100% of corners inside the pool and still produced mush, and only
-    looking at it showed why. ``bank`` is ``(palette, page)`` from
-    :func:`dreams.formats.node.texture_page`, or ``None`` for flat shading.
+    looking at it showed why.
 
+    ``banks`` is the list from :func:`dreams.formats.node.texture_pages`. Each
+    face samples the one its block name selects, so a model carrying two pages
+    is drawn with both; pass an empty list for flat shading.
     """
+    from dreams.formats import node as _node
+
     corners = [c for f in model.faces for c in f.corners]
     if not corners:
         return png.write(target, size, size, bytes([BACKGROUND]) * (size * size * 3))
@@ -101,7 +105,8 @@ def render_model(model, bank, target: str | Path, size: int = 260) -> Path:
     hi = [max(c[i] for c in corners) for i in range(3)]
     centre = [(lo[i] + hi[i]) / 2 for i in range(3)]
     scale = max(hi[i] - lo[i] for i in range(3)) or 1
-    palette, page = bank if bank else (None, None)
+    banks = list(banks or [])
+    page_of = _node.page_for_group(sorted({f.group for f in model.faces}))
 
     width = size * len(VIEWS)
     img = bytearray(bytes([BACKGROUND]) * (width * size * 3))
@@ -137,9 +142,11 @@ def render_model(model, bank, target: str | Path, size: int = 260) -> Path:
                     if z >= depth[k]:
                         continue
                     depth[k] = z
-                    if page is None:
+                    which = page_of.get(face.group, 0)
+                    if which >= len(banks):
                         texel = (170, 170, 170)
                     else:
+                        palette, page = banks[which]
                         u = w0 * face.uvs[0][0] + w1 * face.uvs[1][0] + w2 * face.uvs[2][0]
                         v = w0 * face.uvs[0][1] + w1 * face.uvs[1][1] + w2 * face.uvs[2][1]
                         texel = palette[page[(int(v * 256) & 255) * 256 + (int(u * 256) & 255)]]

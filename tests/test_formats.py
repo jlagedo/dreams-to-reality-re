@@ -266,8 +266,57 @@ def test_model_preview_renders_textured(tmp_path):
     hero = paths.disc(1) / "DATA" / "3DC" / "XH_.DAN"
     if not hero.exists():
         pytest.skip("XH_.DAN not present")
-    out = preview.render_model(node.read_model(hero), node.texture_page(hero), tmp_path / "p.png")
+    banks = node.texture_pages(hero)
+    out = preview.render_model(node.read_model(hero), banks, tmp_path / "p.png")
     assert out.exists() and out.stat().st_size > 2000
+
+
+@needs_discs
+def test_model_has_one_face_group_per_texture_page():
+    """A face block is named for the image it samples, not for a copy.
+
+    ``XH_IMG_A`` and ``XH_IMG_B`` are image A and image B. The two groups
+    share vertex positions, so they are one mesh split by texture page - and
+    the model carries two banks, which are never the same image. Treating the
+    names as two copies of the model and texturing everything from bank 0 put
+    the chest on the character's back.
+    """
+    hero = paths.disc(1) / "DATA" / "3DC" / "XH_.DAN"
+    if not hero.exists():
+        pytest.skip("XH_.DAN not present")
+    m = node.read_model(hero)
+    groups = sorted({f.group for f in m.faces})
+    assert groups == ["XH_IMG_A", "XH_IMG_B"]
+    banks = node.texture_pages(hero)
+    assert len(banks) == len(groups)
+    assert banks[0][1] != banks[1][1]
+    assert node.page_for_group(groups) == {"XH_IMG_A": 0, "XH_IMG_B": 1}
+    a = {c for f in m.faces if f.group == groups[0] for c in f.corners}
+    b = {c for f in m.faces if f.group == groups[1] for c in f.corners}
+    assert a & b, "the groups must share geometry, or they are not one mesh"
+
+
+@needs_discs
+def test_face_block_must_point_at_its_own_records():
+    """``u32 68`` and a plausible count are not enough to be a face block.
+
+    ``F01.DAN`` holds a run of bytes that passes both and is not one. Its
+    faces resolve to real geometry but their UV references are small negative
+    numbers, so they rendered as black holes. The block's pointer at ``+0x14``
+    rejects it: relocated, a real block's equals ``off + 40`` exactly.
+    """
+    boy = next(
+        (d / "DATA" / "3DC" / "F01.DAN" for d in (paths.disc(1), paths.disc(2))
+         if (d / "DATA" / "3DC" / "F01.DAN").exists()),
+        None,
+    )
+    if boy is None:
+        pytest.skip("F01.DAN not present")  # it is on the data disc only
+    m = node.read_model(boy)
+    assert len(m.faces) == 440  # 644 before the check, 204 of them impostors
+    assert all(f.group for f in m.faces), "a real block always carries a name"
+    uvs = [c for f in m.faces for uv in f.uvs for c in uv]
+    assert all(0.0 <= c <= 1.0 for c in uvs)
 
 
 # ---------------------------------------------------------- DIALOG.DRD ---

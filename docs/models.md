@@ -81,8 +81,11 @@ directly.
 
 Composition walks **parent** links. Both directions are present, but the
 forward links are sparse in these files while the parent link resolves for
-every non-root node — giving **at most 2 roots per model across all 159**. Two
-rather than one because most `.DAN` files carry two copies of the model.
+every non-root node — giving **at most 2 roots per model across all 159**.
+
+> **Correction.** That second root was read as "most `.DAN` files carry two
+> copies of the model". They do not. The two names are **two texture groups
+> over one mesh** — see [Two pages, not two copies](#two-pages-not-two-copies).
 
 `CH0.DAN` decodes as a textbook humanoid:
 
@@ -151,6 +154,11 @@ The ramp is how the engine shaded a face without per-pixel lighting, and it is
 why nothing in the face record needs to hold a colour. **[verified]** on
 `XH_.DAN`.
 
+The row is chosen at **runtime**, not from the file: `WINDREAM.EXE` selects
+`31 - shade`, with the shade computed from lighting in `FUN_0047b7e0`. So row 0
+is the fully lit one, `w11` is not the selector, and an exporter has nothing to
+decide. **[verified]**
+
 There are **126 distinct pages across 191 files**, shared exactly where you
 would expect: 13 `MCHAPO` files share one page, 10 `CAISSE` files another —
 crates share a crate texture.
@@ -189,6 +197,22 @@ values and `v` 1..255 over 168, and the model renders as a bare-chested man in
 teal shorts. `dreams model FILE --preview` writes that picture, and the
 `models` group writes one per model to `models/preview/`.
 
+**The engine agrees.** `WINDREAM.EXE`'s texture inner loop at `0x00471a67`
+reads
+
+```
+SAR EBX,0x8        ; v, 16.16
+SAR EAX,0x10       ; u, 16.16 -> texel
+AND EBX,0xff00
+OR  EAX,EBX        ; addr = (u & 0xff) | ((v & 0xff) << 8)
+ADD EAX,page_base
+MOV AL,byte ptr [EAX]
+```
+
+`SAR 0x10` is the division by 65536, and the `OR` builds a 256-byte-pitch index
+into the `0x10000`-byte page allocated at `FUN_00417a07` — so `page[v*256 + u]`,
+exactly. **[verified]**
+
 **The proof is `CAISSE`, the crate.** Its texture carries the French words
 *HAUT* and *BAS* - top and bottom. They render **legibly and the right way up**
 in `models/preview/cai.png`. Readable text out of an atlas is a check no
@@ -217,7 +241,7 @@ Indexing words from the start of a record:
 | `w2` `w5` `w8` | into a 16-byte-stride array, one entry per vertex |
 | `w3` `w6` `w9` | into an 88-byte-stride array, one entry per corner |
 | `w10` | into a 16-byte-stride array, one entry per **face** |
-| `w11` | a small **signed** int, −14..+70 in `XH_` |
+| `w11` | a small **signed** int, −14..+70 in `XH_`; carried through clipping, and *not* the shade selector |
 | `w12` `w13` `w14` | the three UV records |
 | `w15` `w16` | unknown; 0 and 8 in the sample read |
 
@@ -230,6 +254,46 @@ a file.
 **[unverified]** — `w2`/`w5`/`w8`, `w3`/`w6`/`w9`, `w10`, `w11`, `w15`, `w16`
 and the block header's `+0x1c` are named by their stride and their arity, not
 by anything found in the binary.
+
+## Two pages, not two copies
+
+A `.DAN` normally carries **two** tag-2 banks, and **in 0 of the 57 models that
+have two are the two identical**. Each face block is named for the bank it
+samples, and the name says so out loud: `XH_IMG_A` and `XH_IMG_B` — image A and
+image B.
+
+They are one mesh, not two. In **51 of 54** two-group models the groups share
+vertex positions — 18 of 26 nodes in `XH_`, 13 of 15 in `F01`. Exported as one
+primitive with one page, every `_B` face reads the wrong atlas: the character's
+chest lands on his back and a trainer appears under his arm.
+
+So a model exports as **one material and one page per group**, mapped in sorted
+name order — `_A` before `_B`, `MHEROI1` before `MHEROI2`. The order is
+**[unverified]** in the sense that nothing in the file states it, but swapping
+it deliberately reproduces the chest-on-the-back artefact exactly, and the
+correct order gives shoulder blades and a spine.
+
+Three models — `E_P`, `E66` and one other — have groups that share **no**
+vertices. For those the two groups are disjoint geometry, so whether they are
+parts or variants is still open; the texture-group reading holds either way,
+because the block still names its page. This also retires the old question
+about `E_POULP2` being a level-of-detail copy: it is the octopus's second
+texture group.
+
+## Face blocks must vouch for themselves
+
+`u32 68` at `+0x20` plus a plausible count is **not** enough. **17 models**
+contain a byte run that satisfies both and is not a face block — `E_P`, `CG1`,
+`H14`, `MI0`, `F24`, `F27`, `GG1`, `F01` among them.
+
+The block's own pointer at `+0x14` settles it: relocated it must equal
+`off + 40`, where the records actually begin, and in every real block it does
+exactly. In the impostors it misses by hundreds or thousands of bytes.
+
+Without the check `F01` gains 204 faces whose vertex references *do* resolve to
+real geometry — so the usual validity test passes — while their UV references
+are small negative numbers. They render as **black holes** punched through the
+model.
 
 ## Who is who
 
@@ -296,6 +360,6 @@ the bug.
   meaning of the type field at `+0x1c`, and how a frame composes onto the
   node's rest transform. The worker that decoded it reports several codec
   variants reusing the same space differently. Not implemented in the exporter.
-- Whether `E_POULP2` is a level-of-detail copy or a separate variant. It is a
-  different decomposition with many small `Patte` structs, and nothing in the
-  file distinguishes the two cases. **[unverified]**
+- Which bank a face group samples is assigned **by order**, not read from the
+  file. Swapping it is visibly wrong, so the order is right, but the field that
+  states it has not been found. **[unverified]**

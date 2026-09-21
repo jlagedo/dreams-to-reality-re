@@ -58,8 +58,11 @@ RADIUS, CENTRE, STRIDE_AT = 0xC4, 0xC8, 0xD4
 
 FACE_RECORD = 68
 FACE_COUNT_AT = 16  #: within a face block
+FACE_FIRST_AT = 20  #: address of the first record; the block's own self-check
 FACE_STRIDE_AT = 32  #: holds 68
-FACE_DATA = 44
+FACE_ORIGIN = 40  #: where the records really start, which +0x14 points at
+FACE_DATA = 44  #: where we read a record from, one word into it
+FACE_NAME = 8  #: bytes of object name at the head of a block
 VERTEX_WORDS = (1, 4, 7)
 UV_WORDS = (12, 13, 14)
 
@@ -201,6 +204,7 @@ class Face:
     corners: tuple[tuple[int, int, int], ...]
     uvs: tuple[tuple[float, float], ...]
     bridge: bool = False  #: spans more than one node
+    group: str = ""  #: the owning block's name, which selects the texture page
 
 
 @dataclass
@@ -233,6 +237,15 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
     declares four bytes more than the record holds. Only the unused tail is
     missing, so bounds are checked per record, over the 32 bytes a record
     needs for its three vertex references.
+
+    **A block must vouch for itself.** ``u32 68`` at ``+0x20`` and a plausible
+    count are not enough: 17 models contain a run of bytes that satisfies both
+    and is not a face block. The block's own pointer at ``+0x14`` settles it -
+    relocated it must equal ``off + 40``, where the records actually begin. In
+    every real block it does exactly; in the impostors it misses by hundreds
+    or thousands of bytes. Without the check ``F01`` gains 204 faces that
+    resolve to geometry but whose UV references are small negative numbers,
+    and they render as black holes in the model.
     """
     if not nodes:
         return [], set()
@@ -259,6 +272,9 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
             continue
         if off + FACE_DATA + FACE_RECORD * (n - 1) + 32 > len(buf):
             continue
+        if struct.unpack_from("<I", buf, off + FACE_FIRST_AT)[0] + delta != off + FACE_ORIGIN:
+            continue
+        group = buf[off : off + FACE_NAME].split(b"\x00")[0].decode("latin-1", "replace")
         for f in range(n):
             at = off + FACE_DATA + FACE_RECORD * f
             if at + 32 > len(buf) or at in seen:
@@ -293,7 +309,9 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
                     uvs.append((0.0, 0.0))
             seen.add(at)
             used |= owners
-            faces.append(Face(tuple(corners), tuple(uvs), bridge=len(owners) > 1))
+            faces.append(
+                Face(tuple(corners), tuple(uvs), bridge=len(owners) > 1, group=group)
+            )
     return faces, used
 
 
@@ -349,16 +367,29 @@ def read_3dc(path: str | Path) -> Model:
     return Model(p, nodes, faces, [nd for nd in nodes if nd.base not in used])
 
 
-def texture_page(path: str | Path) -> tuple[list[tuple[int, int, int]], bytes] | None:
-    """A model's ``(palette, page)`` from ``.DAN`` tag 2, or ``None``.
+def texture_pages(path: str | Path) -> list[tuple[list[tuple[int, int, int]], bytes]]:
+    """Every ``(palette, page)`` bank in a ``.DAN``, in file order.
+
+    **A model usually has two, and they are never the same image.** 57 of 159
+    models carry two tag-2 banks and in 0 of those 57 are the two identical,
+    which is what makes using only the first a visible error rather than a
+    harmless one.
+
+    The face blocks say which is which. A block is named for the image it
+    samples - ``XH_IMG_A`` and ``XH_IMG_B``, image A and image B - and the two
+    groups **share nodes** (18 of 26 in ``XH_``, 13 of 15 in ``F01``), so they
+    are not two copies of the model. They are one mesh split by texture page.
+    Reading that as two copies, and texturing everything from page 1, is what
+    put nipples on the character's back and a trainer under his arm.
 
     The palette entry is a ``u16`` at ``+2`` of each 4-byte slot, **RGB565** -
-    the same packing as level textures and the save thumbnail. Of 191 models
-    there are 126 distinct pages, shared exactly where you would expect: 13
-    ``MCHAPO`` files share one, 10 ``CAISSE`` files another.
+    the same packing as level textures and the save thumbnail. The 32 rows are
+    one palette in 32 brightness steps, a light ramp; row 0 is the unlit one
+    and the only one used here.
     """
     from dreams.formats import lz, scene
 
+    out = []
     for rec in scene.read_records(Path(path), "dan"):
         if rec.tag != 2:
             continue
@@ -375,5 +406,23 @@ def texture_page(path: str | Path) -> tuple[list[tuple[int, int, int]], bytes] |
                 (((v >> 11) & 31) * 255 // 31, ((v >> 5) & 63) * 255 // 63, (v & 31) * 255 // 31)
             )
         start = TEX_HEADER + TEX_PALETTES
-        return palette, buf[start : start + TEX_PAGE]
-    return None
+        out.append((palette, buf[start : start + TEX_PAGE]))
+    return out
+
+
+def texture_page(path: str | Path) -> tuple[list[tuple[int, int, int]], bytes] | None:
+    """The first bank only. Prefer :func:`texture_pages` - see why there."""
+    banks = texture_pages(path)
+    return banks[0] if banks else None
+
+
+def page_for_group(groups: list[str]) -> dict[str, int]:
+    """Map each face-block name to the index of the bank it samples.
+
+    The names sort into the same order as the banks appear in the file -
+    ``..._A`` before ``..._B``, ``..._M01`` before ``..._M02``, ``MHEROI1``
+    before ``MHEROI2`` - and a model has as many banks as distinct names.
+    **[unverified]**: the pairing is by order, which is the obvious reading
+    and renders correctly, but nothing in the file states it.
+    """
+    return {name: i for i, name in enumerate(sorted(groups))}

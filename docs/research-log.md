@@ -54,6 +54,31 @@ and the 24 `HNM` surfaces split 6/18 across the two record forms. What *is*
 exact is the variant rule — the pointer form of `word 3` occurs only when words
 0 and 1 are both zero, in 2,059/2,059 records.
 
+### `.DAN` does not carry two copies of the model
+
+The second root, and the pair of names in every model, were read as "most
+`.DAN` files carry two copies". They are **two texture groups over one mesh**.
+A face block is named for the bank it samples — `XH_IMG_A` and `XH_IMG_B`,
+image A and image B — and in **51 of 54** two-group models the groups share
+vertex positions.
+
+It mattered because a model has **two** tag-2 banks and **in 0 of the 57 models
+that have two are they identical**. Texturing everything from bank 0 put the
+character's chest on his back and a trainer under his arm. Reported by the
+user looking at `XH_` in Blender, not by any check we had.
+
+### A face block has to point at its own records
+
+`u32 68` at `+0x20` and a plausible count were the whole test, and **17 models**
+contain a byte run that passes both without being a face block. Their faces
+even resolve to real geometry, so the validity check we trusted said yes; only
+their UV references, which are small negative numbers, gave it away — as black
+holes punched through the model. The block's pointer at `+0x14` rejects every
+impostor and accepts every real block exactly.
+
+Twice in one pass, a signature of two conditions was taken as sufficient
+because it was clean on the file that was being looked at.
+
 ### A reference that resolves in range is not a reference that resolves
 
 Model UVs were reported as "located, not solved": the references resolved,
