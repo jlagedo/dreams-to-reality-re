@@ -107,6 +107,17 @@ E03ARAI1.DSN:  E03_B1   E03_B2   E03_CH   E03_COL1 E03_COL2 E03_COL3 E03_COL4 ..
 Names carry the level prefix and a role suffix. Read as French, `M`+compass gives
 `ME`/`MN`/`MO`/`MS` = Mur Est/Nord/Ouest/Sud (walls), `SOL` = floor, `P` =
 plafond (ceiling), `COL` = colonne, `BAS` = base, `CENT` = centre. **[unverified]**
+
+Some are now **[verified]**, by rendering the object or its own texture - which
+the node decode made possible by carrying names through to the export:
+`PELZ` = *pelouse* (lawn, and its texture is plainly turf), `RACIN` = *racine*
+(root), `TETA`/`TET` = *tete* (head - the Bayon faces in `H18ANGKR`, the moai in
+`H03PAQUE`), `DALE` = *dalle* (slab), `BRIK` = brick, `NUI` = *nuit* (a
+starfield), `HNM` = a surface textured by a video, and `C_BK`/`C_FT`/`C_LF`/
+`C_RT` = the four walls of a cube skybox.
+
+Beware the single-letter `P` rule: it claimed `H18_PELZ` for *plafond* when the
+object is a lawn. Any other `P...` name is suspect for the same reason.
 but consistent across every sample. See [assets.md](assets.md).
 
 **[verified]** `B` is exactly the number of name records — confirmed in 98/98.

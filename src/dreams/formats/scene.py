@@ -50,6 +50,7 @@ entropy 4.5-7.8 (median 6.9), ``.DAN`` 7.3-7.8.
 
 from __future__ import annotations
 
+import re
 import struct
 from dataclasses import dataclass
 from pathlib import Path
@@ -186,8 +187,22 @@ def read_dan(path: str | Path) -> Animation:
 
 
 def classify_name(name: str) -> str:
-    """Interpret a ``.DSN`` object name. See docs/assets.md - UNVERIFIED."""
-    body = name.split("_", 1)[-1]
+    """Interpret a ``.DSN`` object name.
+
+    Most of this is inference from French mnemonics and stays **UNVERIFIED** -
+    see docs/assets.md. The entries marked below were settled by rendering the
+    object's own texture or the object itself, which is now possible because
+    the node decode carries names through to the export.
+
+    The single-letter ``P`` is the trap: it claimed ``H18_PELZ`` for *plafond*
+    when the texture is plainly turf. Longer keys win, so specific names are
+    the fix, but any other ``P...`` name is suspect for the same reason.
+    """
+    # Names follow the scene grammar: a [A-Z][0-9][0-9] scene id, then the
+    # mnemonic, with or without a separating underscore - H18_DALE but
+    # H18RACIN. Splitting on "_" alone leaves the id on the unseparated ones
+    # and every such name reads as "?".
+    body = re.sub(r"^[A-Z]\d\d_?", "", name) or name
     table = {
         "ME": "wall east (mur est)",
         "MN": "wall north (mur nord)",
@@ -199,6 +214,19 @@ def classify_name(name: str) -> str:
         "BAS": "base",
         "CENT": "centre",
         "CH": "?",
+        # Verified by looking at the decoded object or its texture.
+        "PELZ": "lawn (pelouse)",
+        "RACIN": "root (racine)",
+        "TETA": "head (tete)",
+        "TET": "head (tete)",
+        "DALE": "slab (dalle)",
+        "BRIK": "brick",
+        "NUI": "night sky (nuit)",
+        "HNM": "surface textured by an HNM video",
+        "C_BK": "skybox back",
+        "C_FT": "skybox front",
+        "C_LF": "skybox left",
+        "C_RT": "skybox right",
     }
     for prefix, meaning in sorted(table.items(), key=lambda kv: -len(kv[0])):
         if body.startswith(prefix):
