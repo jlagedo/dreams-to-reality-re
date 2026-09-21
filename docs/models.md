@@ -146,18 +146,41 @@ packing as level textures and the save thumbnail. One colour format across the
 whole game.
 
 **The 32 "palettes" are one palette in 32 brightness steps** — a light ramp, as
-a 1997 software rasteriser would carry. Row 0 is full brightness and row 31 is
-49% of it, with hue preserved the whole way down: entry 200 runs `(0, 93, 131)`
-at row 0 to `(0, 0, 32)` at row 31. So **row 0 is the correct unlit palette**,
-which is the one `texture_page()` returns and the one the exported PNGs use.
-The ramp is how the engine shaded a face without per-pixel lighting, and it is
-why nothing in the face record needs to hold a colour. **[verified]** on
-`XH_.DAN`.
+a 1997 software rasteriser would carry. It is how the engine shaded a face
+without per-pixel lighting, and it is why nothing in the face record holds a
+colour. The row is chosen at **runtime**: `WINDREAM.EXE` selects `31 - shade`,
+the shade coming from lighting in `FUN_0047b7e0`. **[verified]**
 
-The row is chosen at **runtime**, not from the file: `WINDREAM.EXE` selects
-`31 - shade`, with the shade computed from lighting in `FUN_0047b7e0`. So row 0
-is the fully lit one, `w11` is not the selector, and an exporter has nothing to
-decide. **[verified]**
+### The packing is RGB565, and that is measured
+
+Each 4-byte slot is `u16 zero, u16 colour`; `+0` is zero in all 8,192 slots.
+The colour is **RGB565**, not the 555 that a 1997 Windows title might equally
+have used. The ramp proves it: 32 brightness steps of one palette must stay
+proportional, and the spread of the per-channel ratio is **0.15 under 565
+against 0.39 under 555**. Only 565 is consistent with the file's own contents.
+A dead top bit would also have settled it, and there isn't one — bit 15 is set
+in 5,161 of 8,192 slots. **[verified]**
+
+### Row 0 is not the artwork
+
+The obvious reading — row 0 is the unlit palette — is wrong, and it is what
+made the player's navy shorts come out **teal**.
+
+Row 0 is **over-brightened and clipped**: 93 of its 256 entries have a channel
+at maximum, and 19 distinct colours collapse onto a shared value.
+
+The proof is not the clipping count, which a saturated palette would also
+show. It is that **darkening can only ever merge colours**. If row 0 were the
+artwork, every darker row would be a contraction of it and could hold at most
+as many distinct colours. Instead row 20 holds **all 256** where row 0 holds
+221 — impossible unless row 0 has already lost information.
+
+So the row to export is the brightest one that still resolves every entry.
+Such a row exists in **252 of 261 banks**; it is 20 in 117 of them, and 12, 17
+or 19 in most of the rest, depending on how saturated the artwork is — which
+is why `neutral_row()` measures it per bank instead of fixing it. Entry 200 of
+`XH_` reads `(0, 93, 131)` at row 0 and `(0, 32, 70)` at row 20: teal against
+navy, and navy is what the game shows. **[verified]**
 
 There are **126 distinct pages across 191 files**, shared exactly where you
 would expect: 13 `MCHAPO` files share one page, 10 `CAISSE` files another —
@@ -223,16 +246,17 @@ The lesson is recorded in [research-log.md](research-log.md): a reference that
 resolves in range is **not** evidence that it resolves correctly. Only
 rasterising the result separated the two.
 
-**One small gap.** 168 of 175 exported models keep every corner inside 0..1.
-Seven do not: `f37` reaches 1.77, and `cg1`, `e_p`, `f24`, `gg1` and two others
-have a handful of corners at 115.38, which is a whole word read as a texel and
-therefore a reference that did not resolve. It is 1 to 9 faces per model and at
-most **0.35%** of corners, so it does not show, but it is unexplained.
-**[unverified]**
+**One small gap.** Over the whole corpus **126,819 of 126,819** UV references
+decode, and both coordinates land in range in **125,059 — 98.6%**. The
+remainder are confined to `F37.DAN`, `H14.DAN` and `L14.DAN`. At most 0.35% of
+a model's corners, so nothing shows, but it is unexplained. **[unverified]**
 
 ## The rest of the 68-byte face record
 
-Indexing words from the start of a record:
+Records begin at `off + 40`, which is what the block's `+0x14` points at and
+what makes the next-pointer chain close — it validates **2,768 of 2,768**
+blocks there and 134 of 2,768 one word later. The table below indexes from
+`off + 44`, one word in, which is where the decoder reads:
 
 | word | what it is |
 |---|---|
@@ -243,13 +267,13 @@ Indexing words from the start of a record:
 | `w10` | into a 16-byte-stride array, one entry per **face** |
 | `w11` | a small **signed** int, −14..+70 in `XH_`; carried through clipping, and *not* the shade selector |
 | `w12` `w13` `w14` | the three UV records |
-| `w15` `w16` | unknown; 0 and 8 in the sample read |
+| `w15` `w16` | `w15` is **zero in every record on the discs**; `w16` takes 535 values, 8 in 23,174 of 42,174 |
 
 `w0` chaining by exactly 68 is what confirms the record stride independently of
 the `68` stored at the block's `+0x20`. The block header carries the object
 name in its first 8 bytes, the face count at `+0x10`, the address of the first
 record at `+0x14`, and at `+0x24` a pointer that is the same for every block in
-a file.
+a file — in 174 of 175 files, `F74.DAN` being the exception.
 
 **[unverified]** — `w2`/`w5`/`w8`, `w3`/`w6`/`w9`, `w10`, `w11`, `w15`, `w16`
 and the block header's `+0x1c` are named by their stride and their arity, not

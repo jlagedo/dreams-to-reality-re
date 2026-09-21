@@ -319,6 +319,44 @@ def test_face_block_must_point_at_its_own_records():
     assert all(0.0 <= c <= 1.0 for c in uvs)
 
 
+@needs_discs
+def test_exported_palette_row_loses_no_colour():
+    """Row 0 of the light ramp is over-brightened, not the artwork.
+
+    Darkening can only merge colours, so if row 0 were the original no darker
+    row could hold more distinct ones. Row 20 holds all 256 where row 0 holds
+    221, which is only possible if row 0 has clipped. Exporting row 0 turned
+    the player's navy shorts teal.
+    """
+    import struct
+
+    hero = paths.disc(1) / "DATA" / "3DC" / "XH_.DAN"
+    if not hero.exists():
+        pytest.skip("XH_.DAN not present")
+    from dreams.formats import lz, scene
+
+    bank = next(
+        b
+        for b in (lz.decompress(r.payload) for r in scene.read_records(hero, "dan") if r.tag == 2)
+        if len(b) >= node.TEX_TOTAL
+    )
+
+    def distinct(row):
+        return len(
+            {
+                struct.unpack_from("<H", bank, node.TEX_HEADER + 4 * (row * 256 + i) + 2)[0]
+                for i in range(256)
+            }
+        )
+
+    row = node.neutral_row(bank)
+    assert row != 0
+    assert distinct(row) == 256, "the chosen row must resolve every entry"
+    assert distinct(0) < distinct(row), "row 0 must be the clipped one"
+    palette, _ = node.texture_pages(hero)[0]
+    assert len(set(palette)) == 256
+
+
 # ---------------------------------------------------------- DIALOG.DRD ---
 
 

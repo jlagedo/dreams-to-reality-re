@@ -382,14 +382,18 @@ def texture_pages(path: str | Path) -> list[tuple[list[tuple[int, int, int]], by
     Reading that as two copies, and texturing everything from page 1, is what
     put nipples on the character's back and a trainer under his arm.
 
-    The palette entry is a ``u16`` at ``+2`` of each 4-byte slot, **RGB565** -
-    the same packing as level textures and the save thumbnail. The 32 rows are
-    one palette in 32 brightness steps, a light ramp; row 0 is the unlit one
-    and the only one used here.
+    The palette entry is a ``u16`` at ``+2`` of each 4-byte slot (``+0`` is
+    always zero), **RGB565**. That packing is not assumed: read as RGB555 the
+    32 brightness steps stop being proportional to each other, the per-channel
+    ratio spread rising from 0.15 to 0.39, so only RGB565 is consistent with
+    the ramp the file itself contains.
+
+    The row is chosen by :func:`neutral_row` rather than fixed at 0 - see
+    there for why row 0 is the wrong one to export.
     """
     from dreams.formats import lz, scene
 
-    out = []
+    out: list[tuple[list[tuple[int, int, int]], bytes]] = []
     for rec in scene.read_records(Path(path), "dan"):
         if rec.tag != 2:
             continue
@@ -399,15 +403,48 @@ def texture_pages(path: str | Path) -> list[tuple[list[tuple[int, int, int]], by
             continue
         if len(buf) < TEX_TOTAL:
             continue
+        row = neutral_row(buf)
         palette = []
         for i in range(256):
-            v = struct.unpack_from("<H", buf, TEX_HEADER + 4 * i + 2)[0]
+            v = struct.unpack_from("<H", buf, TEX_HEADER + 4 * (row * 256 + i) + 2)[0]
             palette.append(
                 (((v >> 11) & 31) * 255 // 31, ((v >> 5) & 63) * 255 // 63, (v & 31) * 255 // 31)
             )
         start = TEX_HEADER + TEX_PALETTES
         out.append((palette, buf[start : start + TEX_PAGE]))
     return out
+
+
+RAMP_ROWS = 32  #: brightness steps in a bank's light ramp
+
+
+def neutral_row(bank: bytes) -> int:
+    """The ramp row to export: the brightest one that loses no colour.
+
+    The 32 rows are one palette at 32 brightness levels. **Row 0 is not the
+    artwork.** It is over-brightened and clipped: in ``XH_`` 93 of its 256
+    entries have a channel at maximum and 19 distinct colours collapse onto a
+    shared value. The proof that this is clipping and not just a saturated
+    palette is that darkening can only ever merge colours, so if row 0 were
+    the original no darker row could hold *more* distinct colours - and row 20
+    holds all 256 where row 0 holds 221.
+
+    So the row to take is the brightest one whose 256 entries are still all
+    distinct. Across **252 of 261 banks** such a row exists; it is usually 20,
+    sometimes 12 or 17, depending on how saturated the artwork is, which is
+    why it is measured per bank instead of fixed.
+
+    Exporting row 0 is what made the player's navy shorts come out teal.
+    """
+    best, best_n = 0, -1
+    for row in range(RAMP_ROWS):
+        seen = {
+            struct.unpack_from("<H", bank, TEX_HEADER + 4 * (row * 256 + i) + 2)[0]
+            for i in range(256)
+        }
+        if len(seen) > best_n:
+            best, best_n = row, len(seen)
+    return best
 
 
 def texture_page(path: str | Path) -> tuple[list[tuple[int, int, int]], bytes] | None:
