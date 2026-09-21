@@ -74,6 +74,32 @@ Five are marked as duplicates: `Doublon Montagne du`, `Doublon Tout le iles`,
 Two names are truncated mid-word (`Passage vers Pyramid`, `Cabine de projectio`,
 `Cauchemard Gargouill`), implying a **20-character** field limit.
 
+### Where the game starts
+
+**[verified]** **Project 0, *Ile d'Angkor*, scene `H18ANGKR.DSN`.** Following
+the `LINK` entries in `DREAMS.DAT` reaches **145 of the 150 projects from P0**
+(see [level-map.md](level-map.md)), which is what settles it rather than the
+index being zero.
+
+The map is a floating plateau of grass carrying a stone tower wrapped in
+roots — Angkor, and specifically Ta Prohm. Its object names say so outright:
+`H18RACIN` (*racine*, root), `H18TETA1`-`5` (*tete*, the Bayon face towers),
+`H18_BRIK`, `H18_DALE` (*dalle*, paving), `H18_PELZ` (*pelouse*, lawn) and
+`H18_C_BK`/`FT`/`LF`/`RT`, the four walls of a cube skybox.
+
+It loads five things besides the scene: `F84.DAN` (the floating island, 15,000
+units up), `CH0.DAN` (a creature standing on it), four copies of `F07BLEU.DAN`
+(*bleu* — the blue gnomes), and `MINE.DAN`, whose mesh is internally named
+`GRILLE` — a grate, so either the mine or the grating an explosion removes.
+**[unverified]** which.
+
+**`H03PAQUE.DSN` is not the first map**, though `LISTL0.TXT` — the boot
+manifest — names it and nothing else. It is the always-resident scene, loaded
+beside `XH_`, `MHE`, `CH0` and `HOLO`. *Ile de Paques* is Easter Island and it
+has the heads to match (`H03TET01`-`06`), plus eight radiating `H03TRS`
+walkways, but its sky texture `H03NUI01` is a **starfield** and `H03HNM01` a
+comet: it is a night scene. **[verified]**
+
 ### Thematic grouping
 
 The level names cluster into recognisable areas:

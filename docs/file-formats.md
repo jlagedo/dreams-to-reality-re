@@ -582,8 +582,8 @@ list is probably load-order rather than a set.
 ```
 
 `0x400 + offset[150]` equals the file size **exactly** on both discs — 138,879 on
-disc 1, 138,835 on disc 2. Record bodies contain the strings `LINK0`, `FLINKn`,
-`DLINKn`, `OBJETn`, `BOXn`, `LINKADVENTn`, so this is a project *graph*, not a
+disc 1, 138,835 on disc 2. Record bodies contain the strings `LINK0`, `OBJETn`,
+`BOXn`, `LINKADVENTn`, so this is a project *graph*, not a
 flat asset list. Binary fields within a record are **[unverified]**.
 
 > **Correction.** Describing this as "a monotonically increasing table of u32
@@ -599,6 +599,31 @@ program disc.
 
 Joining these 150 records to `DREAMS.INI` gives the complete level map — see
 [level-map.md](level-map.md).
+
+#### The record is a list of named entries **[verified]**
+
+A body is a sequence of entries, each `<name> ` then a type byte then a value.
+Over all 150 records there are exactly four key names:
+
+| key | count | what it holds |
+|---|---:|---|
+| `OBJET<n>` | 711 | an asset filename, then a position |
+| `BOX<n>` | 420 | a run of coordinate triples — a volume, not an AABB |
+| `LINKADVENT<n>` | 326 | never named a project in a first pass |
+| `LINK<n>` | 244 | `"Project<n>"` — the destination, 239 of them |
+
+**There is no `FLINK` or `DLINK`.** This file previously listed both, and they
+are misreadings: a key is preceded by the trailing byte of the previous
+entry's value, and **131 distinct bytes** appear in that position across the
+corpus — `0x03` 210 times, `0x8b` 150, `0x17` 134, with `F` only 63 and `b` 83.
+The same artefact reads as `bOBJET2`, `3OBJET3`, `KOBJET4` in Project 0, which
+nobody would mistake for key names.
+
+The value encoding is **[unverified]**. Positions are recoverable — Project 0
+places `F84.DAN` at `(2500, 4000, -15000)` and `CH0.DAN` at
+`(2383, 2715, -14539)` — but the fields are variable width, three bytes
+followed by a byte such as `02` in some entries and four bytes in others, and
+no reading yet consumes all 150 records end to end.
 
 ### `.ANTI-VIR.DAT`
 

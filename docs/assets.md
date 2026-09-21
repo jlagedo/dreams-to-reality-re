@@ -246,6 +246,14 @@ texture directory. The `DATA\TGA\` folder holds only 7 leftover JPEGs in a
 RGB555 it is noise; the files are shading lookup tables, and all four names are
 `.3DC` material names including `OMBRE` (shadow).
 
+**They are not RGB555 data either.** The support for that reading was a clear
+unused top bit in `ESSAI.3DM`, and it does not generalise: across all four
+files **8 of the 12 blocks have bit 15 set** — `GRILLE` at 5,202/3,385/3,208
+words and `SPRITE` at 5,297/4,150/6,621, against 366/0/0 for `ESSAI` and
+32/0/0 for `OMBRE2`. The two clean blocks are the ones that were sampled. So
+the PNGs the `tiles` group writes are a diagnostic rendering of bytes, not an
+image in any format we have established. **[verified]**
+
 What this leaves:
 
 1. **Level textures live inside the `.DSN` bodies, and are now decoded.** Each

@@ -29,6 +29,59 @@ order rather than project order. Counts are `LISTL0`=1, `LISTL1`=44, `LISTL2`=28
 
 `DREAMS.DAT` carries one extra, secondary reference: `E01GROTT.DSN` in P136.
 
+## The connectivity graph — how one level reaches another
+
+**[verified]** A project record carries `LINK<n>` entries whose value is a
+literal `"Project<n>"`. That is the game's level graph, and it is explicit:
+
+- **239 link edges over 144 of the 150 projects.**
+- **145 of 150 projects are reachable from Project 0** by following them, which
+  is independent evidence that **P0 is where the game starts**.
+- Edges run both ways: P134 and P62 both link back to P0.
+
+Project 0, *Ile d'Angkor*, has exactly two exits:
+
+| | destination | scene |
+|---|---|---|
+| `LINK0` | P134 *Grotte au Pics* | `F08_GPIC.DSN` |
+| `LINK1` | P62 *Ile du Hamam* | `E13_ANGK.DSN` |
+
+`OBJET<n>` entries place the scene and its actors, each with a position, and
+`BOX<n>` gives 420 coordinate volumes across the game — the obvious candidate
+for trigger volumes, **[unverified]** until the record encoding is settled.
+
+### The flying landmarks are scale models of their destination
+
+**[verified]** Project 0 places `F84.DAN` 15,000 units above the map — up is
+negative Y and the skybox reaches -24,286 — and `CH0.DAN` 461 units above
+that, inside the island's 4,542 x 4,406 footprint. A creature standing on a
+floating island, which is what the game shows.
+
+That island **is** its destination, modelled small. Strip the sky objects and
+compare extents:
+
+| | X | Y | Z |
+|---|---:|---:|---:|
+| `F84.DAN` | 4,542 | 1,856 | 4,406 |
+| `E13_ANGK.DSN` (P62) | 5,370 | 2,252 | 5,204 |
+| ratio | **1.18** | **1.21** | **1.18** |
+| `F08_GPIC.DSN` (P134) | 6,696 | 7,544 | 6,471 |
+| ratio | 1.47 | **4.07** | 1.47 |
+
+One uniform scale on all three axes for `E13_ANGK`; a factor of four out
+vertically for `F08_GPIC`. Rendered, both `F84` and `E13_ANGK` are a shallow
+rocky bowl with a raised rim and pale stone inside. **So flying to the island
+loads P62, *Ile du Hamam*** — and by elimination the other exit, into a
+*grotte*, is the cave the statue's mouth opens onto.
+
+`F89.DAN` in P62 is the same kind of object: 11,043 units across, parts named
+`F37FACE`, `F37TETE`, `F37TOP`.
+
+**Do not read the destination off the model's internal names.** `F84`'s parts
+are `F19EA01`-`03` and `F89`'s are `F37*`, but **`F19` and `F37` are gaps in
+the scene numbering** — the files run F18, F20 ... F36, F38. They are leftovers
+from cut or renamed scenes, not pointers.
+
 ## Filename grammar
 
 **[verified]** 97 of 98 scene names match `[A-Z][0-9]{2}[A-Z0-9_]{0,5}.DSN`. The

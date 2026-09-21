@@ -407,6 +407,26 @@ def test_node_level_score_needs_a_rounding_tolerance():
     assert meshmod.verify_nodes(angkor, tol=32) == 1.0
 
 
+def test_scene_palette_is_rgb565_full_range():
+    """Pin the field layout and the expansion for `.DSN` tag-3 palettes.
+
+    RGB565, not RGB555: read as 555 every sampled pixel of `E01GROTT` changes
+    and the mean channel error is 18.6. Red is the high field and blue the low
+    one - the order the executable's own table initialisers use - so BGR is
+    wrong too, and choosing it renders blue skin.
+
+    The expansion is full range: 31 must reach 255, which `v << 3` would leave
+    at 248.
+    """
+    from dreams.formats.scene import rgb565_to_rgb
+
+    assert rgb565_to_rgb(0xFFFF) == (255, 255, 255)
+    assert rgb565_to_rgb(0x0000) == (0, 0, 0)
+    assert rgb565_to_rgb(0xF800) == (255, 0, 0)  # top 5 bits are red
+    assert rgb565_to_rgb(0x07E0) == (0, 255, 0)  # middle 6 are green
+    assert rgb565_to_rgb(0x001F) == (0, 0, 255)  # low 5 are blue
+
+
 # ---------------------------------------------------------- DIALOG.DRD ---
 
 

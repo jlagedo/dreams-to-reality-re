@@ -718,7 +718,7 @@ DESCRIPTIONS = {
     "textures": "HNM4 256x256 animated textures",
     "sprites": "Indexed .SPR bundles, one PNG per record",
     "icons": "ICONES.BF members, decoded where the format is known",
-    "tiles": ".3DM blocks rendered as 128x128 RGB555 -- NOT a texture, see note",
+    "tiles": ".3DM blocks as 128x128 -- a byte diagnostic, NOT a texture, see note",
     "leveltex": "Level textures from .DSN scenes: one 256x256 per object",
     "models": "Character and prop models (.DAN, .3DC) as glTF, with texture pages"
               " and textured previews",

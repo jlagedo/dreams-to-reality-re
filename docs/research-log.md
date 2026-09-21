@@ -54,6 +54,20 @@ and the 24 `HNM` surfaces split 6/18 across the two record forms. What *is*
 exact is the variant rule — the pointer form of `word 3` occurs only when words
 0 and 1 are both zero, in 2,059/2,059 records.
 
+### `FLINK` and `DLINK` were never key names
+
+`file-formats.md` listed `LINK0`, `FLINKn`, `DLINKn`, `OBJETn`, `BOXn` and
+`LINKADVENTn` as the keys in a `DREAMS.DAT` project record. There are four:
+`LINK`, `OBJET`, `BOX`, `LINKADVENT`.
+
+A key is preceded by the trailing byte of the previous entry's value, and
+**131 distinct bytes** occupy that position across the 150 records — `0x03`
+210 times, `0x8b` 150, `0x17` 134, with `F` only 63 and `b` 83. Reading that
+byte as part of the name also yields `bOBJET2`, `3OBJET3` and `KOBJET4` in
+Project 0 alone, which is the same artefact and obviously not a key name.
+
+Found by grepping a record for printable runs and believing the output.
+
 ### Level geometry was never unsolved — the metric was
 
 "The node decode does not give levels" rested on one number: composing world
@@ -409,13 +423,18 @@ fact that `FULL.ID` turns out to be the maxi-install marker.
 Disc 1: `74 6F 74 6F 0D 0A` (`toto\r\n`). Disc 2: `01 00 00 00`. Different length,
 different type. Unexplained.
 
-### 6. Are the `.3DM` blocks 128×128 RGB555 textures?
+### 6. Are the `.3DM` blocks 128×128 RGB555 textures? — **answered: no**
 
-Each `.3DM` is exactly 28 bytes + 3×32,768, and `128×128×2 = 32,768`. In
-`ESSAI.3DM` the RGB555 unused high bit is clear in all 16,384 words of blocks 1
-and 2. All four `.3DM` names are also `.3DC` material names. Render one and find
-out — ten minutes of work, and it would give the project its first standalone
-texture.
+Each `.3DM` is exactly 28 bytes + 3×32,768, and `128×128×2 = 32,768`, which
+is what made the idea attractive. Rendered, it is noise.
+
+The RGB555 half of the claim is also dead, and instructively so. It rested on
+the unused high bit being clear in all 16,384 words of blocks 1 and 2 of
+`ESSAI.3DM`. Across all four files **8 of the 12 blocks have bit 15 set**:
+`GRILLE` 5,202/3,385/3,208 and `SPRITE` 5,297/4,150/6,621, against `ESSAI`
+366/0/0 and `OMBRE2` 32/0/0. **The two blocks that were sampled are the only
+clean ones in the corpus.** A property checked on one file, in the file where
+it happens to hold.
 
 ### 7. Contact an ex-Cryo developer
 
