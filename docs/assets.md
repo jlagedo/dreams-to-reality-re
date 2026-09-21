@@ -242,21 +242,18 @@ This is where the level textures are, and they are not stored raw.
 texture directory. The `DATA\TGA\` folder holds only 7 leftover JPEGs in a
 `TEMP\` subdirectory — reference renders, not assets.
 
-**One qualification since this was written:** the eight `.3DM` files are now the
-best standalone-texture candidate. Each is exactly 98,332 bytes — a 28-byte
-header plus three 32,768-byte blocks — and `128 × 128 × 2 = 32,768` exactly. In
-`ESSAI.3DM`, blocks 1 and 2 have the RGB555 unused high bit clear in **all 16,384
-words**, block 0 in 97.8%. All four `.3DM` names (`ESSAI`, `GRILLE`, `OMBRE2`,
-`SPRITE`) also appear as `.3DC` material names. **[unverified]** pending an
-actual render, but it is a narrow, testable claim. That is only 0.8 MB, so it
-does not change the conclusion below.
+**The `.3DM` texture hypothesis was tested and killed.** Rendered as 128×128
+RGB555 it is noise; the files are shading lookup tables, and all four names are
+`.3DC` material names including `OMBRE` (shadow).
 
 What this leaves:
 
-1. **Level textures are packed inside the `.DSN` bodies.** 157 MB of packed data
-   for 98 rooms, sitting right after a table of wall/floor/ceiling names, is
-   textures plus geometry. Unpacking `.DSN` is the single highest-value target
-   in the whole project.
+1. **Level textures live inside the `.DSN` bodies, and are now decoded.** Each
+   object owns one **256×256** 8-bit surface interleaved from 64 subsampled
+   32×32 planes, indexing a 256-entry **RGB565** palette. Uncompressed, and
+   about 97% of a scene file by volume. Extract with
+   `uv run dreams extract --only leveltex`; full layout in
+   [file-formats.md](file-formats.md).
 2. **Animated textures are the 20 HNM4 videos** — 256×256, named for what they
    are (`E11_EAU`/`E12_EAU` water, `M05FEU_H` fire, `FD_SOUFL` bellows). These —
    and now **all 113 video files**, including the HNM6 cutscenes — are decodable
@@ -319,18 +316,15 @@ version — and an earlier `MENU.ALP` was dropped before release.
 
 ## Priority targets
 
-1. **Unpack the `.DSN` body.** 157 MB, all the level geometry and textures. The
-   exact body offset is now known (`16 + 31·nameCount`, read off the loader), so the
-   attack has a precise starting byte for the first time. Everything visual
-   depends on this.
-2. **Decode the `.3DC` descriptor pairs.** The `(count, absolute-offset)` pairs
-   and the object/material directory are mapped; vertex and index semantics are
-   not. Note the target blocks are **not** plain float32 or simple u16/u32
-   indices.
-3. **Render a `.3DM` block** as 128×128 RGB555 and confirm or kill the texture
-   hypothesis. Ten minutes of work.
-4. **Extract the audio banks.** Both formats decoded; an afternoon's scripting
-   for 202 playable WAV files.
+1. **Resolve multi-run vertex references.** The `.DSN` body is fully decoded
+   and 4 of 95 scenes export to glTF; the other 91 split their vertex
+   references across several runs with unrelated bases and nothing yet maps a
+   run to its place in the pool. This is the single blocker on every remaining
+   level. See [scene-geometry.md](scene-geometry.md).
+2. **Finish the `.3DC` mesh decode.** `BOULE` verifies as a sphere (94 vertices
+   on a shell, radius SD 2.6% of mean) and `EPEE` as a sword, but `BOULE` has
+   18 boundary edges, `CARRE` does not decode as a box, and `ARC`/`GUN` use an
+   unsolved compact UV variant.
 5. **Try NihAV's Cryo archive reader** (`src/input/archives/cryo.rs`) against
    `.PAK`, `ICONES.BF` and `DREAMS.DAT`. Untested, and it already understands a
    Cryo "BigFile" layout.

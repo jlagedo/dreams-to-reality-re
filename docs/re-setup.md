@@ -150,6 +150,43 @@ String anchors additionally implicate `FUN_0041c666` (4 xrefs), `FUN_00456038`,
 `FUN_00427f11`, `FUN_0041020f` and `FUN_00426143` — the file I/O and disc-check
 layer.
 
+### `ApplyWatcall.java` — run this on any fresh project
+
+Ghidra ships **no Watcom compiler spec**, and all four game executables are
+Watcom C/C++ 10.6, which passes arguments in `EAX, EDX, EBX, ECX`. Without it
+every decompilation is lossy: arguments surface as `extraout_*` and `unaff_*`
+and cannot be read at all.
+
+1. Apply `tools/watcall-cspec.patch` to
+   `<ghidra>/Ghidra/Processors/x86/data/languages/x86win.cspec`. It adds a
+   `__watcall` prototype model. Re-apply after any Ghidra upgrade, then restart.
+2. Run the script, pointing it at the Watcom library match:
+
+```powershell
+analyzeHeadless ghidra dreams -process WINDREAM.EXE -noanalysis `
+  -scriptPath ghidra_scripts -postScript ApplyWatcall.java `
+  E:\dev_game\watcom\sigs\windream.csv
+```
+
+It sets `__watcall` on every function except the 31 runtime helpers with
+bespoke register contracts, which the CSV identifies for free — Watcom
+decorates register-convention symbols with a **trailing underscore**
+(`memcpy_`, `strlen_`), and the ones without (`__CHK`, `IF@DSIN`, `__FDD`) are
+hand-written assembly. Applied to `WINDREAM.EXE`: 1,251 converted, 26 skipped.
+
+It also resets each signature to `SourceType.DEFAULT`. That step is essential
+and easy to miss — while a signature inferred under the wrong convention
+stands, the decompiler will not promote `EBX` to a parameter however right the
+prototype model is.
+
+Ground truth: `FUN_0045c278` is `memcpy_` per the library match, and under
+`__watcall` it decompiles as a textbook `memcpy(dst, src, len)`.
+
+### `SetWatcall.java`
+
+Same convention on one function at a time, printing before and after. Useful
+for checking the model is doing what you expect.
+
 ### `ExportSymbols.java` / `ImportSymbols.java`
 
 Round-trip named functions and comments through `re/symbols/<program>.tsv`.
@@ -231,12 +268,14 @@ two checkpoint routes.
 1. Ask Claude to call `save_program`, or press Ctrl+S.
 2. **Window → Script Manager → Dreams → `ExportSymbols.java`** — writes the TSV
    from the live program, no lock conflict.
-3. `.	oolse-checkpoint.ps1 -SkipExport -Message "name the DSN header reader"`
+3. `.	ools
+e-checkpoint.ps1 -SkipExport -Message "name the DSN header reader"`
 
 **GUI closed:**
 
 ```powershell
-.	oolse-checkpoint.ps1 -Message "batch rename stream helpers"
+.	ools
+e-checkpoint.ps1 -Message "batch rename stream helpers"
 ```
 
 Exports every program headless, then commits. It detects the lock and redirects
@@ -292,7 +331,9 @@ a readable log of what was learned.
 
 1. ~~Run `FindFormatParsers.java` on `WINDREAM.EXE`.~~ **Done** — see the table
    above.
-2. **Decompile `FUN_004175bc`.** It is the `.DSN` scene loader: 157 MB of packed
+2. ~~**Decompile `FUN_004175bc`.**~~ **Done** — it is the `.DSN` header reader,
+   and the body is now fully decoded. See
+   [scene-geometry.md](scene-geometry.md). Kept for context: 157 MB of packed
    level geometry and textures sits behind it, and it is the top open question in
    [research-log.md](research-log.md).
 3. Read outward from the magic check: the code immediately after it parses the

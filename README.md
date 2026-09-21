@@ -71,6 +71,14 @@ uv run dreams extract --only music,sprites --force
 | `metadata/` | JSON | decoded headers for the formats whose bodies stay packed |
 | `text/` | UTF-8 | `DREAMS.INI`, manifests, transcoded from CP1252 |
 
+Scene geometry has its own command, since only some scenes decode cleanly:
+
+```bash
+uv run dreams mesh                            # list all 95 with their state
+uv run dreams mesh E01GROTT --gltf out/       # export one, with textures
+uv run dreams mesh --preview out/             # three-view PNG of each
+```
+
 It writes a `manifest.json` recording every output with its provenance, and a
 `README.md` listing the caveats. Needs `ffmpeg` on PATH, plus `na_game_tool` for
 video (see [docs/hnm-video.md](docs/hnm-video.md)) — groups whose tool is missing
@@ -89,7 +97,8 @@ Output goes **outside the repo** by design: it is derived game content.
 | `dreams disc iso/cue` | **solved** |
 | `dreams pe` | **solved** — sections, imports, exports, toolchain |
 | `dreams bundle` | **solved** — `UBIK` table and members |
-| `dreams scene` / `anim` | partial — headers exact; bodies are packed |
+| `dreams mesh` | **partial** — geometry + glTF export; 4 of 95 scenes verified |
+| `dreams scene` / `anim` | **solved** — headers, record chain, LZ; payload meanings partly open |
 | `dreams model` | partial — `F3DC` header, materials, `PAK0` chunk bounds |
 
 Exploration helpers: `census`, `identify`, `stats`, `regions`, `tags`,
@@ -132,10 +141,16 @@ orientation summary. Headlines:
   the retail disc. It is a separate codebase from the game.
 - **All audio is plain PCM WAV** inside two custom banks: `FSB.DAT` (24 effects,
   16-bit) and `DIALOG.DRD` (178 voice clips, 8-bit). Music is CD audio.
-- **The level textures are decoded.** They live inside the 98 `.DSN` scene
-  files as fixed-size uncompressed records: a 256-entry **RGB565** palette plus
-  64 distinct 32x32 8-bit tiles per object. That is ~97% of the 157 MB. Only
-  record tags 1 and 2 (~40 KB per scene) are still packed.
+- **`.DSN` is fully decodable.** The body is a chain of tagged records; tags 1
+  and 2 use **Cryo's own LZ codec**, recovered from the binary and verified on
+  610/610 records across both discs. Nothing in a scene file is opaque any more.
+- **The level textures are decoded.** Each object owns one **256x256** 8-bit
+  surface, interleaved from 64 subsampled 32x32 planes, indexing a 256-entry
+  **RGB565** palette. There is no separate texture file anywhere on the discs.
+- **Scene geometry exports to glTF.** Vertices, faces, UVs and materials, for
+  **4 of 95 scenes** so far — the rest are blocked on one unresolved mapping
+  step. `E01GROTT` comes out as a closed cave chamber with a single doorway.
+  See [docs/scene-geometry.md](docs/scene-geometry.md).
 
 Claims in the docs are tagged **[verified]** (measured here), **[sourced]**
 (external, linked) or **[unverified]** (inference). Please keep that up.

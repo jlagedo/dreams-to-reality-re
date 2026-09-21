@@ -20,7 +20,8 @@ This file is the summary. The detail lives in [`docs/`](docs/README.md):
 | [docs/cryolib.md](docs/cryolib.md) | `CRYO.DLL` = CryoLib: 165 exports including a working **HNM6 decoder** |
 | [docs/game-content.md](docs/game-content.md) | 150 levels, 30 inventory items, save system, from `DREAMS.INI` |
 | [docs/level-map.md](docs/level-map.md) | **Complete project → scene map** — all 150 projects to 98 `.DSN` files |
-| [docs/dsn-loader.md](docs/dsn-loader.md) | **`.DSN` loader decompiled** — stream API, header reader, `__watcall` blocker |
+| [docs/dsn-loader.md](docs/dsn-loader.md) | **`.DSN` loader decompiled** — header reader, `__watcall` fixed |
+| [docs/scene-geometry.md](docs/scene-geometry.md) | **`.DSN` to glTF** — vertex pool, face records, stale pointers, verification |
 | [docs/assets.md](docs/assets.md) | **Models, textures, animation, sound** — where content lives and how it's packed |
 | [docs/file-formats.md](docs/file-formats.md) | Asset format catalogue with verified magic numbers |
 | [docs/hnm-video.md](docs/hnm-video.md) | HNM inventory — HNM4 vs HNM6/HNS6, resolutions, frame counts |
@@ -236,8 +237,8 @@ All proprietary Cryo formats. **[verified]** unless noted.
 | `.HNM` | `HNM4` / `HNS6` / `HNM6` | Video. 20 files are HNM4 256x256 texture animations; 75 are 640x304 cutscenes |
 | `.UBB` | `UBB2` / `UBS2` | **Video** — HNM generation 5, played by `PLAYUBB.EXE` |
 | `.3DC` / `.3DM` | `F3DC` | Geometry and (probably) textures — **same tag, different structures** |
-| `.DAN` | `DANF` | Animation |
-| `.DSN` | `DSNF` | Scene / level definition |
+| `.DAN` | `DANF` | Animation. Same container and LZ as `.DSN`; payload meanings open |
+| `.DSN` | `DSNF` | Scene / level definition. **Fully decodable**: tagged records, LZ, geometry + textures |
 | `.PAK` | `PAK0` | Container of `F3DC` chunks |
 | `.BF` | `UBIK` | Icon/bitmap bundle (`ICONE\ICONES.BF`) |
 | `.DRD` | `DRDF` | Dialog bundle — `DIALOG.DRD` is **24.6 MB** |
@@ -396,20 +397,27 @@ Recommended: Windows 95, 32 MB RAM, 1 GB disk, Direct3D/Glide GPU.
 
 ### Open questions
 
-1. **Unpack `.DSN` record tags 1 and 2** — all that is left of the body. The
-   chain is solved (`u8 tag, u32 size`, exact in 95/95) and tags 3-4 are the
-   **decoded level textures**, uncompressed, ~97% of the volume. Tags 1-2 are
-   roughly 40 KB per scene and still packed; tag 1 carries the object and
-   material names, so geometry is most likely there.
-2. **Decode the `.3DC` geometry payload.** The descriptor pairs are mapped; vertex
-   and index semantics are not, and the `CUBE.ASC` shortcut failed.
+1. **Map a vertex reference to its pool index when a scene has several
+   reference runs.** This is the one thing standing between 4 exported scenes
+   and all 95. References are stale pointers on 40-byte slots; when they form a
+   single run from 221 whose length matches the pool, rank is the index and the
+   decode is exact. 91 scenes split into several runs with unrelated bases —
+   `E10_PIEC` has nine. Ordering those runs by pointer value or by first use
+   both fail. See [docs/scene-geometry.md](docs/scene-geometry.md).
+2. **Finish the `.3DC` mesh decode.** Vertices, faces and UVs come out for
+   `BOULE` and `EPEE` — a verified sphere and sword — but `BOULE` still has 18
+   boundary edges, `CARRE` fails to decode as a box, and `ARC`/`GUN` use a
+   compact UV variant that is not solved.
 3. **Extract HNM audio.** Video decodes; the `SD` chunks do not yet.
 4. Does a merged install with `FULL.ID` present actually suppress disc swapping?
 5. Why is disc 2's `HD.ID` binary (`01 00 00 00`) when disc 1's is text (`toto`)?
 
 Resolved since the first pass: the HNM6 decoder problem, `CM6_*x16.dll`'s
 location, what `.UBB` files are, `DREAMS.DAT`'s structure, the `HNS6`/`HNM6`
-distinction, and the complete level map. See
+distinction, the complete level map, **Ghidra's missing `__watcall` convention**,
+the `.DSN`/`.DAN` **record container**, **Cryo's LZ codec** (610/610 records),
+the **level textures** (64 planes interleaved into one 256x256 RGB565 surface
+per object), and **scene geometry** as far as glTF export. See
 [docs/research-log.md](docs/research-log.md).
 
 ### References
