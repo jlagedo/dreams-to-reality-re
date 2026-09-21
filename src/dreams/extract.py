@@ -445,7 +445,12 @@ def extract_models(root: Path, src: Source, force: bool) -> Iterator[Item]:
 
 
 def extract_scenes(root: Path, src: Source, force: bool) -> Iterator[Item]:
-    """Export one ``.DSN`` level as glTF, with textures where they decode."""
+    """Export one ``.DSN`` level as glTF, with textures where they decode.
+
+    Routed by :func:`dreams.formats.mesh.read_scene`; the ``source`` in the
+    note says which of the three decoders was used, and only ``nodes`` and
+    ``tag1`` carry the object names a texture needs.
+    """
     from dreams import gltf
 
     out = root / LAYOUT["scenes"]
@@ -459,6 +464,9 @@ def extract_scenes(root: Path, src: Source, force: bool) -> Iterator[Item]:
         yield Item("scenes", src.rel, status="failed", note=f"{type(exc).__name__}: {exc}")
         return
     written = [str(target.relative_to(root)), str(target.with_suffix(".bin").relative_to(root))]
+    # One PNG per named object, so the count varies with the decode route -
+    # a scene that falls back to tag 2 has no names and writes none.
+    written += [str(t.relative_to(root)) for t in sorted(out.glob(f"{stem}_*.png"))]
     yield Item(
         "scenes", src.rel, written,
         note=(f"via {stats['source']}, {stats['objects']} objects, "
