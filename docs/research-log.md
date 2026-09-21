@@ -2,6 +2,62 @@
 
 ## Corrections
 
+### `.DAN` is not "just animation" — it is the model
+
+Catalogued for two passes as *"Animation. Same container and LZ as `.DSN`;
+payload meanings open."* Tag 1 is the **model**, built from the same
+scene-graph node as `.DSN` tag 1, and tag 2 is its texture page. 159/159
+models decode. The cost of the wrong label was that the character models sat
+unread while effort went into `.3DC`. See [models.md](models.md).
+
+### HNM audio is DPCM, not APC
+
+This file and `AGENTS.md` both said *"Audio is Cryo **APC**"*, sourced from the
+MultimediaWiki HNM6 page. For **this** release the `SD` payloads are
+**table-driven 16-bit DPCM** — ScummVM's `DPCMAudioTrack` path — with a
+per-file 256-entry signed delta table in the first `SD` chunk. APC is real, but
+it belongs to the `AA`/`BB` chunks this game does not use. Verified by decoding:
+zero-crossing rate 0.101, DC offset −1.3, **zero** clipped samples across
+592,410 frames.
+
+### `DIALOG.DRD` is a voice bank, not a text bundle
+
+24.6 MB was never plausible for dialogue text, and it is not: **72.6% is 178
+RIFF/WAVE clips** (mono, 11,025 Hz, 8-bit), 27.3% is type-4 binary, and only
+**0.084%** is the 589 lines of script.
+
+### `ICONES.BF` is a named-file container
+
+`UBIK` is not an image stream. It is a directory of named members with 267-byte
+table rows. Disc 2's copy is larger than disc 1's because it adds
+`TITRES.SPR` — a reason, where the merge table previously just said "keep the
+larger one".
+
+### The object behaviour record is not class-by-name
+
+An earlier reading held that the 20-byte per-object record attaches handlers by
+object-name family (`SOL`, `MUR`, `CIEL`, `HNM`). Counting refutes it: of 63
+distinct non-zero `(word 0, word 1)` pairs, **36 span more than one family**,
+and the 24 `HNM` surfaces split 6/18 across the two record forms. What *is*
+exact is the variant rule — the pointer form of `word 3` occurs only when words
+0 and 1 are both zero, in 2,059/2,059 records.
+
+### The player character is `XH_`, not `CH0`
+
+`CH0.DAN` is in every level manifest, which made it look like the player. Its
+internal names are `F14_M01`/`F14_M02` — a level-14 creature. The player is
+`XH_.DAN`, on animation breadth: 8 files and 170 frames against `MHEROI`'s 2
+and 80, the most frames of any model, and present in `MOT.DAN` beside
+`EMOTO1`/`EMOTO2`. **Read the internal names, not the manifest count.**
+
+### glTF Y was negated twice
+
+`gltf.write` has always negated Y. The model exporter negated it again before
+handing positions over, so every model came out upside down. The level path was
+never affected because it goes through `from_scene`. A bug in our own code that
+looked exactly like a format mystery.
+
+
 Claims made earlier in this project that later evidence overturned. Recorded so
 they are not re-asserted.
 

@@ -11,7 +11,7 @@ import struct
 import pytest
 
 from dreams import binio, paths, probe
-from dreams.formats import audio, disc, resource, scene
+from dreams.formats import audio, disc, node, resource, scene
 
 DISCS_PRESENT = paths.disc(1).exists()
 needs_discs = pytest.mark.skipif(not DISCS_PRESENT, reason="disc images not configured")
@@ -150,3 +150,85 @@ def test_dan_declared_size_is_exact():
     assert an.size_ok
     assert an.name == "YARAIN1"
     assert any(r.endswith(".3DA") for r in an.frame_refs)
+
+
+# ------------------------------------------------ scene-graph nodes (tag 1) ---
+
+
+def _synth_node(base: int = 1000, count: int = 3, parent: int = 0) -> bytes:
+    """A minimal node: header, then ``count`` 40-byte vertex records."""
+    buf = bytearray(node.ARRAY + node.STRIDE * count)
+    struct.pack_into("<I", buf, node.PARENT, parent)
+    struct.pack_into("<3i", buf, node.TRANSLATION, 10, 20, 30)
+    for r in range(3):  # identity in Q15
+        row = [0, 0, 0]
+        row[r] = 32768
+        struct.pack_into("<3i", buf, node.ROTATION + 12 * r, *row)
+    struct.pack_into("<II", buf, node.COUNT, count, base)
+    struct.pack_into("<I", buf, node.END, base + node.STRIDE * count)
+    struct.pack_into("<I", buf, node.STRIDE_AT, node.STRIDE)
+    for i in range(count):
+        at = node.ARRAY + node.POSITION + node.STRIDE * i
+        struct.pack_into("<3i", buf, at, i, i * 2, i * 3)
+    return bytes(buf)
+
+
+def test_node_found_by_signature():
+    nodes = node.find_nodes(_synth_node())
+    assert len(nodes) == 1
+    assert nodes[0].base == 1000
+    assert nodes[0].count == 3
+
+
+def test_node_address_is_base_minus_220():
+    """Child and sibling pointers hold ``base - 220``, not ``base``."""
+    nd = node.find_nodes(_synth_node(base=1000))[0]
+    assert nd.address == 780
+
+
+def test_node_rejects_wrong_end_field():
+    """The ``+0x9c == +0x94 + 40*count`` identity is what rejects false hits."""
+    buf = bytearray(_synth_node())
+    struct.pack_into("<I", buf, node.END, 999999)
+    assert node.find_nodes(bytes(buf)) == []
+
+
+def test_world_transform_applies_parent_translation():
+    """A child's ``+0x30`` is relative; the parent's must compose onto it."""
+    parent = _synth_node(base=1000, count=1)
+    child = _synth_node(base=2000, count=1, parent=1000 - node.NODE_BIAS)
+    nodes = node.find_nodes(parent + child)
+    world = node.world_transforms(nodes)
+    assert world[1000][1] == [10, 20, 30]
+    assert world[2000][1] == [20, 40, 60]
+
+
+def test_address_delta_round_trips():
+    buf = _synth_node(base=1000)
+    nodes = node.find_nodes(buf)
+    delta = node.address_delta(nodes)
+    assert nodes[0].base + delta == nodes[0].offset + node.ARRAY
+
+
+@needs_discs
+def test_models_decode_with_bridging_faces():
+    """Faces may span two nodes; dropping them leaves models in pieces."""
+    hero = paths.disc(1) / "DATA" / "3DC" / "XH_.DAN"
+    if not hero.exists():
+        pytest.skip("XH_.DAN not present")
+    m = node.read_model(hero)
+    assert len(m.nodes) == 27
+    assert m.bridge_count > 0
+    assert len(m.faces) > len(m.nodes)
+
+
+@needs_discs
+def test_model_texture_page_is_fixed_size():
+    hero = paths.disc(1) / "DATA" / "3DC" / "XH_.DAN"
+    if not hero.exists():
+        pytest.skip("XH_.DAN not present")
+    bank = node.texture_page(hero)
+    assert bank is not None
+    palette, page = bank
+    assert len(palette) == 256
+    assert len(page) == node.TEX_PAGE

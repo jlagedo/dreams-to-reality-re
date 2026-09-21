@@ -215,3 +215,42 @@ There is **no missing transform** — objects are already in world space.
 negated because the engine puts the floor at 0 and the ceiling at large
 negative Y, geometry unindexed because UVs are per corner. Textures are the
 interleaved 256x256 surfaces, one PNG per object.
+
+## The scene-graph node — and why it solves models but not levels
+
+The struct behind `.DSN` tag 1 is the engine's **scene-graph node**, documented
+in full in [models.md](models.md) and implemented in
+[`src/dreams/formats/node.py`](../src/dreams/formats/node.py). It is found by
+signature — `u32 40` at `+0xd4` plus `+0x9c == +0x94 + 40*count` — and holds a
+parent/child/sibling triple at `+0x24`/`+0x28`/`+0x2c`, a local transform at
+`+0x30`/`+0x3c`, and its own vertex array 240 bytes later. **2,248 nodes across
+95 scenes** satisfy the signature. **[verified]**
+
+That decode gives `.DAN` models completely: 159/159, 1,886 parts, 41,614
+triangles.
+
+**It does not give levels.** Composing world transforms through the parent
+links and comparing against tag 2's world-space pool reaches ≥99% in only
+**8 of 95 scenes**, median **11.4%**. The reason is structural: a level's graph
+contains **group nodes that carry a transform but no geometry**. `find_nodes`
+cannot see them — they have no vertex array, so no `+0xd4 == 40` — and a
+geometry node whose parent is a group node therefore looks like a root and
+loses the rest of its transform chain. The symptom is visible directly: **206
+of 2,248** nodes have a zero local translation yet demonstrably need a real
+world position.
+
+Two supporting measurements, both consistent with that reading:
+
+- Assuming a flat tree parented to node 0 predicts the correct translation for
+  **1,741 of 2,248** nodes (77.4%) — right for the majority, wrong wherever a
+  group node intervenes.
+- No word of any geometry node holds another geometry node's address. Searched
+  at every offset `0..0xf4` and every delta in `-32..+64` across 2,239 nodes;
+  zero hits. The links point at allocations the directory never lists.
+
+So the level exporter keeps its existing split — tag 1 where the references
+verify against tag 2's triangles, tag 2 otherwise — and finding the group nodes
+is the remaining work. Ruled out already, so they are not retried: ordering
+arenas by pointer value or first use, one index offset per arena,
+directory-order concatenation, `(ref-base)/20`, CSP over faces, connected
+components as objects, and a pivot at the bounding-sphere centre.

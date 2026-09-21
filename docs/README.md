@@ -16,6 +16,7 @@ These docs hold the detail.
 | [level-map.md](level-map.md) | **Complete project → scene map** — all 150 projects to 98 `.DSN` files |
 | [dsn-loader.md](dsn-loader.md) | **`.DSN` loader decompiled** — header reader, and how `__watcall` was fixed |
 | [scene-geometry.md](scene-geometry.md) | **`.DSN` to glTF** — vertex pool, face records, the stale-pointer problem, how to check a decode |
+| [models.md](models.md) | **`.DAN` character and prop models** — the scene-graph node, skeletons, bridging faces, texture pages |
 | [assets.md](assets.md) | **Models, textures, animation, sound** — where content lives and how it's packed |
 | [file-formats.md](file-formats.md) | Asset format catalogue with verified magic numbers |
 | [hnm-video.md](hnm-video.md) | HNM inventory **and how to decode it** — all 113 videos decode |

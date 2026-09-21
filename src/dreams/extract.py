@@ -53,6 +53,8 @@ LAYOUT = {
     "icons": "images/icons",
     "tiles": "images/3dm-blocks",
     "leveltex": "images/level-textures",
+    "models": "models",
+    "scenes": "scenes",
     "gallery": "images/gallery",
     "renders": "images/renders",
     "metadata": "metadata",
@@ -373,6 +375,58 @@ def extract_icons(root: Path, src: Source, force: bool) -> Iterator[Item]:
     )
 
 
+def extract_models(root: Path, src: Source, force: bool) -> Iterator[Item]:
+    """Export one ``.DAN`` model as glTF plus its 256x256 texture page.
+
+    ``.DAN`` tag 1 carries the same scene-graph node as ``.DSN``, so the level
+    decode solved these too - see :mod:`dreams.formats.node`.
+    """
+    from dreams import gltf
+
+    out = root / LAYOUT["models"]
+    stem = Path(src.path).stem.lower().rstrip("_") or "model"
+    if not force and (out / f"{stem}.gltf").exists():
+        yield Item("models", src.rel, [f"{LAYOUT['models']}/{stem}.gltf"], "skipped", "exists")
+        return
+    try:
+        target, stats = gltf.from_model(src.path, out)
+    except Exception as exc:  # noqa: BLE001 - one bad file must not stop the run
+        yield Item("models", src.rel, status="failed", note=f"{type(exc).__name__}: {exc}")
+        return
+    written = [str(target.relative_to(root))]
+    tex = target.with_name(f"{stem}_tex.png")
+    if tex.exists():
+        written.append(str(tex.relative_to(root)))
+    written.append(str(target.with_suffix(".bin").relative_to(root)))
+    yield Item(
+        "models", src.rel, written,
+        note=(f"{stats['drawn']}/{stats['parts']} parts, {stats['faces']} faces, "
+              f"{stats['bridges']} bridging, {stats['proxies']} proxies"),
+    )
+
+
+def extract_scenes(root: Path, src: Source, force: bool) -> Iterator[Item]:
+    """Export one ``.DSN`` level as glTF, with textures where they decode."""
+    from dreams import gltf
+
+    out = root / LAYOUT["scenes"]
+    stem = Path(src.path).stem.lower()
+    if not force and (out / f"{stem}.gltf").exists():
+        yield Item("scenes", src.rel, [f"{LAYOUT['scenes']}/{stem}.gltf"], "skipped", "exists")
+        return
+    try:
+        target, stats = gltf.from_scene(src.path, out)
+    except Exception as exc:  # noqa: BLE001
+        yield Item("scenes", src.rel, status="failed", note=f"{type(exc).__name__}: {exc}")
+        return
+    written = [str(target.relative_to(root)), str(target.with_suffix(".bin").relative_to(root))]
+    yield Item(
+        "scenes", src.rel, written,
+        note=(f"via {stats['source']}, {stats['objects']} objects, "
+              f"{stats['faces']} faces, {stats['textures']} textures"),
+    )
+
+
 def extract_leveltex(root: Path, src: Source, force: bool) -> Iterator[Item]:
     """Write every object's texture bank from one ``.DSN`` scene.
 
@@ -619,6 +673,8 @@ DESCRIPTIONS = {
     "icons": "ICONES.BF members, decoded where the format is known",
     "tiles": ".3DM blocks rendered as 128x128 RGB555 -- NOT a texture, see note",
     "leveltex": "Level textures from .DSN scenes: one 256x256 per object",
+    "models": "Character and prop models from .DAN as glTF, with texture pages",
+    "scenes": "Level geometry from .DSN as glTF, with textures",
     "gallery": "CRYOPLUS bonus gallery, 16-bit TGA",
     "renders": "Developer reference renders, copied verbatim",
     "metadata": "Decoded headers for formats whose bodies stay packed",
@@ -668,6 +724,10 @@ def plan(groups: list[str]) -> dict[str, list[Source]]:
         elif g == "tiles":
             out[g] = merge_discs("*.3DM")
         elif g == "leveltex":
+            out[g] = merge_discs("*.DSN")
+        elif g == "models":
+            out[g] = merge_discs("*.DAN")
+        elif g == "scenes":
             out[g] = merge_discs("*.DSN")
         elif g == "gallery":
             out[g] = [s for s in merge_discs("*.TGA") if "CRYOPLUS" in s.rel]
@@ -729,6 +789,10 @@ def run(
                     items += list(extract_tiles(root, s, force))
                 elif g == "leveltex":
                     items += list(extract_leveltex(root, s, force))
+                elif g == "models":
+                    items += list(extract_models(root, s, force))
+                elif g == "scenes":
+                    items += list(extract_scenes(root, s, force))
                 elif g == "gallery":
                     items += list(extract_gallery(root, s, ffmpeg, force))
                 elif g == "renders":

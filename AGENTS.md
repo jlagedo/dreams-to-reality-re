@@ -22,6 +22,7 @@ This file is the summary. The detail lives in [`docs/`](docs/README.md):
 | [docs/level-map.md](docs/level-map.md) | **Complete project → scene map** — all 150 projects to 98 `.DSN` files |
 | [docs/dsn-loader.md](docs/dsn-loader.md) | **`.DSN` loader decompiled** — header reader, `__watcall` fixed |
 | [docs/scene-geometry.md](docs/scene-geometry.md) | **`.DSN` to glTF** — vertex pool, face records, stale pointers, verification |
+| [docs/models.md](docs/models.md) | **`.DAN` character and prop models** — the scene-graph node, skeletons, textures |
 | [docs/assets.md](docs/assets.md) | **Models, textures, animation, sound** — where content lives and how it's packed |
 | [docs/file-formats.md](docs/file-formats.md) | Asset format catalogue with verified magic numbers |
 | [docs/hnm-video.md](docs/hnm-video.md) | HNM inventory — HNM4 vs HNM6/HNS6, resolutions, frame counts |
@@ -237,11 +238,11 @@ All proprietary Cryo formats. **[verified]** unless noted.
 | `.HNM` | `HNM4` / `HNS6` / `HNM6` | Video. 20 files are HNM4 256x256 texture animations; 75 are 640x304 cutscenes |
 | `.UBB` | `UBB2` / `UBS2` | **Video** — HNM generation 5, played by `PLAYUBB.EXE` |
 | `.3DC` / `.3DM` | `F3DC` | Geometry and (probably) textures — **same tag, different structures** |
-| `.DAN` | `DANF` | Animation. Same container and LZ as `.DSN`; payload meanings open |
+| `.DAN` | `DANF` | **Character and prop models.** Tag 1 is the model, same node as `.DSN`; tag 2 a 256x256 texture page; tag 3 animation frames, undecoded |
 | `.DSN` | `DSNF` | Scene / level definition. **Fully decodable**: tagged records, LZ, geometry + textures |
 | `.PAK` | `PAK0` | Container of `F3DC` chunks |
-| `.BF` | `UBIK` | Icon/bitmap bundle (`ICONE\ICONES.BF`) |
-| `.DRD` | `DRDF` | Dialog bundle — `DIALOG.DRD` is **24.6 MB** |
+| `.BF` | `UBIK` | **Named-file container** — 267-byte table rows; disc 2 holds 6 members, disc 1 five |
+| `.DRD` | `DRDF` | **Voice bank**, not text — 178 WAVE clips (17.8 MB) plus 589 lines of timed English dialogue |
 | `.DIG` | `AIL3DIG` | **Miles sound-card drivers, not game audio.** Audio bank is `SOUND\FSB.DAT` |
 | `.SPR` / `.ALP` | none | Sprite bundles — 8-bit indexed + inline palette; alpha maps |
 | `.ASC` / `.BAK` | text | **3D Studio developer leftovers** shipped on the retail disc |
@@ -270,16 +271,25 @@ sidecar files. **[sourced]**
   `HNMPI_Init` / `HNMPI_DecodeFrame` / `HNMPI_Cleanup`, importing only
   `KERNEL32`. 36 KB of `.text` makes this a cleaner RE target than `CRYO.DLL`.
 
-Video is solved; **audio extraction is not** — the `SD` chunks are located but not
-yet decoded. Every sixth-generation header credits `Pascal URRO  R&D`.
+**Video and audio are both solved.** The `SD` chunks are **table-driven 16-bit
+DPCM**, not APC: a per-file 256-entry signed delta table in the first `SD`
+payload, then raw code bytes interleaved L/R with the predictor persisting
+across chunks. 73 of 94 `.HNM` files carry audio, 20,576 `SD` chunks in all.
+The 20 `HNM4` texture animations correctly have none. Sample rate 22,050 Hz is
+inferred, not read from the container. **[unverified]** Every sixth-generation
+header credits `Pascal URRO  R&D`.
 
 See [docs/hnm-video.md](docs/hnm-video.md).
 
 ### Level manifests
 
 `LISTL0.TXT` ... `LISTL4.TXT` (identical on both discs) list the assets per level,
-e.g. `DATA\3DC\H03PAQUE.DSN`, `DATA\ANIM\H03AN001.HNM`. `DREAMS.DAT` is a binary
-offset table (little-endian u32 offsets starting at 0). **[verified]**
+e.g. `DATA\3DC\H03PAQUE.DSN`, `DATA\ANIM\H03AN001.HNM`. **`LISTL0.TXT` is the
+always-loaded list** — the player model `XH_.dan` is in it. `DREAMS.DAT` is a
+**self-indexing project bank**: 151 `u32` offsets relative to `0x400`, then
+**150 variable-length project records** holding `LINK0`, `FLINKn`, `DLINKn`,
+`OBJETn` — one per level, matching the 150 levels in `DREAMS.INI`.
+**[verified]**
 
 ---
 
@@ -397,27 +407,33 @@ Recommended: Windows 95, 32 MB RAM, 1 GB disk, Direct3D/Glide GPU.
 
 ### Open questions
 
-1. **Map a vertex reference to its pool index when a scene has several
-   reference runs.** This is the one thing standing between 4 exported scenes
-   and all 95. References are stale pointers on 40-byte slots; when they form a
-   single run from 221 whose length matches the pool, rank is the index and the
-   decode is exact. 91 scenes split into several runs with unrelated bases —
-   `E10_PIEC` has nine. Ordering those runs by pointer value or by first use
-   both fail. See [docs/scene-geometry.md](docs/scene-geometry.md).
-2. **Finish the `.3DC` mesh decode.** Vertices, faces and UVs come out for
+1. **Map a model's UVs onto its texture page.** The references resolve — 100%
+   of 26,827 corners land inside the record, 85 distinct `u`, 78 distinct `v`,
+   at `ref - 5 + delta` — but rasterising gives flat colour blocks and no
+   value exceeds 128 of a 256-wide atlas. See [docs/models.md](docs/models.md).
+2. **Decode `.DAN` animation.** Tag 3 is one record per animation with a
+   per-part offset table at `+0x1c`; the payload at those offsets is unread.
+3. **Finish the `.3DC` mesh decode.** Vertices, faces and UVs come out for
    `BOULE` and `EPEE` — a verified sphere and sword — but `BOULE` still has 18
    boundary edges, `CARRE` fails to decode as a box, and `ARC`/`GUN` use a
    compact UV variant that is not solved.
-3. **Extract HNM audio.** Video decodes; the `SD` chunks do not yet.
-4. Does a merged install with `FULL.ID` present actually suppress disc swapping?
-5. Why is disc 2's `HD.ID` binary (`01 00 00 00`) when disc 1's is text (`toto`)?
+4. **Name the object behaviour classes.** Every `.DSN` object carries a
+   20-byte record whose first word is a shared handler pointer with only five
+   distinct values; 505 of 2,059 objects carry one. The 63 distinct
+   `(word 0, word 1)` pairs do **not** align with object-name families, so the
+   classes stay unnamed.
+5. Does a merged install with `FULL.ID` present actually suppress disc swapping?
+6. Why is disc 2's `HD.ID` binary (`01 00 00 00`) when disc 1's is text (`toto`)?
 
 Resolved since the first pass: the HNM6 decoder problem, `CM6_*x16.dll`'s
 location, what `.UBB` files are, `DREAMS.DAT`'s structure, the `HNS6`/`HNM6`
 distinction, the complete level map, **Ghidra's missing `__watcall` convention**,
 the `.DSN`/`.DAN` **record container**, **Cryo's LZ codec** (610/610 records),
 the **level textures** (64 planes interleaved into one 256x256 RGB565 surface
-per object), and **scene geometry** as far as glTF export. See
+per object), **scene geometry** as far as glTF export, the **scene-graph node**
+shared by scenes and models, **`.DAN` character models** (159/159, 1,886 parts,
+41,614 triangles), **HNM audio**, `DIALOG.DRD` (178 voice clips and 589 lines
+of script), `ICONES.BF`, and `DREAMS.DAT`. See
 [docs/research-log.md](docs/research-log.md).
 
 ### References

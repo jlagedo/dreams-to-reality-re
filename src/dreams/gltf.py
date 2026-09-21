@@ -207,3 +207,55 @@ def from_scene(path, out_dir: str | Path, textures: bool = True) -> tuple[Path, 
         "textures": len([1 for _, t in doc.materials if t]),
         "clean": m.mapping_is_clean,
     }
+
+
+def from_model(path, out_dir: str | Path, textures: bool = True) -> tuple[Path, dict]:
+    """Export one ``.DAN`` character or prop model as glTF. ``(path, stats)``.
+
+    Writes the model's 256x256 texture page alongside, when it has one.
+
+    **UVs are exported but not trusted.** The references resolve (100% land
+    inside the record across 26,827 corners, 85 distinct u and 78 distinct v),
+    yet rasterising the result gives flat colour blocks rather than the detail
+    visible on the page, and no value exceeds 128 of a 256-wide atlas. The
+    scale in :data:`dreams.formats.node.UV_SCALE` is therefore provisional.
+    """
+    from dreams import png
+    from dreams.formats import node as _node
+
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    stem = Path(path).stem.lower().rstrip("_") or "model"
+
+    model = _node.read_model(path)
+    tex = None
+    if textures:
+        bank = _node.texture_page(path)
+        if bank is not None:
+            palette, page = bank
+            img = out / f"{stem}_tex.png"
+            if not img.exists():
+                png.write(
+                    img,
+                    _node.TEX_SIZE,
+                    _node.TEX_SIZE,
+                    b"".join(bytes(palette[b]) for b in page),
+                )
+            tex = img.name
+
+    positions, uvs = [], []
+    for face in model.faces:
+        positions += [tuple(float(c) for c in corner) for corner in face.corners]
+        uvs += list(face.uvs)
+
+    doc = Scene(name=stem, materials=[(stem, tex)])
+    doc.primitives.append(Primitive(stem, positions, uvs, 0))
+    target = write(out / f"{stem}.gltf", doc)
+    return target, {
+        "parts": len(model.nodes),
+        "drawn": len(model.nodes) - len(model.empty),
+        "proxies": len(model.empty),
+        "faces": len(model.faces),
+        "bridges": model.bridge_count,
+        "texture": bool(tex),
+    }
