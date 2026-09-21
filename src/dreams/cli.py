@@ -11,6 +11,7 @@ Run ``dreams --help`` or ``dreams <group> --help``.
 
 from __future__ import annotations
 
+import struct
 from pathlib import Path
 from typing import Annotated
 
@@ -499,3 +500,51 @@ def extract(
 
 if __name__ == "__main__":
     app()
+
+
+@app.command("mesh")
+def mesh_cmd(
+    name: Annotated[
+        str | None,
+        typer.Argument(help="Scene stem, e.g. E01GROTT. Omit to list every scene."),
+    ] = None,
+    out: Annotated[
+        Path | None, typer.Option("--gltf", help="Write glTF here")
+    ] = None,
+    force: Annotated[bool, typer.Option("--force", help="Export unclean scenes too")] = False,
+) -> None:
+    """Decode scene geometry from `.DSN` tags 1 and 2, and export glTF.
+
+    Only 4 of 95 scenes currently decode with a provably correct vertex mapping;
+    the rest split their references across several arrays whose bases are not
+    yet resolved. Those are listed as `unclean` and are skipped unless --force.
+    """
+    from dreams import gltf
+    from dreams.formats import mesh as meshmod
+
+    sources = list(extractor.merge_discs("*.DSN"))
+    if name:
+        sources = [s for s in sources if s.path.stem.upper() == name.upper()]
+        if not sources:
+            console.print(f"[red]no scene named {name}")
+            raise typer.Exit(1)
+
+    table = Table("scene", "objects", "verts", "faces", "mapping")
+    exported = 0
+    for s in sources:
+        try:
+            m = meshmod.read_mesh(s.path)
+        except (ValueError, struct.error) as exc:
+            table.add_row(s.path.stem, "-", "-", "-", f"[red]{exc}")
+            continue
+        state = "[green]clean" if m.mapping_is_clean else "[yellow]unclean"
+        table.add_row(
+            s.path.stem, str(len(m.objects)), str(len(m.vertices)),
+            str(m.face_count), state,
+        )
+        if out and (m.mapping_is_clean or force):
+            gltf.from_scene(s.path, out)
+            exported += 1
+    console.print(table)
+    if out:
+        console.print(f"\nexported [green]{exported}[/] scene(s) to {out}")

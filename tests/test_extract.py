@@ -6,6 +6,7 @@ configured paths are missing, so CI stays green without shipping assets.
 
 from __future__ import annotations
 
+import json
 import struct
 import zlib
 
@@ -306,3 +307,59 @@ def test_tag1_carries_the_object_names():
 def test_lz_rejects_a_truncated_stream():
     with pytest.raises(lz.LZError):
         lz.decompress(b"\xff\xff\xff\xff")  # all-literal control, no data
+
+
+def test_gltf_writer_emits_a_valid_document(tmp_path):
+    from dreams import gltf
+    doc = gltf.Scene(name="t", materials=[("m", None)])
+    doc.primitives.append(
+        gltf.Primitive("p", [(0, 0, 0), (1, 0, 0), (0, 1, 0)],
+                       [(0, 0), (1, 0), (0, 1)], 0)
+    )
+    out = gltf.write(tmp_path / "t.gltf", doc, scale=1.0)
+    g = json.loads(out.read_text())
+    buf = (tmp_path / g["buffers"][0]["uri"]).read_bytes()
+    assert g["asset"]["version"] == "2.0"
+    assert len(buf) == g["buffers"][0]["byteLength"]
+    for v in g["bufferViews"]:
+        assert v["byteOffset"] + v["byteLength"] <= len(buf)
+    pos = g["accessors"][0]
+    assert pos["type"] == "VEC3" and pos["count"] == 3
+    assert pos["min"] == [0.0, -1.0, 0.0] and pos["max"] == [1.0, 0.0, 0.0]  # Y negated
+
+
+@needs_discs
+def test_every_scene_decodes_to_a_mesh():
+    from dreams.formats import mesh
+    for s in extract.merge_discs("*.DSN"):
+        m = mesh.read_mesh(s.path)
+        assert m.vertices and m.objects, s.rel
+        for o in m.objects:
+            assert all(0 <= i < len(m.vertices) for f in o.faces for i in f), s.rel
+            assert len(o.uvs) == 3 * len(o.faces), s.rel
+
+
+@needs_discs
+def test_only_four_scenes_have_a_clean_vertex_mapping():
+    """References split across several arrays elsewhere - see Mesh.mapping_is_clean."""
+    from dreams.formats import mesh
+    clean = {s.path.stem for s in extract.merge_discs("*.DSN")
+             if mesh.read_mesh(s.path).mapping_is_clean}
+    assert clean == {"E01GROTT", "L03_REQI", "L16_BOMB", "O01EAU01"}
+
+
+@needs_discs
+def test_clean_scene_floors_are_planar():
+    """The decisive geometric check: a SOL object must be flat in one axis."""
+    from dreams.formats import mesh
+    s = next(x for x in extract.merge_discs("*.DSN") if x.path.stem == "E01GROTT")
+    m = mesh.read_mesh(s.path)
+    assert (len(m.vertices), m.face_count, len(m.objects)) == (193, 338, 26)
+    flat = 0
+    for o in m.objects:
+        if "SOL" not in o.name.upper():
+            continue
+        pts = [m.vertices[i] for f in o.faces for i in f]
+        if any(len({q[a] for q in pts}) == 1 for a in range(3)):
+            flat += 1
+    assert flat == 8, flat   # 8 of 9; E01_SOL5 is a sculpted floor, not a tile
