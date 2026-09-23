@@ -1,0 +1,21 @@
+{
+  "name": "dreams-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^7.53.0",
+    "@babylonjs/inspector": "^7.53.0",
+    "@babylonjs/loaders": "^7.53.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.0"
+  }
+}

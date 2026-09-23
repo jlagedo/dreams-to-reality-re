@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dreams to Reality — 1997 Babylon Tech Demo</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="renderCanvas"></canvas>
+
+    <div id="portalBanner" class="portal-banner hidden">
+      <span id="portalBannerText">Entering Portal...</span>
+    </div>
+
+    <div id="hud">
+      <header class="hud-header">
+        <h1>Dreams to Reality</h1>
+        <span class="badge">1997 • Babylon.js</span>
+      </header>
+
+      <div class="hud-controls">
+        <button id="playDuncanBtn" class="primary-action-btn" title="Spawn Duncan and play in third-person">
+          🎮 Play as Duncan (3rd Person)
+        </button>
+
+        <div class="control-row">
+          <label for="categorySelect">Type:</label>
+          <select id="categorySelect">
+            <option value="scenes" selected>Scenes (Levels)</option>
+            <option value="models">Models (Characters/Props)</option>
+          </select>
+        </div>
+
+        <div class="control-row">
+          <label for="itemSelect">Asset:</label>
+          <select id="itemSelect">
+            <option value="">Loading asset list...</option>
+          </select>
+        </div>
+
+        <div class="control-row button-row">
+          <button id="camModeBtn" title="Switch camera mode">Cam: Orbit</button>
+          <button id="musicBtn" title="Toggle 1997 CD Audio Soundtrack">🎵 Music: Off</button>
+          <button id="retroFilterBtn" title="Toggle Texture Filtering (Pixelated vs Smooth)">Filter: Nearest</button>
+          <button id="inspectorBtn" title="Toggle Babylon Inspector (Shortcut: I)">Inspector (I)</button>
+        </div>
+
+        <button id="resetCamBtn" class="secondary-btn" title="Reset View / Respawn Duncan">Reset View / Respawn</button>
+      </div>
+
+      <div id="stats" class="hud-stats">
+        <span id="fpsStat">FPS: --</span>
+        <span id="meshCountStat">Meshes: --</span>
+        <span id="statusMessage">Initializing 3D engine...</span>
+      </div>
+
+      <div id="controlsHelp" class="hud-help">
+        <p><strong>Duncan Mode:</strong> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move • <kbd>Shift</kbd> Sprint • <kbd>Space</kbd> Jump • Mouse Drag Orbit</p>
+        <p class="highlight-hint">Walk into the stone mouth for the <strong>LINK0</strong> portal transition!</p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

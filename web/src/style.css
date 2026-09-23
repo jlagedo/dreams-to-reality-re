@@ -1,0 +1,224 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #0b0f14;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #e0e6ed;
+}
+
+#renderCanvas {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  display: block;
+}
+
+/* Portal Transition Banner */
+.portal-banner {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.95), rgba(59, 130, 246, 0.95));
+  color: #ffffff;
+  padding: 10px 24px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  box-shadow: 0 0 28px rgba(6, 182, 212, 0.7);
+  z-index: 100;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.portal-banner.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-20px);
+}
+
+#hud {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: rgba(14, 20, 27, 0.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(80, 110, 140, 0.35);
+  border-radius: 8px;
+  padding: 14px 16px;
+  width: 330px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+  user-select: none;
+}
+
+.hud-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hud-header h1 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #72c6fc;
+}
+
+.badge {
+  font-size: 10px;
+  background: rgba(114, 198, 252, 0.15);
+  color: #72c6fc;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  border: 1px solid rgba(114, 198, 252, 0.3);
+}
+
+.hud-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.primary-action-btn {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
+  border: 1px solid #38bdf8;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+  transition: all 0.15s ease;
+}
+
+.primary-action-btn:hover {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.5);
+  transform: translateY(-1px);
+}
+
+.primary-action-btn.active {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: #34d399;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-row label {
+  font-size: 12px;
+  color: #9cb1c9;
+  width: 44px;
+  flex-shrink: 0;
+}
+
+.control-row select {
+  flex-grow: 1;
+  background: #19222c;
+  color: #f0f4f8;
+  border: 1px solid #334455;
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+.control-row select:focus {
+  border-color: #72c6fc;
+}
+
+.button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+button {
+  background: #202b37;
+  color: #d1dde8;
+  border: 1px solid #334455;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+button:hover {
+  background: #2a3a4b;
+  border-color: #72c6fc;
+  color: #ffffff;
+}
+
+button:active {
+  background: #17222c;
+}
+
+.secondary-btn {
+  width: 100%;
+  margin-top: 4px;
+  background: #1c2633;
+}
+
+.hud-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  color: #8da4bc;
+}
+
+#statusMessage {
+  color: #ffb86c;
+  font-style: italic;
+}
+
+.hud-help {
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  font-size: 10px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.hud-help kbd {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: inherit;
+  font-size: 9px;
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.highlight-hint {
+  color: #facc15;
+  margin-top: 4px;
+  font-size: 10px;
+}
