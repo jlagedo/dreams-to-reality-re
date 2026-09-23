@@ -205,6 +205,8 @@ class Face:
     uvs: tuple[tuple[float, float], ...]
     bridge: bool = False  #: spans more than one node
     group: str = ""  #: the owning block's name, which selects the texture page
+    node_indices: tuple[int, ...] = field(default_factory=tuple)
+    local_coords: tuple[tuple[int, int, int], ...] = field(default_factory=tuple)
 
 
 @dataclass
@@ -259,6 +261,9 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
                 return lo
         return None
 
+    by_base = {nd.base: nd for nd in nodes}
+    by_base_idx = {nd.base: i for i, nd in enumerate(nodes)}
+
     faces: list[Face] = []
     used: set[int] = set()
     seen: set[int] = set()
@@ -282,6 +287,8 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
             row = struct.unpack_from("<15I", buf, at) if at + 60 <= len(buf) else None
             refs = row[1:8:3] if row else struct.unpack_from("<8I", buf, at)[1:8:3]
             corners, owners, ok = [], set(), True
+            corner_nodes = []
+            corner_locals = []
             for ref in refs:
                 b = owner(ref)
                 if b is None:
@@ -293,6 +300,11 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
                     break
                 owners.add(b)
                 corners.append(verts[b][slot])
+                nd = by_base[b]
+                corner_nodes.append(by_base_idx[b])
+                v_at = nd.offset + ARRAY + POSITION + STRIDE * slot
+                local_pos = struct.unpack_from("<3i", buf, v_at)
+                corner_locals.append(local_pos)
             if not ok:
                 continue
             uvs = []
@@ -307,7 +319,16 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
                     uvs.append((0.0, 0.0))
             seen.add(at)
             used |= owners
-            faces.append(Face(tuple(corners), tuple(uvs), bridge=len(owners) > 1, group=group))
+            faces.append(
+                Face(
+                    tuple(corners),
+                    tuple(uvs),
+                    bridge=len(owners) > 1,
+                    group=group,
+                    node_indices=tuple(corner_nodes),
+                    local_coords=tuple(corner_locals),
+                )
+            )
     return faces, used
 
 

@@ -3,11 +3,14 @@ import {
   Vector3,
   Ray,
   AbstractMesh,
+  Mesh,
+  VertexBuffer,
   TransformNode,
   ArcRotateCamera,
   SceneLoader,
   AssetContainer,
 } from '@babylonjs/core';
+import { quatSlerp, AnimationClipData } from './viewer';
 
 export interface PlayerInput {
   forward: boolean;
@@ -16,6 +19,123 @@ export interface PlayerInput {
   right: boolean;
   sprint: boolean;
   jump: boolean;
+}
+
+export interface ModelSkinNode {
+  index: number;
+  parent: number;
+  translation: [number, number, number];
+  rotation: number[][];
+}
+
+export interface ModelSkinData {
+  model: string;
+  nodes: ModelSkinNode[];
+  primitives: Record<string, [number, number, number, number][]>; // [nodeIndex, lx, ly, lz][]
+}
+
+function quatToMatrix(q: [number, number, number, number]): number[][] {
+  const [x, y, z, w] = q;
+  return [
+    [
+      Math.round((1.0 - 2.0 * (y * y + z * z)) * 32768),
+      Math.round(2.0 * (x * y - z * w) * 32768),
+      Math.round(2.0 * (x * z + y * w) * 32768),
+    ],
+    [
+      Math.round(2.0 * (x * y + z * w) * 32768),
+      Math.round((1.0 - 2.0 * (x * x + z * z)) * 32768),
+      Math.round(2.0 * (y * z - x * w) * 32768),
+    ],
+    [
+      Math.round(2.0 * (x * z - y * w) * 32768),
+      Math.round(2.0 * (y * z + x * w) * 32768),
+      Math.round((1.0 - 2.0 * (x * x + y * y)) * 32768),
+    ],
+  ];
+}
+
+function matMul(a: number[][], b: number[][]): number[][] {
+  const out: number[][] = [
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+  ];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      let sum = 0;
+      for (let k = 0; k < 3; k++) {
+        sum += a[r][k] * b[k][c];
+      }
+      out[r][c] = sum >> 15;
+    }
+  }
+  return out;
+}
+
+function matApply(m: number[][], v: [number, number, number]): [number, number, number] {
+  return [
+    (m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2]) >> 15,
+    (m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2]) >> 15,
+    (m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2]) >> 15,
+  ];
+}
+
+function sampleClipPose(
+  clip: AnimationClipData,
+  frame: number
+): Record<number, [number, number, number, number]> {
+  const pose: Record<number, [number, number, number, number]> = {};
+  for (const trk of clip.tracks) {
+    if (!trk.keyframes || trk.keyframes.length === 0) {
+      pose[trk.nodeIndex] = trk.restRotation;
+      continue;
+    }
+    if (trk.keyframes.length === 1 || frame <= trk.keyframes[0].time) {
+      pose[trk.nodeIndex] = trk.keyframes[0].rotation;
+      continue;
+    }
+    if (frame >= trk.keyframes[trk.keyframes.length - 1].time) {
+      pose[trk.nodeIndex] = trk.keyframes[trk.keyframes.length - 1].rotation;
+      continue;
+    }
+    for (let k = 0; k < trk.keyframes.length - 1; k++) {
+      const k0 = trk.keyframes[k];
+      const k1 = trk.keyframes[k + 1];
+      if (k0.time <= frame && frame <= k1.time) {
+        const dt = k1.time - k0.time;
+        const alpha = dt > 0 ? (frame - k0.time) / dt : 0;
+        pose[trk.nodeIndex] = quatSlerp(k0.rotation, k1.rotation, alpha);
+        break;
+      }
+    }
+  }
+  return pose;
+}
+
+function evaluateWorldTransforms(
+  nodes: ModelSkinNode[],
+  pose: Record<number, [number, number, number, number]>
+): { rot: number[][]; tr: [number, number, number] }[] {
+  const world: { rot: number[][]; tr: [number, number, number] }[] = new Array(nodes.length);
+  for (let i = 0; i < nodes.length; i++) {
+    const nd = nodes[i];
+    const q = pose[i] || [0, 0, 0, 1];
+    const rot = quatToMatrix(q);
+    const tr = nd.translation;
+    if (nd.parent === -1 || nd.parent >= i || !world[nd.parent]) {
+      world[i] = { rot, tr: [tr[0], tr[1], tr[2]] };
+    } else {
+      const parent = world[nd.parent];
+      const worldRot = matMul(parent.rot, rot);
+      const appliedTr = matApply(parent.rot, tr);
+      world[i] = {
+        rot: worldRot,
+        tr: [appliedTr[0] + parent.tr[0], appliedTr[1] + parent.tr[1], appliedTr[2] + parent.tr[2]],
+      };
+    }
+  }
+  return world;
 }
 
 export class DuncanPlayer {
@@ -32,19 +152,35 @@ export class DuncanPlayer {
   // Movement physics
   private velocity: Vector3 = Vector3.Zero();
   private isGrounded: boolean = true;
-  private targetRotation: number = 0; // Face forward away from camera initially
+  private targetRotation: number = 0;
   private currentRotation: number = 0;
   private walkSpeed: number = 7.0;
   private sprintSpeed: number = 14.0;
   private jumpForce: number = 12.0;
   private gravity: number = -26.0;
 
-  // Procedural run wobble & tilt
-  private runCycleTime: number = 0;
+  // Skeletal Animation System
+  private skinData: ModelSkinData | null = null;
+  private idleClip: AnimationClipData | null = null;
+  private runClip: AnimationClipData | null = null;
+  private walkClip: AnimationClipData | null = null;
+  private flyClip: AnimationClipData | null = null;
+  private jumpClip: AnimationClipData | null = null;
+
+  private currentAnimState: 'idle' | 'walk' | 'run' | 'jump' | 'fly' = 'idle';
+  private animTime: number = 0;
+  private animBlend: number = 1.0;
+  private prevPose: Record<number, [number, number, number, number]> | null = null;
+  private lastPose: Record<number, [number, number, number, number]> | null = null;
+
+  private primitiveMeshes: {
+    mesh: Mesh;
+    bindings: [number, number, number, number][];
+    buffer: Float32Array;
+  }[] = [];
+
+  // Procedural lean & tilt into corners
   private pitch: number = 0;
-  private roll: number = 0;
-  private bob: number = 0;
-  private initialMeshPositions: Map<AbstractMesh, Vector3> = new Map();
 
   // Input states
   private input: PlayerInput = {
@@ -81,6 +217,7 @@ export class DuncanPlayer {
       this.container.dispose();
       this.container = null;
     }
+    this.primitiveMeshes = [];
 
     try {
       this.container = await SceneLoader.LoadAssetContainerAsync(
@@ -96,7 +233,6 @@ export class DuncanPlayer {
           mesh.parent = this.modelRoot;
         }
         mesh.isPickable = false; // Don't block raycasts
-        this.initialMeshPositions.set(mesh, mesh.position.clone());
       }
 
       this.rootNode.position = position.clone();
@@ -108,8 +244,47 @@ export class DuncanPlayer {
       this.isSpawned = true;
 
       this.snapCamera(initialYaw);
+
+      // Load skeletal animation assets concurrently
+      await this.loadAnimations();
     } catch (err) {
       console.error('Failed to spawn Duncan player:', err);
+    }
+  }
+
+  private async loadAnimations(): Promise<void> {
+    try {
+      const [skinRes, idleRes, runRes, walkRes, flyRes, jumpRes] = await Promise.all([
+        fetch('/api/skin/xh'),
+        fetch('/api/animation/xh_/xh_an000'), // Idle
+        fetch('/api/animation/xh_/xh_an055'), // High speed sprint/run
+        fetch('/api/animation/xh_/xh_an018'), // Walk
+        fetch('/api/animation/xh_/xh_an024'), // Fly / Levitating
+        fetch('/api/animation/xh_/xh_an020'), // Jump leap
+      ]);
+
+      if (skinRes.ok) this.skinData = await skinRes.json();
+      if (idleRes.ok) this.idleClip = await idleRes.json();
+      if (runRes.ok) this.runClip = await runRes.json();
+      if (walkRes.ok) this.walkClip = await walkRes.json();
+      if (flyRes.ok) this.flyClip = await flyRes.json();
+      if (jumpRes.ok) this.jumpClip = await jumpRes.json();
+
+      // Wire up skin bindings to meshes
+      if (this.skinData && this.container) {
+        for (const [primName, bindings] of Object.entries(this.skinData.primitives)) {
+          const mesh = this.container.meshes.find(
+            (m) => m instanceof Mesh && m.name.toLowerCase().includes(primName.toLowerCase())
+          ) as Mesh | undefined;
+
+          if (mesh) {
+            const buffer = new Float32Array(bindings.length * 3);
+            this.primitiveMeshes.push({ mesh, bindings, buffer });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load character animations, falling back to static mesh:', err);
     }
   }
 
@@ -161,37 +336,23 @@ export class DuncanPlayer {
       this.velocity.x = forwardDir.x * speed;
       this.velocity.z = forwardDir.z * speed;
 
-      // Procedural run wobble & tilt
-      this.runCycleTime += deltaTime * (this.input.sprint ? 14 : 9);
-      const targetPitch = this.input.sprint ? 0.22 : 0.12; // lean forward into run
-      const targetRoll = Math.sin(this.runCycleTime) * (this.input.sprint ? 0.08 : 0.04); // subtle running sway
-      const targetBob = Math.sin(this.runCycleTime * 2) * (this.input.sprint ? 0.06 : 0.03);
-
+      // Subtle body lean into motion
+      const targetPitch = this.input.sprint ? 0.14 : 0.06;
       this.pitch += (targetPitch - this.pitch) * Math.min(deltaTime * 8, 1.0);
-      this.roll += (targetRoll - this.roll) * Math.min(deltaTime * 10, 1.0);
-      this.bob += (targetBob - this.bob) * Math.min(deltaTime * 10, 1.0);
     } else {
       this.velocity.x *= 0.8;
       this.velocity.z *= 0.8;
       if (Math.abs(this.velocity.x) < 0.01) this.velocity.x = 0;
       if (Math.abs(this.velocity.z) < 0.01) this.velocity.z = 0;
 
-      // Return to neutral pose when stopped
       this.pitch += (0 - this.pitch) * Math.min(deltaTime * 6, 1.0);
-      this.roll += (0 - this.roll) * Math.min(deltaTime * 6, 1.0);
-      this.bob += (0 - this.bob) * Math.min(deltaTime * 6, 1.0);
     }
 
-    // Apply procedural tilt/sway to animNode
+    // Mid-air body tilt
     if (!this.isGrounded) {
-      // Mid-air levitation tilt
-      this.animNode.rotation.x = 0.22;
-      this.animNode.rotation.z = 0;
-      this.animNode.position.y = 0;
+      this.animNode.rotation.x = 0.2;
     } else {
       this.animNode.rotation.x = this.pitch;
-      this.animNode.rotation.z = this.roll;
-      this.animNode.position.y = this.bob;
     }
 
     // Smooth character rotation
@@ -203,7 +364,7 @@ export class DuncanPlayer {
 
     // Ground raycast for snapping and collision
     const rayOrigin = this.rootNode.position.clone();
-    rayOrigin.y += 2.0; // Cast from torso height
+    rayOrigin.y += 2.0;
     const ray = new Ray(rayOrigin, new Vector3(0, -1, 0), 10.0);
 
     let groundY = -9999;
@@ -250,10 +411,100 @@ export class DuncanPlayer {
     const targetOffset = new Vector3(0, 1.8, 0);
     this.camera.target = this.rootNode.position.add(targetOffset);
 
+    // Update skeletal animation
+    this.updateSkeletalAnimation(deltaTime, isMoving);
+  }
+
+  private updateSkeletalAnimation(deltaTime: number, isMoving: boolean): void {
+    if (!this.skinData || this.primitiveMeshes.length === 0) return;
+
+    // Select active animation clip
+    let targetState: 'idle' | 'walk' | 'run' | 'jump' | 'fly' = 'idle';
+    let targetClip: AnimationClipData | null = this.idleClip;
+
+    if (!this.isGrounded) {
+      if (this.velocity.y > 3.0 && this.jumpClip) {
+        targetState = 'jump';
+        targetClip = this.jumpClip;
+      } else if (this.flyClip) {
+        targetState = 'fly';
+        targetClip = this.flyClip;
+      }
+    } else if (isMoving) {
+      if (this.input.sprint && this.runClip) {
+        targetState = 'run';
+        targetClip = this.runClip;
+      } else if (this.walkClip) {
+        targetState = 'walk';
+        targetClip = this.walkClip;
+      } else if (this.runClip) {
+        targetState = 'run';
+        targetClip = this.runClip;
+      }
+    } else {
+      targetState = 'idle';
+      targetClip = this.idleClip;
+    }
+
+    if (!targetClip) return;
+
+    // State transition cross-fading
+    if (targetState !== this.currentAnimState) {
+      this.prevPose = this.lastPose ? { ...this.lastPose } : null;
+      this.currentAnimState = targetState;
+      this.animBlend = 0.0;
+    }
+
+    // Advance frame time
+    let speedMult = 1.0;
+    if (this.currentAnimState === 'run') speedMult = this.input.sprint ? 1.0 : 0.85;
+    else if (this.currentAnimState === 'walk') speedMult = 1.1;
+    else if (this.currentAnimState === 'fly') speedMult = 1.0;
+
+    this.animTime += deltaTime * targetClip.frameRate * speedMult;
+    const frame = this.animTime % targetClip.duration;
+
+    // Sample current target clip pose
+    const currentPose = sampleClipPose(targetClip, frame);
+
+    // Blend with previous pose if transitioning
+    let finalPose = currentPose;
+    if (this.prevPose && this.animBlend < 1.0) {
+      this.animBlend = Math.min(1.0, this.animBlend + deltaTime * 8.0);
+      finalPose = {};
+      for (let i = 0; i < this.skinData.nodes.length; i++) {
+        const qPrev = this.prevPose[i] || [0, 0, 0, 1];
+        const qCur = currentPose[i] || [0, 0, 0, 1];
+        finalPose[i] = quatSlerp(qPrev, qCur, this.animBlend);
+      }
+    }
+    this.lastPose = finalPose;
+
+    // Evaluate forward kinematics down the 27 skeletal nodes
+    const worldTransforms = evaluateWorldTransforms(this.skinData.nodes, finalPose);
+
+    // Apply deformed vertex coordinates directly to Babylon.js meshes
+    for (const { mesh, bindings, buffer } of this.primitiveMeshes) {
+      for (let j = 0; j < bindings.length; j++) {
+        const [nodeIdx, lx, ly, lz] = bindings[j];
+        const { rot, tr } = worldTransforms[nodeIdx];
+
+        // Integer matrix multiply and translation compose (sar 15)
+        const wx = ((rot[0][0] * lx + rot[0][1] * ly + rot[0][2] * lz) >> 15) + tr[0];
+        const wy = ((rot[1][0] * lx + rot[1][1] * ly + rot[1][2] * lz) >> 15) + tr[1];
+        const wz = ((rot[2][0] * lx + rot[2][1] * ly + rot[2][2] * lz) >> 15) + tr[2];
+
+        // Convert Cryo scene units to glTF/Babylon coordinates
+        buffer[j * 3 + 0] = wx * 0.01;
+        buffer[j * 3 + 1] = -wy * 0.01;
+        buffer[j * 3 + 2] = wz * 0.01;
+      }
+
+      mesh.setVerticesData(VertexBuffer.PositionKind, buffer, false);
+    }
   }
 
   public respawn(pos?: Vector3): void {
-    // Default spawn: in front of the Angkor stone altar on the ground tiles
     const target = pos || new Vector3(-2.0, 8.5, 14.0);
     this.rootNode.position = target.clone();
     this.velocity = Vector3.Zero();

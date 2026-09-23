@@ -274,16 +274,53 @@ def _parse_tag3_payload(buf: bytes, clip_name: str) -> AnimationClip:
         )
 
         keyframes: list[Keyframe] = []
-        if stride >= 20 and start_keys + stride * num_keys <= len(buf):
+        if stride == 60 and num_keys > 0:
+            if start_keys + 40 + 24 <= len(buf):
+                t0 = struct.unpack_from("<I", buf, start_keys + 40)[0]
+                qx, qy, qz, qw = struct.unpack_from("<4i", buf, start_keys + 48)
+                norm = math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw)
+                unit_quat = (
+                    (qx / norm, qy / norm, qz / norm, qw / norm)
+                    if norm > 0
+                    else (0.0, 0.0, 0.0, 1.0)
+                )
+                keyframes.append(Keyframe(t0, unit_quat, (qx, qy, qz, qw)))
+            for k in range(1, num_keys):
+                k_at = start_keys + 80 + (k - 1) * 60
+                if k_at + 20 <= len(buf):
+                    t = struct.unpack_from("<I", buf, k_at)[0]
+                    qx, qy, qz, qw = struct.unpack_from("<4i", buf, k_at + 4)
+                    norm = math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw)
+                    unit_quat = (
+                        (qx / norm, qy / norm, qz / norm, qw / norm)
+                        if norm > 0
+                        else (0.0, 0.0, 0.0, 1.0)
+                    )
+                    keyframes.append(Keyframe(t, unit_quat, (qx, qy, qz, qw)))
+        elif stride == 20 and num_keys > 0:
+            for k in range(num_keys):
+                k_at = start_keys + 20 + k * 20
+                if k_at + 20 <= len(buf):
+                    t = struct.unpack_from("<I", buf, k_at)[0]
+                    qx, qy, qz, qw = struct.unpack_from("<4i", buf, k_at + 4)
+                    norm = math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw)
+                    unit_quat = (
+                        (qx / norm, qy / norm, qz / norm, qw / norm)
+                        if norm > 0
+                        else (0.0, 0.0, 0.0, 1.0)
+                    )
+                    keyframes.append(Keyframe(t, unit_quat, (qx, qy, qz, qw)))
+        elif stride >= 20 and start_keys + stride * num_keys <= len(buf):
             for k in range(num_keys):
                 k_at = start_keys + k * stride
                 t = struct.unpack_from("<I", buf, k_at)[0]
                 qx, qy, qz, qw = struct.unpack_from("<4i", buf, k_at + 4)
                 norm = math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw)
-                if norm > 0:
-                    unit_quat = (qx / norm, qy / norm, qz / norm, qw / norm)
-                else:
-                    unit_quat = (0.0, 0.0, 0.0, 1.0)
+                unit_quat = (
+                    (qx / norm, qy / norm, qz / norm, qw / norm)
+                    if norm > 0
+                    else (0.0, 0.0, 0.0, 1.0)
+                )
                 keyframes.append(Keyframe(t, unit_quat, (qx, qy, qz, qw)))
 
         tracks.append(

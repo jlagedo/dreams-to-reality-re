@@ -144,6 +144,20 @@ function dreamsAssetPlugin(): Plugin {
           return;
         }
 
+        // API: Get model skinning bindings (vertex-to-node mapping)
+        if (url.startsWith('/api/skin/')) {
+          const modelName = url.replace('/api/skin/', '').split('?')[0].toLowerCase();
+          const skinFile = path.join(ANIMATIONS_DIR, `${modelName}_skin.json`);
+          if (fs.existsSync(skinFile)) {
+            res.setHeader('Content-Type', 'application/json');
+            fs.createReadStream(skinFile).pipe(res);
+            return;
+          }
+          res.statusCode = 404;
+          res.end(JSON.stringify({ error: `Skin not found for ${modelName}` }));
+          return;
+        }
+
         // Stream asset file: /api/assets/gltf/... or /api/assets/models/...
         let targetDir: string | null = null;
         let relPath = '';
