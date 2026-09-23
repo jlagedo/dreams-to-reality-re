@@ -462,7 +462,8 @@ export class DuncanPlayer {
     else if (this.currentAnimState === 'fly') speedMult = 1.0;
 
     this.animTime += deltaTime * targetClip.frameRate * speedMult;
-    const frame = this.animTime % targetClip.duration;
+    const dur = targetClip.duration > 1 ? targetClip.duration - 1 : 1;
+    const frame = 1.0 + (this.animTime % dur);
 
     // Sample current target clip pose
     const currentPose = sampleClipPose(targetClip, frame);
