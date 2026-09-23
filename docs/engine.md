@@ -151,10 +151,13 @@ community, and each has a different fix: **[verified]** observation,
    off the redbook audio tracks. The `MCI Error` users see is the game's own
    string, raised when no CD audio device is present. Mounting a `.cue` (not a
    `.bin`, not an `.iso`) is what satisfies it.
-2. **`timeGetTime` is the only clock in the binary.** There is no frame limiter.
-   Above ~30 FPS the physics integrate wrongly and a routine landing costs most
-   of the player's health or kills them outright. DOSBox `cycles` throttling or
-   DxWnd emulated vsync are the two known workarounds.
+2. **The animation/simulation delta uses a `timeGetTime`-based counter.**
+   The executable also imports `QueryPerformanceCounter`; the earlier claim
+   that `timeGetTime` was its only clock was incorrect. Its nominal animation
+   scale is 30 frames/second, with timer quantization and delta clamps; see
+   [animation-timing.md](animation-timing.md). Community reports describe
+   harmful landing damage at high render rates. DOSBox `cycles` throttling or
+   DxWnd emulated vsync are reported workarounds.
 3. **Palettized DirectDraw mode-setting** is what actually breaks on Windows 11.
    The DWM offers no true 8-bit exclusive-fullscreen palette path, producing
    `Can't set DirectDraw mode` and `Can't create primary surface under DirectDraw`.
@@ -170,6 +173,33 @@ Recovered symbol fragments suggest a `<MODULE>_<Verb><Type>` convention:
 Format tags follow a matching four-character convention (`F3DC`, `DANF`, `DSNF`,
 `DRDF`, `PAK0`, `UBIK`), which is consistent with a single shared chunk-IO layer
 underneath all asset loading. See `file-formats.md`.
+
+## External comparison leads [sourced]
+
+- [ScummVM's CryOmni3D detection tables](https://github.com/scummvm/scummvm/blob/master/engines/cryomni3d/detection_tables.h)
+  cover *Versailles 1685* and *Atlantis: The Lost Tales* assets such as HNM/UBB.
+  This is useful for Cryo media comparison, but does not establish that their
+  panoramic adventure engine shares *Dreams*' real-time `.DSN`/`.DAN` runtime.
+- [NihAV Game Tool](https://nihav.org/game_tool.html) decodes Cryo HNM variants
+  and extracts some Cryo archives. Use it as a reference for shared media
+  formats; keep the game's 3D and skeletal formats as separate questions.
+- The [1997 Génération 4 issue 100 archive](https://www.abandonware-magazines.org/affiche_mag.php?album=oui&mag=27&num=491)
+  indexes its *Dreams to Reality* preview at page 148. Period previews and the
+  [original manual archive](https://www.abandonware-france.org/ltf_abandon/ltf_jeu.php?fic=liens&id=1965)
+  are useful for validating controls and observed animation states.
+- In a [first-hand DxWnd investigation](https://sourceforge.net/p/dxwnd/discussion/general/thread/a2ddabcd22/),
+  its maintainer reports that `WINDREAM.EXE` and `GDIDREAM.EXE` use different
+  presentation paths and that emulated vsync prevents erroneous landing damage
+  on modern hardware. The same thread flags `DATA/3DC/DESCRIPT.ION`; the local
+  copies contain filename-level character hints, documented in `models.md`.
+- A [2026 first-hand patch report](https://www.abandonware-forums.org/forum/forum-ltf-abandonware-france/aide-de-jeux-probl%C3%A8mes-techniques/919445-dreams-to-reality-%E2%80%93-restauration-am%C3%A9lioration-de-l-ombre-anim%C3%A9e-en-mode-3dfx)
+  describes Duncan's animated ground shadow as following his limbs and braid.
+  If reproduced in an original build, the shadow could help compare our
+  skeleton poses frame by frame. The report does not supply a `.DAN` decoder.
+
+This search did not verify another game using this exact `.DSN`/`.DAN` engine.
+Compare format magic, binary imports, and node structures before treating
+another Cryo title as an engine sibling.
 
 ## Reproducing this analysis
 

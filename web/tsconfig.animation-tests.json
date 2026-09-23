@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "ESNext", "moduleResolution": "bundler",
+    "strict": true, "skipLibCheck": true, "outDir": ".animation-tests",
+    "rootDir": ".", "types": ["node"]
+  },
+  "include": ["src/animation/**/*.ts", "tests/**/*.ts"]
+}

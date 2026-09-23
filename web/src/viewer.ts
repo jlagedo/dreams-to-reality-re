@@ -19,12 +19,43 @@ import {
   AssetContainer,
   TransformNode,
   LinesMesh,
+  DefaultRenderingPipeline,
 } from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
 import { DuncanPlayer } from './player';
 import { AudioManager } from './audio';
+import { AnimationLibrary } from './animation/library';
+import { detachContainerRoots, SkeletalAnimator } from './animation/renderer';
+import { sampleClipPose } from './animation/controller';
+import type { PlaybackState } from './animation/controller';
+import type { AnimationClipData } from './animation/types';
+export type { AnimationClipData } from './animation/types';
 
 export type CameraMode = 'orbit' | 'walk' | 'duncan';
+
+export interface GraphicsSettings {
+  renderScale: number;
+  msaaSamples: number;
+  fxaaEnabled: boolean;
+  anisotropy: number;
+  textureFilter: 'nearest' | 'linear';
+  toneMappingEnabled: boolean;
+  exposure: number;
+  contrast: number;
+  sharpen: number;
+}
+
+export const DEFAULT_GRAPHICS_SETTINGS: GraphicsSettings = {
+  renderScale: 1,
+  msaaSamples: 1,
+  fxaaEnabled: false,
+  anisotropy: 8,
+  textureFilter: 'nearest',
+  toneMappingEnabled: false,
+  exposure: 1,
+  contrast: 1,
+  sharpen: 0,
+};
 
 export interface ProjectObject {
   name: string;
@@ -63,71 +94,6 @@ export interface ProjectBox {
   points: [number, number, number][];
 }
 
-export interface AnimationKeyframeData {
-  time: number;
-  rotation: [number, number, number, number];
-}
-
-export interface AnimationTrackData {
-  nodeIndex: number;
-  duration: number;
-  interpType: number;
-  restRotation: [number, number, number, number];
-  keyframes: AnimationKeyframeData[];
-}
-
-export interface AnimationClipData {
-  name: string;
-  duration: number;
-  frameRate: number;
-  trackCount: number;
-  tracks: AnimationTrackData[];
-}
-
-export function quatSlerp(
-  q1: [number, number, number, number],
-  q2: [number, number, number, number],
-  t: number
-): [number, number, number, number] {
-  let [x1, y1, z1, w1] = q1;
-  let [x2, y2, z2, w2] = q2;
-
-  let dot = x1 * x2 + y1 * y2 + z1 * z2 + w1 * w2;
-  if (dot < 0.0) {
-    dot = -dot;
-    x2 = -x2;
-    y2 = -y2;
-    z2 = -z2;
-    w2 = -w2;
-  }
-
-  dot = Math.min(1.0, Math.max(-1.0, dot));
-  if (dot > 0.9995) {
-    const xr = x1 + t * (x2 - x1);
-    const yr = y1 + t * (y2 - y1);
-    const zr = z1 + t * (z2 - z1);
-    const wr = w1 + t * (w2 - w1);
-    const len = Math.sqrt(xr * xr + yr * yr + zr * zr + wr * wr);
-    if (len > 0) return [xr / len, yr / len, zr / len, wr / len];
-    return [0, 0, 0, 1];
-  }
-
-  const theta0 = Math.acos(dot);
-  const sinTheta0 = Math.sin(theta0);
-  const theta = theta0 * t;
-  const sinTheta = Math.sin(theta);
-
-  const s1 = Math.cos(theta) - (dot * sinTheta) / sinTheta0;
-  const s2 = sinTheta / sinTheta0;
-
-  return [
-    s1 * x1 + s2 * x2,
-    s1 * y1 + s2 * y2,
-    s1 * z1 + s2 * z2,
-    s1 * w1 + s2 * w2,
-  ];
-}
-
 export interface ProjectData {
   index: number;
   name: string;
@@ -163,8 +129,21 @@ export class DreamsViewer {
   public currentMode: CameraMode = 'orbit';
   public retroFilterEnabled: boolean = true;
 
+  private graphicsPipeline: DefaultRenderingPipeline;
+  private graphicsSettings: GraphicsSettings = { ...DEFAULT_GRAPHICS_SETTINGS };
+
   public player: DuncanPlayer;
   public audio: AudioManager;
+  public readonly animations = new AnimationLibrary();
+  public currentAssetCategory: 'scenes' | 'models' = 'scenes';
+  private npcAnimators = new Map<string, SkeletalAnimator>();
+  private npcAnimationErrors = new Map<string, string>();
+  private modelAnimator: SkeletalAnimator | null = null;
+  private modelAnimationError: string | null = null;
+  private loadGeneration = 0;
+  private inspectionRequest = 0;
+  private inspectionTarget: SkeletalAnimator | null = null;
+  private inspectionSaved: PlaybackState | null = null;
 
   private currentContainer: AssetContainer | null = null;
   private currentAssetMeshes: AbstractMesh[] = [];
@@ -188,6 +167,7 @@ export class DreamsViewer {
   // Animation player state
   public activeClip: AnimationClipData | null = null;
   public isPlayingAnimation: boolean = false;
+  private animationInspection = false;
   public currentAnimFrame: number = 0;
   public animSpeed: number = 1.0;
 
@@ -224,10 +204,15 @@ export class DreamsViewer {
 
     this.audio = new AudioManager();
 
-    this.engine = new Engine(canvas, true, {
-      preserveDrawingBuffer: true,
-      stencil: true,
-    });
+    this.engine = new Engine(
+      canvas,
+      true,
+      {
+        preserveDrawingBuffer: true,
+        stencil: true,
+      },
+      true
+    );
 
     this.scene = new Scene(this.engine);
     this.scene.clearColor = new Color4(0.04, 0.06, 0.08, 1.0);
@@ -272,7 +257,17 @@ export class DreamsViewer {
     dirLight.intensity = 0.65;
 
     // Instantiate Duncan player
-    this.player = new DuncanPlayer(this.scene, this.orbitCamera);
+    this.player = new DuncanPlayer(this.scene, this.orbitCamera, this.animations);
+
+    this.graphicsPipeline = new DefaultRenderingPipeline(
+      'graphicsPipeline',
+      true,
+      this.scene,
+      [this.orbitCamera, this.walkCamera]
+    );
+    this.applyGraphicsSettings(DEFAULT_GRAPHICS_SETTINGS);
+
+    window.addEventListener('resize', () => this.engine.resize());
 
     // Keyboard shortcut 'I' to toggle Babylon Inspector
     this.scene.onKeyboardObservable.add((kbInfo) => {
@@ -312,14 +307,19 @@ export class DreamsViewer {
         this.checkPortalCollisions();
       }
 
-      // Animation playback loop
-      if (this.isPlayingAnimation && this.activeClip) {
-        this.currentAnimFrame += dt * this.activeClip.frameRate * this.animSpeed;
-        if (this.currentAnimFrame >= this.activeClip.duration) {
-          this.currentAnimFrame = 0;
-        }
-        const pose = this.sampleActivePose(this.currentAnimFrame);
-        this.onAnimFrameUpdate?.(Math.floor(this.currentAnimFrame), this.activeClip.duration, pose);
+      // Each actor owns a clock and pose. Inspection temporarily owns just its target.
+      for (const animator of this.npcAnimators.values()) {
+        if (!(this.animationInspection && animator === this.inspectionTarget)) animator.update(dt);
+      }
+      if (this.modelAnimator && !(this.animationInspection && this.modelAnimator === this.inspectionTarget))
+        this.modelAnimator.update(dt);
+      if (this.animationInspection && this.inspectionTarget && this.activeClip && this.isPlayingAnimation) {
+        const controller = this.inspectionTarget.controller;
+        controller.speed = this.animSpeed;
+        controller.playing = true;
+        this.inspectionTarget.update(dt);
+        this.currentAnimFrame = controller.frame;
+        this.onAnimFrameUpdate?.(Math.floor(controller.frame), this.activeClip.duration, controller.pose());
       }
 
       // Highlight selected entity with pulse
@@ -343,6 +343,7 @@ export class DreamsViewer {
 
   public setCameraMode(mode: CameraMode, canvas: HTMLCanvasElement): void {
     this.currentMode = mode;
+    if (this.inspectionTarget === this.player.animator && mode !== 'duncan') this.releaseInspection();
 
     if (mode === 'orbit') {
       this.orbitCamera.lowerRadiusLimit = null;
@@ -438,7 +439,10 @@ export class DreamsViewer {
     }
   }
 
-  public async loadAsset(category: 'scenes' | 'models', filename: string): Promise<void> {
+  public async loadAsset(category: 'scenes' | 'models', filename: string, preserveInspection = false): Promise<void> {
+    const generation = ++this.loadGeneration;
+    if (!preserveInspection) { ++this.inspectionRequest; this.activeClip = null; this.isPlayingAnimation = false; }
+    this.currentAssetCategory = category;
     this.onStatusChange?.(`Loading ${filename}...`);
     this.currentSceneId = filename.replace('.gltf', '').toLowerCase();
 
@@ -456,6 +460,7 @@ export class DreamsViewer {
 
     try {
       const container = await SceneLoader.LoadAssetContainerAsync(rootUrl, filename, this.scene);
+      if (generation !== this.loadGeneration) { container.dispose(); return; }
       container.addAllToScene();
 
       this.currentContainer = container;
@@ -485,8 +490,20 @@ export class DreamsViewer {
 
       // If loading a scene, spawn its project entities (NPCs, portals, waypoints)
       if (category === 'scenes') {
-        await this.spawnProjectEntities(this.currentSceneId);
+        await this.spawnProjectEntities(this.currentSceneId, generation);
+        if (generation !== this.loadGeneration) return;
         this.onSceneChange?.(this.currentSceneId);
+      }
+
+      if (category === 'models') {
+        try {
+          const animator = await this.animations.attach(this.currentSceneId, container, this.scene);
+          if (generation !== this.loadGeneration) { animator?.dispose(); return; }
+          this.modelAnimator = animator;
+        } catch (error) {
+          this.modelAnimationError = String(error);
+          this.onStatusChange?.(`Animation unavailable: ${error}`);
+        }
       }
 
       // If Duncan is active, update his ground collider meshes
@@ -506,6 +523,12 @@ export class DreamsViewer {
   }
 
   private clearSceneEntities(): void {
+    this.releaseInspection();
+    this.modelAnimator?.dispose(); this.modelAnimator = null;
+    this.modelAnimationError = null;
+    for (const animator of this.npcAnimators.values()) animator.dispose();
+    this.npcAnimators.clear();
+    this.npcAnimationErrors.clear();
     // Dispose entity bounding boxes
     for (const bbox of this.entityBoundingBoxes) {
       bbox.dispose();
@@ -519,6 +542,7 @@ export class DreamsViewer {
 
     // Dispose spawned NPC containers
     for (const c of this.spawnedNpcContainers) {
+      detachContainerRoots(c);
       c.removeAllFromScene();
       c.dispose();
     }
@@ -545,13 +569,13 @@ export class DreamsViewer {
     this.currentProjectData = null;
   }
 
-  private async spawnProjectEntities(sceneStem: string): Promise<void> {
+  private async spawnProjectEntities(sceneStem: string, generation: number): Promise<void> {
     try {
       const res = await fetch(`/api/project/scene/${sceneStem}`);
       if (!res.ok) return;
 
       const project: ProjectData | null = await res.json();
-      if (!project) return;
+      if (!project || generation !== this.loadGeneration) return;
 
       this.currentProjectData = project;
       console.log(`[Dreams] Spawning entities for ${project.name} (${sceneStem}):`, project);
@@ -574,6 +598,7 @@ export class DreamsViewer {
           const modelUrl = `/api/assets/models/`;
           const modelFile = `${obj.assetStem}.gltf`;
           const container = await SceneLoader.LoadAssetContainerAsync(modelUrl, modelFile, this.scene);
+          if (generation !== this.loadGeneration) { container.dispose(); return; }
           container.addAllToScene();
 
           const rootNode = new TransformNode(`entity_${obj.name}_${obj.assetStem}`, this.scene);
@@ -608,6 +633,15 @@ export class DreamsViewer {
 
           this.spawnedNpcContainers.push(container);
           this.spawnedNpcRoots.push(rootNode);
+          try {
+            const animator = await this.animations.attach(obj.assetStem, container, this.scene);
+            if (generation !== this.loadGeneration) { animator?.dispose(); return; }
+            if (animator) this.npcAnimators.set(obj.name, animator);
+          } catch (error) {
+            this.npcAnimationErrors.set(obj.name, String(error));
+            console.warn(`Animation unavailable for ${obj.name}:`, error);
+          }
+
         } catch (e) {
           console.warn(`Could not spawn object ${obj.name} (${obj.asset}):`, e);
         }
@@ -721,7 +755,12 @@ export class DreamsViewer {
   }
 
   public toggleRetroFilter(): boolean {
-    this.retroFilterEnabled = !this.retroFilterEnabled;
+    return this.setRetroFilter(!this.retroFilterEnabled);
+  }
+
+  public setRetroFilter(enabled: boolean): boolean {
+    this.retroFilterEnabled = enabled;
+    this.graphicsSettings.textureFilter = enabled ? 'nearest' : 'linear';
     this.applyTextureFiltering();
     return this.retroFilterEnabled;
   }
@@ -734,8 +773,43 @@ export class DreamsViewer {
     for (const tex of this.scene.textures) {
       if (tex instanceof Texture) {
         tex.updateSamplingMode(samplingMode);
+        tex.anisotropicFilteringLevel = this.retroFilterEnabled
+          ? 1
+          : this.graphicsSettings.anisotropy;
       }
     }
+  }
+
+  public getGraphicsSettings(): GraphicsSettings {
+    return { ...this.graphicsSettings };
+  }
+
+  public applyGraphicsSettings(settings: Partial<GraphicsSettings>): GraphicsSettings {
+    this.graphicsSettings = { ...this.graphicsSettings, ...settings };
+    this.retroFilterEnabled = this.graphicsSettings.textureFilter === 'nearest';
+
+    const deviceRatio = window.devicePixelRatio || 1;
+    const renderScale = Math.min(1.5, Math.max(0.5, this.graphicsSettings.renderScale));
+    this.graphicsSettings.renderScale = renderScale;
+    this.engine.setHardwareScalingLevel(1 / (deviceRatio * renderScale));
+
+    this.graphicsPipeline.samples = this.graphicsSettings.msaaSamples;
+    this.graphicsPipeline.fxaaEnabled = this.graphicsSettings.fxaaEnabled;
+    this.graphicsPipeline.sharpen.edgeAmount = this.graphicsSettings.sharpen;
+    this.graphicsPipeline.sharpenEnabled = this.graphicsSettings.sharpen > 0;
+
+    const imageProcessing = this.scene.imageProcessingConfiguration;
+    imageProcessing.toneMappingEnabled = this.graphicsSettings.toneMappingEnabled;
+    imageProcessing.exposure = this.graphicsSettings.exposure;
+    imageProcessing.contrast = this.graphicsSettings.contrast;
+
+    this.applyTextureFiltering();
+    this.engine.resize();
+    return this.getGraphicsSettings();
+  }
+
+  public resetGraphicsSettings(): GraphicsSettings {
+    return this.applyGraphicsSettings(DEFAULT_GRAPHICS_SETTINGS);
   }
 
   public async toggleInspector(): Promise<void> {
@@ -806,64 +880,117 @@ export class DreamsViewer {
     }
   }
 
-  public playAnimation(clip: AnimationClipData): void {
+  public entityAnimationStatus(name: string): string {
+    const controller = this.npcAnimators.get(name)?.controller;
+    if (controller?.clip) return `${controller.clip.name} • frame ${Math.floor(controller.frame)} • ${controller.clip.frameRate} fps base`;
+    return this.npcAnimationErrors.get(name) || 'Static / no bound animation';
+  }
+
+  public cancelAnimationSelection(): void {
+    ++this.inspectionRequest;
+    this.releaseInspection();
+    this.activeClip = null; this.isPlayingAnimation = false;
+  }
+
+  private releaseInspection(clearTarget = true): void {
+    const target = this.inspectionTarget;
+    if (target && !target.disposed) {
+      target.showBones(false);
+      if (this.inspectionSaved) { target.controller.restore(this.inspectionSaved); target.apply(); }
+    }
+    this.player.animationInspection = false;
+    this.inspectionSaved = null;
+    if (clearTarget) this.inspectionTarget = null;
+  }
+
+  private activateInspection(): void {
+    const target = this.inspectionTarget;
+    if (!this.animationInspection || !target || target.disposed || !this.activeClip) return;
+    if (!this.inspectionSaved) this.inspectionSaved = target.controller.snapshot();
+    target.controller.setClip(this.activeClip, {playing: this.isPlayingAnimation});
+    target.controller.seek(this.currentAnimFrame);
+    target.controller.speed = this.animSpeed;
+    target.showBones(true);
+    this.player.animationInspection = target === this.player.animator;
+  }
+
+  public async inspectAnimation(model: string, clip: AnimationClipData): Promise<string> {
+    const request = ++this.inspectionRequest;
+    this.releaseInspection();
+    this.activeClip = null; this.isPlayingAnimation = false; this.currentAnimFrame = 0;
+    const entry = await this.animations.resolve(model);
+    if (!entry) throw new Error(`No rig available for ${model}.`);
+    if (clip.bindingStatus !== 'verified-directory') {
+      if (this.modelAnimator?.rig.model === entry.model) {
+        this.modelAnimator.controller.playing = false;
+        this.modelAnimator.controller.clip = null;
+        this.modelAnimator.apply();
+      }
+      throw new Error(clip.bindingError || 'Unresolved bone binding.');
+    }
+    let target: SkeletalAnimator | null = null;
+    let label = '';
+    const selected = this.selectedEntity ? this.npcAnimators.get(this.selectedEntity.name) : null;
+    if (selected?.rig.model === entry.model) { target = selected; label = this.selectedEntity!.name; }
+    if (!target && entry.model === 'xh_' && this.currentMode === 'duncan') {
+      await this.player.animationReady;
+      target = this.player.animator; label = 'Duncan';
+    }
+    if (!target && this.modelAnimator?.rig.model === entry.model) {
+      target = this.modelAnimator; label = `${entry.assetStem} model preview`;
+    }
+    if (!target) {
+      const npc = [...this.npcAnimators.entries()].find(([, animator]) => animator.rig.model === entry.model);
+      if (npc) { [label, target] = npc; }
+    }
+    if (!target) {
+      if (request !== this.inspectionRequest) throw new Error('Animation selection changed.');
+      const canvas = this.engine.getRenderingCanvas();
+      if (canvas) this.setCameraMode('orbit', canvas);
+      await this.loadAsset('models', `${entry.assetStem}.gltf`, true);
+      target = this.modelAnimator; label = `${entry.assetStem} model preview`;
+    }
+    if (request !== this.inspectionRequest) throw new Error('Animation selection changed.');
+    if (!target || target.disposed) throw new Error(this.modelAnimationError || `No playable model for ${entry.model}.`);
+    this.inspectionTarget = target;
     this.activeClip = clip;
-    this.isPlayingAnimation = true;
-    this.currentAnimFrame = 0;
+    const entity = this.currentProjectData?.objects.find(obj => this.npcAnimators.get(obj.name) === target);
+    if (entity) this.focusOnEntity(entity);
+    this.activateInspection();
+    this.setAnimFrame(0);
+    return label;
+  }
+
+  public setAnimationInspection(enabled: boolean): void {
+    if (enabled === this.animationInspection) return;
+    this.animationInspection = enabled;
+    if (enabled) this.activateInspection(); else this.releaseInspection(false);
   }
 
   public pauseAnimation(): void {
     this.isPlayingAnimation = false;
+    if (this.inspectionTarget && this.animationInspection) this.inspectionTarget.controller.playing = false;
   }
 
   public resumeAnimation(): void {
-    if (this.activeClip) {
-      this.isPlayingAnimation = true;
-    }
+    if (this.activeClip && this.inspectionTarget) this.isPlayingAnimation = true;
   }
 
   public setAnimFrame(frame: number): void {
-    this.currentAnimFrame = frame;
-    if (this.activeClip) {
-      const pose = this.sampleActivePose(frame);
-      this.onAnimFrameUpdate?.(Math.floor(frame), this.activeClip.duration, pose);
+    this.currentAnimFrame = Math.max(0, Math.min(this.activeClip?.duration ?? 0, frame));
+    if (this.inspectionTarget && this.animationInspection && this.activeClip) {
+      this.inspectionTarget.controller.seek(this.currentAnimFrame);
+      this.inspectionTarget.apply();
     }
+    if (this.activeClip) this.onAnimFrameUpdate?.(Math.floor(this.currentAnimFrame),
+      this.activeClip.duration, this.sampleActivePose(this.currentAnimFrame));
   }
 
   public setAnimSpeed(speed: number): void {
-    this.animSpeed = speed;
+    if (Number.isFinite(speed) && speed >= 0) this.animSpeed = speed;
   }
 
   public sampleActivePose(frame: number): Record<number, number[]> {
-    if (!this.activeClip) return {};
-    const pose: Record<number, number[]> = {};
-
-    for (const trk of this.activeClip.tracks) {
-      if (!trk.keyframes || trk.keyframes.length === 0) {
-        pose[trk.nodeIndex] = trk.restRotation;
-        continue;
-      }
-      if (trk.keyframes.length === 1 || frame <= trk.keyframes[0].time) {
-        pose[trk.nodeIndex] = trk.keyframes[0].rotation;
-        continue;
-      }
-      if (frame >= trk.keyframes[trk.keyframes.length - 1].time) {
-        pose[trk.nodeIndex] = trk.keyframes[trk.keyframes.length - 1].rotation;
-        continue;
-      }
-
-      for (let k = 0; k < trk.keyframes.length - 1; k++) {
-        const k0 = trk.keyframes[k];
-        const k1 = trk.keyframes[k + 1];
-        if (k0.time <= frame && frame <= k1.time) {
-          const dt = k1.time - k0.time;
-          const alpha = dt > 0 ? (frame - k0.time) / dt : 0;
-          pose[trk.nodeIndex] = quatSlerp(k0.rotation, k1.rotation, alpha);
-          break;
-        }
-      }
-    }
-
-    return pose;
+    return this.activeClip ? sampleClipPose(this.activeClip, frame) : {};
   }
 }

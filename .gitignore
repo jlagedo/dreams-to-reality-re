@@ -113,6 +113,7 @@ node_modules/
 .vite/
 web/node_modules/
 web/dist/
+web/.animation-tests/
 
 # uv writes the lockfile - DO commit uv.lock for reproducible builds.
 # (listed here only as a reminder; not ignored)

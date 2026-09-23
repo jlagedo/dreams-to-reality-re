@@ -1,4 +1,4 @@
-"""Character and creature skeletal animations (``.DAN`` Tag 3 / ``.3DA``). SOLVED.
+"""Character and creature animation keys (``.DAN`` Tag 3 / ``.3DA``).
 
 ``.DAN`` is a container holding 3D model parts (``.3DM``) and animation clips
 (``.3DA``). The container opens with a ``DANF`` header declaring two directories:
@@ -15,19 +15,21 @@
 Each animation clip is stored in a Tag 3 chunk, compressed with Cryo's LZ codec
 (:mod:`dreams.formats.lz`). Decompressed payload layout:
 
-    +0x14  u32       track count N (equals number of animated nodes/bones)
-    +0x18  u32       span == 4 * (N + 1)
-    +0x1c  u32[N-1]  offsets of each node's track
-    ...    u32       total duration in frames
-    ...    u32       frame rate / ticks (typically 10 fps)
+    +0x14  u32       track count N (includes control tracks on some models)
+    +0x18  u32[N]    offsets of each node's track
+
+The table is followed by track data, not a duration/FPS header. In Duncan,
+the first two words after it are the root track's duration and rotation count.
+The nominal 30 frames/second base comes from WINDREAM.EXE's clock calculation,
+not this file. Actor/state speed modifiers are separate; see animation-timing.md.
 
 Each track record contains:
     +0x14  u32       duration in frames
     +0x18  u32       number of keyframes K
-    +0x1c  u32       interpolation type (2 = linear 20B keys, 4 = spline 60B keys)
+    +0x1c  u32       translation key count
     +0x20  u32       start offset of keyframes
-    +0x24  u32       end offset of keyframes (stride = (end - start) // K)
-    +0x28  i32[4]    rest quaternion [qx, qy, qz, qw], Q15 (32768 = 1.0)
+    +0x24  u32       translation array pointer (also ends the rotation array)
+    +0x28            first keyframe starts here; no rest quaternion in the header
 
 Keyframes are stored as unit quaternions scaled by 32768:
     20-byte linear keys:
@@ -56,7 +58,7 @@ from pathlib import Path
 from dreams.formats.lz import decompress
 
 DANF_MAGIC = b"DANF\x00"
-QUAT_SCALE = 32768.0
+ENGINE_BASE_FRAME_RATE = 30  #: WINDREAM.EXE 004171b2, constant at 004c41cc
 
 
 @dataclass
@@ -72,13 +74,15 @@ class Keyframe:
 class AnimationTrack:
     """Animation track for a single node / skeletal bone."""
 
-    node_index: int
+    node_index: int  #: Original directory/track slot, not geometry scanner order
     duration: int
     num_keys: int
-    interp_type: int
+    translation_key_count: int
     stride: int
-    rest_rotation: tuple[float, float, float, float]
+    rest_rotation: tuple[float, float, float, float]  #: First key rotation, or identity if empty
     keyframes: list[Keyframe] = field(default_factory=list)
+    bone_name: str | None = None
+    mesh_node_index: int | None = None  #: -1 for a named node without geometry
 
 
 @dataclass
@@ -122,12 +126,16 @@ class AnimationClip:
             "name": self.name,
             "duration": self.duration_frames,
             "frameRate": self.frame_rate,
+            "frameRateSource": "windream-engine-base",
             "trackCount": self.track_count,
             "tracks": [
                 {
                     "nodeIndex": t.node_index,
+                    "boneName": t.bone_name,
+                    "meshNodeIndex": t.mesh_node_index,
                     "duration": t.duration,
-                    "interpType": t.interp_type,
+                    "translationKeyCount": t.translation_key_count,
+                    "keyStride": t.stride,
                     "restRotation": list(t.rest_rotation),
                     "keyframes": [
                         {
@@ -211,6 +219,7 @@ def read_dan_animations(path_or_bytes: str | Path | bytes) -> list[AnimationClip
 
     clips: list[AnimationClip] = []
     tag3_idx = 0
+    rig = None
 
     while off + 5 <= len(data):
         tag = data[off]
@@ -218,7 +227,11 @@ def read_dan_animations(path_or_bytes: str | Path | bytes) -> list[AnimationClip
         if tag_len < 5 or off + tag_len > len(data):
             break
 
-        if tag == 3:
+        if tag == 1 and rig is None:
+            from dreams.formats.rig import read_rig
+
+            rig = read_rig(decompress(data[off + 5 : off + tag_len]))
+        elif tag == 3:
             payload = data[off + 5 : off + tag_len]
             decomp = decompress(payload)
             clip_name = (
@@ -230,28 +243,31 @@ def read_dan_animations(path_or_bytes: str | Path | bytes) -> list[AnimationClip
 
         off += tag_len
 
+    for clip in clips:
+        # Some models have differently sized clip directories; do not guess
+        # bindings for those. Unresolved mappings remain explicitly null.
+        if rig is not None and len(rig) == clip.track_count:
+            for track, nd in zip(clip.tracks, rig, strict=True):
+                track.bone_name = nd.name
+                track.mesh_node_index = nd.mesh_index if nd.mesh_index is not None else -1
     return clips
 
 
 def _parse_tag3_payload(buf: bytes, clip_name: str) -> AnimationClip:
     """Decode an uncompressed Tag 3 byte stream into an AnimationClip."""
     if len(buf) < 0x24:
-        return AnimationClip(clip_name, 0, 10, 0, [])
+        return AnimationClip(clip_name, 0, ENGINE_BASE_FRAME_RATE, 0, [])
 
     track_count = struct.unpack_from("<I", buf, 0x14)[0]
-    if track_count <= 1:
-        return AnimationClip(clip_name, 0, 10, 0, [])
+    if track_count < 1:
+        return AnimationClip(clip_name, 0, ENGINE_BASE_FRAME_RATE, 0, [])
 
-    num_tracks = track_count - 1
-    total_frames = struct.unpack_from("<I", buf, 0x1C + num_tracks * 4)[0]
-    fps_val = (
-        struct.unpack_from("<I", buf, 0x1C + (num_tracks + 1) * 4)[0]
-        if 0x1C + (num_tracks + 1) * 4 + 4 <= len(buf)
-        else 10
-    )
-    frame_rate = fps_val if 1 <= fps_val <= 60 else 10
+    num_tracks = track_count
+    if 0x18 + num_tracks * 4 > len(buf):
+        raise ValueError(f"{clip_name}: truncated track directory")
+    frame_rate = ENGINE_BASE_FRAME_RATE  # Executable base rate, not clip metadata.
 
-    offsets = [struct.unpack_from("<I", buf, 0x1C + i * 4)[0] for i in range(num_tracks)]
+    offsets = [struct.unpack_from("<I", buf, 0x18 + i * 4)[0] for i in range(num_tracks)]
     tracks: list[AnimationTrack] = []
 
     for node_idx, trk_off in enumerate(offsets):
@@ -260,19 +276,11 @@ def _parse_tag3_payload(buf: bytes, clip_name: str) -> AnimationClip:
 
         duration = struct.unpack_from("<I", buf, trk_off + 0x14)[0]
         num_keys = struct.unpack_from("<I", buf, trk_off + 0x18)[0]
-        interp_type = struct.unpack_from("<I", buf, trk_off + 0x1C)[0]
+        translation_key_count = struct.unpack_from("<I", buf, trk_off + 0x1C)[0]
         start_keys = struct.unpack_from("<I", buf, trk_off + 0x20)[0]
         end_keys = struct.unpack_from("<I", buf, trk_off + 0x24)[0]
 
         stride = (end_keys - start_keys) // num_keys if num_keys > 0 else 0
-        raw_rest = struct.unpack_from("<4i", buf, trk_off + 0x28)
-        rest_quat = (
-            raw_rest[0] / QUAT_SCALE,
-            raw_rest[1] / QUAT_SCALE,
-            raw_rest[2] / QUAT_SCALE,
-            raw_rest[3] / QUAT_SCALE if raw_rest[3] != 0 else 1.0,
-        )
-
         keyframes: list[Keyframe] = []
         step = stride if stride in (20, 60) else 60
         if num_keys > 0:
@@ -289,12 +297,15 @@ def _parse_tag3_payload(buf: bytes, clip_name: str) -> AnimationClip:
                     )
                     keyframes.append(Keyframe(t, unit_quat, (qx, qy, qz, qw)))
 
+        # +0x28 is key 0's timestamp, not a separate rest quaternion.
+        rest_quat = keyframes[0].rotation if keyframes else (0.0, 0.0, 0.0, 1.0)
+
         tracks.append(
             AnimationTrack(
                 node_index=node_idx,
-                duration=duration if duration > 0 else total_frames,
+                duration=duration,
                 num_keys=num_keys,
-                interp_type=interp_type,
+                translation_key_count=translation_key_count,
                 stride=stride,
                 rest_rotation=rest_quat,
                 keyframes=keyframes,
@@ -303,7 +314,7 @@ def _parse_tag3_payload(buf: bytes, clip_name: str) -> AnimationClip:
 
     return AnimationClip(
         name=clip_name,
-        duration_frames=total_frames,
+        duration_frames=max((t.duration for t in tracks), default=0),
         frame_rate=frame_rate,
         track_count=len(tracks),
         tracks=tracks,

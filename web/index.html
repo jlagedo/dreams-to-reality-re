@@ -16,7 +16,10 @@
     <div id="hud">
       <header class="hud-header">
         <h1>Dreams to Reality</h1>
-        <span class="badge">1997 • Babylon.js</span>
+        <div class="hud-header-actions">
+          <span class="badge">1997 • Babylon.js</span>
+          <button id="minimizeHudBtn" class="hud-minimize-btn" title="Minimize HUD" aria-label="Minimize HUD">&minus;</button>
+        </div>
       </header>
 
       <div class="hud-controls">
@@ -42,7 +45,7 @@
         <div class="control-row button-row">
           <button id="camModeBtn" title="Switch camera mode">Cam: Orbit</button>
           <button id="musicBtn" title="Toggle 1997 CD Audio Soundtrack">🎵 Music: Off</button>
-          <button id="retroFilterBtn" title="Toggle Texture Filtering (Pixelated vs Smooth)">Filter: Nearest</button>
+          <button id="graphicsBtn" class="graphics-btn" title="Tune rendering quality live">✨ Graphics</button>
           <button id="debugOverlayBtn" class="debug-toggle-btn" title="Toggle Cryo Developer HUD (Shortcut: F3)">🛠️ Debug HUD (F3)</button>
         </div>
 
@@ -60,6 +63,84 @@
         <p class="highlight-hint">Press <kbd>F3</kbd> for the <strong>In-Game Developer Debug HUD</strong> & Entity Inspector!</p>
       </div>
     </div>
+
+    <button id="hudNugget" class="hud-nugget" title="Open the main HUD" hidden>
+      <span>◆</span> Dreams HUD
+    </button>
+
+    <aside id="graphicsPanel" class="graphics-panel hidden" aria-label="Graphics settings">
+      <header class="graphics-header">
+        <div>
+          <h2>Graphics Lab</h2>
+          <p>Changes apply live</p>
+        </div>
+        <button id="closeGraphicsBtn" class="graphics-close-btn" aria-label="Close graphics settings">&times;</button>
+      </header>
+
+      <div class="graphics-controls">
+        <label class="graphics-control" for="gfxRenderScale">
+          <span>Render scale <output id="gfxRenderScaleValue">100%</output></span>
+          <input id="gfxRenderScale" type="range" min="0.5" max="1.5" step="0.25" value="1" />
+        </label>
+
+        <label class="graphics-control graphics-select" for="gfxMsaa">
+          <span>MSAA</span>
+          <select id="gfxMsaa">
+            <option value="1">Off</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+            <option value="8">8×</option>
+          </select>
+        </label>
+
+        <label class="graphics-toggle" for="gfxFxaa">
+          <span><strong>FXAA</strong><small>Clean remaining edge shimmer</small></span>
+          <input id="gfxFxaa" type="checkbox" />
+        </label>
+
+        <label class="graphics-select graphics-control" for="gfxAnisotropy">
+          <span>Anisotropic filtering</span>
+          <select id="gfxAnisotropy">
+            <option value="1">Off</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+            <option value="8" selected>8×</option>
+            <option value="16">16×</option>
+          </select>
+        </label>
+
+        <label class="graphics-select graphics-control" for="gfxTextureFilter">
+          <span>Texture filtering</span>
+          <select id="gfxTextureFilter">
+            <option value="nearest" selected>Nearest</option>
+            <option value="linear">Linear</option>
+          </select>
+        </label>
+
+        <label class="graphics-toggle" for="gfxToneMapping">
+          <span><strong>Tone mapping</strong><small>Compress highlights for a filmic image</small></span>
+          <input id="gfxToneMapping" type="checkbox" />
+        </label>
+
+        <label class="graphics-control" for="gfxExposure">
+          <span>Exposure <output id="gfxExposureValue">1.00</output></span>
+          <input id="gfxExposure" type="range" min="0.5" max="2" step="0.05" value="1" />
+        </label>
+
+        <label class="graphics-control" for="gfxContrast">
+          <span>Contrast <output id="gfxContrastValue">1.00</output></span>
+          <input id="gfxContrast" type="range" min="0.5" max="2" step="0.05" value="1" />
+        </label>
+
+        <label class="graphics-control" for="gfxSharpen">
+          <span>Sharpen <output id="gfxSharpenValue">0.00</output></span>
+          <input id="gfxSharpen" type="range" min="0" max="1" step="0.05" value="0" />
+        </label>
+      </div>
+
+      <p class="graphics-note">Anisotropy takes effect when texture filtering is set to Linear.</p>
+      <button id="resetGraphicsBtn" class="secondary-btn">Reset graphics</button>
+    </aside>
 
     <!-- 1997 CRYO DEVELOPER DEBUG OVERLAY -->
     <div id="debugOverlay" class="debug-overlay hidden">
@@ -219,11 +300,17 @@
                 </div>
               </div>
 
-              <div class="clip-stats-row">
+                <div class="clip-stats-row">
                 <span>Duration: <strong id="animStatDuration">--</strong> frames</span>
                 <span>Framerate: <strong id="animStatFps">--</strong> fps</span>
-                <span>Bones / Tracks: <strong id="animStatTracks">--</strong> nodes</span>
+                <span>Animated tracks: <strong id="animStatTracks">--</strong></span>
                 <span>Codec: <strong id="animStatCodec">Unit Quaternion (Q15)</strong></span>
+                </div>
+                <p id="animationStatus" role="status">Choose a model and clip.</p>
+                <div class="bone-legend">
+                <span><i class="bone-key body"></i>Body</span>
+                <span><i class="bone-key hair"></i>Hair</span>
+                <span><i class="bone-key forward"></i>Face direction</span>
               </div>
             </div>
 
@@ -236,7 +323,7 @@
                     <tr>
                       <th>Node</th>
                       <th>Keys</th>
-                      <th>Interpolation</th>
+                      <th>Key size</th>
                       <th>Quaternion (X, Y, Z, W)</th>
                       <th>Norm</th>
                     </tr>

@@ -521,10 +521,12 @@ Things that make future work easier:
     `0x246` East, `0x286` West), word 4 surface friction/sound category.
 - **`.DAN` Tag 3 skeletal animation decoded [verified]:**
   The `.3DA` entries in Directory 2 index sequential Tag 3 chunks decompressed by `FUN_004105eb`
-  via Cryo's LZ codec. Track $i$ corresponds 1-to-1 with skeletal node $i$. Each track specifies
-  duration, keyframe count $K$, interpolation type (1 = linear with 20-byte records, 2 = Hermite
-  spline with 60-byte records), rest unit quaternion $(0, 0, 0, 32768)$, and Q15 keyframe rotations.
-  Composed hierarchically in `WINDREAM.EXE` (`FUN_0047e498`) via Slerp interpolation. Dual
+  via Cryo's LZ codec. Track $i$ corresponds to slot $i$ of the model's explicit directory,
+  **not** the geometry scanner's node $i$ (see the later harness correction below). Each track
+  specifies duration, rotation count $K$, translation count, and Q15 keyframe rotations.
+  The keyframe stride is 20 or 60 bytes and is determined from its start/end offsets.
+  Composed hierarchically in `WINDREAM.EXE` (`FUN_0047e498`). Plain SLERP is the viewer's
+  approximation; 60-byte keys use additional spline controls in the engine. Dual
   concurrent tracks (`Object Anim 0` / `Object Anim 1`) support motion blending. 780 clips extracted
   across 159 character and prop models to `E:\dreams-work\animations/`.
 - **Correction — Keyframe offsets in Tag 3 [verified]:**
@@ -534,8 +536,24 @@ Things that make future work easier:
   followed by uniformly spaced keyframes: every key $k \in [0, K-1]$ begins at exact offset
   `trk_off + 40 + k * stride` (where `stride` is 20 or 60). Word 0 is frame timestamp; words 1..4 are
   the unit quaternion `[qx, qy, qz, qw]` in Q15 ($32768 = 1.0$); words 7..10 and 11..14 are Hermite
-  tangents. Verified across **10,127 tracks and 97,729 keyframes across all 159 models on both discs
-  with 0 errors**.
+  candidate tangents. With the full offset table, validated **15,084 tracks and 142,806 keyframes
+  in 780 clips from 159 distinct models**, with 0 invalid strides or nonmonotonic timestamps.
+- **Correction — track 0 was omitted from every decoded clip:**
+  The dword at payload `+0x18` is the offset of track 0, not a table span. The previous parser began
+  at `+0x1C` and read only $N-1$ offsets, shifting every animation track onto the preceding model
+  node. The executable iterates the complete track table, and raw track 0 records have valid keys.
+  `XH_` now yields 27 tracks for 27 model nodes; its corrected pose no longer has the severe
+  head/arm distortion seen in the earlier viewer.
+- **Animation names are numeric runtime IDs, not action labels:**
+  All 780 embedded `.3DA` names follow an `AN###` pattern. `FUN_00404d98` parses
+  that suffix with `FUN_004551b5` and fills the corresponding runtime slot;
+  `FUN_00455278` retrieves slots by number. The executable has “Run”/“Walk”/
+  “Jump” control text, but no discovered string table translates those actions
+  into clip IDs. See `docs/models.md` for the lookup path.
+- **Correction — no rest quaternion in the 40-byte track header:**
+  Offset `+0x28` is the first keyframe's timestamp. Reading four integers there as a rest quaternion
+  mixes that timestamp with three quaternion components. The parser now uses key 0 as its fallback
+  rotation. This metadata correction does not change sampled poses for tracks with keys.
 - **Engine matrix and skinning evaluation in `WINDREAM.EXE` [verified]:**
   - `FUN_0045bc28`: converts Q15 quaternion `[qx, qy, qz, qw]` to a $3 \times 3$ row-major rotation matrix.
   - `FUN_0047e498`: forward kinematics down the scene graph:
@@ -545,6 +563,53 @@ Things that make future work easier:
     $$V_{world} = ((R_{world} \times V_{local}) \gg 15) + T_{world}$$
   - Cyclic animation loops: for all action cycles, $t=0$ holds the identity rest pose $(0, 0, 0, 1.0)$,
     while frames $1 \dots \text{duration}$ form the seamless repeating motion loop where $Q(1) \equiv Q(\text{duration})$.
+
+## 2026-09-23 — named rig and animation hypothesis harness
+
+`uv run python -m dreams.animation_harness` now compares explicit directory,
+physical scan, and alphabetical mappings, XYZW/WXYZ/conjugate conventions,
+and local versus world rotation. It measures loose elbow/knee limits at stored
+keys, keeps outlier clip/frame references, and checks unnormalized Q15 data.
+
+The stronger independent check is the translation channel: first local
+translation keys match named child rest positions in **1,258/1,274** cases
+using the explicit directory, versus **0/1,274** in physical geometry order.
+Elbow/knee flags fall from **29.50% to 2.20%**; both knees have zero flags
+under the stated envelopes. The earlier claim that restoring track zero
+fully settled the track mapping was premature.
+
+Names are stored at serialized node `+0x14`, length 12 bytes. The Tag 1 slot
+table at `+0x18` resolves 1,967 named nodes across 159 models, including 81
+not found by the geometry scanner. `CH0`'s extra slot is `bassin01` with zero
+vertices. The player now binds through the table; the inspector shows names.
+
+Two further interpretations were corrected: track `+0x1c` is translation-key
+count, and the alleged FPS after the slot table was the root rotation-key
+count. The UI now labels 10 fps as a preview rate. Static translations and
+approximate spline playback remain limitations, not validated engine behavior.
+
+Details, repeatable commands, and residual cases are in
+[animation-validation.md](animation-validation.md).
+
+## 2026-09-23 — original animation clock recovered
+
+Followed `timeGetTime` through `00440802` / `00440890`, dispatcher command
+`0x11`, and the main loop at `004170a6`. The timer initializes at 200 Hz
+(`00415fdd`); the main loop computes `200 / elapsed_ticks` and then
+`30 / measured_fps`. Actor frame `+0x170` advances by that delta times
+speed `+0x178`, which action transitions reset to 1.0. This establishes a
+**30 frames/second nominal base**, with separate actor/state modifiers.
+
+Updated the viewer from the temporary 10 fps rate to 30 fps at 1x, removed
+the guessed walk/run multipliers, and regenerated the 780 local clip exports.
+New binary-evidence tests pin the initialization, arithmetic constants and
+instructions, speed reset, and frame increment to the shipped executable.
+
+Also corrected the earlier assertion that the executable has only one clock:
+it imports `QueryPerformanceCounter`, but the animation path examined uses
+the `timeGetTime` counter. Timer rounding and the original 0.2–5.0 delta
+clamp are documented and are not copied into the browser player.
+See [animation-timing.md](animation-timing.md) for the complete trace and limits.
 
 ## Sources
 

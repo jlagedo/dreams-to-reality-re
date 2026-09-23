@@ -1,17 +1,11 @@
 import { DreamsViewer, CameraMode, ProjectData, ProjectObject, AnimationClipData } from './viewer';
+import type { GraphicsSettings } from './viewer';
+import type { ClipEntry } from './animation/types';
 
 interface AssetEntry {
   id: string;
   filename: string;
   hasTextures: boolean;
-}
-
-interface AnimationManifestEntry {
-  name: string;
-  id: string;
-  duration: number;
-  trackCount: number;
-  frameRate: number;
 }
 
 export class UIManager {
@@ -23,9 +17,14 @@ export class UIManager {
   private categorySelect: HTMLSelectElement;
   private itemSelect: HTMLSelectElement;
   private camModeBtn: HTMLButtonElement;
-  private retroFilterBtn: HTMLButtonElement;
   private debugOverlayBtn: HTMLButtonElement;
   private resetCamBtn: HTMLButtonElement;
+  private graphicsBtn: HTMLButtonElement;
+  private graphicsPanel: HTMLElement;
+  private hud: HTMLElement;
+  private minimizeHudBtn: HTMLButtonElement;
+  private hudNugget: HTMLButtonElement;
+  private graphicsDatabase: Promise<IDBDatabase> | null = null;
 
   private fpsStat: HTMLElement;
   private meshCountStat: HTMLElement;
@@ -97,8 +96,9 @@ export class UIManager {
 
   private scenesList: AssetEntry[] = [];
   private modelsList: AssetEntry[] = [];
-  private currentClipsList: AnimationManifestEntry[] = [];
+  private currentClipsList: ClipEntry[] = [];
   private selectedEntity: ProjectObject | null = null;
+  private animationRequest = 0;
 
   constructor(viewer: DreamsViewer, canvas: HTMLCanvasElement) {
     this.viewer = viewer;
@@ -109,9 +109,13 @@ export class UIManager {
     this.categorySelect = document.getElementById('categorySelect') as HTMLSelectElement;
     this.itemSelect = document.getElementById('itemSelect') as HTMLSelectElement;
     this.camModeBtn = document.getElementById('camModeBtn') as HTMLButtonElement;
-    this.retroFilterBtn = document.getElementById('retroFilterBtn') as HTMLButtonElement;
     this.debugOverlayBtn = document.getElementById('debugOverlayBtn') as HTMLButtonElement;
     this.resetCamBtn = document.getElementById('resetCamBtn') as HTMLButtonElement;
+    this.graphicsBtn = document.getElementById('graphicsBtn') as HTMLButtonElement;
+    this.graphicsPanel = document.getElementById('graphicsPanel') as HTMLElement;
+    this.hud = document.getElementById('hud') as HTMLElement;
+    this.minimizeHudBtn = document.getElementById('minimizeHudBtn') as HTMLButtonElement;
+    this.hudNugget = document.getElementById('hudNugget') as HTMLButtonElement;
 
     this.fpsStat = document.getElementById('fpsStat') as HTMLElement;
     this.meshCountStat = document.getElementById('meshCountStat') as HTMLElement;
@@ -181,7 +185,10 @@ export class UIManager {
     this.speedButtons = document.querySelectorAll('.speed-btn');
 
     this.bindEvents();
+    this.bindHudEvents();
     this.bindDebugEvents();
+    void this.populateAnimationModels();
+    this.bindGraphicsEvents();
     this.startFpsLoop();
   }
 
@@ -226,6 +233,20 @@ export class UIManager {
       this.debugOverlay.classList.add('hidden');
       this.debugOverlayBtn.classList.remove('active');
     }
+    this.syncAnimationInspection();
+  }
+
+  private syncAnimationInspection(): void {
+    const animationTab = document.getElementById('debugTabAnimation');
+    const animationFocus = !!animationTab?.classList.contains('active');
+    this.debugOverlay.classList.toggle('animation-focus', animationFocus);
+    this.debugOverlay.classList.toggle(
+      'duncan-bones', animationFocus && this.animModelSelect.value === 'xh_'
+    );
+    this.viewer.setAnimationInspection(
+      !this.debugOverlay.classList.contains('hidden') &&
+      animationFocus
+    );
   }
 
   public switchDebugTab(tabName: string): void {
@@ -242,6 +263,7 @@ export class UIManager {
     if (targetPane) {
       targetPane.classList.add('active');
     }
+    this.syncAnimationInspection();
 
     if (tabName === 'animation' && (!this.currentClipsList || this.currentClipsList.length === 0)) {
       this.loadModelAnimations(this.animModelSelect.value);
@@ -361,81 +383,104 @@ export class UIManager {
     }${obj.isCharacter ? ', Char' : ''})`;
     this.inspObjAngle.textContent = `Yaw ${deg}° (raw ${obj.rawYaw})`;
     this.inspObj3dCol.textContent = `Radius ${obj.radius ?? 0}`;
-    this.inspObjAnim0.textContent = `Track 0 / Speed ${obj.speed ?? 0}`;
-    this.inspObjAnim1.textContent = `Track 1 / Standby`;
+    this.inspObjAnim0.textContent = this.viewer.entityAnimationStatus(obj.name);
+    this.inspObjAnim1.textContent = 'Default clip preview; action selection not recovered';
     this.inspObjRoute.textContent = obj.routeIndex ? `Route #${obj.routeIndex}` : 'None';
     this.inspObjHealth.textContent = obj.health ? `${obj.health} HP` : '--';
   }
 
-  public async loadModelAnimations(modelStem: string): Promise<void> {
+  private animationStatus(message: string, ready = false): void {
+    document.getElementById('animationStatus')!.textContent = message;
+    this.animPlayBtn.disabled = !ready;
+    this.animResetBtn.disabled = !ready;
+    this.animScrubber.disabled = !ready;
+    this.setStatus(message);
+  }
+
+  private async populateAnimationModels(): Promise<void> {
     try {
-      this.setStatus(`Loading animation manifest for ${modelStem}...`);
-      const res = await fetch(`/api/animations/${modelStem}`);
-      if (!res.ok) return;
-
-      this.currentClipsList = await res.json();
-      this.animClipSelect.innerHTML = '';
-
-      if (this.currentClipsList.length === 0) {
-        const opt = document.createElement('option');
-        opt.textContent = 'No animations found';
-        this.animClipSelect.appendChild(opt);
-        return;
+      const models = await this.viewer.animations.catalog();
+      const selected = this.animModelSelect.value || 'xh_';
+      this.animModelSelect.replaceChildren();
+      const names: Record<string, string> = {xh_: 'Duncan', mhe: 'Heroine', ch0: 'Creature', f07bleu: 'Blue Monk'};
+      for (const model of [...models].sort((a,b) => a.model === 'xh_' ? -1 : b.model === 'xh_' ? 1 : a.model.localeCompare(b.model))) {
+        const option = document.createElement('option');
+        option.value = model.model;
+        option.textContent = `${names[model.model] || model.model.toUpperCase()} — ${model.clipCount} clips`;
+        this.animModelSelect.appendChild(option);
       }
+      this.animModelSelect.value = models.find(m => m.model === selected || m.assetStem === selected)?.model || 'xh_';
+    } catch (error) { this.animationStatus(`Animation library unavailable: ${error}`); }
+  }
 
-      for (const clip of this.currentClipsList) {
-        const opt = document.createElement('option');
-        opt.value = clip.id;
-        opt.textContent = `${clip.name} (${clip.duration} frames, ${clip.trackCount} tracks)`;
-        this.animClipSelect.appendChild(opt);
+  public async loadModelAnimations(modelStem: string): Promise<void> {
+    const request = ++this.animationRequest;
+    this.viewer.cancelAnimationSelection();
+    this.syncAnimationInspection();
+    this.animationStatus(`Loading animations for ${modelStem}...`);
+    this.boneMonitorTableBody.replaceChildren();
+    try {
+      const entry = await this.viewer.animations.resolve(modelStem);
+      const clips = await this.viewer.animations.clips(modelStem);
+      if (request !== this.animationRequest) return;
+      if (entry) this.animModelSelect.value = entry.model;
+      this.currentClipsList = clips;
+      this.animClipSelect.replaceChildren();
+      for (const clip of clips) {
+        const option = document.createElement('option');
+        option.value = clip.id;
+        option.textContent = `${clip.name} (${clip.duration} frames)${clip.playable ? '' : ' — unresolved binding'}`;
+        this.animClipSelect.appendChild(option);
       }
-
-      if (this.currentClipsList.length > 0) {
-        await this.loadClipData(modelStem, this.currentClipsList[0].id);
-      }
-    } catch (e) {
-      console.error('Error loading animations:', e);
+      const first = clips.find(clip => clip.playable) || clips[0];
+      if (!first) { this.animationStatus(`No animation clips for ${modelStem}.`); return; }
+      this.animClipSelect.value = first.id;
+      await this.loadClipData(entry?.model || modelStem, first.id);
+    } catch (error) {
+      if (request === this.animationRequest) this.animationStatus(`Animation unavailable: ${error}`);
     }
   }
 
   public async loadClipData(modelStem: string, clipId: string): Promise<void> {
+    const request = ++this.animationRequest;
+    this.viewer.cancelAnimationSelection();
+    this.animationStatus(`Loading ${clipId}...`);
+    this.boneMonitorTableBody.replaceChildren();
+    this.animPlayBtn.textContent = '▶️ Play';
+    this.animPlayBtn.classList.remove('playing');
     try {
-      this.setStatus(`Loading animation ${clipId}...`);
-      const res = await fetch(`/api/animation/${modelStem}/${clipId}`);
-      if (!res.ok) return;
-
-      const clip: AnimationClipData = await res.json();
-      this.viewer.activeClip = clip;
-      this.viewer.currentAnimFrame = 0;
-
+      const clip: AnimationClipData = await this.viewer.animations.clip(modelStem, clipId);
+      if (request !== this.animationRequest) return;
       this.animStatDuration.textContent = String(clip.duration);
-      this.animStatFps.textContent = String(clip.frameRate);
+      this.animStatFps.textContent = `${clip.frameRate} (engine base)`;
       this.animStatTracks.textContent = String(clip.trackCount);
-
-      this.animScrubber.min = '0';
-      this.animScrubber.max = String(clip.duration);
-      this.animScrubber.value = '0';
-      this.animFrameDisplay.textContent = `Frame 0 / ${clip.duration}`;
-
-      // Populate bone monitor table
-      this.boneMonitorTableBody.innerHTML = '';
-      for (const trk of clip.tracks) {
-        const tr = document.createElement('tr');
-        tr.id = `boneRow_${trk.nodeIndex}`;
-        const [rx, ry, rz, rw] = trk.restRotation;
-        tr.innerHTML = `
-          <td><strong>Node ${trk.nodeIndex}</strong></td>
-          <td>${trk.keyframes.length} keys</td>
-          <td>${trk.interpType === 4 ? 'Hermite Spline (60B)' : 'Linear (20B)'}</td>
-          <td class="quat-val font-mono">(${rx.toFixed(3)}, ${ry.toFixed(3)}, ${rz.toFixed(3)}, ${rw.toFixed(3)})</td>
-          <td class="norm-val">1.000</td>
-        `;
-        this.boneMonitorTableBody.appendChild(tr);
+      this.animScrubber.min = '0'; this.animScrubber.max = String(clip.duration);
+      this.animScrubber.value = '0'; this.animFrameDisplay.textContent = `Frame 0 / ${clip.duration}`;
+      for (const track of clip.tracks) {
+        const tr = document.createElement('tr'); tr.id = `boneRow_${track.nodeIndex}`;
+        const label = document.createElement('td');
+        label.textContent = `${track.boneName || 'Unmapped'} [${track.nodeIndex}]`;
+        const keys = document.createElement('td'); keys.textContent = `${track.keyframes.length} keys`;
+        const stride = document.createElement('td'); stride.textContent = `${track.keyStride || '?'} bytes`;
+        const quaternion = document.createElement('td'); quaternion.className = 'quat-val font-mono';
+        quaternion.textContent = `(${track.restRotation.map(v => v.toFixed(3)).join(', ')})`;
+        const norm = document.createElement('td'); norm.className = 'norm-val'; norm.textContent = '1.000';
+        tr.append(label, keys, stride, quaternion, norm); this.boneMonitorTableBody.appendChild(tr);
       }
-
-      this.setStatus(`Ready animation ${clip.name}`);
-    } catch (e) {
-      console.error('Error loading clip data:', e);
+      const target = await this.viewer.inspectAnimation(modelStem, clip);
+      if (request !== this.animationRequest) return;
+      if (this.viewer.currentAssetCategory === 'models') {
+        this.categorySelect.value = 'models'; this.populateItemSelect();
+        this.itemSelect.value = `${this.viewer.currentSceneId}.gltf`;
+      }
+      if (this.viewer.currentMode !== 'duncan') {
+        this.playDuncanBtn.textContent = '🎮 Play as Duncan (3rd Person)';
+        this.playDuncanBtn.classList.remove('active');
+        this.camModeBtn.textContent = this.viewer.currentMode === 'orbit' ? 'Cam: Orbit' : 'Cam: Walk';
+      }
+      this.animationStatus(`${target} • ${clip.name} • rotations; spline approximation`, true);
+    } catch (error) {
+      if (request === this.animationRequest) this.animationStatus(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -587,6 +632,9 @@ export class UIManager {
         }
 
         this.viewer.setCameraMode('duncan', this.canvas);
+        this.animModelSelect.value = 'xh_';
+        if (document.getElementById('debugTabAnimation')?.classList.contains('active') &&
+            !this.debugOverlay.classList.contains('hidden')) void this.loadModelAnimations('xh_');
         this.showPortalBanner(
           'Spawned Duncan at Temple Altar! Walk into the mouth for the portal.'
         );
@@ -631,18 +679,171 @@ export class UIManager {
       }
     });
 
-    // Retro filter toggle
-    this.retroFilterBtn.addEventListener('click', () => {
-      const isRetro = this.viewer.toggleRetroFilter();
-      this.retroFilterBtn.textContent = isRetro
-        ? 'Filter: Nearest'
-        : 'Filter: Linear';
-    });
-
     // Reset camera / Respawn
     this.resetCamBtn.addEventListener('click', () => {
       this.viewer.resetCamera();
     });
+  }
+
+  private bindGraphicsEvents(): void {
+    const closeBtn = document.getElementById('closeGraphicsBtn') as HTMLButtonElement;
+    const resetBtn = document.getElementById('resetGraphicsBtn') as HTMLButtonElement;
+    const renderScale = document.getElementById('gfxRenderScale') as HTMLInputElement;
+    const renderScaleValue = document.getElementById('gfxRenderScaleValue') as HTMLOutputElement;
+    const msaa = document.getElementById('gfxMsaa') as HTMLSelectElement;
+    const fxaa = document.getElementById('gfxFxaa') as HTMLInputElement;
+    const anisotropy = document.getElementById('gfxAnisotropy') as HTMLSelectElement;
+    const textureFilter = document.getElementById('gfxTextureFilter') as HTMLSelectElement;
+    const toneMapping = document.getElementById('gfxToneMapping') as HTMLInputElement;
+    const exposure = document.getElementById('gfxExposure') as HTMLInputElement;
+    const exposureValue = document.getElementById('gfxExposureValue') as HTMLOutputElement;
+    const contrast = document.getElementById('gfxContrast') as HTMLInputElement;
+    const contrastValue = document.getElementById('gfxContrastValue') as HTMLOutputElement;
+    const sharpen = document.getElementById('gfxSharpen') as HTMLInputElement;
+    const sharpenValue = document.getElementById('gfxSharpenValue') as HTMLOutputElement;
+
+    const syncControls = (): void => {
+      const settings = this.viewer.getGraphicsSettings();
+      renderScale.value = String(settings.renderScale);
+      renderScaleValue.value = `${Math.round(settings.renderScale * 100)}%`;
+      msaa.value = String(settings.msaaSamples);
+      fxaa.checked = settings.fxaaEnabled;
+      anisotropy.value = String(settings.anisotropy);
+      textureFilter.value = settings.textureFilter;
+      toneMapping.checked = settings.toneMappingEnabled;
+      exposure.value = String(settings.exposure);
+      exposureValue.value = settings.exposure.toFixed(2);
+      contrast.value = String(settings.contrast);
+      contrastValue.value = settings.contrast.toFixed(2);
+      sharpen.value = String(settings.sharpen);
+      sharpenValue.value = settings.sharpen.toFixed(2);
+    };
+
+    const applyControls = (): void => {
+      this.viewer.applyGraphicsSettings({
+        renderScale: Number(renderScale.value),
+        msaaSamples: Number(msaa.value),
+        fxaaEnabled: fxaa.checked,
+        anisotropy: Number(anisotropy.value),
+        textureFilter: textureFilter.value === 'linear' ? 'linear' : 'nearest',
+        toneMappingEnabled: toneMapping.checked,
+        exposure: Number(exposure.value),
+        contrast: Number(contrast.value),
+        sharpen: Number(sharpen.value),
+      });
+      syncControls();
+      scheduleSave();
+    };
+
+    const togglePanel = (show?: boolean): void => {
+      const shouldShow = show ?? this.graphicsPanel.classList.contains('hidden');
+      this.graphicsPanel.classList.toggle('hidden', !shouldShow);
+      this.graphicsBtn.classList.toggle('active', shouldShow);
+    };
+
+    this.graphicsBtn.addEventListener('click', () => togglePanel());
+    closeBtn.addEventListener('click', () => togglePanel(false));
+    resetBtn.addEventListener('click', () => {
+      this.viewer.resetGraphicsSettings();
+      syncControls();
+      void this.saveGraphicsSettings(this.viewer.getGraphicsSettings());
+    });
+
+    for (const input of [renderScale, exposure, contrast, sharpen]) {
+      input.addEventListener('input', applyControls);
+    }
+    for (const input of [msaa, fxaa, anisotropy, textureFilter, toneMapping]) {
+      input.addEventListener('change', applyControls);
+    }
+
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !this.graphicsPanel.classList.contains('hidden')) {
+        togglePanel(false);
+      }
+    });
+
+    let saveTimer: number | undefined;
+    const scheduleSave = (): void => {
+      if (saveTimer !== undefined) window.clearTimeout(saveTimer);
+      saveTimer = window.setTimeout(() => {
+        saveTimer = undefined;
+        void this.saveGraphicsSettings(this.viewer.getGraphicsSettings());
+      }, 150);
+    };
+
+    syncControls();
+    void this.loadGraphicsSettings().then((saved) => {
+      if (saved) this.viewer.applyGraphicsSettings(saved);
+      syncControls();
+    });
+  }
+
+  private bindHudEvents(): void {
+    const setMinimized = (minimized: boolean): void => {
+      this.hud.classList.toggle('hud-minimized', minimized);
+      this.hud.setAttribute('aria-hidden', String(minimized));
+      this.hudNugget.hidden = !minimized;
+
+      if (minimized) {
+        this.graphicsPanel.classList.add('hidden');
+        this.graphicsBtn.classList.remove('active');
+        this.hudNugget.focus();
+      } else {
+        this.minimizeHudBtn.focus();
+      }
+    };
+
+    this.minimizeHudBtn.addEventListener('click', () => setMinimized(true));
+    this.hudNugget.addEventListener('click', () => setMinimized(false));
+  }
+
+  private openGraphicsDatabase(): Promise<IDBDatabase> {
+    if (this.graphicsDatabase) return this.graphicsDatabase;
+
+    this.graphicsDatabase = new Promise((resolve, reject) => {
+      const request = indexedDB.open('dreams-viewer', 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains('settings')) {
+          request.result.createObjectStore('settings');
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error ?? new Error('Could not open settings database'));
+    });
+    return this.graphicsDatabase;
+  }
+
+  private async loadGraphicsSettings(): Promise<Partial<GraphicsSettings> | null> {
+    try {
+      const database = await this.openGraphicsDatabase();
+      return await new Promise((resolve, reject) => {
+        const request = database.transaction('settings', 'readonly')
+          .objectStore('settings')
+          .get('graphics');
+        request.onsuccess = () => resolve(
+          request.result && typeof request.result === 'object' ? request.result : null
+        );
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.warn('Could not restore graphics settings from IndexedDB:', error);
+      return null;
+    }
+  }
+
+  private async saveGraphicsSettings(settings: GraphicsSettings): Promise<void> {
+    try {
+      const database = await this.openGraphicsDatabase();
+      await new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction('settings', 'readwrite');
+        transaction.objectStore('settings').put(settings, 'graphics');
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+      });
+    } catch (error) {
+      console.warn('Could not save graphics settings to IndexedDB:', error);
+    }
   }
 
   public async initData(): Promise<void> {

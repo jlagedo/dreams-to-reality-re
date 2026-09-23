@@ -247,6 +247,27 @@ def anim_info(file: Path) -> None:
     )
 
 
+@app.command("export-animations")
+def export_animations(
+    out: Annotated[Path | None, typer.Option("--out")] = None,
+    models_out: Annotated[Path | None, typer.Option("--models-out")] = None,
+) -> None:
+    """Export clips, complete named rigs and skin bindings for every .DAN model."""
+    from dreams.animation_export import export_library
+    from dreams.extract import merge_discs
+
+    destination = out or (paths.get("work_root") / "animations")
+    report = export_library(
+        destination,
+        [source.path for source in merge_discs("*.DAN")],
+        models_out or destination.parent / "models",
+    )
+    console.print(
+        f"{report['models']} rigs, {report['clips']} clips; "
+        f"{report['playable']} playable, {len(report['issues'])} unresolved.\n{destination}"
+    )
+
+
 @app.command("model")
 def model_info(
     file: Path,

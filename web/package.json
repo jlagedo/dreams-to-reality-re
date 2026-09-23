@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "tsc -p tsconfig.animation-tests.json && node --test .animation-tests/tests/*.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

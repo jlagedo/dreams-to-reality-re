@@ -349,6 +349,18 @@ forward requires a $+90^\circ$ rotation around the vertical axis ($Y$).
 Names elsewhere are French and legible: `E_POULP` octopus, `M14MINO` minotaur,
 `CAISSE` crate, `GRILLE` grate, `M01GUN`, `L08_TANK`, `Patte` (paw).
 
+### Shipped file descriptions
+
+Both discs also contain `DATA/3DC/DESCRIPT.ION`, a directory-level file
+description sidecar rather than a game animation table. Together they cover
+40 filenames. Examples: `F01.DAN` = `enfant` (child), `F09.DAN` =
+`capitaine araignee` (spider captain), `F10.DAN` = `scribe ok`, `F13.DAN` =
+`projectioniste`, `F14.DAN` = `Chaman`, and `Y_Z.DAN` = `grand monstre bleu`.
+Several unrelated filenames share generic descriptions such as `tortue`
+(turtle), so treat these as authoring hints rather than verified character
+identifications. The files contain no `XH_` entry or individual clip labels.
+The sidecar convention is documented in [JP Software's DESCRIBE help](https://jpsoft.com/help/describe.htm).
+
 ## `.3DC` props and weapons
 
 `F3DC` is **not** a tagged record chain and is **not** LZ-packed — it is a raw
@@ -373,12 +385,32 @@ the bug.
 - **The unnamed face-record fields** in the table above.
 ## Animation — `.DAN` Tag 3 Decoded [verified]
 
+For the executable hypothesis harness, named node directory, and the correction
+to track binding, see [animation-validation.md](animation-validation.md).
+
 `.DAN` is a dual container storing 3D mesh parts (Tag 1), texture pages (Tag 2), and **animation clips (Tag 3)**.
 The container header has two directories:
 1. Directory 1 at `+0x10`: `N` 11-byte strings declaring internal mesh names (`.3DM`).
 2. Directory 2 at `+0x10 + 11*N + 2`: `F` 13-byte fixed slots declaring source animation clip names (`.3DA`).
 
 Each Tag 3 chunk in the body corresponds 1-to-1 with the declared `.3DA` names in Directory 2 in sequential order.
+
+### Animation names and runtime IDs
+
+The 780 clips from 159 distinct `.DAN` files have only source-style names such as
+`XH_AN000.3DA`; every name follows the `AN` plus three-digit pattern. There is no
+embedded label such as “idle” or “walk” in the clip directory. The French
+`DATA/LANG/FRANCAIS/DREAMS.INI` resource names objects and projects, not clips.
+
+`WINDREAM.EXE` at `FUN_00404d98` reads the `.DAN` clip directory (or searches
+`an???.3da` files when there is no container), parses each numeric suffix via
+`FUN_004551b5`, and installs the loaded clip in that numbered runtime slot.
+`FUN_00455278` later retrieves a clip by numeric slot; animation state values
+pack the slot number into their high 16 bits. The executable contains control
+labels including “Run”, “Walk”, “Jump”, “Take-off”, and “Flight or Swim”, but no
+textual action-to-clip lookup was found. The action labels below remain
+inferences until the state selectors or original-game debug HUD establish the
+numeric mapping.
 The engine's loader at `FUN_0040fff7` / `FUN_004105eb` decompresses each Tag 3 chunk via Cryo's LZ decompressor (`FUN_0049afd1`) into runtime skeletal animation tracks.
 
 ### Tag 3 Stream Layout [verified]
@@ -391,14 +423,22 @@ Decompressed, each Tag 3 payload has the following binary structure:
 +0x08  u32        unknown
 +0x0C  u32        unknown
 +0x10  u32        unknown
-+0x14  u32        track count N (equals scene-graph node count, e.g. 27 for XH_, 17 for CH0)
-+0x18  u32        header table span == 4 * (N + 1)
-+0x1C  u32[N-1]   relative offsets to track records 0 .. N-2
-...    u32        total duration in frames
-...    u32        frame rate (typically 10 fps)
++0x14  u32        track count N (27 for XH_, 18 for CH0)
++0x18  u32[N]     offsets to track records 0 .. N-1
 ```
 
-Track $i$ ($0 \le i < N$) maps 1-to-1 to Scene-Graph Node $i$ in the skeletal hierarchy.
+Track $i$ maps to slot $i$ of the **Tag 1 node directory**, whose order differs
+from the geometry scanner's physical record order. In `XH_`, slot 2 is
+`avbras-d` (geometry index 10), slot 25 is `tete` (geometry index 4), and slots
+17–20 are `nat01`–`nat04` (geometry indices 5–8). `CH0`'s eighteenth slot is
+the named zero-vertex node `bassin01`, omitted by the geometry scanner.
+
+There is **no established FPS field after this table**. In `XH_` the next
+words belong to the root track: duration, rotation-key count, translation-key
+count. Earlier reported rates such as 28 fps were actually key counts. The
+viewer now uses the **30 frames/second executable base**, recovered separately
+in [animation-timing.md](animation-timing.md). Actor/state modifiers can change
+effective speed. Clip duration is taken from track durations.
 
 ### Track Record Layout [verified]
 
@@ -412,24 +452,32 @@ Each track record contains a 40-byte header followed immediately by $K$ uniform 
 +0x10  u32        unknown
 +0x14  u32        track duration in frames
 +0x18  u32        keyframe count K
-+0x1C  u32        interpolation / codec type (1 = linear, 2 = Hermite spline)
++0x1C  u32        translation key count
 +0x20  u32        start offset of keyframe array
-+0x24  u32        end offset of keyframe array
-+0x28  i32[4]     rest unit quaternion [qx, qy, qz, qw], Q15 fixed-point (32768 = 1.0)
++0x24  u32        start offset of translation array (also ends rotation array)
++0x28             first keyframe starts here; there is no separate rest quaternion
 ```
 
 Each keyframe $k \in [0, K-1]$ is located at exact byte offset `trk_off + 40 + k * stride`:
-- **Linear Keyframes (`stride == 20`, `interp_type == 1`)**:
+- **20-byte keyframes (`stride == 20`)**:
   - `+0x00` `u32`: keyframe timestamp / frame index
   - `+0x04` `i32[4]`: unit quaternion `[qx, qy, qz, qw]` ($32768 = 1.0$)
-- **Hermite Spline Keyframes (`stride == 60`, `interp_type == 2`)**:
+- **60-byte keyframes (`stride == 60`)**:
   - `+0x00` `u32`: keyframe timestamp / frame index ($0, 1, 2, \dots$)
   - `+0x04` `i32[4]`: unit quaternion `[qx, qy, qz, qw]` ($32768 = 1.0$)
-  - `+0x14` `u32[2]`: curve control / ease flags
-  - `+0x1C` `i32[4]`: incoming Hermite tangent quaternion
-  - `+0x2C` `i32[4]`: outgoing Hermite tangent quaternion
+  - `+0x14` `u32[2]`: curve control / ease fields
+  - `+0x1C` `i32[4]`: candidate incoming tangent quaternion
+  - `+0x2C` `i32[4]`: candidate outgoing tangent quaternion
 
-Verified across **10,127 tracks and 97,729 keyframes across all 159 models on the game discs** with 0 errors, 100% monotonic timestamps, and 100% unit quaternions ($1.000$).
+Verified across **15,084 tracks and 142,806 keyframes in 780 clips from 159 distinct models** with 0 invalid strides or nonmonotonic timestamps.
+
+The pointers at `+0x20` and `+0x24` are relative to decompressed payload
+`+0x14`. Translation records have timestamp plus XYZ at their start, with
+16-byte records accompanying 20-byte rotation keys, and 48-byte records
+accompanying 60-byte rotation keys. These pairings agree with evaluators
+`FUN_00459808` and `FUN_0045a03c`. The validation harness reads the translation
+keys as independent evidence of track binding; the viewer still uses static
+node translations.
 
 ### Engine Evaluation Math in `WINDREAM.EXE` [verified]
 
@@ -473,21 +521,21 @@ Headless Ghidra decompilation revealed the exact runtime evaluation routines:
    - Deforms local vertex coordinates into world coordinates for rendering:
      $$V_{world} = ((R_{world} \times V_{local}) \gg 15) + T_{world}$$
 
-### Duncan (`XH_`) Motion Action Mapping [verified]
+### Duncan (`XH_`) Motion Action Mapping [inferred]
 
-By performing forward kinematics and analyzing limb angular trajectories across all 49 authored clips in `XH_.DAN`, the primary locomotion states were recovered:
+The viewer currently uses the following clip assignments. They were inferred before the missing track 0 was recovered and have not yet been matched to the game's action-to-clip assignments; recheck each action against the corrected poses:
 
 | Clip | Duration | Frame Rate | Action / Trajectory |
 |---|---|---|---|
-| `XH_AN000.3DA` | 200 frames | 10 fps | **Idle**: 20-second breathing cycle, feet planted on ground ($Y \approx -28$), subtle hand and weight shifts |
-| `XH_AN055.3DA` | 39 frames | 28 fps | **Run / Sprint**: high-speed cyclic run, knee lift ($Y=-82$), alternating arm swings ($X = -13 \dots +25$) |
-| `XH_AN056.3DA` | 38 frames | 26 fps | **Run / Sprint**: alternative high-velocity running cycle |
-| `XH_AN018.3DA` | 35 frames | 7 fps | **Walk**: measured walking gait |
-| `XH_AN024.3DA` | 65 frames | 19 fps | **Fly / Levitate**: mid-air flight cycle, both feet tucked/hovering, outstretched arms |
-| `XH_AN035.3DA` | 65 frames | 19 fps | **Fly / Glide**: levitation flight variant |
-| `XH_AN020.3DA` | 25 frames | 7 fps | **Jump**: vertical leap, leg compression followed by explosive mid-air extension |
+| `XH_AN000.3DA` | 200 frames | 30 fps base | Stationary / idle candidate |
+| `XH_AN055.3DA` | 39 frames | 30 fps base | Run / sprint candidate |
+| `XH_AN056.3DA` | 38 frames | 30 fps base | Alternative run candidate |
+| `XH_AN018.3DA` | 35 frames | 30 fps base | Walk candidate |
+| `XH_AN024.3DA` | 65 frames | 30 fps base | Fly candidate |
+| `XH_AN035.3DA` | 65 frames | 30 fps base | Alternative fly candidate |
+| `XH_AN020.3DA` | 25 frames | 30 fps base | Jump candidate |
 
-### Skeletal Pose Evaluation [verified]
+### Skeletal Pose Evaluation [partially verified]
 
 For any playback time $t$ in frames:
 1. For each track $i$, find the bounding keyframes $k_0 \le t \le k_1$.
@@ -498,6 +546,11 @@ For any playback time $t$ in frames:
 4. In `WINDREAM.EXE` (`FUN_0047e498` / `FUN_0047e700`), the local node rotation $R_{\text{local}}$ is replaced by $R_{\text{anim}}$, and world transforms are composed down the scene-graph hierarchy:
    $$R_{\text{world}} = (R_{\text{parent}} \cdot R_{\text{child}}) \gg 15$$
    $$T_{\text{world}} = ((R_{\text{parent}} \cdot T_{\text{child}}) \gg 15) + T_{\text{parent}}$$
+
+The plain SLERP above is the viewer's approximation for 60-byte keys. The
+original spline evaluator `FUN_0045a03c` additionally interpolates control
+quaternions and blends again (SQUAD-style), and evaluates translation curves.
+Its complete easing and fixed-point behavior has not yet been reproduced.
 
 ### Dual Animation Tracks in In-Engine HUD [verified]
 

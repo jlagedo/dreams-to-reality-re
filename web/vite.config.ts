@@ -135,6 +135,15 @@ function dreamsAssetPlugin(): Plugin {
           }
         }
 
+        // Shared animation library catalog. Static props may have no entry.
+        if (url === '/api/animation-models') {
+          const file = path.join(ANIMATIONS_DIR, 'catalog.json');
+          res.setHeader('Content-Type', 'application/json');
+          if (fs.existsSync(file)) fs.createReadStream(file).pipe(res);
+          else { res.statusCode = 404; res.end(JSON.stringify({error:'Run dreams export-animations.'})); }
+          return;
+        }
+
         // API: List animations for a given model (e.g. /api/animations/xh_)
         if (url.startsWith('/api/animations/')) {
           const modelStem = url.replace('/api/animations/', '').split('?')[0].toLowerCase();
