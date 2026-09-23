@@ -2,6 +2,15 @@
 #sha256	1635f530e1ce64237b978073252bc2c583ead5e2436563ba3a42be4dc1b2c761
 #imagebase	400000
 FUNC	65538	entry	undefined entry(void)	
+FUNC	16606	Debug_DrawObjectInfo		Engine debug HUD overlay for scene entities
+FUNC	175bc	DSN_LoadHeader		Reads DSNF header, name table, and 20-byte object records
+FUNC	177f5	DSN_LoadTag1_MaterialsAndFaces		Unpacks tag 1 LZ stream: materials, nodes, and face records
+FUNC	178fe	DSN_LoadTag2_VertexPool		Unpacks tag 2 LZ stream: vertex coordinate pool
+FUNC	17afd	DSN_LoadTag3And4_Textures		Reads tag 3 palettes (0x400 B/obj) and tag 4 progressive planes
+FUNC	1c666	Scene_LoadGeometryAndMaterials		Dispatches loading of .3DC, .3DI, .3DM, .3DA, and .DSN chunks
+FUNC	1da7d	Scene_LoadEntityAssets		Loads 3D models and collision data for a project entity
+FUNC	1deb8	Entity_InstantiateFromObjet		Initializes runtime entity struct from DREAMS.DAT OBJET record
+FUNC	1f9db	Scene_SpawnProjectEntities		Loads scene terrain and loops OBJET1..15 to spawn active entities
 CMT	178	eol	AUTO
 CMT	1a0	eol	.idata
 CMT	1c8	eol	DGROUP

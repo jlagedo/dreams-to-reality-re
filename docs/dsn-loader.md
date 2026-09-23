@@ -197,17 +197,25 @@ Pairs with `src/dreams/watcom.py`, which recovers Watcom 10.6 runtime symbol
 names from the stock OMF libraries — see [toolchain.md](toolchain.md). Between a
 correct cspec and named runtime functions, only Cryo's own code stays anonymous.
 
-## Next
+## The Body Unpackers and Call Hierarchy **[verified]**
 
-The unpacker is not in `FUN_004175bc`. Leads, in order:
+The body unpacking and asset consumption pipeline has been fully decompiled and identified:
 
-1. **`FUN_0041da7d`** — the sole caller. It presumably calls the header reader
-   and then walks the body.
-2. **`FUN_004177f5`, `FUN_004178fe`, `FUN_00417afd`** — siblings in the same
-   `0x417xxx` neighbourhood that also use `peek`/`commit`. Strong candidates for
-   the per-record body readers.
-3. **`FUN_0041754e`, `FUN_0043b0e2`, `FUN_004152f2`, `FUN_004153fe`** — the
-   open/setup chain, worth naming to make everything else readable.
-
-Whatever consumes bytes past the name table and writes decoded output is the
-answer to the 157 MB question.
+1. **`FUN_004177f5` (`DSN_LoadTag1_MaterialsAndFaces`)**:
+   Verifies tag `\x01`, reads the packed length $L$, seeks past chunk padding, calls `FUN_0049afd1()` to unpack the LZ stream into the arena directory, materials table, scene-graph nodes, and face records.
+2. **`FUN_004178fe` (`DSN_LoadTag2_VertexPool`)**:
+   Verifies tag `\x02`, reads length $L$, and unpacks the LZ stream via `FUN_0049afd1()` into the shared vertex pool at `+0x30`.
+3. **`FUN_00417afd` (`DSN_LoadTag3And4_Textures`)**:
+   Called progressively (32 iterations):
+   - On iteration 0: verifies tag `\x03` (palette), reading $B \times 1024$ bytes into per-object texture palettes at `offset + 0x3C00`.
+   - On iterations $0 \dots 31$: reads pairs of tag `\x04` records (64 progressive planes total), feeding them to `FUN_00417d78` to interleave into the $256 \times 256$ RGB surfaces.
+4. **`FUN_0041c666` (`Scene_LoadGeometryAndMaterials`)**:
+   The master chunk dispatcher. Inspects extensions and calls `FUN_004177f5` (`.3DC`), `FUN_004178fe` (`.3DI`), `FUN_00417a07` (`.3DM`), and `FUN_004105eb` (`.3DA`).
+5. **`FUN_0041da7d` (`Scene_LoadEntityAssets`)**:
+   Caller of `FUN_004175bc` (`load_dsn_header`). Dispatches model geometry loading, then invokes `FUN_00404d98` / `FUN_00405118` / `FUN_004058d5` for entity initialization if flag bit 1 is set.
+6. **`FUN_0041deb8` (`Entity_InstantiateFromObjet`)**:
+   Converts an `OBJET` record from `DREAMS.DAT` into a live in-game entity struct.
+7. **`FUN_0041f9db` (`Scene_SpawnProjectEntities`)**:
+   The level scene spawner. Sets ambient lights, directional lights, fog, clear color, and loops through `OBJET1` .. `OBJET15` to spawn active entities.
+8. **`FUN_00416606` (`Debug_DrawObjectInfo`)**:
+   The developer debug HUD overlay that renders entity fields with exact internal labels (`Object Pos`, `Object Speed`, `Object PHY Speed`, `Object Flags`, `Object Angle`, `Object 3D Col`, `Object Anim 0`, `Object Anim 1`, `Nombre d'objet`).

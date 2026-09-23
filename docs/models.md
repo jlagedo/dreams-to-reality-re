@@ -338,6 +338,14 @@ frames of any model (49), and it turns up inside `MOT.DAN` alongside
 manifest" instead gave `CH0`, which is a monster; the internal names are the
 thing to read.
 
+**Authoring coordinate axes & rest pose [verified]:** In the raw exported mesh
+of `XH_.DAN`, the model rests in 3D Studio's authoring T-pose:
+- **Face / Nose**: points along $+X$ (positive X maximum at $(+0.24, 2.90, 0)$).
+- **Ponytail**: extends horizontally backwards along $-X$ (tip at $(-0.88, 3.13, 0)$).
+- **Arms**: outstretched along $\pm Z$ (total wingspan $2.83$, from $z = -1.42$ to $+1.41$).
+In standard glTF/engine conventions where $+Z$ is forward, aligning Duncan's face
+forward requires a $+90^\circ$ rotation around the vertical axis ($Y$).
+
 Names elsewhere are French and legible: `E_POULP` octopus, `M14MINO` minotaur,
 `CAISSE` crate, `GRILLE` grate, `M01GUN`, `L08_TANK`, `Patte` (paw).
 

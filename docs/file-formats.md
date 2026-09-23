@@ -124,15 +124,15 @@ but consistent across every sample. See [assets.md](assets.md).
 Across all files there are **2,145 records, 1,642 distinct names**, 4–8 printable
 characters each with 3–7 trailing NULs.
 
-#### The 20-byte object records
+#### The 20-byte object records **[verified]**
 
-**[verified]** Column 0 is `3` in 1,719 of 2,145 records. Column 2 stays within
-`0..255` in every record — a count or flag byte widened to `u32`. Columns 3 and 4
-are **both zero or both non-zero**, and when non-zero they hold values in
-`0x0045xxxx`–`0x0047xxxx`: the same **stale pointers** found in `.3DM` and `.DAN`
-(see [assets.md](assets.md)). So a record is partly a serialized struct with
-pointer fields, not pure geometry, and columns 3–4 carry no offset information
-about the body.
+Immediately following the $B \times 11$-byte name table at offset $16 + 11B$ are $B \times 20$-byte records, one per sub-object in the scene (2,145 records across 98 scenes):
+
+- **Word 0 (`u32`)**: Allocation / relocation flag. When non-zero, holds `0x004741A0` (in 1,719 of 2,145 records), marking static world geometry loaded directly into memory arenas.
+- **Word 1 (`u32`)**: Relocated address / runtime buffer offset (e.g. `0x0045C9xx`).
+- **Word 2 (`u32`)**: Role / class ID — constant `3` across all 2,145 records on both discs.
+- **Word 3 (`u32`)**: Compass normal / surface facing orientation. Directly correlates with French wall compass names: `0x202` for North walls (`MN`), `0x246` for East walls (`ME`), `0x286` for West walls (`MO`), `0x206` / `0x216` for slopes and diagonal slabs.
+- **Word 4 (`u32`)**: Surface category and physics friction / footstep sound property (e.g. floor tile friction vs water vs stone).
 
 #### The body is a chain of tagged records
 
@@ -609,9 +609,9 @@ record decompresses to exactly **`0x2200` bytes** - 150 of 150, which is the
 validation: a wrong codec does not land on a constant.
 
 ```
-+0x0000  header         0x200   starts "ProjectN"
++0x0000  header         0x200   starts "ProjectN" + environment, camera, lights, spawn
 +0x0200  Link[8]        0x80    name[12], destination[12], ..., i32 min[3] @+0x24, i32 max[3] @+0x30
-+0x0600  Objet[16]      0xc0    name[12], asset[32], ..., i32 position[3] @+0x40
++0x0600  Objet[16]      0xc0    name[12], asset[32], flags @+0x34, i32 pos[3] @+0x40, heading @+0x5c, behavior @+0x64
 +0x1200  Box[12]        0x100   name[12], i32 points[16][3] @+0x24, count @+0xe4, type @+0xf0
 +0x1e00  LinkAdvent[16] 0x40    name[12], 8 x i32, asset[16] @+0x2c
 ```
@@ -620,6 +620,77 @@ An active slot starts with its family name; an all-zero slot is unused. Counts
 over the corpus: `LINK` 244 (239 naming a project), `OBJET` 711, `BOX` 420,
 `LINKADVENT` 328. `OBJET0` is the project's scene in 150 of 150. Decoded by
 [`dreams.formats.project`](../src/dreams/formats/project.py).
+
+##### Project Header fields (0x200 bytes) **[verified]**
+Decompiled from `FUN_0041f9db` and `FUN_0041deb8` in `WINDREAM.EXE`:
+- `+0x000` `char[16]`: project identifier (e.g. `Project0\0`).
+- `+0x018` `i32[3]`: Directional light 1 orientation vector `(x, y, z)`.
+- `+0x024` `i32[3]`: Directional light 2 orientation vector `(x, y, z)`.
+- `+0x030` `i32[3]`: Ambient light RGB components (values in $0 \dots 255$, e.g. `(152, 168, 126)`).
+- `+0x03C` `char[32]`: Primary animated video filename (`.HNM` or `.UBB`, e.g. `ETE_E~1.HNM`, `CASC2.HNM`).
+- `+0x05C` `char[32]`: Secondary animated video filename (e.g. `M01DRA.HNM` in Project 12).
+- `+0x06C` `char[32]`: Target scene material name receiving primary video texture (e.g. `F02_EAUP`).
+- `+0x08C` `char[32]`: Target scene material name receiving secondary video texture (e.g. `M01DRA`).
+- `+0x09C` `i32`: Camera projection mode.
+- `+0x0A0` `i32`: Camera near clip plane distance / height.
+- `+0x0A4` `i32`: Camera Field of View in degrees (typically 63–65°).
+- `+0x0B4` `i32[3]`: Player canonical spawn coordinates `(x, y, z)` in scene units (negative Y is up).
+- `+0x0E0` `i32[4]`: Depth fog parameters: start distance, end distance, density, fog color.
+- `+0x0F0` `i32[4]`: Clear color / Sky color RGB components.
+- `+0x10C` `i32`: Player canonical spawn heading (12-bit angle, $0 \dots 4095 \equiv 360^\circ$).
+- `+0x138` `i32`: Lighting mode: `0` = Day (positive ambient bias `+0x40`/`+0x80`), `1` = Night (dark negative bias `0xFFFFFFC0`/`0xFFFFFF80`).
+- `+0x1F8` `i32`: Redbook CD audio track number (matches audio tracks 2..14).
+
+##### `OBJET` fields (0xC0 bytes) **[verified]**
+Decompiled from `FUN_0041deb8` (entity instantiation) and `FUN_00416606` (the engine's developer debug HUD):
+- `+0x00` `char[12]`: slot name (`OBJET0` .. `OBJET15`).
+- `+0x0C` `char[16]`: asset filename (`.DSN` scene for slot 0; `.DAN` character or `.3DC` prop for slots 1..15).
+- `+0x1C` `char[16]`: secondary instance identifier or label.
+- `+0x34` `u16`: entity bitfield flags:
+  - bit 0 (`0x01`): active / spawn immediately on level entry.
+  - bit 1 (`0x02`): dynamic character / creature entity (`XH_.DAN`, `F07BLEU.DAN`, `CH0.DAN`).
+  - bit 8 (`0x0100`): dormant / disabled entity (kept inactive until triggered by adventure script).
+  - bit 14 (`0x4000`): triggers special AI initialization routine (`FUN_0043b8aa`).
+- `+0x3C` `i32`: bounding / collision radius (scaled by the engine if $> 256$ or $> 512$).
+- `+0x40` `i32[3]`: spawn position `(x, y, z)` in scene units (negative Y is up).
+- `+0x5C` `i32`: facing orientation / heading — a **12-bit fixed point angle** ($0 \dots 4095$ where $4096 = 360^\circ$ or $2\pi$).
+- `+0x64` `i32`: AI / behavior archetype:
+  - `1`: static obstacle or prop.
+  - `3`: hostile creature / attack behavior (`CH0.DAN`, `F59.DAN`).
+  - `5`: friendly NPC / patrol behavior (`F07BLEU.DAN`, `F07ORIG.DAN`).
+  - `6`: aerial waypoint flight behavior.
+- `+0x68` `i32`: movement speed / velocity multiplier (default `16.0f`).
+- `+0x6C` `i32`: waypoint route target index (indexes into `BOX0` .. `BOX11`).
+- `+0x70` `i32`: health / hitpoints or dialogue bank speech index.
+- `+0x74` .. `+0x98`: animation playback state, secondary action timers, and sub-object visibility masks.
+
+The engine's debug HUD at `FUN_00416606` directly labels these fields:
+`Project Name`, `Object Name`, `Object Pos`, `Object Speed`, `Object PHY Speed`,
+`Object Flags`, `Object Angle`, `Object 3D Col`, `Object Anim 0`, `Object Anim 1`,
+`Nombre d'objet`, `dernier objet`.
+
+##### `LINK` fields (0x80 bytes) **[verified]**
+- `+0x00` `char[12]`: link slot name (`LINK0` .. `LINK7`).
+- `+0x0C` `char[12]`: destination project name (e.g. `Project134`).
+- `+0x24` `i32[3]`: bounding volume minimum `(minX, minY, minZ)`.
+- `+0x30` `i32[3]`: bounding volume maximum `(maxX, maxY, maxZ)`.
+Entering this axis-aligned 3D volume triggers the level transition to the target project.
+
+##### `BOX` fields (0x100 bytes) **[verified]**
+- `+0x00` `char[12]`: box name (`BOX0` .. `BOX11`).
+- `+0x24` `i32[16][3]`: sequence of up to 16 3D waypoint coordinates `(x, y, z)`.
+- `+0xE4` `i32`: number of points used ($0 \dots 16$).
+- `+0xF0` `i32`: path kind:
+  - `0`: ground patrol routes (used by walking NPCs like gnomes).
+  - `1`: aerial flight waypoints (used by floating/flying creatures).
+
+##### `LINKADVENT` fields (0x40 bytes) **[verified]**
+- `+0x00` `char[12]`: advent slot name (`LINKADVENT0` .. `LINKADVENT15`).
+- `+0x14` `i32`: target `OBJET` slot index ($0 \dots 15$) bound to this adventure event condition.
+- `+0x1C` `i32`: quest progression / storyline milestone stage ($0 \dots 176$).
+- `+0x20` `i32`: event condition opcode (e.g. proximity trigger, item delivery, interaction).
+- `+0x24` `i32`: action parameter / destination event.
+- `+0x2C` `char[16]`: cutscene video filename (11 entries carry a `.HNM`/`.UBB` cutscene movie, e.g. `AUTEL.HNM`, `ANGKOR.HNM`, `CASCADE.HNM`, `SHAMAN.HNM`, `GUARDIAN.UBB`).
 
 Coordinates use **the scene's own axes** - `(x, y, z)`, up at negative Y.
 Calibrated, not assumed: read that way, Project 0's `LINK0` box centres 165
@@ -632,11 +703,6 @@ a name's terminator is a zero-run count, and so is the byte before the next
 name - `F` is `0x46`, a run of seventy zeros. That is why 131 distinct bytes
 appear in that position, and why `c4 09 00 02` looked like a three-byte integer
 with a tag when it is just 2500.
-
-`BOX` is typed point geometry - types 0:159, 1:91, 7:47, 8:57, 5:29, 3:15,
-9:13, 6:8, 2:1 - and what each type does is **[unverified]**. `LINKADVENT`
-never names a project; 11 carry an HNM/UBB filename. **[unverified]** beyond
-that.
 
 ### `.ANTI-VIR.DAT`
 

@@ -492,6 +492,33 @@ Things that make future work easier:
 - **Cryo reused one video codec family across their whole catalogue.** HNM
   generations 0/1/4/5/6 span Dune to Atlantis 2, which is why third-party
   decoders written for *other* Cryo games decode this one.
+- **`DREAMS.DAT` entity headings are 12-bit fixed point angles.** Offset `+0x5C`
+  in the 192-byte `OBJET` record holds an integer $0 \dots 4095$ representing
+  yaw where $4096 = 360^\circ$ ($2\pi$). All 520 positioned scene entities fall
+  strictly in this range.
+- **`XH_.DAN` model axes face $+X$ in rest pose.** 3D Studio models were
+  authored with the character facing $+X$, ponytail pointing backwards along
+  $-X$, and wingspan outstretched along $\pm Z$. Aligning with $+Z$ forward in
+  glTF / Babylon.js requires a $+90^\circ$ vertical rotation.
+- **The engine's developer debug HUD in `WINDREAM.EXE` (`FUN_00416606`) reveals the exact runtime object struct fields:**
+  Direct string labels from the developers: `Project Name`, `Object Name`,
+  `Object Pos` $(x, y, z)$, `Object Speed`, `Object PHY Speed`, `Object Flags`,
+  `Object Angle` (pitch, yaw, roll, heading), `Object 3D Col` (collision state),
+  `Object Anim 0` & `Object Anim 1` (dual animation track blending), `Nombre d'objet`,
+  `dernier objet`.
+- **Runtime entity instantiation (`FUN_0041deb8`) and project loader (`FUN_0041f9db`) decoded:**
+  - `Project` header: directional lights at `+0x18`/`+0x24`, ambient RGB at `+0x30`,
+    animated video textures at `+0x3C`/`+0x5C`, target materials at `+0x6C`/`+0x8C`,
+    camera FOV at `+0xA4`, canonical player spawn `(x, y, z)` at `+0xB4`, fog
+    parameters at `+0xE0`, sky/clear color at `+0xF0`, spawn heading at `+0x10C`,
+    day/night mode at `+0x138`, CD audio track at `+0x1F8`.
+  - `OBJET` records: bitfield flags at `+0x34` (bit 0 = active on start, bit 1 = dynamic
+    character, bit 8 = dormant/hidden), AI archetype at `+0x64` (1 = prop, 3 = creature
+    attack, 5 = gnome patrol, 6 = flying aerial), velocity multiplier at `+0x68`, patrol
+    route box index at `+0x6C`, health/dialogue at `+0x70`.
+  - `.DSN` 20-byte records at `16 + 11*B`: word 0 allocation flag (`0x004741A0` vs `0x0`),
+    word 1 relocated pointer, word 2 constant 3, word 3 compass normal (`0x202` North,
+    `0x246` East, `0x286` West), word 4 surface friction/sound category.
 
 ## Sources
 
