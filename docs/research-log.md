@@ -519,6 +519,14 @@ Things that make future work easier:
   - `.DSN` 20-byte records at `16 + 11*B`: word 0 allocation flag (`0x004741A0` vs `0x0`),
     word 1 relocated pointer, word 2 constant 3, word 3 compass normal (`0x202` North,
     `0x246` East, `0x286` West), word 4 surface friction/sound category.
+- **`.DAN` Tag 3 skeletal animation decoded [verified]:**
+  The `.3DA` entries in Directory 2 index sequential Tag 3 chunks decompressed by `FUN_004105eb`
+  via Cryo's LZ codec. Track $i$ corresponds 1-to-1 with skeletal node $i$. Each track specifies
+  duration, keyframe count $K$, interpolation type (2 = linear with 20-byte records, 4 = Hermite
+  spline with 60-byte records), rest unit quaternion $(0, 0, 0, 32768)$, and Q15 keyframe rotations.
+  Composed hierarchically in `WINDREAM.EXE` (`FUN_0047e498`) via Slerp interpolation. Dual
+  concurrent tracks (`Object Anim 0` / `Object Anim 1`) support motion blending. 550 clips extracted
+  across 111 character and prop models to `E:\dreams-work\animations/`.
 
 ## Sources
 

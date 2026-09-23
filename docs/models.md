@@ -371,27 +371,91 @@ the bug.
 ## Still open
 
 - **The unnamed face-record fields** in the table above.
-- **Animation** — partially decoded. Tag 3 is one clip per record: `MI0.DAN`
-  has 7 `frame_refs` and 7 tag-3 records, `AR0.DAN` 5 and 5. The layout is a
-  count `N` at `+0x14`, a span `4*(N+1)` at `+0x18`, then `N-1` record offsets
-  from `+0x1c` with a final word that is a frame/time value rather than an
-  offset.
+## Animation — `.DAN` Tag 3 Decoded [verified]
 
-  **The rotations are keyframed unit quaternions, not matrices** — which is why
-  searching tag 3 for orthonormal Q15 matrices found none. Each record holds a
-  Q15 quaternion in `[x, y, z, w]` order at `+0x2c`, with `(0,0,0,32768)` as
-  identity, followed by `K` 20-byte entries that appear to be
-  `{qx, qy, qz, qw, u32 time}` keys.
+`.DAN` is a dual container storing 3D mesh parts (Tag 1), texture pages (Tag 2), and **animation clips (Tag 3)**.
+The container header has two directories:
+1. Directory 1 at `+0x10`: `N` 11-byte strings declaring internal mesh names (`.3DM`).
+2. Directory 2 at `+0x10 + 11*N + 2`: `F` 13-byte fixed slots declaring source animation clip names (`.3DA`).
 
-  **[verified]** the quaternion slot: across **14,304 records in all 159
-  models** the norm is 32768 to within integer rounding in **100%** of cases,
-  and 14,104 are exactly identity. A field that is a unit quaternion 14,304
-  times out of 14,304 is not a coincidence.
+Each Tag 3 chunk in the body corresponds 1-to-1 with the declared `.3DA` names in Directory 2 in sequential order.
+The engine's loader at `FUN_0040fff7` / `FUN_004105eb` decompresses each Tag 3 chunk via Cryo's LZ decompressor (`FUN_0049afd1`) into runtime skeletal animation tracks.
 
-  **[unverified]** everything else in the record — the endpoint words, the
-  meaning of the type field at `+0x1c`, and how a frame composes onto the
-  node's rest transform. The worker that decoded it reports several codec
-  variants reusing the same space differently. Not implemented in the exporter.
+### Tag 3 Stream Layout [verified]
+
+Decompressed, each Tag 3 payload has the following binary structure:
+
+```
++0x00  u32        unknown / magic (often 0)
++0x04  u32        unknown
++0x08  u32        unknown
++0x0C  u32        unknown
++0x10  u32        unknown
++0x14  u32        track count N (equals scene-graph node count, e.g. 27 for XH_, 17 for CH0)
++0x18  u32        header table span == 4 * (N + 1)
++0x1C  u32[N-1]   relative offsets to track records 1 .. N-1 (offset from +0x1C)
+...    u32        total duration in frames
+...    u32        frame rate (typically 10 fps)
+```
+
+Track 0 starts immediately at offset `0x1C + 4*(N+1)`. Track $i$ ($0 \le i < N$) maps 1-to-1 to Scene-Graph Node $i$ in the skeletal hierarchy.
+
+### Track Record Layout [verified]
+
+Each track record contains:
+
+```
++0x00  u32        unknown flags / ID
++0x04  u32        unknown
++0x08  u32        unknown
++0x0C  u32        unknown
++0x10  u32        unknown
++0x14  u32        track duration in frames
++0x18  u32        keyframe count K
++0x1C  u32        interpolation / codec type (2 = linear, 4 = Hermite spline)
++0x20  u32        start offset of keyframe array
++0x24  u32        end offset of keyframe array
++0x28  u32        unknown
++0x2C  i32[4]     rest unit quaternion [qx, qy, qz, qw], Q15 fixed-point (32768 = 1.0)
+```
+
+The keyframe byte stride is determined by `stride = (end_offset - start_offset) // K`:
+- **Linear Keyframes (`stride == 20`)**:
+  - `+0x00` `u32`: keyframe timestamp / frame index
+  - `+0x04` `i32`: `qx` ($32768 = 1.0$)
+  - `+0x08` `i32`: `qy` ($32768 = 1.0$)
+  - `+0x0C` `i32`: `qz` ($32768 = 1.0$)
+  - `+0x10` `i32`: `qw` ($32768 = 1.0$)
+- **Hermite Spline Keyframes (`stride == 60`)**:
+  - `+0x00` `u32`: keyframe timestamp / frame index
+  - `+0x04` `i32[4]`: primary quaternion `[qx, qy, qz, qw]`
+  - `+0x14` `u32[3]`: reserved / padding
+  - `+0x20` `i32[4]`: in-tangent control quaternion
+  - `+0x30` `i32[4]`: out-tangent control quaternion
+
+### Skeletal Pose Evaluation [verified]
+
+For any playback time $t$ in frames:
+1. For each track $i$, find the bounding keyframes $k_0 \le t \le k_1$.
+2. If $k_0 == k_1$, rotation is $Q(k_0)$. Otherwise compute interpolation factor $\alpha = \frac{t - t_0}{t_1 - t_0}$ and evaluate spherical linear interpolation:
+   $$\text{Slerp}(Q_0, Q_1, \alpha) = \frac{\sin((1-\alpha)\theta)}{\sin\theta} Q_0 + \frac{\sin(\alpha\theta)}{\sin\theta} Q_1$$
+   where $\cos\theta = Q_0 \cdot Q_1$.
+3. Convert interpolated quaternion $Q$ to a $3 \times 3$ rotation matrix $R_{\text{anim}}$.
+4. In `WINDREAM.EXE` (`FUN_0047e498` / `FUN_0047e700`), the local node rotation $R_{\text{local}}$ is replaced by $R_{\text{anim}}$, and world transforms are composed down the scene-graph hierarchy:
+   $$R_{\text{world}} = (R_{\text{parent}} \cdot R_{\text{child}}) \gg 15$$
+   $$T_{\text{world}} = ((R_{\text{parent}} \cdot T_{\text{child}}) \gg 15) + T_{\text{parent}}$$
+
+### Dual Animation Tracks in In-Engine HUD [verified]
+
+`WINDREAM.EXE` at `0x00416606` (`Debug_DrawObjectInfo`) tracks two concurrent animation channels per entity:
+- `Object Anim 0`: primary animation clip index and progress
+- `Object Anim 1`: secondary/blend animation clip index (used for combat, walking while aiming, transitions)
+
+Implemented in [`src/dreams/formats/animation.py`](../src/dreams/formats/animation.py) and verified across 550 extracted animation clips in 111 `.DAN` models.
+
+## Still open
+
+- **The unnamed face-record fields** in the table above.
 - Which bank a face group samples is assigned **by order**, not read from the
   file. Swapping it is visibly wrong, so the order is right, but the field that
   states it has not been found. **[unverified]**

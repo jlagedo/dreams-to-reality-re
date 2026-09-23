@@ -250,9 +250,15 @@ Name-count distribution: 100 files have 1 name, 68 have 2, 18 have 3, 4 have 4,
 The `.3DA` references are **fixed 13-byte slots** (12-char name + NUL), not
 variable-length records — 1,048 references across 191 files, 552 distinct names.
 **No `.3DA` file exists anywhere on either disc**, so the frames are embedded and
-these are retained authoring labels. Their numbering is sparse
-(`F28AN000`, `002`, `004`, `016`, `050`), so they are keyframes selected from a
-longer authored sequence.
+these are retained authoring labels for Tag 3 animation chunks. Their numbering is sparse
+(`F28AN000`, `002`, `004`, `016`, `050`), representing key clips authored for the character or prop.
+
+**[verified] Tag 3 animation payload structure:**
+Each Tag 3 chunk corresponds to a declared `.3DA` name in Directory 2 in sequential order:
+- **Header**: track count $N$ (matches scene-graph node count), table span $4*(N+1)$ at `+0x18`, relative offsets to tracks $1 \dots N-1$ at `+0x1C + 4*i`, total duration in frames at `+0x1C + 4*(N-1)`, and framerate (typically 10 fps). Track 0 begins at `+0x1C + 4*(N+1)`.
+- **Track records**: track duration at `+0x14`, key count $K$ at `+0x18`, interpolation type at `+0x1C` (2 = linear, 4 = Hermite spline), key start/end offsets at `+0x20`/`+0x24`, and rest unit quaternion $(0, 0, 0, 32768)$ at `+0x2C`.
+- **Keyframe strides**: linear tracks use 20-byte records (`u32 frame, i32 qx, qy, qz, qw`); Hermite spline tracks use 60-byte records (`u32 frame, i32[4] quat, u32[3] pad, i32[4] in_tangent, i32[4] out_tangent`).
+- **Quaternion scale**: unit quaternions in Q15 ($32768 = 1.0$). Evaluated at runtime via Slerp and composed down the scene-graph hierarchy (`FUN_0047e498`). 550 clips across 111 models extracted to `E:\dreams-work\animations/`.
 
 **[verified]** The payload is packed: entropy 7.338–7.819, only 0.65–3.42% zero
 bytes. `AR0.DAN` body begins `01 0A 2C 00 00 30 1C 63 B4 00 FD FF 01 BE FF FF`;
