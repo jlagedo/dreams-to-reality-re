@@ -427,11 +427,29 @@ The keyframe byte stride is determined by `stride = (end_offset - start_offset) 
   - `+0x0C` `i32`: `qz` ($32768 = 1.0$)
   - `+0x10` `i32`: `qw` ($32768 = 1.0$)
 - **Hermite Spline Keyframes (`stride == 60`)**:
-  - `+0x00` `u32`: keyframe timestamp / frame index
-  - `+0x04` `i32[4]`: primary quaternion `[qx, qy, qz, qw]`
-  - `+0x14` `u32[3]`: reserved / padding
-  - `+0x20` `i32[4]`: in-tangent control quaternion
-  - `+0x30` `i32[4]`: out-tangent control quaternion
+  - Key 0 starts at `start_offset + 40` (40 bytes): `u32 frame=0, u32 0, i32[4] quat, i32[4] tangent`.
+  - Keys $k \ge 1$ start at `start_offset + 80 + (k-1)*60` (60 bytes):
+    - `+0x00` `u32`: keyframe timestamp / frame index ($1, 2, 3, \dots$)
+    - `+0x04` `i32[4]`: primary unit quaternion `[qx, qy, qz, qw]` ($32768 = 1.0$)
+    - `+0x14` `u32[2]`: reserved / control words
+    - `+0x1C` `i32[4]`: in-tangent control quaternion
+    - `+0x2C` `i32[4]`: out-tangent control quaternion
+  - Total span $40 + 40 + (K-1) \times 60 = 20 + K \times 60$ bytes (`end_offset - start_offset`).
+  - Verified across all **12,542 keyframes in 49 clips in `XH_.DAN`** with 100% valid monotonic timestamps and normalized unit quaternions.
+
+### Duncan (`XH_`) Motion Action Mapping [verified]
+
+By performing forward kinematics and analyzing limb angular trajectories across all 49 authored clips in `XH_.DAN`, the primary locomotion states were recovered:
+
+| Clip | Duration | Frame Rate | Action / Trajectory |
+|---|---|---|---|
+| `XH_AN000.3DA` | 200 frames | 10 fps | **Idle**: 20-second breathing cycle, feet planted on ground ($Y \approx -28$), subtle hand and weight shifts |
+| `XH_AN055.3DA` | 39 frames | 28 fps | **Run / Sprint**: high-speed cyclic run, knee lift ($Y=-82$), alternating arm swings ($X = -13 \dots +25$) |
+| `XH_AN056.3DA` | 38 frames | 26 fps | **Run / Sprint**: alternative high-velocity running cycle |
+| `XH_AN018.3DA` | 35 frames | 7 fps | **Walk**: measured walking gait |
+| `XH_AN024.3DA` | 65 frames | 19 fps | **Fly / Levitate**: mid-air flight cycle, both feet tucked/hovering, outstretched arms |
+| `XH_AN035.3DA` | 65 frames | 19 fps | **Fly / Glide**: levitation flight variant |
+| `XH_AN020.3DA` | 25 frames | 7 fps | **Jump**: vertical leap, leg compression followed by explosive mid-air extension |
 
 ### Skeletal Pose Evaluation [verified]
 
