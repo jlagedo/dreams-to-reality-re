@@ -522,11 +522,29 @@ Things that make future work easier:
 - **`.DAN` Tag 3 skeletal animation decoded [verified]:**
   The `.3DA` entries in Directory 2 index sequential Tag 3 chunks decompressed by `FUN_004105eb`
   via Cryo's LZ codec. Track $i$ corresponds 1-to-1 with skeletal node $i$. Each track specifies
-  duration, keyframe count $K$, interpolation type (2 = linear with 20-byte records, 4 = Hermite
+  duration, keyframe count $K$, interpolation type (1 = linear with 20-byte records, 2 = Hermite
   spline with 60-byte records), rest unit quaternion $(0, 0, 0, 32768)$, and Q15 keyframe rotations.
   Composed hierarchically in `WINDREAM.EXE` (`FUN_0047e498`) via Slerp interpolation. Dual
-  concurrent tracks (`Object Anim 0` / `Object Anim 1`) support motion blending. 550 clips extracted
-  across 111 character and prop models to `E:\dreams-work\animations/`.
+  concurrent tracks (`Object Anim 0` / `Object Anim 1`) support motion blending. 780 clips extracted
+  across 159 character and prop models to `E:\dreams-work\animations/`.
+- **Correction — Keyframe offsets in Tag 3 [verified]:**
+  An initial decode hypothesis assumed Hermite spline tracks (stride 60) had asymmetric key 0 layout
+  starting at `+40` and `+80`, which inadvertently read tangent vectors instead of primary quaternions.
+  Decompilation of `FUN_00459808` in `WINDREAM.EXE` revealed that each track has a 40-byte header
+  followed by uniformly spaced keyframes: every key $k \in [0, K-1]$ begins at exact offset
+  `trk_off + 40 + k * stride` (where `stride` is 20 or 60). Word 0 is frame timestamp; words 1..4 are
+  the unit quaternion `[qx, qy, qz, qw]` in Q15 ($32768 = 1.0$); words 7..10 and 11..14 are Hermite
+  tangents. Verified across **10,127 tracks and 97,729 keyframes across all 159 models on both discs
+  with 0 errors**.
+- **Engine matrix and skinning evaluation in `WINDREAM.EXE` [verified]:**
+  - `FUN_0045bc28`: converts Q15 quaternion `[qx, qy, qz, qw]` to a $3 \times 3$ row-major rotation matrix.
+  - `FUN_0047e498`: forward kinematics down the scene graph:
+    $$R_{world} = (R_{parent} \times R_{child}) \gg 15$$
+    $$T_{world} = ((R_{parent} \times T_{child}) \gg 15) + T_{parent}$$
+  - `FUN_00478dac`: vertex skinning evaluating:
+    $$V_{world} = ((R_{world} \times V_{local}) \gg 15) + T_{world}$$
+  - Cyclic animation loops: for all action cycles, $t=0$ holds the identity rest pose $(0, 0, 0, 1.0)$,
+    while frames $1 \dots \text{duration}$ form the seamless repeating motion loop where $Q(1) \equiv Q(\text{duration})$.
 
 ## Sources
 

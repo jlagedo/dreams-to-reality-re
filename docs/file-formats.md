@@ -255,10 +255,10 @@ these are retained authoring labels for Tag 3 animation chunks. Their numbering 
 
 **[verified] Tag 3 animation payload structure:**
 Each Tag 3 chunk corresponds to a declared `.3DA` name in Directory 2 in sequential order:
-- **Header**: track count $N$ (matches scene-graph node count), table span $4*(N+1)$ at `+0x18`, relative offsets to tracks $1 \dots N-1$ at `+0x1C + 4*i`, total duration in frames at `+0x1C + 4*(N-1)`, and framerate (typically 10 fps). Track 0 begins at `+0x1C + 4*(N+1)`.
-- **Track records**: track duration at `+0x14`, key count $K$ at `+0x18`, interpolation type at `+0x1C` (2 = linear, 4 = Hermite spline), key start/end offsets at `+0x20`/`+0x24`, and rest unit quaternion $(0, 0, 0, 32768)$ at `+0x2C`.
-- **Keyframe strides**: linear tracks use 20-byte records (`u32 frame, i32 qx, qy, qz, qw`); Hermite spline tracks use 60-byte records (`u32 frame, i32[4] quat, u32[3] pad, i32[4] in_tangent, i32[4] out_tangent`).
-- **Quaternion scale**: unit quaternions in Q15 ($32768 = 1.0$). Evaluated at runtime via Slerp and composed down the scene-graph hierarchy (`FUN_0047e498`). 550 clips across 111 models extracted to `E:\dreams-work\animations/`.
+- **Header**: track count $N$ (matches scene-graph node count), table span $4*(N+1)$ at `+0x18`, relative offsets to tracks $0 \dots N-2$ at `+0x1C + 4*i`, total duration in frames at `+0x1C + 4*(N-1)`, and framerate (typically 10 fps). Track 0 begins at `+0x1C + 4*(N+1)`.
+- **Track records**: 40-byte track header: duration at `+0x14`, key count $K$ at `+0x18`, interpolation type at `+0x1C` (1 = linear, 2 = Hermite spline), key start/end offsets at `+0x20`/`+0x24`, and rest unit quaternion $(0, 0, 0, 32768)$ at `+0x28`.
+- **Keyframe layout**: each keyframe $k \in [0, K-1]$ is at `trk_off + 40 + k * stride` where `stride = (end_offset - start_offset) // K` (20 or 60 bytes). Word 0 is frame timestamp; words 1..4 are unit quaternion `[qx, qy, qz, qw]` in Q15 ($32768 = 1.0$). For stride 60, words 5..6 are curve flags, words 7..10 in-tangent quaternion, words 11..14 out-tangent quaternion. Verified across 10,127 tracks and 97,729 keyframes across all 159 models on both discs with 0 errors.
+- **Engine evaluation**: evaluated at runtime via Slerp (`FUN_0045bf68`) or Hermite spline, converted to local $3 \times 3$ rotation matrix (`FUN_0045bc28`), and composed down the skeletal hierarchy (`FUN_0047e498` via `FUN_0045b86c`). All 780 clips across 159 models extracted to `E:\dreams-work\animations/`.
 
 **[verified]** The payload is packed: entropy 7.338–7.819, only 0.65–3.42% zero
 bytes. `AR0.DAN` body begins `01 0A 2C 00 00 30 1C 63 B4 00 FD FF 01 BE FF FF`;

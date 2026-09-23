@@ -393,16 +393,16 @@ Decompressed, each Tag 3 payload has the following binary structure:
 +0x10  u32        unknown
 +0x14  u32        track count N (equals scene-graph node count, e.g. 27 for XH_, 17 for CH0)
 +0x18  u32        header table span == 4 * (N + 1)
-+0x1C  u32[N-1]   relative offsets to track records 1 .. N-1 (offset from +0x1C)
++0x1C  u32[N-1]   relative offsets to track records 0 .. N-2
 ...    u32        total duration in frames
 ...    u32        frame rate (typically 10 fps)
 ```
 
-Track 0 starts immediately at offset `0x1C + 4*(N+1)`. Track $i$ ($0 \le i < N$) maps 1-to-1 to Scene-Graph Node $i$ in the skeletal hierarchy.
+Track $i$ ($0 \le i < N$) maps 1-to-1 to Scene-Graph Node $i$ in the skeletal hierarchy.
 
 ### Track Record Layout [verified]
 
-Each track record contains:
+Each track record contains a 40-byte header followed immediately by $K$ uniform keyframes:
 
 ```
 +0x00  u32        unknown flags / ID
@@ -412,30 +412,66 @@ Each track record contains:
 +0x10  u32        unknown
 +0x14  u32        track duration in frames
 +0x18  u32        keyframe count K
-+0x1C  u32        interpolation / codec type (2 = linear, 4 = Hermite spline)
++0x1C  u32        interpolation / codec type (1 = linear, 2 = Hermite spline)
 +0x20  u32        start offset of keyframe array
 +0x24  u32        end offset of keyframe array
-+0x28  u32        unknown
-+0x2C  i32[4]     rest unit quaternion [qx, qy, qz, qw], Q15 fixed-point (32768 = 1.0)
++0x28  i32[4]     rest unit quaternion [qx, qy, qz, qw], Q15 fixed-point (32768 = 1.0)
 ```
 
-The keyframe byte stride is determined by `stride = (end_offset - start_offset) // K`:
-- **Linear Keyframes (`stride == 20`)**:
+Each keyframe $k \in [0, K-1]$ is located at exact byte offset `trk_off + 40 + k * stride`:
+- **Linear Keyframes (`stride == 20`, `interp_type == 1`)**:
   - `+0x00` `u32`: keyframe timestamp / frame index
-  - `+0x04` `i32`: `qx` ($32768 = 1.0$)
-  - `+0x08` `i32`: `qy` ($32768 = 1.0$)
-  - `+0x0C` `i32`: `qz` ($32768 = 1.0$)
-  - `+0x10` `i32`: `qw` ($32768 = 1.0$)
-- **Hermite Spline Keyframes (`stride == 60`)**:
-  - Key 0 starts at `start_offset + 40` (40 bytes): `u32 frame=0, u32 0, i32[4] quat, i32[4] tangent`.
-  - Keys $k \ge 1$ start at `start_offset + 80 + (k-1)*60` (60 bytes):
-    - `+0x00` `u32`: keyframe timestamp / frame index ($1, 2, 3, \dots$)
-    - `+0x04` `i32[4]`: primary unit quaternion `[qx, qy, qz, qw]` ($32768 = 1.0$)
-    - `+0x14` `u32[2]`: reserved / control words
-    - `+0x1C` `i32[4]`: in-tangent control quaternion
-    - `+0x2C` `i32[4]`: out-tangent control quaternion
-  - Total span $40 + 40 + (K-1) \times 60 = 20 + K \times 60$ bytes (`end_offset - start_offset`).
-  - Verified across all **12,542 keyframes in 49 clips in `XH_.DAN`** with 100% valid monotonic timestamps and normalized unit quaternions.
+  - `+0x04` `i32[4]`: unit quaternion `[qx, qy, qz, qw]` ($32768 = 1.0$)
+- **Hermite Spline Keyframes (`stride == 60`, `interp_type == 2`)**:
+  - `+0x00` `u32`: keyframe timestamp / frame index ($0, 1, 2, \dots$)
+  - `+0x04` `i32[4]`: unit quaternion `[qx, qy, qz, qw]` ($32768 = 1.0$)
+  - `+0x14` `u32[2]`: curve control / ease flags
+  - `+0x1C` `i32[4]`: incoming Hermite tangent quaternion
+  - `+0x2C` `i32[4]`: outgoing Hermite tangent quaternion
+
+Verified across **10,127 tracks and 97,729 keyframes across all 159 models on the game discs** with 0 errors, 100% monotonic timestamps, and 100% unit quaternions ($1.000$).
+
+### Engine Evaluation Math in `WINDREAM.EXE` [verified]
+
+Headless Ghidra decompilation revealed the exact runtime evaluation routines:
+
+1. **Quaternion to Rotation Matrix (`FUN_0045bc28`)**:
+   Takes a Q15 quaternion `param_1` and computes a $3 \times 3$ row-major fixed-point rotation matrix at `param_2`:
+   ```c
+   // Diagonal terms:
+   param_2[0] = 0x8000 - ((qy*qy + qz*qz) >> 14);
+   param_2[4] = 0x8000 - ((qx*qx + qz*qz) >> 14);
+   param_2[8] = 0x8000 - ((qx*qx + qy*qy) >> 14);
+   // Off-diagonal terms:
+   param_2[1] = (qx*qy - qz*qw) >> 14;
+   param_2[3] = (qx*qy + qz*qw) >> 14;
+   param_2[2] = (qx*qz + qy*qw) >> 14;
+   param_2[6] = (qx*qz - qy*qw) >> 14;
+   param_2[5] = (qy*qz - qx*qw) >> 14;
+   param_2[7] = (qy*qz + qx*qw) >> 14;
+   ```
+   Note that right shift by 14 on Q15 squares ($32768^2 = 2^{30}$) effectively computes $2 \times Q_a Q_b / 32768$.
+
+2. **Runtime Scene-Graph Node Struct (`base - 220`)**:
+   - `+0x10`: parent node pointer
+   - `+0x14`: first child pointer
+   - `+0x18`: next sibling pointer
+   - `+0x1c`: local translation `[x, y, z]`
+   - `+0x28`: local rotation matrix ($3 \times 3$ row-major, 9 dwords)
+   - `+0x4c`: world translation `[x, y, z]`
+   - `+0x58`: world rotation matrix ($3 \times 3$ row-major, 9 dwords)
+   - `+0x7c`: vertex count
+   - `+0x80`: vertex array pointer
+
+3. **Hierarchical Transform Composition (`FUN_0047e498`)**:
+   - Evaluates:
+     $$R_{world} = (R_{parent} \times R_{child}) \gg 15$$
+     $$T_{world} = ((R_{parent} \times T_{child}) \gg 15) + T_{parent}$$
+   - Matrix multiply implemented in `FUN_0045b86c`.
+
+4. **Vertex Deformations (`FUN_00478dac`)**:
+   - Deforms local vertex coordinates into world coordinates for rendering:
+     $$V_{world} = ((R_{world} \times V_{local}) \gg 15) + T_{world}$$
 
 ### Duncan (`XH_`) Motion Action Mapping [verified]
 
