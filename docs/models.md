@@ -466,8 +466,8 @@ Each keyframe $k \in [0, K-1]$ is located at exact byte offset `trk_off + 40 + k
   - `+0x00` `u32`: keyframe timestamp / frame index ($0, 1, 2, \dots$)
   - `+0x04` `i32[4]`: unit quaternion `[qx, qy, qz, qw]` ($32768 = 1.0$)
   - `+0x14` `u32[2]`: curve control / ease fields
-  - `+0x1C` `i32[4]`: candidate incoming tangent quaternion
-  - `+0x2C` `i32[4]`: candidate outgoing tangent quaternion
+  - `+0x1C` `i32[4]`: outgoing control quaternion (used on the left key)
+  - `+0x2C` `i32[4]`: incoming control quaternion (used on the right key)
 
 Verified across **15,084 tracks and 142,806 keyframes in 780 clips from 159 distinct models** with 0 invalid strides or nonmonotonic timestamps.
 
@@ -476,8 +476,8 @@ The pointers at `+0x20` and `+0x24` are relative to decompressed payload
 16-byte records accompanying 20-byte rotation keys, and 48-byte records
 accompanying 60-byte rotation keys. These pairings agree with evaluators
 `FUN_00459808` and `FUN_0045a03c`. The validation harness reads the translation
-keys as independent evidence of track binding; the viewer still uses static
-node translations.
+keys as independent evidence of track binding. The shared runtime now evaluates
+these position curves and blends them; see [animation-root-blending.md](animation-root-blending.md).
 
 ### Engine Evaluation Math in `WINDREAM.EXE` [verified]
 
@@ -547,10 +547,12 @@ For any playback time $t$ in frames:
    $$R_{\text{world}} = (R_{\text{parent}} \cdot R_{\text{child}}) \gg 15$$
    $$T_{\text{world}} = ((R_{\text{parent}} \cdot T_{\text{child}}) \gg 15) + T_{\text{parent}}$$
 
-The plain SLERP above is the viewer's approximation for 60-byte keys. The
-original spline evaluator `FUN_0045a03c` additionally interpolates control
-quaternions and blends again (SQUAD-style), and evaluates translation curves.
-Its complete easing and fixed-point behavior has not yet been reproduced.
+The original spline evaluator `FUN_0045a03c` additionally interpolates control
+quaternions and blends again (SQUAD), and evaluates translation curves. The
+viewer now implements the rotation spline and easing structure in floating
+point where controls are valid, with SLERP for absent/zero controls. See
+[animation-smoothing.md](animation-smoothing.md) for precision differences,
+missing controls, and the correction that excludes frame zero from loops.
 
 ### Dual Animation Tracks in In-Engine HUD [verified]
 

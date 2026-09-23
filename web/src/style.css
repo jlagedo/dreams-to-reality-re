@@ -295,6 +295,55 @@ button:active {
   padding: 12px 0;
 }
 
+.graphics-section-title {
+  padding-top: 2px;
+  color: #647d94;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.graphics-mode {
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  color: #e0f2fe;
+  font-weight: 600;
+}
+
+.graphics-mode select {
+  min-width: 128px;
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+.crt-controls {
+  margin-top: 3px;
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  border-radius: 6px;
+  background: rgba(14, 116, 144, 0.07);
+}
+
+.crt-controls.hidden {
+  display: none;
+}
+
+.crt-controls summary {
+  padding: 9px 10px;
+  color: #7dd3fc;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  user-select: none;
+}
+
+.crt-control-list {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 2px 10px 11px;
+}
+
 .graphics-control {
   display: flex;
   flex-direction: column;
@@ -494,6 +543,13 @@ button:active {
   color: #9edcff;
   overflow-wrap: anywhere;
 }
+
+.anim-extra-controls { display: grid; gap: 7px; margin-top: 12px; font-size: 11px; }
+.anim-extra-controls select {
+  width: 100%; min-width: 0; padding: 6px;
+  color: #dbeafe; background: #111b2a; border: 1px solid #334155; border-radius: 4px;
+}
+.anim-extra-controls output { color: #9edcff; font-family: monospace; }
 
 .anim-playback-controls button:disabled {
   opacity: 0.45;

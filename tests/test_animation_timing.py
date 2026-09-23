@@ -77,3 +77,10 @@ def test_duncan_clip_key_counts_do_not_change_playback_rate(original_bytes):
     assert len({clip.tracks[0].num_keys for clip in clips}) > 1
     assert all(clip.frame_rate == recovered_rate for clip in clips)
     assert all(clip.to_dict()["frameRateSource"] == "windream-engine-base" for clip in clips)
+
+
+def test_original_spline_uses_left_outgoing_and_right_incoming_controls(original_bytes):
+    # Right key +0x2c and left key +0x1c are passed to quaternion interpolation.
+    assert original_bytes(0x45A1A8, 6) == bytes.fromhex("8d 55 2c 8d 46 1c")
+    assert struct.unpack("<d", original_bytes(0x4C605C, 8))[0] == 2
+    assert struct.unpack("<2f", original_bytes(0x4C6064, 8)) == (2, 256)

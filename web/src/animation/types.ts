@@ -1,16 +1,25 @@
 export type Vec3 = [number, number, number];
 export type Quat = [number, number, number, number];
 export type Matrix = number[][];
-export interface AnimationKeyframeData { time: number; rotation: Quat }
+export interface AnimationKeyframeData {
+  time: number; rotation: Quat;
+  ease?: [number, number]; outControl?: Quat | null; inControl?: Quat | null;
+}
 export interface AnimationTrackData {
   nodeIndex: number; boneName?: string | null; meshNodeIndex?: number | null;
   duration: number; translationKeyCount?: number; keyStride?: number;
   restRotation: Quat; keyframes: AnimationKeyframeData[];
+  translationKeys?: TranslationKeyframeData[];
+}
+export interface TranslationKeyframeData {
+  time: number; position: Vec3; ease?: [number, number];
+  inTangent?: Vec3 | null; outTangent?: Vec3 | null;
 }
 export interface AnimationClipData {
   schemaVersion: number; model: string; rigId: string;
   name: string; duration: number; frameRate: number; frameRateSource?: string;
   trackCount: number; tracks: AnimationTrackData[];
+  playbackStart?: number;
   bindingStatus: string; bindingError?: string | null;
 }
 export interface RigNode {
@@ -30,4 +39,6 @@ export interface ModelEntry {
   clipCount: number; playableClipCount: number; defaultClipId: string | null;
 }
 export type Pose = Record<number, Quat>;
+export type TranslationPose = Record<number, Vec3>;
+export type RootMode = 'in-place' | 'animated';
 export interface WorldTransform { rot: Matrix; tr: Vec3 }

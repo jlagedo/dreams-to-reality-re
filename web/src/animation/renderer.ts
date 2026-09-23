@@ -43,7 +43,8 @@ export class SkeletalAnimator {
 
   apply(): void {
     if (this.disposed) return;
-    const world = evaluateWorldTransforms(this.rig, this.controller.pose(), this.controller.order);
+    const world = evaluateWorldTransforms(this.rig, this.controller.pose(), this.controller.order,
+      this.controller.translations());
     for (const {mesh, bindings, positions, normals} of this.meshes) {
       if (mesh.isDisposed()) continue;
       bindings.forEach(([slot, x, y, z], i) => {

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {AssetContainer, Mesh, NullEngine, Scene, VertexBuffer} from '@babylonjs/core';
 import {
-  AnimationController, evaluateWorldTransforms, matApply, quatToMatrix, sampleClipPose,
+  AnimationController, ENGINE_TRANSITION_SECONDS, evaluateWorldTransforms, matApply, quatToMatrix,
+  sampleClipPose, sampleRotation, sampleTranslation, splineEase,
 } from '../src/animation/controller.js';
 import {SkeletalAnimator} from '../src/animation/renderer.js';
 import type {AnimationClipData, Quat, RigData} from '../src/animation/types.js';
@@ -80,4 +81,71 @@ test('CPU renderer updates actual vertices and bounds; disposal prevents further
   assert.equal(scene.meshes.filter(m=>m.name==='rig_bones').length,0);
   assert.deepEqual(Array.from(mesh.getVerticesData(VertexBuffer.PositionKind)!),positions);
   assert.equal(mesh.isDisposed(),false); scene.dispose(); engine.dispose();
+});
+
+test('authored spline controls change the midpoint and preserve stored keys', () => {
+  const a={time:0, rotation:[0,0,0,1] as Quat, outControl:[0,0,0,1] as Quat};
+  const b={time:1, rotation:turn, inControl:[0,0,0,1] as Quat};
+  assert.deepEqual(sampleRotation(a,b,0),a.rotation);
+  assert.ok(Math.abs(sampleRotation(a,b,1)[2]-turn[2])<1e-8);
+  assert.ok(Math.abs(sampleRotation(a,b,0.5)[2]-Math.sin(Math.PI/16))<1e-8);
+  assert.ok(Math.abs(splineEase(0.1,0.2,0.4)-0.01/(1.4*0.4))<1e-8);
+  assert.ok(Math.abs(sampleRotation({...a,outControl:null},b,0.5)[2]-Math.sin(Math.PI/8))<1e-8);
+});
+
+test('frame zero is inspectable but loops and resume start at the exported playback frame', () => {
+  const r=rig(), c={...clip(r),playbackStart:1}, a=new AnimationController(r);
+  a.setClip(c); assert.equal(a.frame,1);
+  a.seek(0); assert.equal(a.frame,0);
+  a.update(1/60); assert.equal(a.frame,1.5);
+  a.seek(59.5); a.update(1/60); assert.equal(a.frame,1);
+  a.update(1/60); assert.equal(a.frame,1.5);
+});
+
+function movingClip(distance=60): AnimationClipData {
+  const c=clip();
+  c.tracks[0].translationKeys=[{time:0,position:[100,0,0]}, {time:60,position:[100+distance,12,0]}];
+  return c;
+}
+test('translation curves update root and child positions; in-place retains vertical motion', () => {
+  const c=movingClip(), r=rig(), a=new AnimationController(r);
+  a.setClip(c); a.seek(30);
+  assert.deepEqual(a.rootPosition(),[130,6,0]);
+  assert.deepEqual(a.translations()[0],[100,6,0]);
+  a.rootMode='animated'; assert.deepEqual(a.translations()[0],[130,6,0]);
+  assert.equal(evaluateWorldTransforms(r,{},a.order,a.translations())[1].tr[0],160);
+  assert.deepEqual(sampleTranslation({time:0,position:[0,0,0],outTangent:[20,0,0]},
+    {time:10,position:[10,0,0],inTangent:[0,0,0]},0.5),[7.5,0,0]);
+});
+test('root delta survives wrap and multiple cycles; seeks, pause and transitions do not teleport', () => {
+  const a=new AnimationController(rig()); a.setClip(movingClip()); a.seek(59);
+  a.update(0.1); assert.ok(Math.abs(a.rootMotionDelta[0]-3)<1e-8); assert.equal(a.frame,2);
+  a.update(4); assert.equal(a.rootMotionDelta[0],120);
+  a.seek(30); assert.deepEqual(a.rootMotionDelta,[0,0,0]);
+  a.playing=false; a.update(1); assert.deepEqual(a.rootMotionDelta,[0,0,0]);
+  a.setClip(movingClip(120),{engineTransition:true}); a.update(ENGINE_TRANSITION_SECONDS/2);
+  assert.deepEqual(a.rootMotionDelta,[0,0,0]);
+});
+test('two clips blend translation and rotation at independent frames and restore after inspection', () => {
+  const a=new AnimationController(rig()), main=movingClip(), secondary=movingClip(120);
+  a.setClip(main); a.seek(30); a.setBlend(secondary,0);
+  assert.equal(a.rootPosition()[0],130);
+  a.setBlendWeight(1); assert.equal(a.rootPosition()[0],100); assert.equal(a.secondaryFrame,0);
+  a.update(0.5); assert.equal(a.frame,45); assert.equal(a.secondaryFrame,15);
+  a.setBlendWeight(0.5); assert.equal(a.rootPosition()[0],137.5); assert.equal(a.secondaryFrame,15);
+  a.rootMode='animated'; const saved=a.snapshot();
+  a.setClip(main); a.restore(saved);
+  assert.equal(a.secondaryFrame,15); assert.equal(a.rootPosition()[0],137.5); assert.equal(a.rootMode,'animated');
+  assert.throws(()=>a.setBlend({...secondary,rigId:'foreign'}),/different rig/);
+});
+test('engine transition holds both poses for 256/(48*30) seconds before incoming playback', () => {
+  const a=new AnimationController(rig()), original=movingClip();
+  a.setClip(original); a.seek(30);
+  const incoming=movingClip(); incoming.playbackStart=1;
+  a.setClip(incoming,{engineTransition:true});
+  a.update(ENGINE_TRANSITION_SECONDS/2);
+  assert.equal(a.frame,1); assert.ok(Math.abs(a.rootPosition()[0]-115.5)<1e-8);
+  a.update(ENGINE_TRANSITION_SECONDS/2);
+  assert.equal(a.frame,1); assert.equal(a.rootPosition()[0],101);
+  a.update(0.1); assert.equal(a.frame,4);
 });

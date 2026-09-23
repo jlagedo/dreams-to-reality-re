@@ -42,6 +42,8 @@ def test_export_library_writes_matching_schema_and_complete_catalog(tmp_path):
     assert rig["rigId"] == clip["rigId"]
     assert clip["tracks"][2]["nodeIndex"] == 2
     assert clip["tracks"][2]["boneName"] == rig["nodes"][2]["name"]
+    assert clip["playbackStart"] == 1
+    assert clip["interpolation"] == "engine-squad-float-with-slerp-fallback"
     catalog = json.loads((tmp_path / "catalog.json").read_text())
     assert catalog[0]["model"] == "xh_" and catalog[0]["assetStem"] == "xh"
     assert catalog[0]["defaultClipId"] == "xh_an000"

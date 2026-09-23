@@ -19,6 +19,8 @@ docs do.
 | [animation-validation.md](animation-validation.md) | **Animation hypothesis harness** — named track bindings, translation fingerprints, elbow/knee limits, remaining uncertainties |
 | [animation-timing.md](animation-timing.md) | **Original timing trace** — 200 Hz clock, 30 animation frames/second, actor modifiers and timer quirks |
 | [animation-subsystem.md](animation-subsystem.md) | **Shared runtime** — NPC/player animation, complete rig exports, inspector, playback and lifecycle |
+| [animation-smoothing.md](animation-smoothing.md) | **Smoothing** — recovered quaternion splines, easing, missing controls, and initialization-pose loop fix |
+| [animation-root-blending.md](animation-root-blending.md) | **Root movement and blending** — translation curves, extracted deltas, original transition timing and inspector experiments |
 | [assets.md](assets.md) | **Models, textures, animation, sound** — where content lives and how it's packed |
 | [file-formats.md](file-formats.md) | Asset format catalogue with verified magic numbers |
 | [hnm-video.md](hnm-video.md) | HNM inventory **and how to decode it** — all 113 videos decode |

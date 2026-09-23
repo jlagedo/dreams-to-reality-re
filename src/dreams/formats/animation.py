@@ -39,7 +39,7 @@ Keyframes are stored as unit quaternions scaled by 32768:
         +0x0c  i32   qz
         +0x10  i32   qw (scaled by 32768 = 1.0)
 
-    60-byte Hermite spline keys:
+    60-byte spline rotation keys:
         +0x00  u32   frame time
         +0x04  i32   qx
         +0x08  i32   qy
@@ -68,6 +68,18 @@ class Keyframe:
     time: int  #: Frame number (0 .. clip duration)
     rotation: tuple[float, float, float, float]  #: Unit quaternion (x, y, z, w)
     raw_quat: tuple[int, int, int, int]  #: Q15 integers (scaled by 32768)
+    ease: tuple[float, float] = (0.0, 0.0)  #: raw float fields at key +0x14/+0x18
+    out_control: tuple[float, float, float, float] | None = None  #: key +0x1c
+    in_control: tuple[float, float, float, float] | None = None  #: key +0x2c
+
+
+@dataclass
+class TranslationKeyframe:
+    time: int
+    position: tuple[int, int, int]
+    ease: tuple[float, float] = (0.0, 0.0)
+    in_tangent: tuple[int, int, int] | None = None
+    out_tangent: tuple[int, int, int] | None = None
 
 
 @dataclass
@@ -83,6 +95,7 @@ class AnimationTrack:
     keyframes: list[Keyframe] = field(default_factory=list)
     bone_name: str | None = None
     mesh_node_index: int | None = None  #: -1 for a named node without geometry
+    translation_keys: list[TranslationKeyframe] = field(default_factory=list)
 
 
 @dataclass
@@ -116,7 +129,7 @@ class AnimationClip:
                 if k0.time <= frame <= k1.time:
                     dt = k1.time - k0.time
                     alpha = (frame - k0.time) / dt if dt > 0 else 0.0
-                    pose[trk.node_index] = slerp(k0.rotation, k1.rotation, alpha)
+                    pose[trk.node_index] = sample_rotation(k0, k1, alpha)
                     break
         return pose
 
@@ -136,11 +149,30 @@ class AnimationClip:
                     "duration": t.duration,
                     "translationKeyCount": t.translation_key_count,
                     "keyStride": t.stride,
+                    "translationKeys": [
+                        {
+                            "time": k.time,
+                            "position": k.position,
+                            "ease": k.ease,
+                            "inTangent": k.in_tangent,
+                            "outTangent": k.out_tangent,
+                        }
+                        for k in t.translation_keys
+                    ],
                     "restRotation": list(t.rest_rotation),
                     "keyframes": [
                         {
                             "time": k.time,
                             "rotation": list(k.rotation),
+                            **(
+                                {
+                                    "ease": list(k.ease),
+                                    "outControl": k.out_control,
+                                    "inControl": k.in_control,
+                                }
+                                if t.stride == 60
+                                else {}
+                            ),
                         }
                         for k in t.keyframes
                     ],
@@ -149,22 +181,49 @@ class AnimationClip:
             ],
         }
 
+    def sample_translations(self, frame: float) -> dict[int, tuple[float, float, float]]:
+        result = {}
+        for track in self.tracks:
+            keys = track.translation_keys
+            if not keys:
+                continue
+            if frame <= keys[0].time:
+                result[track.node_index] = keys[0].position
+            elif frame >= keys[-1].time:
+                result[track.node_index] = keys[-1].position
+            else:
+                for a, b in zip(keys, keys[1:], strict=False):
+                    if a.time <= frame < b.time:
+                        result[track.node_index] = sample_translation(
+                            a, b, (frame - a.time) / (b.time - a.time)
+                        )
+                        break
+        return result
+
 
 def slerp(
     q1: tuple[float, float, float, float],
     q2: tuple[float, float, float, float],
     t: float,
+    shortest_path: bool = True,
 ) -> tuple[float, float, float, float]:
     """Spherical linear interpolation between two unit quaternions (x, y, z, w)."""
     x1, y1, z1, w1 = q1
     x2, y2, z2, w2 = q2
 
     dot = x1 * x2 + y1 * y2 + z1 * z2 + w1 * w2
-    if dot < 0.0:
+    if dot < 0.0 and shortest_path:
         dot = -dot
         x2, y2, z2, w2 = -x2, -y2, -z2, -w2
 
     dot = min(1.0, max(-1.0, dot))
+    if dot < -0.9995:
+        # Continuous great-circle choice for the antipodal degeneracy.
+        orthogonal = (-y1, x1, -w1, z1)
+        return tuple(
+            a * math.cos(math.pi * t) + b * math.sin(math.pi * t)
+            for a, b in zip(q1, orthogonal, strict=True)
+        )
     if dot > 0.9995:
         # Linear interpolation if almost identical
         xr = x1 + t * (x2 - x1)
@@ -189,6 +248,53 @@ def slerp(
     zr = s1 * z1 + s2 * z2
     wr = s1 * w1 + s2 * w2
     return (xr, yr, zr, wr)
+
+
+def spline_ease(t: float, left_field: float, right_field: float) -> float:
+    """Float transcription of 00459ec0; field order follows the caller pushes.
+
+    The incoming right key's +0x18 field controls the initial ramp; the left
+    key's +0x14 controls the final ramp. All currently surveyed fields are zero.
+    """
+    start, end = right_field, left_field
+    total = start + end
+    if total == 0:
+        return t
+    if total > 1:
+        start, end = start / total, end / total
+    scale = 1 / (2 - start - end)
+    if t < start:
+        return scale * t * t / start
+    if t >= 1 - end and end > 0:
+        return 1 - scale * (1 - t) ** 2 / end
+    return (2 * t - start) * scale
+
+
+def sample_rotation(left: Keyframe, right: Keyframe, t: float):
+    """Engine SQUAD structure in floating point; zero controls use SLERP."""
+    if left.out_control is None or right.in_control is None:
+        return slerp(left.rotation, right.rotation, t)
+    u = spline_ease(t, left.ease[0], right.ease[1])
+    base = slerp(left.rotation, right.rotation, u, shortest_path=False)
+    control = slerp(left.out_control, right.in_control, u, shortest_path=False)
+    result = slerp(base, control, 2 * u * (1 - u), shortest_path=False)
+    norm = math.sqrt(sum(v * v for v in result))
+    return tuple(v / norm for v in result)
+
+
+def sample_translation(left: TranslationKeyframe, right: TranslationKeyframe, t: float):
+    """Hermite basis at 004aa710. Tangents are already interval-scaled."""
+    if left.out_tangent is None or right.in_tangent is None:
+        return tuple(a + (b - a) * t for a, b in zip(left.position, right.position, strict=True))
+    u = spline_ease(t, left.ease[0], right.ease[1])
+    h00, h01 = 2 * u**3 - 3 * u**2 + 1, -2 * u**3 + 3 * u**2
+    h10, h11 = u**3 - 2 * u**2 + u, u**3 - u**2
+    return tuple(
+        h00 * a + h01 * b + h10 * out + h11 * inc
+        for a, b, out, inc in zip(
+            left.position, right.position, left.out_tangent, right.in_tangent, strict=True
+        )
+    )
 
 
 def read_dan_animations(path_or_bytes: str | Path | bytes) -> list[AnimationClip]:
@@ -295,10 +401,42 @@ def _parse_tag3_payload(buf: bytes, clip_name: str) -> AnimationClip:
                         if norm > 0
                         else (0.0, 0.0, 0.0, 1.0)
                     )
-                    keyframes.append(Keyframe(t, unit_quat, (qx, qy, qz, qw)))
+                    key = Keyframe(t, unit_quat, (qx, qy, qz, qw))
+                    if stride == 60 and k_at + 60 <= len(buf):
+                        key.ease = struct.unpack_from("<2f", buf, k_at + 20)
+                        controls = []
+                        for offset in (28, 44):
+                            raw = struct.unpack_from("<4i", buf, k_at + offset)
+                            length = math.sqrt(sum(v * v for v in raw))
+                            controls.append(tuple(v / length for v in raw) if length else None)
+                        key.out_control, key.in_control = controls
+                    keyframes.append(key)
 
         # +0x28 is key 0's timestamp, not a separate rest quaternion.
         rest_quat = keyframes[0].rotation if keyframes else (0.0, 0.0, 0.0, 1.0)
+
+        translation_keys = []
+        if translation_key_count:
+            position_stride = {20: 16, 60: 48}.get(stride)
+            if position_stride is None:
+                raise ValueError(f"{clip_name}: unsupported translation record layout")
+            start = end_keys + 20
+            if start + position_stride * translation_key_count > len(buf):
+                raise ValueError(f"{clip_name}: translation array exceeds payload")
+            for k in range(translation_key_count):
+                at = start + k * position_stride
+                timestamp, x, y, z = struct.unpack_from("<4i", buf, at)
+                key = TranslationKeyframe(timestamp, (x, y, z))
+                if position_stride == 48:
+                    key.ease = struct.unpack_from("<2f", buf, at + 16)
+                    key.in_tangent = struct.unpack_from("<3i", buf, at + 24)
+                    key.out_tangent = struct.unpack_from("<3i", buf, at + 36)
+                translation_keys.append(key)
+            if any(
+                a.time > b.time
+                for a, b in zip(translation_keys, translation_keys[1:], strict=False)
+            ):
+                raise ValueError(f"{clip_name}: nonmonotonic translation keys")
 
         tracks.append(
             AnimationTrack(
@@ -309,6 +447,7 @@ def _parse_tag3_payload(buf: bytes, clip_name: str) -> AnimationClip:
                 stride=stride,
                 rest_rotation=rest_quat,
                 keyframes=keyframes,
+                translation_keys=translation_keys,
             )
         )
 

@@ -50,7 +50,8 @@ def bind_clip(clip: animation.AnimationClip, skin: dict) -> dict:
     data["schemaVersion"] = 2
     data["model"] = skin["model"]
     data["rigId"] = skin["rigId"]
-    data["interpolation"] = "slerp-approximation"
+    data["interpolation"] = "engine-squad-float-with-slerp-fallback"
+    data["playbackStart"] = min(1, clip.duration_frames)
     expected = list(range(len(skin["nodes"])))
     actual = [track.node_index for track in clip.tracks]
     reason = None

@@ -307,7 +307,7 @@ export class DuncanPlayer {
     if (!targetClip) return;
 
     if (this.animator.controller.clip !== targetClip) {
-      this.animator.controller.setClip(targetClip, {startFrame: 1, fadeSeconds: 0.125});
+      this.animator.controller.setClip(targetClip, {startFrame: 1, engineTransition: true});
     }
     this.animator.update(deltaTime);
   }

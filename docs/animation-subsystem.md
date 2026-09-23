@@ -76,8 +76,10 @@ arithmetic, independent clocks, seek/restore, looping, crossfades, refusal of
 invalid clips, actual vertex/bounds updates and disposal. Browser checks cover
 Duncan, CH0, MHE, and a live `F07BLEU` scene instance.
 
-The runtime currently animates **rotations**. Translation channels/root motion,
-the original 60-byte-key spline/easing evaluator, actor speed effects and
-gameplay state transitions remain separate work. Plain SLERP is still an
-approximation between those stored keys. No joint-limit clamping is applied.
-This is the shared playback foundation for that further work.
+The runtime animates **rotations and translations**, using SQUAD/easing for
+valid rotation controls and Hermite/linear position curves. It supports manual
+two-clip blends, common engine-style held-pose transitions, and root displacement
+extraction. See [root movement and blending](animation-root-blending.md).
+Physics consumption of root deltas, exact fixed-point parity, actor effects
+and full action-state selection remain separate work. Playback excludes frame
+zero while keeping it seekable. No joint-limit clamping is applied.

@@ -20,6 +20,9 @@ import {
   TransformNode,
   LinesMesh,
   DefaultRenderingPipeline,
+  PostProcess,
+  Effect,
+  Camera,
 } from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
 import { DuncanPlayer } from './player';
@@ -28,12 +31,93 @@ import { AnimationLibrary } from './animation/library';
 import { detachContainerRoots, SkeletalAnimator } from './animation/renderer';
 import { sampleClipPose } from './animation/controller';
 import type { PlaybackState } from './animation/controller';
-import type { AnimationClipData } from './animation/types';
+import type { AnimationClipData, RootMode } from './animation/types';
 export type { AnimationClipData } from './animation/types';
 
 export type CameraMode = 'orbit' | 'walk' | 'duncan';
 
+Effect.ShadersStore['dreamsCrtFragmentShader'] = `
+precision highp float;
+
+varying vec2 vUV;
+uniform sampler2D textureSampler;
+uniform vec2 screenSize;
+uniform vec2 virtualResolution;
+uniform float scanlineStrength;
+uniform float maskStrength;
+uniform float curvature;
+uniform float glowStrength;
+uniform float noiseStrength;
+uniform float vignetteStrength;
+uniform float overscan;
+uniform float aspectLock;
+uniform float time;
+
+float random(vec2 p) {
+  return fract(sin(dot(p, vec2(12.9898, 78.233)) + time * 0.001) * 43758.5453);
+}
+
+void main(void) {
+  vec2 contentScale = vec2(1.0);
+  if (aspectLock > 0.5) {
+    float screenAspect = screenSize.x / max(screenSize.y, 1.0);
+    float targetAspect = 4.0 / 3.0;
+    if (screenAspect > targetAspect) {
+      contentScale.x = targetAspect / screenAspect;
+    } else {
+      contentScale.y = screenAspect / targetAspect;
+    }
+  }
+
+  vec2 localUV = (vUV - 0.5) / contentScale + 0.5;
+  if (localUV.x < 0.0 || localUV.x > 1.0 || localUV.y < 0.0 || localUV.y > 1.0) {
+    gl_FragColor = vec4(0.003, 0.005, 0.007, 1.0);
+    return;
+  }
+
+  vec2 centered = localUV * 2.0 - 1.0;
+  centered *= 1.0 + curvature * vec2(centered.y * centered.y, centered.x * centered.x);
+  centered *= 1.0 - overscan;
+  localUV = centered * 0.5 + 0.5;
+
+  if (localUV.x < 0.0 || localUV.x > 1.0 || localUV.y < 0.0 || localUV.y > 1.0) {
+    gl_FragColor = vec4(0.003, 0.005, 0.007, 1.0);
+    return;
+  }
+
+  vec2 snappedUV = (floor(localUV * virtualResolution) + 0.5) / virtualResolution;
+  vec2 sampleUV = (snappedUV - 0.5) * contentScale + 0.5;
+  vec2 pixelStep = vec2(contentScale.x / virtualResolution.x, 0.0);
+
+  vec3 color = texture2D(textureSampler, sampleUV).rgb;
+  vec3 horizontalGlow = (
+    texture2D(textureSampler, sampleUV - pixelStep).rgb +
+    texture2D(textureSampler, sampleUV + pixelStep).rgb
+  ) * 0.5;
+  color = mix(color, horizontalGlow, glowStrength);
+
+  float scanline = 0.5 + 0.5 * cos(fract(localUV.y * virtualResolution.y) * 6.2831853);
+  color *= 1.0 - scanlineStrength * scanline;
+
+  float maskCell = mod(floor(gl_FragCoord.x), 3.0);
+  vec3 phosphor = maskCell < 1.0
+    ? vec3(1.12, 0.94, 0.94)
+    : (maskCell < 2.0 ? vec3(0.94, 1.12, 0.94) : vec3(0.94, 0.94, 1.12));
+  color *= mix(vec3(1.0), phosphor, maskStrength);
+
+  vec2 vignetteUV = localUV * (1.0 - localUV.yx);
+  float vignette = pow(clamp(vignetteUV.x * vignetteUV.y * 16.0, 0.0, 1.0), 0.22);
+  color *= mix(1.0, vignette, vignetteStrength);
+
+  float noise = random(gl_FragCoord.xy) - 0.5;
+  color += noise * noiseStrength;
+
+  gl_FragColor = vec4(max(color, 0.0), 1.0);
+}
+`;
+
 export interface GraphicsSettings {
+  renderingMode: 'default' | 'crt';
   renderScale: number;
   msaaSamples: number;
   fxaaEnabled: boolean;
@@ -43,9 +127,20 @@ export interface GraphicsSettings {
   exposure: number;
   contrast: number;
   sharpen: number;
+  crtResolution: 640 | 800;
+  crtStrength: number;
+  crtScanlines: number;
+  crtMask: number;
+  crtCurvature: number;
+  crtGlow: number;
+  crtNoise: number;
+  crtVignette: number;
+  crtOverscan: number;
+  crtAspectLock: boolean;
 }
 
 export const DEFAULT_GRAPHICS_SETTINGS: GraphicsSettings = {
+  renderingMode: 'default',
   renderScale: 1,
   msaaSamples: 1,
   fxaaEnabled: false,
@@ -55,6 +150,16 @@ export const DEFAULT_GRAPHICS_SETTINGS: GraphicsSettings = {
   exposure: 1,
   contrast: 1,
   sharpen: 0,
+  crtResolution: 640,
+  crtStrength: 1,
+  crtScanlines: 0.1,
+  crtMask: 0.05,
+  crtCurvature: 0.025,
+  crtGlow: 0.08,
+  crtNoise: 0.01,
+  crtVignette: 0.1,
+  crtOverscan: 0.015,
+  crtAspectLock: true,
 };
 
 export interface ProjectObject {
@@ -131,6 +236,7 @@ export class DreamsViewer {
 
   private graphicsPipeline: DefaultRenderingPipeline;
   private graphicsSettings: GraphicsSettings = { ...DEFAULT_GRAPHICS_SETTINGS };
+  private crtPostProcesses: { camera: Camera; postProcess: PostProcess }[] = [];
 
   public player: DuncanPlayer;
   public audio: AudioManager;
@@ -144,6 +250,8 @@ export class DreamsViewer {
   private inspectionRequest = 0;
   private inspectionTarget: SkeletalAnimator | null = null;
   private inspectionSaved: PlaybackState | null = null;
+  private inspectionPreview: PlaybackState | null = null;
+  private inspectionBlendRequest = 0;
 
   private currentContainer: AssetContainer | null = null;
   private currentAssetMeshes: AbstractMesh[] = [];
@@ -265,6 +373,7 @@ export class DreamsViewer {
       this.scene,
       [this.orbitCamera, this.walkCamera]
     );
+    this.createCrtPostProcesses([this.orbitCamera, this.walkCamera]);
     this.applyGraphicsSettings(DEFAULT_GRAPHICS_SETTINGS);
 
     window.addEventListener('resize', () => this.engine.resize());
@@ -318,6 +427,7 @@ export class DreamsViewer {
         controller.speed = this.animSpeed;
         controller.playing = true;
         this.inspectionTarget.update(dt);
+        this.isPlayingAnimation = controller.playing;
         this.currentAnimFrame = controller.frame;
         this.onAnimFrameUpdate?.(Math.floor(controller.frame), this.activeClip.duration, controller.pose());
       }
@@ -803,6 +913,7 @@ export class DreamsViewer {
     imageProcessing.exposure = this.graphicsSettings.exposure;
     imageProcessing.contrast = this.graphicsSettings.contrast;
 
+    this.applyCrtRenderingMode();
     this.applyTextureFiltering();
     this.engine.resize();
     return this.getGraphicsSettings();
@@ -810,6 +921,61 @@ export class DreamsViewer {
 
   public resetGraphicsSettings(): GraphicsSettings {
     return this.applyGraphicsSettings(DEFAULT_GRAPHICS_SETTINGS);
+  }
+
+  private createCrtPostProcesses(cameras: Camera[]): void {
+    const uniforms = [
+      'screenSize',
+      'virtualResolution',
+      'scanlineStrength',
+      'maskStrength',
+      'curvature',
+      'glowStrength',
+      'noiseStrength',
+      'vignetteStrength',
+      'overscan',
+      'aspectLock',
+      'time',
+    ];
+
+    for (const camera of cameras) {
+      const postProcess = new PostProcess(
+        `crt_${camera.name}`,
+        'dreamsCrt',
+        uniforms,
+        null,
+        1,
+        null,
+        Texture.BILINEAR_SAMPLINGMODE,
+        this.engine,
+        false
+      );
+      postProcess.onApply = (effect) => {
+        const settings = this.graphicsSettings;
+        const strength = settings.crtStrength;
+        const virtualWidth = settings.crtResolution;
+        effect.setFloat2('screenSize', this.engine.getRenderWidth(), this.engine.getRenderHeight());
+        effect.setFloat2('virtualResolution', virtualWidth, virtualWidth * 0.75);
+        effect.setFloat('scanlineStrength', settings.crtScanlines * strength);
+        effect.setFloat('maskStrength', settings.crtMask * strength);
+        effect.setFloat('curvature', settings.crtCurvature * strength);
+        effect.setFloat('glowStrength', settings.crtGlow * strength);
+        effect.setFloat('noiseStrength', settings.crtNoise * strength);
+        effect.setFloat('vignetteStrength', settings.crtVignette * strength);
+        effect.setFloat('overscan', settings.crtOverscan * strength);
+        effect.setFloat('aspectLock', settings.crtAspectLock ? 1 : 0);
+        effect.setFloat('time', performance.now());
+      };
+      this.crtPostProcesses.push({ camera, postProcess });
+    }
+  }
+
+  private applyCrtRenderingMode(): void {
+    const enabled = this.graphicsSettings.renderingMode === 'crt';
+    for (const { camera, postProcess } of this.crtPostProcesses) {
+      camera.detachPostProcess(postProcess);
+      if (enabled) camera.attachPostProcess(postProcess);
+    }
   }
 
   public async toggleInspector(): Promise<void> {
@@ -888,27 +1054,33 @@ export class DreamsViewer {
 
   public cancelAnimationSelection(): void {
     ++this.inspectionRequest;
+    ++this.inspectionBlendRequest;
     this.releaseInspection();
     this.activeClip = null; this.isPlayingAnimation = false;
   }
 
   private releaseInspection(clearTarget = true): void {
+    ++this.inspectionBlendRequest;
     const target = this.inspectionTarget;
     if (target && !target.disposed) {
+      this.inspectionPreview = clearTarget ? null : target.controller.snapshot();
       target.showBones(false);
       if (this.inspectionSaved) { target.controller.restore(this.inspectionSaved); target.apply(); }
     }
     this.player.animationInspection = false;
     this.inspectionSaved = null;
-    if (clearTarget) this.inspectionTarget = null;
+    if (clearTarget) { this.inspectionTarget = null; this.inspectionPreview=null; this.isPlayingAnimation=false; }
   }
 
   private activateInspection(): void {
     const target = this.inspectionTarget;
     if (!this.animationInspection || !target || target.disposed || !this.activeClip) return;
     if (!this.inspectionSaved) this.inspectionSaved = target.controller.snapshot();
-    target.controller.setClip(this.activeClip, {playing: this.isPlayingAnimation});
-    target.controller.seek(this.currentAnimFrame);
+    if (this.inspectionPreview?.clip === this.activeClip) target.controller.restore(this.inspectionPreview);
+    else {
+      target.controller.setClip(this.activeClip, {playing: this.isPlayingAnimation});
+      target.controller.seek(this.currentAnimFrame);
+    }
     target.controller.speed = this.animSpeed;
     target.showBones(true);
     this.player.animationInspection = target === this.player.animator;
@@ -973,7 +1145,10 @@ export class DreamsViewer {
   }
 
   public resumeAnimation(): void {
-    if (this.activeClip && this.inspectionTarget) this.isPlayingAnimation = true;
+    if (this.activeClip && this.inspectionTarget) {
+      if (this.currentAnimFrame>=this.activeClip.duration) this.setAnimFrame(this.activeClip.playbackStart ?? 0);
+      this.isPlayingAnimation = true;
+    }
   }
 
   public setAnimFrame(frame: number): void {
@@ -990,7 +1165,45 @@ export class DreamsViewer {
     if (Number.isFinite(speed) && speed >= 0) this.animSpeed = speed;
   }
 
+  public setRootMode(mode: RootMode): void {
+    if (!this.inspectionTarget || !this.animationInspection) return;
+    this.inspectionTarget.controller.rootMode=mode;
+    this.inspectionTarget.apply();
+  }
+
+  public setAnimationLoop(loop: boolean): void {
+    if (this.inspectionTarget && this.animationInspection) this.inspectionTarget.controller.loop=loop;
+  }
+
+  public async setBlendClip(id: string, weight: number): Promise<void> {
+    const request=++this.inspectionBlendRequest, target=this.inspectionTarget;
+    if (!target || !this.animationInspection || !this.activeClip) throw new Error('Select a playable primary clip first.');
+    const clip=id ? await this.animations.clip(this.activeClip.model,id) : null;
+    if (request!==this.inspectionBlendRequest || target!==this.inspectionTarget || target.disposed) return;
+    target.controller.setBlend(clip,weight);
+    target.apply();
+    this.onAnimFrameUpdate?.(Math.floor(this.currentAnimFrame),this.activeClip!.duration,target.controller.pose());
+  }
+
+  public setBlendWeight(weight: number): void {
+    if (!this.inspectionTarget || !this.animationInspection) return;
+    this.inspectionTarget.controller.setBlendWeight(weight);
+    this.inspectionTarget.apply();
+    if (this.activeClip) this.onAnimFrameUpdate?.(Math.floor(this.currentAnimFrame),
+      this.activeClip.duration,this.inspectionTarget.controller.pose());
+  }
+
+  public animationRootReadout(): string {
+    const controller=this.inspectionTarget?.controller;
+    if (!controller || !this.animationInspection) return 'Root offset: —';
+    const raw=controller.rootPosition(), bind=controller.rig.nodes[0].translation;
+    const offset=raw.map((v,i)=>(v-bind[i])*(i===1 ? -0.01 : 0.01));
+    const second=controller.secondaryFrame;
+    return `Root offset: ${offset.map(v=>v.toFixed(2)).join(', ')} m${second===null ? '' : ` • B frame ${second.toFixed(1)}`}`;
+  }
+
   public sampleActivePose(frame: number): Record<number, number[]> {
+    if (this.inspectionTarget && this.animationInspection) return this.inspectionTarget.controller.pose();
     return this.activeClip ? sampleClipPose(this.activeClip, frame) : {};
   }
 }

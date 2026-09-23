@@ -114,9 +114,10 @@ would conceal malformed data, so this check precedes plausibility testing.
   20/16 and 60/48 respectively. All 49 Duncan clips pass the harness's
   translation bounds and timestamps checks. Several other models have keys
   outside the declared duration; the strict harness reports those cases.
-- The viewer still uses static node translations and SLERP between rotation
-  keys. The original 60-byte-key evaluator also uses control quaternions and
-  easing; matching stored keys does not validate interpolation between them.
+- The viewer now samples [translation curves](animation-root-blending.md) and the recovered
+  [rotation spline structure](animation-smoothing.md) when controls are valid,
+  with SLERP fallback for missing controls. Matching stored keys alone does
+  not validate interpolation between them or fixed-point parity.
 - These hinge checks do not measure axial twist, shoulders, hips, torso,
   fingers, braid collisions, or consistency with original-game footage.
 - All Duncan bind matrices are identity, so this asset cannot distinguish

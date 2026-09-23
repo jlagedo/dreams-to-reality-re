@@ -611,6 +611,25 @@ the `timeGetTime` counter. Timer rounding and the original 0.2–5.0 delta
 clamp are documented and are not copied into the browser player.
 See [animation-timing.md](animation-timing.md) for the complete trace and limits.
 
+## 2026-09-23 — translation curves and common animation blend path
+
+Recovered the translation Hermite basis at `004aa710` and left-outgoing /
+right-incoming tangent reads in `0045a03c`. The decoder now preserves 82,784
+translation keys across 780 clips; the shared player evaluates and blends them.
+The inspector can display full root travel or hold horizontal motion in place,
+mix two clips, and play clips once. The controller exposes loop-corrected root
+deltas without interpreting seeks or pose transitions as locomotion.
+
+`00405f1f` holds outgoing and incoming-start poses while weight `+0x164`
+advances by `48 * engineDelta`; the ordinary duration is `256/(48*30)` seconds.
+`00405db4` commits the incoming channel. This common transition mode now
+replaces Duncan's guessed crossfade time. Root displacement flows through
+movement/collision code before `0043d83e` writes the resolved root position;
+that original physics consumption is not yet integrated in the viewer.
+
+See [animation-root-blending.md](animation-root-blending.md) for offsets,
+precision differences, runtime controls, and regression tests.
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)

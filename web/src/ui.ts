@@ -394,6 +394,11 @@ export class UIManager {
     this.animPlayBtn.disabled = !ready;
     this.animResetBtn.disabled = !ready;
     this.animScrubber.disabled = !ready;
+    (document.getElementById('animRootMode') as HTMLSelectElement).disabled = !ready;
+    const blend=document.getElementById('animBlendClip') as HTMLSelectElement;
+    blend.disabled = !ready;
+    (document.getElementById('animBlendWeight') as HTMLInputElement).disabled = !ready || !blend.value;
+    (document.getElementById('animLoop') as HTMLInputElement).disabled = !ready;
     this.setStatus(message);
   }
 
@@ -426,11 +431,16 @@ export class UIManager {
       if (entry) this.animModelSelect.value = entry.model;
       this.currentClipsList = clips;
       this.animClipSelect.replaceChildren();
+      const blendSelect=document.getElementById('animBlendClip') as HTMLSelectElement;
+      blendSelect.replaceChildren(new Option('No second clip',''));
       for (const clip of clips) {
         const option = document.createElement('option');
         option.value = clip.id;
         option.textContent = `${clip.name} (${clip.duration} frames)${clip.playable ? '' : ' — unresolved binding'}`;
         this.animClipSelect.appendChild(option);
+        const blendOption=new Option(clip.name,clip.id);
+        blendOption.disabled=!clip.playable;
+        blendSelect.appendChild(blendOption);
       }
       const first = clips.find(clip => clip.playable) || clips[0];
       if (!first) { this.animationStatus(`No animation clips for ${modelStem}.`); return; }
@@ -444,6 +454,7 @@ export class UIManager {
   public async loadClipData(modelStem: string, clipId: string): Promise<void> {
     const request = ++this.animationRequest;
     this.viewer.cancelAnimationSelection();
+    (document.getElementById('animBlendClip') as HTMLSelectElement).value='';
     this.animationStatus(`Loading ${clipId}...`);
     this.boneMonitorTableBody.replaceChildren();
     this.animPlayBtn.textContent = '▶️ Play';
@@ -469,6 +480,8 @@ export class UIManager {
       }
       const target = await this.viewer.inspectAnimation(modelStem, clip);
       if (request !== this.animationRequest) return;
+      this.viewer.setRootMode((document.getElementById('animRootMode') as HTMLSelectElement).value as 'in-place' | 'animated');
+      this.viewer.setAnimationLoop((document.getElementById('animLoop') as HTMLInputElement).checked);
       if (this.viewer.currentAssetCategory === 'models') {
         this.categorySelect.value = 'models'; this.populateItemSelect();
         this.itemSelect.value = `${this.viewer.currentSceneId}.gltf`;
@@ -478,7 +491,7 @@ export class UIManager {
         this.playDuncanBtn.classList.remove('active');
         this.camModeBtn.textContent = this.viewer.currentMode === 'orbit' ? 'Cam: Orbit' : 'Cam: Walk';
       }
-      this.animationStatus(`${target} • ${clip.name} • rotations; spline approximation`, true);
+      this.animationStatus(`${target} • ${clip.name} • rotation + translation curves`, true);
     } catch (error) {
       if (request === this.animationRequest) this.animationStatus(error instanceof Error ? error.message : String(error));
     }
@@ -491,6 +504,10 @@ export class UIManager {
   ): void {
     this.animScrubber.value = String(frame);
     this.animFrameDisplay.textContent = `Frame ${frame} / ${maxFrame}`;
+    document.getElementById('animRootReadout')!.textContent=this.viewer.animationRootReadout();
+    if (!this.viewer.isPlayingAnimation) {
+      this.animPlayBtn.textContent='▶️ Play'; this.animPlayBtn.classList.remove('playing');
+    }
 
     // Update live quaternion table values
     for (const [nodeIndex, quat] of Object.entries(pose)) {
@@ -568,6 +585,27 @@ export class UIManager {
     });
 
     // Animation Player Events
+    const rootMode=document.getElementById('animRootMode') as HTMLSelectElement;
+    const blendSelect=document.getElementById('animBlendClip') as HTMLSelectElement;
+    const weight=document.getElementById('animBlendWeight') as HTMLInputElement;
+    rootMode.addEventListener('change',()=>this.viewer.setRootMode(rootMode.value as 'in-place' | 'animated'));
+    document.getElementById('animLoop')!.addEventListener('change',event=>
+      this.viewer.setAnimationLoop((event.target as HTMLInputElement).checked));
+    blendSelect.addEventListener('change',async()=>{
+      const request=this.animationRequest;
+      try {
+        await this.viewer.setBlendClip(blendSelect.value,Number(weight.value)/100);
+        if (request!==this.animationRequest) return;
+        weight.disabled=!blendSelect.value;
+        this.animationStatus(blendSelect.value ? 'Blending two clips • independent frame clocks' : 'Single clip playback',true);
+      } catch (error) {
+        if (request===this.animationRequest) this.animationStatus(`Blend unavailable: ${error}`,true);
+      }
+    });
+    weight.addEventListener('input',()=>{
+      document.getElementById('animBlendWeightValue')!.textContent=`${weight.value}%`;
+      this.viewer.setBlendWeight(Number(weight.value)/100);
+    });
     this.animModelSelect.addEventListener('change', () => {
       this.loadModelAnimations(this.animModelSelect.value);
     });
@@ -688,6 +726,7 @@ export class UIManager {
   private bindGraphicsEvents(): void {
     const closeBtn = document.getElementById('closeGraphicsBtn') as HTMLButtonElement;
     const resetBtn = document.getElementById('resetGraphicsBtn') as HTMLButtonElement;
+    const renderingMode = document.getElementById('gfxRenderingMode') as HTMLSelectElement;
     const renderScale = document.getElementById('gfxRenderScale') as HTMLInputElement;
     const renderScaleValue = document.getElementById('gfxRenderScaleValue') as HTMLOutputElement;
     const msaa = document.getElementById('gfxMsaa') as HTMLSelectElement;
@@ -701,9 +740,30 @@ export class UIManager {
     const contrastValue = document.getElementById('gfxContrastValue') as HTMLOutputElement;
     const sharpen = document.getElementById('gfxSharpen') as HTMLInputElement;
     const sharpenValue = document.getElementById('gfxSharpenValue') as HTMLOutputElement;
+    const crtControls = document.getElementById('crtControls') as HTMLDetailsElement;
+    const crtResolution = document.getElementById('gfxCrtResolution') as HTMLSelectElement;
+    const crtStrength = document.getElementById('gfxCrtStrength') as HTMLInputElement;
+    const crtStrengthValue = document.getElementById('gfxCrtStrengthValue') as HTMLOutputElement;
+    const crtScanlines = document.getElementById('gfxCrtScanlines') as HTMLInputElement;
+    const crtScanlinesValue = document.getElementById('gfxCrtScanlinesValue') as HTMLOutputElement;
+    const crtMask = document.getElementById('gfxCrtMask') as HTMLInputElement;
+    const crtMaskValue = document.getElementById('gfxCrtMaskValue') as HTMLOutputElement;
+    const crtCurvature = document.getElementById('gfxCrtCurvature') as HTMLInputElement;
+    const crtCurvatureValue = document.getElementById('gfxCrtCurvatureValue') as HTMLOutputElement;
+    const crtGlow = document.getElementById('gfxCrtGlow') as HTMLInputElement;
+    const crtGlowValue = document.getElementById('gfxCrtGlowValue') as HTMLOutputElement;
+    const crtNoise = document.getElementById('gfxCrtNoise') as HTMLInputElement;
+    const crtNoiseValue = document.getElementById('gfxCrtNoiseValue') as HTMLOutputElement;
+    const crtVignette = document.getElementById('gfxCrtVignette') as HTMLInputElement;
+    const crtVignetteValue = document.getElementById('gfxCrtVignetteValue') as HTMLOutputElement;
+    const crtOverscan = document.getElementById('gfxCrtOverscan') as HTMLInputElement;
+    const crtOverscanValue = document.getElementById('gfxCrtOverscanValue') as HTMLOutputElement;
+    const crtAspectLock = document.getElementById('gfxCrtAspectLock') as HTMLInputElement;
 
     const syncControls = (): void => {
       const settings = this.viewer.getGraphicsSettings();
+      renderingMode.value = settings.renderingMode;
+      crtControls.classList.toggle('hidden', settings.renderingMode !== 'crt');
       renderScale.value = String(settings.renderScale);
       renderScaleValue.value = `${Math.round(settings.renderScale * 100)}%`;
       msaa.value = String(settings.msaaSamples);
@@ -717,10 +777,29 @@ export class UIManager {
       contrastValue.value = settings.contrast.toFixed(2);
       sharpen.value = String(settings.sharpen);
       sharpenValue.value = settings.sharpen.toFixed(2);
+      crtResolution.value = String(settings.crtResolution);
+      crtStrength.value = String(settings.crtStrength);
+      crtStrengthValue.value = settings.crtStrength.toFixed(2);
+      crtScanlines.value = String(settings.crtScanlines);
+      crtScanlinesValue.value = settings.crtScanlines.toFixed(2);
+      crtMask.value = String(settings.crtMask);
+      crtMaskValue.value = settings.crtMask.toFixed(2);
+      crtCurvature.value = String(settings.crtCurvature);
+      crtCurvatureValue.value = settings.crtCurvature.toFixed(3);
+      crtGlow.value = String(settings.crtGlow);
+      crtGlowValue.value = settings.crtGlow.toFixed(2);
+      crtNoise.value = String(settings.crtNoise);
+      crtNoiseValue.value = settings.crtNoise.toFixed(3);
+      crtVignette.value = String(settings.crtVignette);
+      crtVignetteValue.value = settings.crtVignette.toFixed(2);
+      crtOverscan.value = String(settings.crtOverscan);
+      crtOverscanValue.value = settings.crtOverscan.toFixed(3);
+      crtAspectLock.checked = settings.crtAspectLock;
     };
 
     const applyControls = (): void => {
       this.viewer.applyGraphicsSettings({
+        renderingMode: renderingMode.value === 'crt' ? 'crt' : 'default',
         renderScale: Number(renderScale.value),
         msaaSamples: Number(msaa.value),
         fxaaEnabled: fxaa.checked,
@@ -730,6 +809,16 @@ export class UIManager {
         exposure: Number(exposure.value),
         contrast: Number(contrast.value),
         sharpen: Number(sharpen.value),
+        crtResolution: Number(crtResolution.value) === 800 ? 800 : 640,
+        crtStrength: Number(crtStrength.value),
+        crtScanlines: Number(crtScanlines.value),
+        crtMask: Number(crtMask.value),
+        crtCurvature: Number(crtCurvature.value),
+        crtGlow: Number(crtGlow.value),
+        crtNoise: Number(crtNoise.value),
+        crtVignette: Number(crtVignette.value),
+        crtOverscan: Number(crtOverscan.value),
+        crtAspectLock: crtAspectLock.checked,
       });
       syncControls();
       scheduleSave();
@@ -749,10 +838,32 @@ export class UIManager {
       void this.saveGraphicsSettings(this.viewer.getGraphicsSettings());
     });
 
-    for (const input of [renderScale, exposure, contrast, sharpen]) {
+    for (const input of [
+      renderScale,
+      exposure,
+      contrast,
+      sharpen,
+      crtStrength,
+      crtScanlines,
+      crtMask,
+      crtCurvature,
+      crtGlow,
+      crtNoise,
+      crtVignette,
+      crtOverscan,
+    ]) {
       input.addEventListener('input', applyControls);
     }
-    for (const input of [msaa, fxaa, anisotropy, textureFilter, toneMapping]) {
+    for (const input of [
+      renderingMode,
+      msaa,
+      fxaa,
+      anisotropy,
+      textureFilter,
+      toneMapping,
+      crtResolution,
+      crtAspectLock,
+    ]) {
       input.addEventListener('change', applyControls);
     }
 

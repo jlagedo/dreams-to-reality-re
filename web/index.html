@@ -78,6 +78,16 @@
       </header>
 
       <div class="graphics-controls">
+        <label class="graphics-select graphics-control graphics-mode" for="gfxRenderingMode">
+          <span>Rendering mode</span>
+          <select id="gfxRenderingMode">
+            <option value="default" selected>Default</option>
+            <option value="crt">CRT simulation</option>
+          </select>
+        </label>
+
+        <div class="graphics-section-title">Image quality</div>
+
         <label class="graphics-control" for="gfxRenderScale">
           <span>Render scale <output id="gfxRenderScaleValue">100%</output></span>
           <input id="gfxRenderScale" type="range" min="0.5" max="1.5" step="0.25" value="1" />
@@ -136,6 +146,65 @@
           <span>Sharpen <output id="gfxSharpenValue">0.00</output></span>
           <input id="gfxSharpen" type="range" min="0" max="1" step="0.05" value="0" />
         </label>
+
+        <details id="crtControls" class="crt-controls hidden" open>
+          <summary>CRT tuning</summary>
+
+          <div class="crt-control-list">
+            <label class="graphics-select graphics-control" for="gfxCrtResolution">
+              <span>Virtual display</span>
+              <select id="gfxCrtResolution">
+                <option value="640" selected>640×480</option>
+                <option value="800">800×600</option>
+              </select>
+            </label>
+
+            <label class="graphics-control" for="gfxCrtStrength">
+              <span>Overall strength <output id="gfxCrtStrengthValue">1.00</output></span>
+              <input id="gfxCrtStrength" type="range" min="0" max="1.5" step="0.05" value="1" />
+            </label>
+
+            <label class="graphics-control" for="gfxCrtScanlines">
+              <span>Scanlines <output id="gfxCrtScanlinesValue">0.10</output></span>
+              <input id="gfxCrtScanlines" type="range" min="0" max="0.3" step="0.01" value="0.1" />
+            </label>
+
+            <label class="graphics-control" for="gfxCrtMask">
+              <span>Phosphor mask <output id="gfxCrtMaskValue">0.05</output></span>
+              <input id="gfxCrtMask" type="range" min="0" max="0.3" step="0.01" value="0.05" />
+            </label>
+
+            <label class="graphics-control" for="gfxCrtCurvature">
+              <span>Curvature <output id="gfxCrtCurvatureValue">0.025</output></span>
+              <input id="gfxCrtCurvature" type="range" min="0" max="0.1" step="0.005" value="0.025" />
+            </label>
+
+            <label class="graphics-control" for="gfxCrtGlow">
+              <span>Beam glow <output id="gfxCrtGlowValue">0.08</output></span>
+              <input id="gfxCrtGlow" type="range" min="0" max="0.3" step="0.01" value="0.08" />
+            </label>
+
+            <label class="graphics-control" for="gfxCrtNoise">
+              <span>Analog noise <output id="gfxCrtNoiseValue">0.01</output></span>
+              <input id="gfxCrtNoise" type="range" min="0" max="0.05" step="0.005" value="0.01" />
+            </label>
+
+            <label class="graphics-control" for="gfxCrtVignette">
+              <span>Vignette <output id="gfxCrtVignetteValue">0.10</output></span>
+              <input id="gfxCrtVignette" type="range" min="0" max="0.4" step="0.01" value="0.1" />
+            </label>
+
+            <label class="graphics-control" for="gfxCrtOverscan">
+              <span>Overscan <output id="gfxCrtOverscanValue">0.015</output></span>
+              <input id="gfxCrtOverscan" type="range" min="0" max="0.05" step="0.005" value="0.015" />
+            </label>
+
+            <label class="graphics-toggle" for="gfxCrtAspectLock">
+              <span><strong>Lock to 4:3</strong><small>Crop widescreen edges like the original display</small></span>
+              <input id="gfxCrtAspectLock" type="checkbox" checked />
+            </label>
+          </div>
+        </details>
       </div>
 
       <p class="graphics-note">Anisotropy takes effect when texture filtering is set to Linear.</p>
@@ -305,6 +374,19 @@
                 <span>Framerate: <strong id="animStatFps">--</strong> fps</span>
                 <span>Animated tracks: <strong id="animStatTracks">--</strong></span>
                 <span>Codec: <strong id="animStatCodec">Unit Quaternion (Q15)</strong></span>
+                </div>
+                <div class="anim-extra-controls">
+                  <label for="animRootMode">Root movement</label>
+                  <select id="animRootMode">
+                    <option value="in-place">In place (keep vertical motion)</option>
+                    <option value="animated">Follow animation</option>
+                  </select>
+                  <label for="animBlendClip">Blend with</label>
+                  <select id="animBlendClip"><option value="">No second clip</option></select>
+                  <label for="animBlendWeight">Second clip weight <output id="animBlendWeightValue">50%</output></label>
+                  <input id="animBlendWeight" type="range" min="0" max="100" value="50" disabled />
+                  <label><input id="animLoop" type="checkbox" checked /> Loop preview</label>
+                  <output id="animRootReadout">Root offset: —</output>
                 </div>
                 <p id="animationStatus" role="status">Choose a model and clip.</p>
                 <div class="bone-legend">
