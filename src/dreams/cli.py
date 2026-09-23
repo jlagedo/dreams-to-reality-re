@@ -535,9 +535,7 @@ def mesh_cmd(
         str | None,
         typer.Argument(help="Scene stem, e.g. E01GROTT. Omit to list every scene."),
     ] = None,
-    out: Annotated[
-        Path | None, typer.Option("--gltf", help="Write glTF here")
-    ] = None,
+    out: Annotated[Path | None, typer.Option("--gltf", help="Write glTF here")] = None,
     force: Annotated[bool, typer.Option("--force", help="Export unclean scenes too")] = False,
     textures: Annotated[
         bool, typer.Option("--textures/--no-textures", help="Attach textures")
@@ -579,11 +577,15 @@ def mesh_cmd(
             "tag2": "[cyan]tag2",
         }[source]
         table.add_row(
-            s.path.stem, str(len(m.objects)), str(len(m.vertices)),
-            str(m.face_count), state,
+            s.path.stem,
+            str(len(m.objects)),
+            str(len(m.vertices)),
+            str(m.face_count),
+            state,
         )
         if preview:
             from dreams import preview as pv
+
             preview.mkdir(parents=True, exist_ok=True)
             pv.render(m, preview / f"{s.path.stem.lower()}.png")
         if out:

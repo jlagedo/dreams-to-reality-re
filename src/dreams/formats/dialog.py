@@ -125,9 +125,6 @@ def script(entries: list[Entry]) -> str:
     ]
     for e in entries:
         parts.append(f"[entry {e.index:03d}]")
-        parts += [
-            f"  t={t:<6d} {line}"
-            for t, line in zip(e.timings, e.lines, strict=False)
-        ]
+        parts += [f"  t={t:<6d} {line}" for t, line in zip(e.timings, e.lines, strict=False)]
         parts.append("")
     return "\n".join(parts)

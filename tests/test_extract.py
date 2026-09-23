@@ -158,8 +158,7 @@ def test_referenced_3da_files_do_not_exist():
 @needs_discs
 def test_ubik_payload_chain_is_exact():
     bundles = [
-        s for s in extract.merge_discs("ICONES.*")
-        if s.path.open("rb").read(4) == image.UBIK_MAGIC
+        s for s in extract.merge_discs("ICONES.*") if s.path.open("rb").read(4) == image.UBIK_MAGIC
     ]
     assert bundles
     for s in bundles:
@@ -296,8 +295,7 @@ def test_tag1_carries_the_object_names():
     full = 0
     for s in extract.merge_discs("*.DSN"):
         sc = scene.read_dsn(s.path)
-        pay = next(r.payload for r in scene.read_records(s.path)
-                   if r.tag == scene.TAG_GEOMETRY)
+        pay = next(r.payload for r in scene.read_records(s.path) if r.tag == scene.TAG_GEOMETRY)
         blob = lz.decompress(pay)
         if all(n.encode() in blob for n in sc.names if n):
             full += 1
@@ -311,10 +309,10 @@ def test_lz_rejects_a_truncated_stream():
 
 def test_gltf_writer_emits_a_valid_document(tmp_path):
     from dreams import gltf
+
     doc = gltf.Scene(name="t", materials=[("m", None)])
     doc.primitives.append(
-        gltf.Primitive("p", [(0, 0, 0), (1, 0, 0), (0, 1, 0)],
-                       [(0, 0), (1, 0), (0, 1)], 0)
+        gltf.Primitive("p", [(0, 0, 0), (1, 0, 0), (0, 1, 0)], [(0, 0), (1, 0), (0, 1)], 0)
     )
     out = gltf.write(tmp_path / "t.gltf", doc, scale=1.0)
     g = json.loads(out.read_text())
@@ -331,6 +329,7 @@ def test_gltf_writer_emits_a_valid_document(tmp_path):
 @needs_discs
 def test_every_scene_decodes_to_a_mesh():
     from dreams.formats import mesh
+
     for s in extract.merge_discs("*.DSN"):
         m = mesh.read_mesh(s.path)
         assert m.vertices and m.objects, s.rel
@@ -343,6 +342,7 @@ def test_every_scene_decodes_to_a_mesh():
 def test_five_scenes_verify_against_tag2():
     """Every tag-1 face must also be a tag-2 triangle - proof, not a heuristic."""
     from dreams.formats import mesh
+
     good = set()
     for s in extract.merge_discs("*.DSN"):
         hit, total = mesh.verify_against_tag2(s.path)
@@ -355,11 +355,11 @@ def test_five_scenes_verify_against_tag2():
 def test_arena_directory_holds_for_every_scene():
     """tag 1 records where each source vertex array began - 95/95."""
     from dreams.formats import lz, mesh
+
     for s in extract.merge_discs("*.DSN"):
         sc = scene.read_dsn(s.path)
         t1 = lz.decompress(
-            next(r.payload for r in scene.read_records(s.path)
-                 if r.tag == scene.TAG_GEOMETRY)
+            next(r.payload for r in scene.read_records(s.path) if r.tag == scene.TAG_GEOMETRY)
         )
         arenas = mesh.read_arenas(t1, mesh._blocks(t1, sc.names))
         assert arenas, s.rel
@@ -370,6 +370,7 @@ def test_arena_directory_holds_for_every_scene():
 def test_clean_scene_floors_are_planar():
     """The decisive geometric check: a SOL object must be flat in one axis."""
     from dreams.formats import mesh
+
     s = next(x for x in extract.merge_discs("*.DSN") if x.path.stem == "E01GROTT")
     m = mesh.read_mesh(s.path)
     assert (len(m.vertices), m.face_count, len(m.objects)) == (193, 338, 26)
@@ -380,7 +381,7 @@ def test_clean_scene_floors_are_planar():
         pts = [m.vertices[i] for f in o.faces for i in f]
         if any(len({q[a] for q in pts}) == 1 for a in range(3)):
             flat += 1
-    assert flat == 8, flat   # 8 of 9; E01_SOL5 is a sculpted floor, not a tile
+    assert flat == 8, flat  # 8 of 9; E01_SOL5 is a sculpted floor, not a tile
 
 
 def test_plane_origins_tile_the_microcell_exactly():
@@ -422,6 +423,7 @@ def test_uv_records_start_five_bytes_before_the_reference():
     lands mid-record and textures render as diagonal streaks.
     """
     from dreams.formats import mesh
+
     s = next(x for x in extract.merge_discs("*.DSN") if x.path.stem == "E01GROTT")
     t1 = lz.decompress(
         next(r.payload for r in scene.read_records(s.path) if r.tag == scene.TAG_GEOMETRY)
@@ -447,6 +449,7 @@ def test_uv_records_start_five_bytes_before_the_reference():
 def test_preview_renders_all_three_views(tmp_path):
     from dreams import preview
     from dreams.formats import mesh
+
     s = next(x for x in extract.merge_discs("*.DSN") if x.path.stem == "E01GROTT")
     out = preview.render(mesh.read_mesh(s.path), tmp_path / "p.png", size=64)
     blob = out.read_bytes()
@@ -459,6 +462,7 @@ def test_preview_renders_all_three_views(tmp_path):
 def test_tag2_triangle_mesh_decodes_every_scene():
     """Tag 2's own triangle array resolves arithmetically - all 95, no gate."""
     from dreams.formats import mesh
+
     total_v = total_f = 0
     for s in extract.merge_discs("*.DSN"):
         m = mesh.read_tri_mesh(s.path)
@@ -474,8 +478,9 @@ def test_tag2_triangle_mesh_decodes_every_scene():
 def test_tag2_agrees_with_tag1_where_both_work():
     """On a verified scene the two paths must describe the same room."""
     from dreams.formats import mesh
+
     s = next(x for x in extract.merge_discs("*.DSN") if x.path.stem == "E01GROTT")
     a, b = mesh.read_mesh(s.path), mesh.read_tri_mesh(s.path)
     assert len(a.vertices) == len(b.vertices) == 193
-    assert a.vertices == b.vertices          # same pool, same order
-    assert b.face_count >= a.face_count      # tag 2 carries a few extra faces
+    assert a.vertices == b.vertices  # same pool, same order
+    assert b.face_count >= a.face_count  # tag 2 carries a few extra faces

@@ -142,6 +142,9 @@ def test_dsn_declared_size_is_exact():
     assert sc.size_ok
     assert sc.name_count == len(sc.names) == 26
     assert sc.names[0] == "E01_ME1"
+    assert len(sc.objects) == 26
+    assert sc.objects[0].name == "E01_ME1"
+    assert sc.objects[0].role_id == 3
 
 
 @needs_discs
@@ -306,8 +309,11 @@ def test_face_block_must_point_at_its_own_records():
     rejects it: relocated, a real block's equals ``off + 40`` exactly.
     """
     boy = next(
-        (d / "DATA" / "3DC" / "F01.DAN" for d in (paths.disc(1), paths.disc(2))
-         if (d / "DATA" / "3DC" / "F01.DAN").exists()),
+        (
+            d / "DATA" / "3DC" / "F01.DAN"
+            for d in (paths.disc(1), paths.disc(2))
+            if (d / "DATA" / "3DC" / "F01.DAN").exists()
+        ),
         None,
     )
     if boy is None:
@@ -369,8 +375,11 @@ def test_level_decodes_through_the_node_with_names():
     from dreams.formats import mesh as meshmod
 
     angkor = next(
-        (d / "DATA" / "3DC" / "H18ANGKR.DSN" for d in (paths.disc(1), paths.disc(2))
-         if (d / "DATA" / "3DC" / "H18ANGKR.DSN").exists()),
+        (
+            d / "DATA" / "3DC" / "H18ANGKR.DSN"
+            for d in (paths.disc(1), paths.disc(2))
+            if (d / "DATA" / "3DC" / "H18ANGKR.DSN").exists()
+        ),
         None,
     )
     if angkor is None:
@@ -396,8 +405,11 @@ def test_node_level_score_needs_a_rounding_tolerance():
     from dreams.formats import mesh as meshmod
 
     angkor = next(
-        (d / "DATA" / "3DC" / "H18ANGKR.DSN" for d in (paths.disc(1), paths.disc(2))
-         if (d / "DATA" / "3DC" / "H18ANGKR.DSN").exists()),
+        (
+            d / "DATA" / "3DC" / "H18ANGKR.DSN"
+            for d in (paths.disc(1), paths.disc(2))
+            if (d / "DATA" / "3DC" / "H18ANGKR.DSN").exists()
+        ),
         None,
     )
     if angkor is None:
@@ -487,6 +499,19 @@ def test_project_bank_is_the_level_graph():
     island = next(o for o in p0.objets if o.asset == "F84.DAN")
     assert p0.links[1].contains(island.position)
     assert not p0.links[0].contains(island.position)
+    assert p0.spawn_position == (-319, -625, -3187)
+    assert p0.spawn_heading == 3046
+    assert p0.ambient_rgb == (152, 168, 126)
+    assert p0.camera_fov == 64
+    assert p0.cd_track == 2
+    gnome = next(o for o in p0.objets if o.asset == "F07BLEU.DAN")
+    assert gnome.entity_type == 19
+    assert 0 <= gnome.heading < 4096
+    assert gnome.is_active_on_start
+    assert gnome.is_character
+    assert gnome.behavior_type == 3
+    assert len(p0.advents) > 0
+    assert p0.advents[0].target_object in range(len(p0.objets))
 
 
 # ---------------------------------------------------------- DIALOG.DRD ---
@@ -498,6 +523,7 @@ def test_drd_table_word_is_bank_plus_offset():
     Reading the word as a plain offset works for entries 0-122 and breaks at
     123, where the bank flips to 1.
     """
+
     def decode(word: int) -> int:
         return ((word & 0xFF) << 24) | (word >> 8)
 

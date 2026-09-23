@@ -234,9 +234,7 @@ def read_mesh(path: str | Path) -> Mesh:
         base = at + 44
         if n_faces <= 0 or base + FACE_RECORD * n_faces > len(tag1):
             continue
-        rows = [
-            struct.unpack_from("<17I", tag1, base + FACE_RECORD * f) for f in range(n_faces)
-        ]
+        rows = [struct.unpack_from("<17I", tag1, base + FACE_RECORD * f) for f in range(n_faces)]
         raw[name] = rows
         refs.update(r[w] for r in rows for w in VERTEX_REFS)
 
@@ -269,12 +267,8 @@ def read_mesh(path: str | Path) -> Mesh:
         rank = {v: i for i, v in enumerate(sorted(refs))}
     top = max(rank.values(), default=-1) + 1
     if top > capacity:
-        raise ValueError(
-            f"{p.name}: needs {top} vertices, tag 2 holds at most {capacity}"
-        )
-    vertices = [
-        struct.unpack_from("<3i", tag2, 0x30 + VERTEX_STRIDE * i) for i in range(top)
-    ]
+        raise ValueError(f"{p.name}: needs {top} vertices, tag 2 holds at most {capacity}")
+    vertices = [struct.unpack_from("<3i", tag2, 0x30 + VERTEX_STRIDE * i) for i in range(top)]
 
     objects = []
     for name in sc.names:
@@ -304,8 +298,13 @@ def read_mesh(path: str | Path) -> Mesh:
         stride = reduce(gcd, [b - a for a, b in zip(sorted_refs, sorted_refs[1:], strict=False)])
     slots = (sorted_refs[-1] - sorted_refs[0]) // stride + 1 if stride else len(sorted_refs)
     return Mesh(
-        p, vertices, materials, objects,
-        ref_count=len(rank), ref_stride=stride, ref_slots=slots,
+        p,
+        vertices,
+        materials,
+        objects,
+        ref_count=len(rank),
+        ref_stride=stride,
+        ref_slots=slots,
         ref_base=sorted_refs[0] if sorted_refs else 0,
         declared=struct.unpack_from("<I", tag2, 0x14)[0],
     )
@@ -356,9 +355,7 @@ def read_tri_mesh(path: str | Path) -> Mesh:
     if faces_n == 0 or start + TRI_RECORD * faces_n > len(tag2):
         raise ValueError(f"{p.name}: triangle array overruns tag 2")
 
-    vertices = [
-        struct.unpack_from("<3i", tag2, 0x30 + TAG2_STRIDE * i) for i in range(count)
-    ]
+    vertices = [struct.unpack_from("<3i", tag2, 0x30 + TAG2_STRIDE * i) for i in range(count)]
     obj = Object(p.stem.lower(), "default")
     for f in range(faces_n):
         refs = struct.unpack_from("<3I", tag2, start + TRI_RECORD * f)
@@ -454,8 +451,7 @@ def verify_against_tag2(path: str | Path) -> tuple[int, int]:
         return 0, 0
     truth = {
         frozenset(
-            (x - base) // TAG2_STRIDE
-            for x in struct.unpack_from("<3I", t2, start + TRI_RECORD * f)
+            (x - base) // TAG2_STRIDE for x in struct.unpack_from("<3I", t2, start + TRI_RECORD * f)
         )
         for f in range(faces_n)
     }

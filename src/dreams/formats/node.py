@@ -280,9 +280,7 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
             if at + 32 > len(buf) or at in seen:
                 continue
             row = struct.unpack_from("<15I", buf, at) if at + 60 <= len(buf) else None
-            refs = (
-                row[1 : 8 : 3] if row else struct.unpack_from("<8I", buf, at)[1:8:3]
-            )
+            refs = row[1:8:3] if row else struct.unpack_from("<8I", buf, at)[1:8:3]
             corners, owners, ok = [], set(), True
             for ref in refs:
                 b = owner(ref)
@@ -309,9 +307,7 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
                     uvs.append((0.0, 0.0))
             seen.add(at)
             used |= owners
-            faces.append(
-                Face(tuple(corners), tuple(uvs), bridge=len(owners) > 1, group=group)
-            )
+            faces.append(Face(tuple(corners), tuple(uvs), bridge=len(owners) > 1, group=group))
     return faces, used
 
 

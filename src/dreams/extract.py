@@ -186,8 +186,19 @@ def merge_discs(pattern: str, subdir: str | None = None) -> list[Source]:
 
 def _to_flac(ffmpeg: str, args_in: list[str], dest: Path) -> bool:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    cmd = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", *args_in,
-           "-c:a", "flac", "-compression_level", "8", str(dest)]
+    cmd = [
+        ffmpeg,
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        *args_in,
+        "-c:a",
+        "flac",
+        "-compression_level",
+        "8",
+        str(dest),
+    ]
     return subprocess.run(cmd, capture_output=True).returncode == 0
 
 
@@ -215,8 +226,16 @@ def extract_music(root: Path, ffmpeg: str, force: bool) -> Iterator[Item]:
         if dest.exists() and not force:
             yield Item("music", t.path.name, [name], "skipped", "exists")
             continue
-        raw_in = ["-f", "s16le", "-ar", str(cdaudio.RATE),
-                  "-ac", str(cdaudio.CHANNELS), "-i", str(t.path)]
+        raw_in = [
+            "-f",
+            "s16le",
+            "-ar",
+            str(cdaudio.RATE),
+            "-ac",
+            str(cdaudio.CHANNELS),
+            "-i",
+            str(t.path),
+        ]
         ok = _to_flac(ffmpeg, raw_in, dest)
         shared = next((v for v in dupe_note.values() if f"d{t.disc}t{t.number:02d}" in v), None)
         yield Item(
@@ -297,9 +316,26 @@ def extract_video(
             return
 
         enc = subprocess.run(
-            [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-i", str(raw),
-             "-c:v", "ffv1", "-level", "3", "-g", "1", "-slices", "4", "-slicecrc", "1",
-             str(dest)],
+            [
+                ffmpeg,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                str(raw),
+                "-c:v",
+                "ffv1",
+                "-level",
+                "3",
+                "-g",
+                "1",
+                "-slices",
+                "4",
+                "-slicecrc",
+                "1",
+                str(dest),
+            ],
             capture_output=True,
             text=True,
         )
@@ -401,7 +437,9 @@ def extract_dialogue(root: Path, src: Source, force: bool) -> Iterator[Item]:
     lines = sum(len(e.lines) for e in entries)
     clips = sum(1 for e in entries if e.wave)
     yield Item(
-        "dialogue", src.rel, [str(doc.relative_to(root))],
+        "dialogue",
+        src.rel,
+        [str(doc.relative_to(root))],
         note=f"{len(entries)} entries, {lines} lines; {clips} clips left to the voice group",
     )
 
@@ -437,10 +475,14 @@ def extract_models(root: Path, src: Source, force: bool) -> Iterator[Item]:
     if shot.exists():
         written.append(str(shot.relative_to(root)))
     yield Item(
-        "models", src.rel, written,
-        note=(f"{stats['drawn']}/{stats['parts']} parts, {stats['faces']} faces, "
-              f"{stats['bridges']} bridging, {stats['proxies']} proxies, "
-              f"{stats['groups']} texture group(s)"),
+        "models",
+        src.rel,
+        written,
+        note=(
+            f"{stats['drawn']}/{stats['parts']} parts, {stats['faces']} faces, "
+            f"{stats['bridges']} bridging, {stats['proxies']} proxies, "
+            f"{stats['groups']} texture group(s)"
+        ),
     )
 
 
@@ -468,9 +510,13 @@ def extract_scenes(root: Path, src: Source, force: bool) -> Iterator[Item]:
     # a scene that falls back to tag 2 has no names and writes none.
     written += [str(t.relative_to(root)) for t in sorted(out.glob(f"{stem}_*.png"))]
     yield Item(
-        "scenes", src.rel, written,
-        note=(f"via {stats['source']}, {stats['objects']} objects, "
-              f"{stats['faces']} faces, {stats['textures']} textures"),
+        "scenes",
+        src.rel,
+        written,
+        note=(
+            f"via {stats['source']}, {stats['objects']} objects, "
+            f"{stats['faces']} faces, {stats['textures']} textures"
+        ),
     )
 
 
@@ -499,8 +545,7 @@ def extract_leveltex(root: Path, src: Source, force: bool) -> Iterator[Item]:
             png.write(sheet, scene.SURFACE, scene.SURFACE, bank.surface_rgb())
         written.append(str(sheet.relative_to(root)))
         tiles += len(bank.tiles)
-    yield Item("leveltex", src.rel, written,
-               note=f"{len(banks)} objects, {tiles} tiles of 32x32")
+    yield Item("leveltex", src.rel, written, note=f"{len(banks)} objects, {tiles} tiles of 32x32")
 
 
 def extract_tiles(root: Path, src: Source, force: bool) -> Iterator[Item]:
@@ -539,7 +584,10 @@ def extract_tiles(root: Path, src: Source, force: bool) -> Iterator[Item]:
         png.write(dest, 128, 128, png.rgb555_to_rgb(blk, 128 * 128))
         written.append(dest.name)
     yield Item(
-        "tiles", src.rel, written, "ok",
+        "tiles",
+        src.rel,
+        written,
+        "ok",
         "rendered as 128x128 RGB555; output is noise, so NOT a texture - "
         "measurements point to shading lookup tables [unverified]",
     )
@@ -595,21 +643,66 @@ def _projects() -> dict:
                 "index": pj.index,
                 "name": pj.name,
                 "scene": pj.scene,
+                "spawn_position": list(pj.spawn_position),
+                "spawn_heading": pj.spawn_heading,
+                "spawn_yaw": round(pj.spawn_yaw_radians, 4),
+                "anim_video": pj.anim_video,
+                "anim_material": pj.anim_material,
+                "anim_video2": pj.anim_video2,
+                "anim_material2": pj.anim_material2,
+                "ambient_rgb": list(pj.ambient_rgb),
+                "dir_light1": list(pj.dir_light1),
+                "dir_light2": list(pj.dir_light2),
+                "fog": list(pj.fog),
+                "sky_rgb": list(pj.sky_rgb),
+                "lighting_mode": pj.lighting_mode,
+                "camera_fov": pj.camera_fov,
+                "cd_track": pj.cd_track,
                 "asset_refs": sorted({o.asset for o in pj.objets if o.asset}),
                 "links": [
-                    {"name": ln.name, "destination": ln.destination, "project": ln.project,
-                     "min": list(ln.lo), "max": list(ln.hi)}
+                    {
+                        "name": ln.name,
+                        "destination": ln.destination,
+                        "project": ln.project,
+                        "min": list(ln.lo),
+                        "max": list(ln.hi),
+                    }
                     for ln in pj.links
                 ],
                 "objects": [
-                    {"name": o.name, "asset": o.asset, "position": list(o.position)}
+                    {
+                        "name": o.name,
+                        "asset": o.asset,
+                        "entity_type": o.entity_type,
+                        "position": list(o.position),
+                        "heading": o.heading,
+                        "yaw": round(o.yaw_radians, 4),
+                        "flags": o.flags,
+                        "is_active": o.is_active_on_start,
+                        "is_character": o.is_character,
+                        "behavior_type": o.behavior_type,
+                        "speed": o.speed,
+                        "route_index": o.route_index,
+                        "health": o.health,
+                        "radius": o.radius,
+                    }
                     for o in pj.objets
                 ],
                 "boxes": [
                     {"name": b.name, "kind": b.kind, "points": [list(q) for q in b.points]}
                     for b in pj.boxes
                 ],
-                "advents": pj.advents,
+                "advents": [
+                    {
+                        "name": a.name,
+                        "target_object": a.target_object,
+                        "condition_stage": a.condition_stage,
+                        "event_opcode": a.event_opcode,
+                        "action_param": a.action_param,
+                        "cutscene_video": a.cutscene_video,
+                    }
+                    for a in pj.advents
+                ],
             }
             for pj in pjs
         ],
@@ -627,13 +720,31 @@ def extract_metadata(root: Path) -> Iterator[Item]:
         except (ValueError, struct.error) as exc:
             scenes.append({"file": s.rel, "error": str(exc)})
             continue
-        scenes.append({
-            "file": s.rel, "disc": s.disc, "size": sc.actual_size,
-            "size_ok": sc.size_ok, "span_ok": sc.span_ok,
-            "count_a": sc.count_a, "name_count": sc.name_count,
-            "body_offset": sc.body_offset, "body_size": sc.body_size,
-            "names": sc.names,
-        })
+        scenes.append(
+            {
+                "file": s.rel,
+                "disc": s.disc,
+                "size": sc.actual_size,
+                "size_ok": sc.size_ok,
+                "span_ok": sc.span_ok,
+                "count_a": sc.count_a,
+                "name_count": sc.name_count,
+                "body_offset": sc.body_offset,
+                "body_size": sc.body_size,
+                "names": sc.names,
+                "objects": [
+                    {
+                        "name": obj.name,
+                        "flags": obj.flags,
+                        "sub_flags": obj.sub_flags,
+                        "role_id": obj.role_id,
+                        "compass_or_type": obj.compass_or_type,
+                        "surface_param": obj.surface_param,
+                    }
+                    for obj in sc.objects
+                ],
+            }
+        )
     (out / "scenes.json").write_text(json.dumps(scenes, indent=1), encoding="utf-8")
 
     anims = []
@@ -643,12 +754,19 @@ def extract_metadata(root: Path) -> Iterator[Item]:
         except (ValueError, struct.error) as exc:
             anims.append({"file": s.rel, "error": str(exc)})
             continue
-        anims.append({
-            "file": s.rel, "disc": s.disc, "size": an.actual_size,
-            "size_ok": an.size_ok, "span_ok": an.span_ok,
-            "names": an.names, "frame_refs": an.frame_refs,
-            "body_offset": an.body_offset, "body_size": an.body_size,
-        })
+        anims.append(
+            {
+                "file": s.rel,
+                "disc": s.disc,
+                "size": an.actual_size,
+                "size_ok": an.size_ok,
+                "span_ok": an.span_ok,
+                "names": an.names,
+                "frame_refs": an.frame_refs,
+                "body_offset": an.body_offset,
+                "body_size": an.body_size,
+            }
+        )
     (out / "animation.json").write_text(json.dumps(anims, indent=1), encoding="utf-8")
 
     models = []
@@ -656,8 +774,14 @@ def extract_metadata(root: Path) -> Iterator[Item]:
         for s in merge_discs(pattern):
             try:
                 m = model.read_model(s.path)
-                models.append({"file": s.rel, "disc": s.disc,
-                               "size": s.path.stat().st_size, **_model_fields(m)})
+                models.append(
+                    {
+                        "file": s.rel,
+                        "disc": s.disc,
+                        "size": s.path.stat().st_size,
+                        **_model_fields(m),
+                    }
+                )
             except (ValueError, struct.error) as exc:
                 models.append({"file": s.rel, "error": str(exc)})
     (out / "models.json").write_text(json.dumps(models, indent=1), encoding="utf-8")
@@ -669,16 +793,26 @@ def extract_metadata(root: Path) -> Iterator[Item]:
                 v = video.read_header(s.path)
             except ValueError:
                 continue
-            vids.append({"file": s.rel, "disc": s.disc, "magic": v.magic,
-                         "width": v.width, "height": v.height, "bpp": v.bpp,
-                         "frames": v.frames, "size": v.size})
+            vids.append(
+                {
+                    "file": s.rel,
+                    "disc": s.disc,
+                    "magic": v.magic,
+                    "width": v.width,
+                    "height": v.height,
+                    "bpp": v.bpp,
+                    "frames": v.frames,
+                    "size": v.size,
+                }
+            )
     (out / "video.json").write_text(json.dumps(vids, indent=1), encoding="utf-8")
 
     projects = _projects()
     (out / "projects.json").write_text(json.dumps(projects, indent=1), encoding="utf-8")
 
     yield Item(
-        "metadata", "-",
+        "metadata",
+        "-",
         ["scenes.json", "animation.json", "models.json", "video.json", "projects.json"],
         "ok",
         f"{len(scenes)} scenes, {len(anims)} animations, {len(models)} models, "
@@ -704,8 +838,11 @@ def extract_text(root: Path, force: bool) -> Iterator[Item]:
         for s in merge_discs(pattern):
             if "DEMO" in s.rel or "DIRECTX" in s.rel:
                 continue
-            dest = out / (Path(s.rel).name.lower().replace(".", f"{s.suffix}.", 1)
-                          if s.suffix else Path(s.rel).name.lower())
+            dest = out / (
+                Path(s.rel).name.lower().replace(".", f"{s.suffix}.", 1)
+                if s.suffix
+                else Path(s.rel).name.lower()
+            )
             if dest.exists() and not force:
                 written.append(dest.name)
                 continue
@@ -732,7 +869,7 @@ DESCRIPTIONS = {
     "tiles": ".3DM blocks as 128x128 -- a byte diagnostic, NOT a texture, see note",
     "leveltex": "Level textures from .DSN scenes: one 256x256 per object",
     "models": "Character and prop models (.DAN, .3DC) as glTF, with texture pages"
-              " and textured previews",
+    " and textured previews",
     "dialogue": "DIALOG.DRD script: 575 timed lines (the audio is the voice group)",
     "scenes": "Level geometry from .DSN as glTF, with textures",
     "gallery": "CRYOPLUS bonus gallery, 16-bit TGA",
@@ -778,8 +915,7 @@ def plan(groups: list[str]) -> dict[str, list[Source]]:
             out[g] = [s for s in merge_discs("*.SPR") if "DEMOS" not in s.rel]
         elif g == "icons":
             out[g] = [
-                s for s in merge_discs("ICONES.*")
-                if s.path.open("rb").read(4) == image.UBIK_MAGIC
+                s for s in merge_discs("ICONES.*") if s.path.open("rb").read(4) == image.UBIK_MAGIC
             ]
         elif g == "tiles":
             out[g] = merge_discs("*.3DM")
@@ -933,9 +1069,7 @@ def _readme(m: dict) -> str:
     for g in m["groups"]:
         rows = by_group.get(g, [])
         files = sum(len(r["outputs"]) for r in rows)
-        lines.append(
-            f"| `{LAYOUT[g]}/` | {DESCRIPTIONS.get(g, '')} | {len(rows)} | {files} |"
-        )
+        lines.append(f"| `{LAYOUT[g]}/` | {DESCRIPTIONS.get(g, '')} | {len(rows)} | {files} |")
 
     t = m["totals"]
     lines += [

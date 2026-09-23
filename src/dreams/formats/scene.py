@@ -52,10 +52,23 @@ from __future__ import annotations
 
 import re
 import struct
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 NAME_RECORD = 11
+OBJECT_RECORD = 20
+
+
+@dataclass
+class DsnObject:
+    """One 20-byte sub-object entry in the .DSN header table."""
+
+    name: str
+    flags: int  #: Word 0 (0x4741A0 = static mesh / relocated buffer)
+    sub_flags: int  #: Word 1 (relocated address / flags)
+    role_id: int  #: Word 2 (constant 3)
+    compass_or_type: int  #: Word 3 (0x202=North, 0x246=East, 0x286=West, 0x206/0x287/etc.)
+    surface_param: int  #: Word 4 (surface category / collision friction / sound)
 
 
 @dataclass
@@ -68,6 +81,7 @@ class Scene:
     name_count: int
     names: list[str]
     body_offset: int
+    objects: list[DsnObject] = field(default_factory=list)
 
     @property
     def size_ok(self) -> bool:
@@ -79,8 +93,7 @@ class Scene:
 
         Equivalently ``body_offset == 9 + A``, the same relation ``.DAN`` uses.
         """
-        return (self.count_a == 31 * self.name_count + 7
-                and self.body_offset == 9 + self.count_a)
+        return self.count_a == 31 * self.name_count + 7 and self.body_offset == 9 + self.count_a
 
     @property
     def body_size(self) -> int:
@@ -142,8 +155,14 @@ def read_dsn(path: str | Path) -> Scene:
         off = 16 + i * NAME_RECORD
         names.append(data[off : off + NAME_RECORD].split(b"\0")[0].decode("latin-1"))
 
+    rec_off = 16 + name_count * NAME_RECORD
+    objects = []
+    for i in range(name_count):
+        w0, w1, w2, w3, w4 = struct.unpack_from("<5I", data, rec_off + i * OBJECT_RECORD)
+        objects.append(DsnObject(names[i], w0, w1, w2, w3, w4))
+
     body_offset = 16 + 31 * name_count
-    return Scene(p, magic, declared, len(data), count_a, name_count, names, body_offset)
+    return Scene(p, magic, declared, len(data), count_a, name_count, names, body_offset, objects)
 
 
 def read_dan(path: str | Path) -> Animation:
@@ -405,8 +424,7 @@ def read_textures(path: str | Path) -> list[ObjectTexture]:
     for i in range(sc.name_count):
         lo, hi = i * TILE_BYTES, (i + 1) * TILE_BYTES
         pal = [
-            struct.unpack_from("<H", palettes, lo + k * 4 + 2)[0]
-            for k in range(PALETTE_ENTRIES)
+            struct.unpack_from("<H", palettes, lo + k * 4 + 2)[0] for k in range(PALETTE_ENTRIES)
         ]
         out.append(ObjectTexture(sc.names[i], i, pal, [t[lo:hi] for t in tiles]))
     return out
