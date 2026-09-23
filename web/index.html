@@ -43,7 +43,7 @@
           <button id="camModeBtn" title="Switch camera mode">Cam: Orbit</button>
           <button id="musicBtn" title="Toggle 1997 CD Audio Soundtrack">🎵 Music: Off</button>
           <button id="retroFilterBtn" title="Toggle Texture Filtering (Pixelated vs Smooth)">Filter: Nearest</button>
-          <button id="inspectorBtn" title="Toggle Babylon Inspector (Shortcut: I)">Inspector (I)</button>
+          <button id="debugOverlayBtn" class="debug-toggle-btn" title="Toggle Cryo Developer HUD (Shortcut: F3)">🛠️ Debug HUD (F3)</button>
         </div>
 
         <button id="resetCamBtn" class="secondary-btn" title="Reset View / Respawn Duncan">Reset View / Respawn</button>
@@ -57,7 +57,198 @@
 
       <div id="controlsHelp" class="hud-help">
         <p><strong>Duncan Mode:</strong> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move • <kbd>Shift</kbd> Sprint • <kbd>Space</kbd> Jump • Mouse Drag Orbit</p>
-        <p class="highlight-hint">Walk into the stone mouth for the <strong>LINK0</strong> portal transition!</p>
+        <p class="highlight-hint">Press <kbd>F3</kbd> for the <strong>In-Game Developer Debug HUD</strong> & Entity Inspector!</p>
+      </div>
+    </div>
+
+    <!-- 1997 CRYO DEVELOPER DEBUG OVERLAY -->
+    <div id="debugOverlay" class="debug-overlay hidden">
+      <div class="debug-header">
+        <div class="debug-brand">
+          <span class="debug-badge">WINDREAM.EXE 0x00416606</span>
+          <h2>CRYO 1997 DEVELOPER HUD</h2>
+        </div>
+        <div class="debug-tab-bar">
+          <button class="debug-tab-btn active" data-tab="scene">🗺️ Map & Scene</button>
+          <button class="debug-tab-btn" data-tab="entities">👾 Entities (<span id="debugEntityCountBadge">0</span>)</button>
+          <button class="debug-tab-btn" data-tab="animation">🎬 Animation & Bones</button>
+          <button id="closeDebugBtn" class="debug-close-btn" title="Close Debug HUD (F3)">&times;</button>
+        </div>
+      </div>
+
+      <div class="debug-content">
+        <!-- TAB 1: SCENE & MAP OVERVIEW -->
+        <div id="debugTabScene" class="debug-tab-pane active">
+          <div class="debug-grid">
+            <div class="debug-card">
+              <h3>Project Environment</h3>
+              <div class="debug-prop-row"><span class="lbl">Project Name:</span><span id="dbgProjectName" class="val highlight">Project0</span></div>
+              <div class="debug-prop-row"><span class="lbl">Scene Geometry:</span><span id="dbgSceneFile" class="val">H18ANGKR.DSN</span></div>
+              <div class="debug-prop-row"><span class="lbl">Scene Stem:</span><span id="dbgSceneStem" class="val">h18angkr</span></div>
+              <div class="debug-prop-row"><span class="lbl">CD Audio Track:</span><span id="dbgCdTrack" class="val">Track 2</span></div>
+              <div class="debug-prop-row"><span class="lbl">Camera FOV:</span><span id="dbgCameraFov" class="val">64°</span></div>
+              <div class="debug-prop-row"><span class="lbl">Lighting Mode:</span><span id="dbgLightingMode" class="val">Day (Mode 0)</span></div>
+            </div>
+
+            <div class="debug-card">
+              <h3>Player Spawn Parameters</h3>
+              <div class="debug-prop-row"><span class="lbl">Spawn Position:</span><span id="dbgSpawnPos" class="val highlight">(-3.19, 6.25, -31.87)</span></div>
+              <div class="debug-prop-row"><span class="lbl">Spawn Heading:</span><span id="dbgSpawnHeading" class="val">267.7° (raw 3046)</span></div>
+              <div class="debug-prop-row"><span class="lbl">Spawn Yaw (rad):</span><span id="dbgSpawnYaw" class="val">4.6725</span></div>
+              <div class="debug-prop-row"><span class="lbl">Current Player Pos:</span><span id="dbgPlayerPos" class="val">--</span></div>
+            </div>
+
+            <div class="debug-card">
+              <h3>Lighting & Atmosphere</h3>
+              <div class="debug-prop-row">
+                <span class="lbl">Ambient RGB:</span>
+                <span class="val"><span id="dbgAmbientSwatch" class="color-swatch"></span> <span id="dbgAmbientRgb">152, 168, 126</span></span>
+              </div>
+              <div class="debug-prop-row"><span class="lbl">Directional Light 1:</span><span id="dbgDirLight1" class="val">(0, 0, 0)</span></div>
+              <div class="debug-prop-row"><span class="lbl">Directional Light 2:</span><span id="dbgDirLight2" class="val">(0, 0, 0)</span></div>
+              <div class="debug-prop-row"><span class="lbl">Depth Fog:</span><span id="dbgFog" class="val">None (0, 0, 0, 0)</span></div>
+            </div>
+
+            <div class="debug-card">
+              <h3>3D Visual Overlays</h3>
+              <div class="debug-toggle-list">
+                <label class="toggle-item">
+                  <input type="checkbox" id="dbgToggleEntityBounds" checked />
+                  <span>Entity Spawner Bounding Boxes</span>
+                </label>
+                <label class="toggle-item">
+                  <input type="checkbox" id="dbgTogglePortals" checked />
+                  <span>Portal Spheres (LINK0..LINK7)</span>
+                </label>
+                <label class="toggle-item">
+                  <input type="checkbox" id="dbgToggleWaypoints" checked />
+                  <span>Patrol & Route Polylines (BOX)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: ENTITIES & INSPECTOR -->
+        <div id="debugTabEntities" class="debug-tab-pane">
+          <div class="entities-layout">
+            <div class="entities-table-container">
+              <table class="entities-table">
+                <thead>
+                  <tr>
+                    <th>Slot</th>
+                    <th>Asset</th>
+                    <th>Category</th>
+                    <th>Position (X, Y, Z)</th>
+                    <th>Heading</th>
+                    <th>AI Behavior</th>
+                    <th>Speed</th>
+                    <th>Flags</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="entitiesTableBody">
+                  <!-- Generated dynamically -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- IN-ENGINE DEBUG CARD (FUN_00416606) -->
+            <div id="entityInspectorCard" class="entity-inspector-card">
+              <div class="inspector-card-header">
+                <h3>CRYOTECH OBJECT INSPECTOR</h3>
+                <span id="inspBadgeCategory" class="badge">NPC</span>
+              </div>
+              <div class="inspector-grid">
+                <div class="insp-row"><span class="insp-lbl">Project Name:</span><span id="inspProjectName" class="insp-val">Project0</span></div>
+                <div class="insp-row"><span class="insp-lbl">Object Name:</span><span id="inspObjName" class="insp-val highlight">OBJET2</span></div>
+                <div class="insp-row"><span class="insp-lbl">Object Asset:</span><span id="inspObjAsset" class="insp-val">F07BLEU.DAN</span></div>
+                <div class="insp-row"><span class="insp-lbl">Object Pos:</span><span id="inspObjPos" class="insp-val">(-6.95, 8.75, -2.10)</span></div>
+                <div class="insp-row"><span class="insp-lbl">Object Speed:</span><span id="inspObjSpeed" class="insp-val">113</span></div>
+                <div class="insp-row"><span class="insp-lbl">Object PHY Speed:</span><span id="inspObjPhySpeed" class="insp-val">113</span></div>
+                <div class="insp-row"><span class="insp-lbl">Object Flags:</span><span id="inspObjFlags" class="insp-val">0x00000013 (Active, Character)</span></div>
+                <div class="insp-row"><span class="insp-lbl">Object Angle:</span><span id="inspObjAngle" class="insp-val">Yaw 66.1° (raw 752)</span></div>
+                <div class="insp-row"><span class="insp-lbl">Object 3D Col:</span><span id="inspObj3dCol" class="insp-val">Radius 0</span></div>
+                <div class="insp-row"><span class="insp-lbl">Object Anim 0:</span><span id="inspObjAnim0" class="insp-val highlight">Track 0 / Speed 113</span></div>
+                <div class="insp-row"><span class="insp-lbl">Object Anim 1:</span><span id="inspObjAnim1" class="insp-val">Track 1 / Standby</span></div>
+                <div class="insp-row"><span class="insp-lbl">AI Route Index:</span><span id="inspObjRoute" class="insp-val">Route #113</span></div>
+                <div class="insp-row"><span class="insp-lbl">Health / Quest ID:</span><span id="inspObjHealth" class="insp-val">70 HP</span></div>
+              </div>
+              <div class="inspector-actions">
+                <button id="inspFocusBtn" class="action-btn">🎯 Focus Camera</button>
+                <button id="inspAnimBtn" class="action-btn secondary">🎬 View Animations</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: ANIMATION PLAYER & BONE INSPECTOR -->
+        <div id="debugTabAnimation" class="debug-tab-pane">
+          <div class="anim-player-layout">
+            <div class="anim-controls-card">
+              <div class="anim-model-select-row">
+                <label for="animModelSelect">Model:</label>
+                <select id="animModelSelect">
+                  <option value="xh_">Duncan (Player) — XH_.DAN (49 clips)</option>
+                  <option value="f07bleu">Blue Monk (NPC) — F07BLEU.DAN (13 clips)</option>
+                  <option value="ch0">Creature — CH0.DAN (2 clips)</option>
+                  <option value="mhe">Heroine — MHE.DAN (40 clips)</option>
+                  <option value="ba0">Balançoire — BA0.DAN (2 clips)</option>
+                </select>
+
+                <label for="animClipSelect">Clip:</label>
+                <select id="animClipSelect">
+                  <!-- Dynamically populated -->
+                </select>
+              </div>
+
+              <div class="anim-playback-controls">
+                <button id="animPlayBtn" class="play-btn">▶️ Play</button>
+                <button id="animResetBtn" class="control-btn">⏮️ Reset</button>
+
+                <div class="timeline-container">
+                  <input type="range" id="animScrubber" min="0" max="100" value="0" />
+                  <span id="animFrameDisplay" class="frame-badge">Frame 0 / 0</span>
+                </div>
+
+                <div class="speed-selector">
+                  <span class="speed-lbl">Speed:</span>
+                  <button class="speed-btn" data-speed="0.5">0.5x</button>
+                  <button class="speed-btn active" data-speed="1.0">1x</button>
+                  <button class="speed-btn" data-speed="2.0">2x</button>
+                </div>
+              </div>
+
+              <div class="clip-stats-row">
+                <span>Duration: <strong id="animStatDuration">--</strong> frames</span>
+                <span>Framerate: <strong id="animStatFps">--</strong> fps</span>
+                <span>Bones / Tracks: <strong id="animStatTracks">--</strong> nodes</span>
+                <span>Codec: <strong id="animStatCodec">Unit Quaternion (Q15)</strong></span>
+              </div>
+            </div>
+
+            <!-- BONE & TRACK ROTATION MONITOR -->
+            <div class="bone-monitor-card">
+              <h3>Live Skeletal Quaternion Stream</h3>
+              <div class="bone-table-wrapper">
+                <table class="bone-table">
+                  <thead>
+                    <tr>
+                      <th>Node</th>
+                      <th>Keys</th>
+                      <th>Interpolation</th>
+                      <th>Quaternion (X, Y, Z, W)</th>
+                      <th>Norm</th>
+                    </tr>
+                  </thead>
+                  <tbody id="boneMonitorTableBody">
+                    <!-- Populated from decoded animation tracks -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

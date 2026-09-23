@@ -5,6 +5,7 @@ import path from 'node:path';
 const DREAMS_WORK = 'E:/dreams-work';
 const GLTF_DIR = path.join(DREAMS_WORK, 'gltf');
 const MODELS_DIR = path.join(DREAMS_WORK, 'models');
+const ANIMATIONS_DIR = path.join(DREAMS_WORK, 'animations');
 
 function dreamsAssetPlugin(): Plugin {
   return {
@@ -102,6 +103,45 @@ function dreamsAssetPlugin(): Plugin {
             res.end(JSON.stringify({ error: String(err) }));
             return;
           }
+        }
+
+        // API: List animations for a given model (e.g. /api/animations/xh_)
+        if (url.startsWith('/api/animations/')) {
+          const modelStem = url.replace('/api/animations/', '').split('?')[0].toLowerCase();
+          try {
+            const manifestFile = path.join(ANIMATIONS_DIR, 'manifest.json');
+            if (fs.existsSync(manifestFile)) {
+              const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+              const clips = manifest[modelStem] || [];
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify(clips));
+              return;
+            }
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify([]));
+            return;
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: String(err) }));
+            return;
+          }
+        }
+
+        // API: Get single animation clip data (e.g. /api/animation/xh_/xh_an000)
+        if (url.startsWith('/api/animation/')) {
+          const parts = url.replace('/api/animation/', '').split('?')[0].toLowerCase().split('/');
+          if (parts.length >= 2) {
+            const [modelStem, clipId] = parts;
+            const clipFile = path.join(ANIMATIONS_DIR, modelStem, `${clipId.replace('.3da', '')}.json`);
+            if (fs.existsSync(clipFile)) {
+              res.setHeader('Content-Type', 'application/json');
+              fs.createReadStream(clipFile).pipe(res);
+              return;
+            }
+          }
+          res.statusCode = 404;
+          res.end(JSON.stringify({ error: 'Animation clip not found' }));
+          return;
         }
 
         // Stream asset file: /api/assets/gltf/... or /api/assets/models/...

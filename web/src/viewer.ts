@@ -63,6 +63,71 @@ export interface ProjectBox {
   points: [number, number, number][];
 }
 
+export interface AnimationKeyframeData {
+  time: number;
+  rotation: [number, number, number, number];
+}
+
+export interface AnimationTrackData {
+  nodeIndex: number;
+  duration: number;
+  interpType: number;
+  restRotation: [number, number, number, number];
+  keyframes: AnimationKeyframeData[];
+}
+
+export interface AnimationClipData {
+  name: string;
+  duration: number;
+  frameRate: number;
+  trackCount: number;
+  tracks: AnimationTrackData[];
+}
+
+export function quatSlerp(
+  q1: [number, number, number, number],
+  q2: [number, number, number, number],
+  t: number
+): [number, number, number, number] {
+  let [x1, y1, z1, w1] = q1;
+  let [x2, y2, z2, w2] = q2;
+
+  let dot = x1 * x2 + y1 * y2 + z1 * z2 + w1 * w2;
+  if (dot < 0.0) {
+    dot = -dot;
+    x2 = -x2;
+    y2 = -y2;
+    z2 = -z2;
+    w2 = -w2;
+  }
+
+  dot = Math.min(1.0, Math.max(-1.0, dot));
+  if (dot > 0.9995) {
+    const xr = x1 + t * (x2 - x1);
+    const yr = y1 + t * (y2 - y1);
+    const zr = z1 + t * (z2 - z1);
+    const wr = w1 + t * (w2 - w1);
+    const len = Math.sqrt(xr * xr + yr * yr + zr * zr + wr * wr);
+    if (len > 0) return [xr / len, yr / len, zr / len, wr / len];
+    return [0, 0, 0, 1];
+  }
+
+  const theta0 = Math.acos(dot);
+  const sinTheta0 = Math.sin(theta0);
+  const theta = theta0 * t;
+  const sinTheta = Math.sin(theta);
+
+  const s1 = Math.cos(theta) - (dot * sinTheta) / sinTheta0;
+  const s2 = sinTheta / sinTheta0;
+
+  return [
+    s1 * x1 + s2 * x2,
+    s1 * y1 + s2 * y2,
+    s1 * z1 + s2 * z2,
+    s1 * w1 + s2 * w2,
+  ];
+}
+
 export interface ProjectData {
   index: number;
   name: string;
@@ -112,6 +177,20 @@ export class DreamsViewer {
   private activePortalLinks: { mesh: Mesh; link: ProjectLink }[] = [];
   public currentProjectData: ProjectData | null = null;
 
+  // Entity selection and debug overlay states
+  public selectedEntity: ProjectObject | null = null;
+  private entityHighlightBox: Mesh | null = null;
+  private entityBoundingBoxes: Mesh[] = [];
+  public showEntityBounds: boolean = true;
+  public showPortals: boolean = true;
+  public showWaypoints: boolean = true;
+
+  // Animation player state
+  public activeClip: AnimationClipData | null = null;
+  public isPlayingAnimation: boolean = false;
+  public currentAnimFrame: number = 0;
+  public animSpeed: number = 1.0;
+
   private portalPulseTime: number = 0;
   private portalCooldown: boolean = false;
 
@@ -119,6 +198,9 @@ export class DreamsViewer {
   private onStatsChange?: (meshCount: number) => void;
   private onPortalTransitionNotify?: (targetScene: string) => void;
   private onSceneChange?: (sceneId: string) => void;
+  public onEntitySelected?: (entity: ProjectObject | null) => void;
+  public onAnimFrameUpdate?: (frame: number, maxFrame: number, pose: Record<number, number[]>) => void;
+  public onProjectDataLoaded?: (project: ProjectData) => void;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -127,12 +209,18 @@ export class DreamsViewer {
       onStatsChange?: (meshCount: number) => void;
       onPortalTransitionNotify?: (targetScene: string) => void;
       onSceneChange?: (sceneId: string) => void;
+      onEntitySelected?: (entity: ProjectObject | null) => void;
+      onAnimFrameUpdate?: (frame: number, maxFrame: number, pose: Record<number, number[]>) => void;
+      onProjectDataLoaded?: (project: ProjectData) => void;
     }
   ) {
     this.onStatusChange = callbacks?.onStatusChange;
     this.onStatsChange = callbacks?.onStatsChange;
     this.onPortalTransitionNotify = callbacks?.onPortalTransitionNotify;
     this.onSceneChange = callbacks?.onSceneChange;
+    this.onEntitySelected = callbacks?.onEntitySelected;
+    this.onAnimFrameUpdate = callbacks?.onAnimFrameUpdate;
+    this.onProjectDataLoaded = callbacks?.onProjectDataLoaded;
 
     this.audio = new AudioManager();
 
@@ -201,9 +289,19 @@ export class DreamsViewer {
       }
     });
 
-    window.addEventListener('resize', () => {
-      this.engine.resize();
-    });
+    // Pointer pick for entities
+    this.scene.onPointerDown = (_evt, pickResult) => {
+      if (pickResult && pickResult.hit && pickResult.pickedMesh) {
+        const mName = pickResult.pickedMesh.name;
+        if (mName.startsWith('bbox_') && this.currentProjectData) {
+          const objName = mName.replace('bbox_', '');
+          const obj = this.currentProjectData.objects.find((o) => o.name === objName);
+          if (obj) {
+            this.selectEntity(obj);
+          }
+        }
+      }
+    };
 
     // Render loop
     this.engine.runRenderLoop(() => {
@@ -212,6 +310,22 @@ export class DreamsViewer {
       if (this.currentMode === 'duncan') {
         this.player.update(dt);
         this.checkPortalCollisions();
+      }
+
+      // Animation playback loop
+      if (this.isPlayingAnimation && this.activeClip) {
+        this.currentAnimFrame += dt * this.activeClip.frameRate * this.animSpeed;
+        if (this.currentAnimFrame >= this.activeClip.duration) {
+          this.currentAnimFrame = 0;
+        }
+        const pose = this.sampleActivePose(this.currentAnimFrame);
+        this.onAnimFrameUpdate?.(Math.floor(this.currentAnimFrame), this.activeClip.duration, pose);
+      }
+
+      // Highlight selected entity with pulse
+      if (this.entityHighlightBox && this.entityHighlightBox.isEnabled()) {
+        const pulse = 1.0 + Math.sin(this.portalPulseTime * 2.0) * 0.08;
+        this.entityHighlightBox.scaling.set(pulse, pulse, pulse);
       }
 
       // Pulse portal link meshes
@@ -392,6 +506,17 @@ export class DreamsViewer {
   }
 
   private clearSceneEntities(): void {
+    // Dispose entity bounding boxes
+    for (const bbox of this.entityBoundingBoxes) {
+      bbox.dispose();
+    }
+    this.entityBoundingBoxes = [];
+    if (this.entityHighlightBox) {
+      this.entityHighlightBox.setEnabled(false);
+    }
+    this.selectedEntity = null;
+    this.onEntitySelected?.(null);
+
     // Dispose spawned NPC containers
     for (const c of this.spawnedNpcContainers) {
       c.removeAllFromScene();
@@ -430,6 +555,7 @@ export class DreamsViewer {
 
       this.currentProjectData = project;
       console.log(`[Dreams] Spawning entities for ${project.name} (${sceneStem}):`, project);
+      this.onProjectDataLoaded?.(project);
 
       // Apply project ambient lighting if available
       if (project.ambientRgb && project.ambientRgb.length === 3) {
@@ -464,6 +590,21 @@ export class DreamsViewer {
           for (const mat of container.materials) {
             mat.backFaceCulling = false;
           }
+
+          // Add 3D debug wireframe bounding box marker
+          const bbox = MeshBuilder.CreateBox(`bbox_${obj.name}`, { size: 2.2 }, this.scene);
+          bbox.position.set(obj.position[0], obj.position[1] + 1.1, obj.position[2]);
+          const bmat = new StandardMaterial(`bboxMat_${obj.name}`, this.scene);
+          bmat.wireframe = true;
+          bmat.emissiveColor = obj.category === 'npc'
+            ? new Color3(0.2, 0.8, 1.0)
+            : obj.category === 'creature'
+            ? new Color3(1.0, 0.75, 0.2)
+            : new Color3(0.7, 0.4, 1.0);
+          bbox.material = bmat;
+          bbox.isPickable = true;
+          bbox.setEnabled(this.showEntityBounds);
+          this.entityBoundingBoxes.push(bbox);
 
           this.spawnedNpcContainers.push(container);
           this.spawnedNpcRoots.push(rootNode);
@@ -607,5 +748,122 @@ export class DreamsViewer {
         enablePopup: false,
       });
     }
+  }
+
+  public selectEntity(obj: ProjectObject | null): void {
+    this.selectedEntity = obj;
+    this.onEntitySelected?.(obj);
+
+    if (!obj) {
+      if (this.entityHighlightBox) {
+        this.entityHighlightBox.setEnabled(false);
+      }
+      return;
+    }
+
+    if (!this.entityHighlightBox) {
+      this.entityHighlightBox = MeshBuilder.CreateBox('entityHighlightBox', { size: 3.2 }, this.scene);
+      const mat = new StandardMaterial('entityHighlightMat', this.scene);
+      mat.wireframe = true;
+      mat.emissiveColor = new Color3(1.0, 0.9, 0.1);
+      this.entityHighlightBox.material = mat;
+      this.entityHighlightBox.isPickable = false;
+    }
+
+    this.entityHighlightBox.position.set(obj.position[0], obj.position[1] + 1.2, obj.position[2]);
+    this.entityHighlightBox.setEnabled(true);
+  }
+
+  public focusOnEntity(obj: ProjectObject): void {
+    this.selectEntity(obj);
+    const targetPos = new Vector3(obj.position[0], obj.position[1] + 1.2, obj.position[2]);
+    this.orbitCamera.target = targetPos;
+    this.orbitCamera.radius = 16;
+    if (this.currentMode !== 'orbit') {
+      const canvas = this.engine.getRenderingCanvas();
+      if (canvas) this.setCameraMode('orbit', canvas);
+    }
+  }
+
+  public toggleEntityBounds(show: boolean): void {
+    this.showEntityBounds = show;
+    for (const bbox of this.entityBoundingBoxes) {
+      bbox.setEnabled(show);
+    }
+  }
+
+  public togglePortals(show: boolean): void {
+    this.showPortals = show;
+    for (const pm of this.portalMeshes) {
+      pm.setEnabled(show);
+    }
+  }
+
+  public toggleWaypoints(show: boolean): void {
+    this.showWaypoints = show;
+    for (const line of this.waypointLines) {
+      line.setEnabled(show);
+    }
+  }
+
+  public playAnimation(clip: AnimationClipData): void {
+    this.activeClip = clip;
+    this.isPlayingAnimation = true;
+    this.currentAnimFrame = 0;
+  }
+
+  public pauseAnimation(): void {
+    this.isPlayingAnimation = false;
+  }
+
+  public resumeAnimation(): void {
+    if (this.activeClip) {
+      this.isPlayingAnimation = true;
+    }
+  }
+
+  public setAnimFrame(frame: number): void {
+    this.currentAnimFrame = frame;
+    if (this.activeClip) {
+      const pose = this.sampleActivePose(frame);
+      this.onAnimFrameUpdate?.(Math.floor(frame), this.activeClip.duration, pose);
+    }
+  }
+
+  public setAnimSpeed(speed: number): void {
+    this.animSpeed = speed;
+  }
+
+  public sampleActivePose(frame: number): Record<number, number[]> {
+    if (!this.activeClip) return {};
+    const pose: Record<number, number[]> = {};
+
+    for (const trk of this.activeClip.tracks) {
+      if (!trk.keyframes || trk.keyframes.length === 0) {
+        pose[trk.nodeIndex] = trk.restRotation;
+        continue;
+      }
+      if (trk.keyframes.length === 1 || frame <= trk.keyframes[0].time) {
+        pose[trk.nodeIndex] = trk.keyframes[0].rotation;
+        continue;
+      }
+      if (frame >= trk.keyframes[trk.keyframes.length - 1].time) {
+        pose[trk.nodeIndex] = trk.keyframes[trk.keyframes.length - 1].rotation;
+        continue;
+      }
+
+      for (let k = 0; k < trk.keyframes.length - 1; k++) {
+        const k0 = trk.keyframes[k];
+        const k1 = trk.keyframes[k + 1];
+        if (k0.time <= frame && frame <= k1.time) {
+          const dt = k1.time - k0.time;
+          const alpha = dt > 0 ? (frame - k0.time) / dt : 0;
+          pose[trk.nodeIndex] = quatSlerp(k0.rotation, k1.rotation, alpha);
+          break;
+        }
+      }
+    }
+
+    return pose;
   }
 }

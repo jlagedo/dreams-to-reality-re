@@ -15,6 +15,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     onStatsChange: (count) => ui?.setMeshCount(count),
     onPortalTransitionNotify: (msg) => ui?.showPortalBanner(msg),
     onSceneChange: (sceneId) => ui?.syncSelectedScene(sceneId),
+    onEntitySelected: (entity) => ui?.displayEntityInspection(entity),
+    onAnimFrameUpdate: (frame, maxFrame, pose) => ui?.updateAnimScrubber(frame, maxFrame, pose),
+    onProjectDataLoaded: (project) => ui?.updateProjectDebugHUD(project),
   });
 
   ui = new UIManager(viewer, canvas);
