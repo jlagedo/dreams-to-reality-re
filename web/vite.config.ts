@@ -1,16 +1,46 @@
 import { defineConfig, Plugin } from 'vite';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const DREAMS_WORK = 'E:/dreams-work';
-const GLTF_DIR = path.join(DREAMS_WORK, 'gltf');
-const MODELS_DIR = path.join(DREAMS_WORK, 'models');
-const ANIMATIONS_DIR = path.join(DREAMS_WORK, 'animations');
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+function localSettings(): Map<string, string> {
+  const settings = new Map<string, string>();
+  const file = path.join(REPO_ROOT, '.dreams.local.env');
+  if (!fs.existsSync(file)) return settings;
+  for (const [index, raw] of fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/).entries()) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const equals = line.indexOf('=');
+    if (equals < 1) throw new Error(file + ':' + (index + 1) + ': expected NAME=VALUE');
+    const name = line.slice(0, equals).trim();
+    let value = line.slice(equals + 1).trim();
+    if (!name) throw new Error(file + ':' + (index + 1) + ': environment name is empty');
+    if (value.length >= 2 && ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))) {
+      value = value.slice(1, -1);
+    }
+    settings.set(name, value);
+  }
+  return settings;
+}
 
 function dreamsAssetPlugin(): Plugin {
   return {
     name: 'dreams-asset-server',
     configureServer(server) {
+      const local = localSettings();
+      const setting = (name: string) => process.env[name]?.trim() || local.get(name)?.trim();
+      const configuredWork = setting('DREAMS_WORK_ROOT');
+      if (!configuredWork) {
+        throw new Error('DREAMS_WORK_ROOT is not configured; copy dev/paths.example.env to .dreams.local.env');
+      }
+      const DREAMS_WORK = path.resolve(configuredWork);
+      const GLTF_DIR = path.join(DREAMS_WORK, 'gltf');
+      const MODELS_DIR = path.join(DREAMS_WORK, 'models');
+      const ANIMATIONS_DIR = path.join(DREAMS_WORK, 'animations');
+      const EXTRACT_DIR = path.resolve(setting('DREAMS_EXTRACT') || path.join(DREAMS_WORK, 'extract'));
       server.middlewares.use((req, res, next) => {
         const url = req.url || '';
 
@@ -169,7 +199,7 @@ function dreamsAssetPlugin(): Plugin {
           targetDir = MODELS_DIR;
           relPath = decodeURIComponent(url.replace('/api/assets/models/', '').split('?')[0]);
         } else if (url.startsWith('/api/assets/audio/')) {
-          targetDir = path.join(DREAMS_WORK, 'extract', 'audio');
+          targetDir = path.join(EXTRACT_DIR, 'audio');
           relPath = decodeURIComponent(url.replace('/api/assets/audio/', '').split('?')[0]);
         }
 

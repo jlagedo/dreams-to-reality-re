@@ -6,7 +6,7 @@
  * `unaff_*`. tools/watcall-cspec.patch adds the prototype model; this applies it.
  *
  * Which functions get it is decided by the Watcom library match in
- * E:\dev_game\watcom\sigs\<program>.csv (see src/dreams/watcom.py). Watcom
+ * <watcom>\sigs\<program>.csv (see DREAMS_WATCOM and src/dreams/watcom.py). Watcom
  * decorates register-convention symbols with a TRAILING underscore -- memcpy_,
  * strlen_ -- so those 88 take __watcall like Cryo's own code. The 31 without
  * one (__CHK, __STK, IF@DSIN, __FDD ...) are assembly helpers with bespoke
@@ -15,7 +15,7 @@
  * Usage (headless, omit -readOnly to persist):
  *   analyzeHeadless <proj> dreams -process WINDREAM.EXE -noanalysis \
  *       -scriptPath <repo>\ghidra_scripts -postScript ApplyWatcall.java \
- *       E:\dev_game\watcom\sigs\windream.csv
+ *       <watcom>\sigs\windream.csv
  *
  * @category Dreams
  */

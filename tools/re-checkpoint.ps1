@@ -37,17 +37,25 @@ param(
     [string]$Message,
     [switch]$SkipExport,
     [switch]$NoCommit,
-    [string]$Ghidra = $(if ($env:GHIDRA_INSTALL_DIR) { $env:GHIDRA_INSTALL_DIR } else { "E:\tools\ghidra_12.1.3_PUBLIC" }),
+    [string]$Ghidra,
     [string]$ProjectDir = "$PSScriptRoot\..\ghidra",
     [string]$ProjectName = "dreams",
     [string[]]$Programs = @("WINDREAM.EXE", "GDIDREAM.EXE", "SETUP.EXE", "CRYO.DLL")
 )
 
 $ErrorActionPreference = "Stop"
+. "$PSScriptRoot\dreams-env.ps1"
 $repo = (Resolve-Path "$PSScriptRoot\..").Path
 $env:DREAMS_REPO = $repo
 
 if (-not $SkipExport) {
+    if (-not $Ghidra) { $Ghidra = $env:DREAMS_GHIDRA_ROOT }
+    if (-not $Ghidra) { $Ghidra = $env:GHIDRA_INSTALL_DIR }
+    if (-not $Ghidra) { $Ghidra = Get-DreamsSetting DREAMS_GHIDRA_ROOT }
+    if (-not $Ghidra) { $Ghidra = Get-DreamsSetting GHIDRA_INSTALL_DIR }
+    if (-not $Ghidra) {
+        throw "DREAMS_GHIDRA_ROOT is not configured. Copy dev/paths.example.env to .dreams.local.env."
+    }
     $lock = Join-Path $ProjectDir "$ProjectName.lock"
     if (Test-Path $lock) {
         Write-Warning @"

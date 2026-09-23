@@ -15,7 +15,8 @@ import pytest
 from dreams import extract, paths, png
 from dreams.formats import audio, cdaudio, image, lz, scene, video
 
-DISCS_PRESENT = paths.disc(1).exists()
+DISC1 = paths.configured("disc1")
+DISCS_PRESENT = DISC1 is not None and DISC1.exists()
 needs_discs = pytest.mark.skipif(not DISCS_PRESENT, reason="disc images not configured")
 
 
@@ -67,9 +68,9 @@ def test_clip_detects_impossible_format_tag():
     assert not real_float.needs_repair
 
 
-def test_cd_byte_rate_matches_redbook():
+def test_cd_byte_rate_matches_redbook(tmp_path):
     assert cdaudio.BYTE_RATE == 176400
-    t = cdaudio.Track(1, 2, paths.disc(1), cdaudio.BYTE_RATE * 90, True)
+    t = cdaudio.Track(1, 2, tmp_path, cdaudio.BYTE_RATE * 90, True)
     assert t.seconds == 90.0
     assert t.duration == "1:30.0"
 

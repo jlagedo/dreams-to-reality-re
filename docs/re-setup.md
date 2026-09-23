@@ -30,10 +30,10 @@ from their own copy of the discs.
 
 | Component | Version | Location |
 |---|---|---|
-| Ghidra | 12.1.3 (2026-08-18) | `E:\tools\ghidra_12.1.3_PUBLIC` |
+| Ghidra | 12.1.3 (2026-08-18) | `DREAMS_GHIDRA_ROOT` |
 | JDK | Temurin 25.0.3 LTS | already on PATH; Ghidra needs 21+ |
 
-The GUI is `E:\tools\ghidra_12.1.3_PUBLIC\ghidraRun.bat`. Use it to look at a
+The GUI is `ghidraRun.bat` under `DREAMS_GHIDRA_ROOT`. Use it to look at a
 program and to run scripts from the Script Manager; everything reproducible goes
 through headless.
 
@@ -117,9 +117,11 @@ and cannot be read at all.
 2. Run the script, pointing it at the Watcom library match:
 
 ```powershell
-analyzeHeadless ghidra dreams -process WINDREAM.EXE -noanalysis `
+. .\tools\dreams-env.ps1
+& (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') `
+  ghidra dreams -process WINDREAM.EXE -noanalysis `
   -scriptPath ghidra_scripts -postScript ApplyWatcall.java `
-  E:\dev_game\watcom\sigs\windream.csv
+  (Join-Path (Get-DreamsSetting DREAMS_WATCOM) 'sigs\windream.csv')
 ```
 
 It sets `__watcall` on every function except the 31 runtime helpers with

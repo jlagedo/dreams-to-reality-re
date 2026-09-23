@@ -12,28 +12,24 @@ the images on local disk and point the toolkit at them.
 
 ## Setup
 
-```bash
+Copy the local path template and edit it for this machine:
+
+```powershell
+if (-not (Test-Path .dreams.local.env)) { Copy-Item dev/paths.example.env .dreams.local.env }
 uv sync
+uv run dreams config
 uv run dreams --help
 ```
 
-Tell it where your extracted discs are — environment variables:
+Set `DREAMS_DISC1` and `DREAMS_DISC2` to the extracted disc directories,
+`DREAMS_WORK_ROOT` to an external work directory, and `DREAMS_WATCOM` and
+`DREAMS_GHIDRA_ROOT` if using the reverse-engineering tools. Process environment
+variables override the ignored `.dreams.local.env` file. The Python toolkit,
+PowerShell Ghidra scripts, and web viewer read the same settings.
 
-```bash
-export DREAMS_DISC1=/path/to/Disc-1/extracted
-export DREAMS_DISC2=/path/to/Disc-2/extracted
-```
-
-…or a gitignored `dreams.local.toml` in the repo root:
-
-```toml
-[paths]
-disc1 = "E:/dev_game/Dreams-to-Reality_Win_EN_Disc-Image-Disk-1/extracted"
-disc2 = "E:/dev_game/Dreams-to-Reality_Win_EN_Disc-Image-Disk-2/extracted"
-out   = "./out"
-```
-
-Check it resolved: `uv run dreams config`
+`DREAMS_EXTRACT` optionally overrides `$DREAMS_WORK_ROOT/extract`;
+`DREAMS_OUT` optionally overrides the repository's `out/` directory.
+Set `DREAMS_NA_GAME_TOOL` to the patched video decoder, or put it on `PATH`.
 
 ## Getting the files off a disc image
 
@@ -55,7 +51,7 @@ throws MCI errors.
 One command decodes every asset whose format is solved, losslessly:
 
 ```bash
-uv run dreams extract              # -> E:\dreams-work\extract
+uv run dreams extract              # -> $DREAMS_WORK_ROOT/extract
 uv run dreams extract --list       # show the groups
 uv run dreams extract --only music,sprites --force
 ```

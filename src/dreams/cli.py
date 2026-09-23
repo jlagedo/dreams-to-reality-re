@@ -48,17 +48,17 @@ def _files(target: Path, pattern: str | None) -> list[Path]:
 
 @app.command()
 def config() -> None:
-    """Show where the toolkit expects the discs to be."""
+    """Show resolved local tool and data paths."""
     table = Table("key", "path", "exists")
     for key, path, exists in paths.describe():
-        table.add_row(key, str(path), "[green]yes" if exists else "[red]no")
+        table.add_row(
+            key, str(path) if path else "not configured", "[green]yes" if exists else "[red]no"
+        )
     console.print(table)
     console.print(
-        "\nOverride with [cyan]DREAMS_DISC1[/] / [cyan]DREAMS_DISC2[/] env vars, "
-        "or a gitignored [cyan]dreams.local.toml[/]:"
+        "\nCopy [cyan]dev/paths.example.env[/] to [cyan].dreams.local.env[/] "
+        "and set this machine's paths. Process environment overrides the file."
     )
-    console.print("  [dim]\\[paths][/]")
-    console.print('  [dim]disc1 = "D:/path/to/extracted"[/]')
 
 
 @app.command()

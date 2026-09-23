@@ -64,12 +64,6 @@ LAYOUT = {
 
 VIDEO_GROUPS = {"cutscenes", "movies", "textures"}
 
-#: Where na_game_tool lives if it is not on PATH. Built from the NihAV tarball
-#: with the HNS6/UBS2 tag patch applied - see docs/hnm-video.md.
-NAGAME_FALLBACK = (
-    Path(r"E:\dreams-work\websweep\na_game_tool-0.6.0") / "target" / "release" / "na_game_tool.exe"
-)
-
 
 @dataclass
 class Item:
@@ -138,10 +132,11 @@ def _which(name: str) -> str | None:
 
 
 def find_nagame() -> Path | None:
+    configured = paths.configured("na_game_tool")
+    if configured:
+        return configured if configured.is_file() else None
     onpath = _which("na_game_tool")
-    if onpath:
-        return Path(onpath)
-    return NAGAME_FALLBACK if NAGAME_FALLBACK.is_file() else None
+    return Path(onpath) if onpath else None
 
 
 # --------------------------------------------------------------- discovery ---

@@ -10,9 +10,9 @@ from dreams.formats.animation import (
     slerp,
 )
 
-DISC1 = paths.disc(1)
+DISC1 = paths.configured("disc1")
 pytestmark = pytest.mark.skipif(
-    not DISC1.exists() or not (DISC1 / "DATA" / "3DC" / "CH0.DAN").exists(),
+    DISC1 is None or not (DISC1 / "DATA" / "3DC" / "CH0.DAN").exists(),
     reason="Disc 1 character models not present",
 )
 

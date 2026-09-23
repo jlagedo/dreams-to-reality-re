@@ -2,9 +2,8 @@
 
 Technical documentation for *Dreams to Reality* (Cryo Interactive, 1997).
 
-`../AGENTS.md` is the agent guide — rules, paths and commands, read by Claude
-Code, Codex and any other AGENTS.md-aware tool. It holds no findings; these docs
-do.
+`../AGENTS.md` lists project paths and commands. It holds no findings; these
+docs do.
 
 | Doc | Contents |
 |---|---|
@@ -36,7 +35,8 @@ Claims carry one of three tags. Respect them — do not promote a tag without ne
 
 ## Conventions
 
-- Disc paths are absolute and refer to `E:\dev_game\` (see `disc-layout.md`).
+- Configure local disc paths in `.dreams.local.env` (see `../dev/paths.example.env`).
+  Absolute paths elsewhere in these docs record where an observation was made.
 - Nothing in this repo contains copyrighted game data. Notes and tools only.
 - Offsets are decimal unless prefixed `0x`. All multi-byte values in Cryo formats
   are little-endian.

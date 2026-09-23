@@ -121,6 +121,7 @@ web/dist/
 # Local config and editors
 # ---------------------------------------------------------------------------
 dreams.local.toml
+.dreams.local.env
 .env
 .idea/
 .vscode/

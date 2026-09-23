@@ -13,7 +13,8 @@ import pytest
 from dreams import binio, paths, probe
 from dreams.formats import audio, dialog, disc, node, project, resource, scene
 
-DISCS_PRESENT = paths.disc(1).exists()
+DISC1 = paths.configured("disc1")
+DISCS_PRESENT = DISC1 is not None and DISC1.exists()
 needs_discs = pytest.mark.skipif(not DISCS_PRESENT, reason="disc images not configured")
 
 

@@ -27,17 +27,25 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Ghidra = $(if ($env:GHIDRA_INSTALL_DIR) { $env:GHIDRA_INSTALL_DIR } else { "E:\tools\ghidra_12.1.3_PUBLIC" }),
+    [string]$Ghidra,
     [string]$Project = "$PSScriptRoot\..\ghidra",
     [string]$ProjectName = "dreams",
-    [string]$Disc1 = $(if ($env:DREAMS_DISC1) { $env:DREAMS_DISC1 } else { "E:\dev_game\Dreams-to-Reality_Win_EN_Disc-Image-Disk-1\extracted" }),
-    [string]$Disc2 = $(if ($env:DREAMS_DISC2) { $env:DREAMS_DISC2 } else { "E:\dev_game\Dreams-to-Reality_Win_EN_Disc-Image-Disk-2\extracted" }),
+    [string]$Disc1,
+    [string]$Disc2,
     [string[]]$Binaries = @(),
     [switch]$Analyze = $true,
     [switch]$ImportSymbols
 )
 
 $ErrorActionPreference = "Stop"
+. "$PSScriptRoot\dreams-env.ps1"
+if (-not $Ghidra) { $Ghidra = $env:DREAMS_GHIDRA_ROOT }
+if (-not $Ghidra) { $Ghidra = $env:GHIDRA_INSTALL_DIR }
+if (-not $Ghidra) { $Ghidra = Get-DreamsSetting DREAMS_GHIDRA_ROOT }
+if (-not $Ghidra) { $Ghidra = Get-DreamsSetting GHIDRA_INSTALL_DIR }
+if (-not $Ghidra) {
+    throw "DREAMS_GHIDRA_ROOT is not configured. Copy dev/paths.example.env to .dreams.local.env."
+}
 $repo = Resolve-Path "$PSScriptRoot\.."
 $headless = Join-Path $Ghidra "support\analyzeHeadless.bat"
 
@@ -46,6 +54,11 @@ if (-not (Test-Path $headless)) {
 }
 
 if ($Binaries.Count -eq 0) {
+    if (-not $Disc1) { $Disc1 = Get-DreamsSetting DREAMS_DISC1 }
+    if (-not $Disc2) { $Disc2 = Get-DreamsSetting DREAMS_DISC2 }
+    if (-not $Disc1 -or -not $Disc2) {
+        throw "DREAMS_DISC1 and DREAMS_DISC2 must be configured for the default import."
+    }
     $Binaries = @(
         (Join-Path $Disc1 "WINDREAM.EXE"),   # PE32 Watcom - the primary target
         (Join-Path $Disc1 "GDIDREAM.EXE"),   # same build, GDI backend
