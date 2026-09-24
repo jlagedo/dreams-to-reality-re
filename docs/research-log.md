@@ -630,6 +630,83 @@ that original physics consumption is not yet integrated in the viewer.
 See [animation-root-blending.md](animation-root-blending.md) for offsets,
 precision differences, runtime controls, and regression tests.
 
+## 2026-09-24 — boot sequence decompiled, videos and menus named
+
+Followed the player-visible boot flow through `WINDREAM.EXE` end to end:
+`entry 00465538` → `main 0048646d` → `Game_Run 0041745e` →
+`BootScreen 00436481`. The observed sequence — intro movie, short animation,
+menu, new game, one more animation, first map — maps to: **`INTRO.HNM`**
+(2781 frames, skippable, event `0x17` on the dispatcher at `0043a306`), then
+**`GENERIC.HNM`** (101 frames — a light-speed tunnel; frames decoded and
+inspected), which runs as the animated background of the **2×2 main menu**
+whose label table sits at `0x4a2ed5`: `NEW GAME` / `LOAD A GAME` / `OPTIONS`
+/ `QUIT`, drawn over `data\tga\menu.tga` with `icones.bf` icons and the
+`UpLf/UpRg/DnLf/DnRg` corner markers. The lowercase `Load`/`Options`/`Quit`
+strings belong to the separate in-game pause menu (`004337c0` → `00432b45`).
+
+Two data corrections came out of it. First, the new-game project video is
+**data-driven** — each decompressed `DREAMS.DAT` project record names its
+video (in-memory at `+0x3c`), and Project 0's record names
+**`ETE_E~1.HNM`, a file that exists on neither disc**; the open fails and the
+play is skipped. What ships instead is hardcoded in `Transition_Tick
+004240ba`: a one-shot latch (`DAT_0049da28`) that plays
+**`data\hnm\tete_e~1.hnm`** — the bearded elder's 313-frame talking-head
+briefing — immediately before `Scene_SpawnProjectEntities 0041f9db` loads
+the map through the `Please wait while loading ...` / CD-swap screen
+(`00427d64`, `LISTL%d.txt` manifests). Second, between menu confirm and the
+briefing there is a rendered, non-video **15-second in-engine transition**
+(`_DAT_005e5480 = 15.0` armed on new game, counted down in `004240ba`).
+
+`LISTL0.TXT` is confirmed as the always-resident universe
+(`H03PAQUE.DSN` + `CH0/HOLO/XH_/MHE`), and `LISTL1.TXT` opens with
+`H18ANGKR.DSN` — the first map is reached through it. Full function map,
+event table, and reproduction commands are in
+[boot-sequence.md](boot-sequence.md).
+
+## 2026-09-24 — menu sprites decoded: the `TABLE` family
+
+The `ICONES.BF` members — the actual menu sprites — are a third sprite family,
+now fully decoded (loader `FUN_00426c46`): 512-byte RGB555 palette, pixel
+blobs, a `"TABLE"` marker, then 28-byte descriptors (width `+4`, height `+8`,
+absolute pixel offset `+0x18`). Pixel depth is per file, recovered from the
+offset stride: 8-bit indexed (`TOUCHES.SPR`, `TITRES.SPR`) or direct RGB555
+(`MAGIE`/`ANIM`/`PYRAM`/`INTERF` `.ALP`, and `DATA\OBJET\SOUR.ALP`, the
+two-frame mouse cursor). Every member's pixel data ends exactly at its TABLE
+marker — the format reading is exact, not fitted. Rendered contact sheets
+confirm it visually: golden `NEW GAME`/`LOAD A GAME`/`OPTIONS`/`QUIT` titles
+in three states (TITRES, disc 2 only), wireframe spell-selector pyramids,
+yellow joypad key caps, 40×40 inventory icons.
+
+Sprite names are **not** in the files: the engine resolves a 72-entry name
+table at `0x49db12` → `(bank, slot)` at `0x49dd9a`, bank filenames at
+`0x49dacc`. The map labels every sprite — inventory items occupy MAGIE slots
+0–30 in exactly the `DREAMS.INI` order, the menu corner markers are INTERF
+slots 0–7, joypad caps TOUCHES 0–10. Decoder: `dreams.formats.image.
+read_menu_sheet` + tests in `tests/test_menu_sprites.py`.
+
+Two corrections follow. `.ALP` is **not** an "alpha map" — it is this sprite
+bundle format (`.SPR`/`.ALP` extensions carry the same layout here). And
+`data\tga\menu.tga`, which boot code tries to load, **exists on neither disc**
+— `DATA\TGA\` is empty on disc 1 — so the shipped menu background is the
+looping `GENERIC.HNM` video, not a TGA.
+
+## 2026-09-24 — menu sprite pixels are byte-swapped RGB555
+
+The first render of the `ICONES.BF` 16-bit sprites was wrong in colour: the
+main menu's corner brackets came out green. Against a real in-game screenshot
+the brackets are blue/cyan, and the sprite's brightness ramp lives entirely
+in bits [9:5] — green under a little-endian RGB555 read, blue under a
+**byte-swapped** one. Only the swapped read reproduces the screenshot's
+colours (`0x0200` ramp → blue, `0x3F10` → saturated blue, `0x397B` → cyan).
+Palette-based files are unaffected — TITRES renders gold/red/dark-red title
+states on a blue-violet glow, coherent across all three variants — so the
+palette stays little-endian and only the 2-byte pixels swap.
+`menu_sprite_rgba` now swaps 2-byte pixels; a regression test pins the UpLf
+bracket to a blue-dominant histogram. The engine-side blit that reconciles
+the stored byte order with the framebuffer is not yet located (candidates
+`FUN_00436ab6` region checked were the credits scroller and the single-sprite
+loader `FUN_00427020`).
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)

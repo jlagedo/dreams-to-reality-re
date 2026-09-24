@@ -162,6 +162,32 @@ community, and each has a different fix: **[verified]** observation,
    The DWM offers no true 8-bit exclusive-fullscreen palette path, producing
    `Can't set DirectDraw mode` and `Can't create primary surface under DirectDraw`.
 
+### Input — no mouse anywhere, polled keyboard **[verified]**
+
+There is **no mouse-look and no mouse input of any kind**:
+
+- The WndProc (`0x44627b`, window class `"Dreams to Reality"` registered in
+  `0x4460cf`) handles exactly five messages: `WM_DESTROY`,
+  `WM_SYSKEYDOWN`/`WM_SYSKEYUP` — only to test `wParam == VK_MENU` so holding
+  Alt does not open the Windows system menu — and `WM_SYSCOMMAND` (blocks
+  `SC_KEYMENU`). Everything else goes straight to `DefWindowProc`. No
+  `WM_MOUSEMOVE`, no button messages, and not even `WM_KEYDOWN`.
+- The keyboard is **polled**: `0x440757` calls `GetAsyncKeyState(0..255)`
+  once per frame into a 256-byte state array at `0x6308d8` (bit 0 = held,
+  bit 1 = press edge, bit 2 = release edge); `0x42493b` (called from the
+  frame pump before the event queues) posts each new key press as event
+  `0x33`.
+- The only analog devices are **joysticks**: two polled devices (4-axis and
+  3-axis) through the `joyGetPosEx` imports, posted as events `0x39`/`0x3a`
+  on change.
+- The Windows cursor is hidden immediately after window creation
+  (`ShowCursor(0)` in `0x4460cf`).
+
+Controls are therefore arrows + Ctrl/Alt/Space + number keys, or a joypad —
+exactly as `README.TXT` §6 documents (also in-game F10 help). Camera views
+are `Alt+5..0`, not mouse-driven. See [boot-sequence.md](boot-sequence.md)
+for the frame pump that drives all of this.
+
 ## Subsystem naming
 
 Recovered symbol fragments suggest a `<MODULE>_<Verb><Type>` convention:

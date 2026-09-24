@@ -19,8 +19,8 @@ a single shared chunk-IO layer under all asset loading.
 | `.UBB` | `UBB2` / `UBS2` | — | `ARENTRAD.UBB` | 1,715,124 | **Video** — HNM generation 5 |
 | `.HNM` | `HNM4` / `HNM6` / `HNS6` | — | see `hnm-video.md` | — | Video |
 | `.DIG` | `AIL3DIG` | `41 49 4C 33 44 49 47` | `SB16.DIG` | 2,853 | **Miles sound-card driver** |
-| `.SPR` | none | — | `HI320.SPR` | 14,559 | **Sprite bundle** — 8-bit indexed + inline palette |
-| `.ALP` | none | — | `SOUR.ALP` | 9,225 | Alpha map |
+| `.SPR` | none | — | `HI320.SPR` | 14,559 | **Sprite bundle** — three flavours: indexed, font, menu `TABLE` |
+| `.ALP` | none | — | `SOUR.ALP` | 9,225 | **Menu sprite bundle** — the `TABLE` family; `.ALP` is not an alpha map |
 | `.ASC` | `Ambient light co...` | — | `CUBE.ASC` | 6,623 | **3D Studio ASCII export** |
 | `.TGA` | standard Targa | `00 01 01` | `INSTALL2.TGA` | 8,870 | Colour-mapped Targa |
 | `.ID` | plain text | — | `1CD.ID` | 5 | Disc marker, see `disc-layout.md` |
@@ -404,7 +404,9 @@ The shipping disc-2 `ICONES.BF` holds six assets:
 | `INTERF.ALP` | 333,152 | 105,275 |
 
 So `.BF` is a plain named-asset container holding `.SPR` and `.ALP` members —
-both formats documented above. Nothing about it is image-specific.
+all of them the **menu `TABLE` sprite family** below, now fully decoded. Disc 1
+ships five members (no `TITRES.SPR`); the engine loads exactly those five by
+name from its own table at `0x49dacc` in `WINDREAM.EXE`.
 
 > **Correction.** "UBIK" here is **not** evidence of a shared Cryo authoring
 > toolkit. `.UBB` turned out to be the HNM5 *video* codec, unrelated to this
@@ -455,7 +457,7 @@ Also present: `MSSDRVR.LST` (stock Miles driver-selection message file, 20,434 B
 
 ### `.SPR` — sprite bundles, **not** raw bitmaps
 
-No magic. There are **two different `.SPR` families**, and neither is a raw
+No magic. There are **three `.SPR` families**, and none is a raw
 RGB555 image — an earlier description of them as such was wrong. **[verified]**
 
 #### `DATA\OBJET\` — indexed sprite bundles (5 files)
@@ -494,6 +496,64 @@ The names are display modes, not dimensions: `HI320`/`HI480`/`HI640` are the
 > palette entry `0x1C1F`, and `FF 7F` is entry `0x7FFF`. The file starts with its
 > palette. The engine *is* RGB555 — that is independently confirmed by `bpp = 16`
 > in every HNM6 header and by `0x3DEF3DEF` in `.3DC` — but not by these bytes.
+
+#### Menu `TABLE` bundles — `.ALP` and menu `.SPR` — **fully decoded**
+
+The `ICONES.BF` members (`MAGIE`/`ANIM`/`PYRAM`/`TOUCHES`/`INTERF`, plus
+disc 2's `TITRES.SPR`) and `DATA\OBJET\SOUR.ALP`. Loader `FUN_00426c46` in
+`WINDREAM.EXE`. **[verified]** across all members on both discs; every member's
+pixel data ends exactly at its `TABLE` marker.
+
+```
+0x000  u16[256]    palette, RGB555 (512 bytes)
+0x200  ...         sprite pixel blobs, absolute offsets, tightly packed
+...    "TABLE"     5-byte marker
++5     N x 28 B    descriptors:
+         +0x00  u32  palette pointer (runtime; 0 in the file)
+         +0x04  u32  width
+         +0x08  u32  height
+         +0x0C  u32  flag (small negatives on TITRES/INTERF)
+         +0x10  u32  flag (-1 / -23 on some INTERF records)
+         +0x14  u32  0
+         +0x18  u32  absolute pixel offset
+...    zero padding
+end-8  [u32 0][u32 N]  footer (approximate; the loader re-derives the table)
+```
+
+Pixel depth is **per file**, recovered from the offset stride: 1 byte/pixel is
+an index into the palette (`TOUCHES.SPR`, `TITRES.SPR`); 2 bytes/pixel is
+direct RGB555 stored **big-endian** — byte-swapped on little-endian hosts
+(all four `.ALP` banks, and `SOUR.ALP`). The engine always reads `w*h*2`
+bytes, which harmlessly over-reads the 8-bit files.
+
+> **Correction.** The first decode read the 2-byte pixels little-endian,
+> which places each sprite's brightness ramp in the green channel — the
+> menu's corner brackets rendered green. A real in-game screenshot shows
+> them blue/cyan, and only the byte-swapped read reproduces that
+> (`0x0200` ramp steps become blue, `0x3F10` saturated blue, `0x397B`
+> cyan). Palette entries stay little-endian: TITRES renders gold/red
+> title states on a blue-violet glow, consistent across its three
+> variants. **[verified]** against the screenshot; the engine-side blit
+> that performs the swap is not yet located.
+
+Sprite **names are not in the files**. The engine carries a 72-entry name
+table at `0x49db12` (stride 9) mapping to `(bank, slot)` at `0x49dd9a`; the
+bank filenames live at `0x49dacc` (stride 13). The mapping is reproduced in
+`dreams.formats.image.MENU_SPRITE_NAMES`. Decoded: **[verified]**
+
+| Bank | Size | Contents |
+|---|---|---|
+| `MAGIE.ALP` | 40×40 ×34, 16bpp | inventory item icons (slots 0–30 in `DREAMS.INI` order: feu, shaman, cleeau, …) + `infosne`/`mcombat`/`infosde` |
+| `ANIM.ALP` | 32×32 ×16, 16bpp | animation frames (name `nothing` → slot 0) |
+| `PYRAM.ALP` | 64×84 ×9 + strips, 16bpp | the pyramid spell-selector UI — `pyrambo/vi/ma/ox` variants, `pyrcurs` cursor, `exprbor`/`exprlev` 64×4 strips, `replay`/`record` |
+| `TOUCHES.SPR` | 24×24 ×11, 8bpp | key/joypad caps — `joy_up/dn/lf/rt/k1/k2/k3/sel/swi/bt0/bt1` (the F10 controls screen) |
+| `INTERF.ALP` | 64×64 ×8 + panels, 16bpp | menu corner markers `DnRg/DnLf/UpLf/UpRg` + `…NA` inactive variants, `RubLf/RubRg` ribbons, `Desc1–4` panels |
+| `TITRES.SPR` (disc 2) | ~128×42 ×12, 8bpp | the four menu titles `NEW GAME`/`LOAD A GAME`/`OPTIONS`/`QUIT` in three render states (gold, red-highlight, third variant); **not in the engine's 5-file load list** — **[unverified]** what draws it |
+| `SOUR.ALP` (`DATA\OBJET`) | 16×24 ×2, 16bpp | the mouse cursor, two frames |
+
+Rendered contact sheets confirmed the decode visually: TITRES shows the four
+golden (and red-highlight) menu titles, PYRAM the wireframe pyramids, TOUCHES
+the yellow direction arrows and key caps.
 
 ## File census
 

@@ -79,7 +79,9 @@ Two names are truncated mid-word (`Passage vers Pyramid`, `Cabine de projectio`,
 **[verified]** **Project 0, *Ile d'Angkor*, scene `H18ANGKR.DSN`.** Following
 the `LINK` entries in `DREAMS.DAT` reaches **145 of the 150 projects from P0**
 (see [level-map.md](level-map.md)), which is what settles it rather than the
-index being zero.
+index being zero. The decompiled path from the main menu's New Game to this
+map — including which videos play on the way — is in
+[boot-sequence.md](boot-sequence.md).
 
 The map is a floating plateau of grass carrying a stone tower wrapped in
 roots — Angkor, and specifically Ta Prohm. Its object names say so outright:
