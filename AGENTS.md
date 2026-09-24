@@ -6,6 +6,7 @@
 |---|---|
 | `src/dreams/cli.py` | `dreams` CLI entry points |
 | `src/dreams/formats/` | Asset format decoders |
+| `src/dreams/bake.py` | Media transcoding pipeline (extract -> baked) |
 | `src/dreams/paths.py` | Disc and output path resolution |
 | `dev/paths.example.env` | Template for local path settings |
 | `.dreams.local.env` | Machine paths (gitignored) |
@@ -27,11 +28,12 @@
 | `DREAMS_WATCOM` | Watcom reference files |
 | `DREAMS_WORK_ROOT` | Scratch and generated content; extraction defaults to its `extract/` subdirectory |
 | `DREAMS_GHIDRA_ROOT` | Ghidra installation |
-| `DREAMS_EXTRACT`, `DREAMS_OUT` | Optional output overrides |
+| `DREAMS_EXTRACT`, `DREAMS_BAKED`, `DREAMS_OUT` | Optional output overrides (`extract/`, `baked/`, `out/`) |
 | `DREAMS_NA_GAME_TOOL` | Optional path to the patched video decoder |
 
 Process environment takes precedence over `.dreams.local.env`. The toolkit
-uses the repository's `out/` directory when `DREAMS_OUT` is unset.
+uses the repository's `out/` directory when `DREAMS_OUT` is unset, and defaults
+baked media assets to `$DREAMS_WORK_ROOT/baked` (or `DREAMS_BAKED`).
 
 ## Python toolkit
 
@@ -45,6 +47,10 @@ uv run dreams --help
 uv run dreams scene --help
 uv run dreams extract --list
 uv run dreams extract --only music,sprites --force
+uv run dreams bake --list
+uv run dreams bake
+uv run dreams bake --only music,sfx --format opus
+uv run dreams bake --force
 uv run dreams mesh
 uv run dreams mesh E01GROTT --gltf out/
 uv run dreams mesh --preview out/
@@ -54,8 +60,28 @@ uv run ruff format .
 ```
 
 See `README.md` for CLI examples, including `disc`, `audio`, `scene`, `model`,
-and binary inspection commands. `dreams extract` uses `ffmpeg` and, for video,
-`na_game_tool`; setup details are in `docs/hnm-video.md`.
+`bake`, and binary inspection commands. `dreams extract` and `dreams bake` use
+`ffmpeg` and, for video extraction, `na_game_tool`; setup details are in
+`docs/hnm-video.md`.
+
+## Media pipeline and baked assets
+
+The media pipeline consists of two stages:
+
+1. **Extraction (`dreams extract`)**: Decodes game disc assets into a lossless,
+   canonical archive (FLAC audio, FFV1 MKV video, PNG images) under
+   `$DREAMS_WORK_ROOT/extract` (or `DREAMS_EXTRACT`).
+2. **Baking (`dreams bake`)**: Transcodes lossless media into lightweight,
+   web-optimized delivery formats under `$DREAMS_WORK_ROOT/baked` (or `DREAMS_BAKED`):
+   - Audio (`music`, `sfx`, `voice`): Opus (`.opus`, default) or MP3 / AAC.
+   - Video (`cutscenes`, `movies`, `textures`): Faststart H.264 MP4 (`.mp4`).
+   - Writes a `manifest.json` indexing all baked assets with byte savings.
+
+**The game and web viewer must use media from `baked/` (`DREAMS_BAKED`), not from `extract/`.**
+The raw extraction directory holds uncompressed/lossless archive assets meant for
+preservation, while the game client and web runtime stream web-ready media
+(e.g., `/api/assets/audio/` and `/api/assets/video/` endpoints in Vite). If media
+assets return 404 in the viewer, run `uv run dreams bake`.
 
 ## Web viewer
 

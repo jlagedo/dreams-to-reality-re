@@ -1,6 +1,7 @@
 import { DreamsViewer, CameraMode, ProjectData, ProjectObject, AnimationClipData } from './viewer';
 import type { GraphicsSettings } from './viewer';
 import type { ClipEntry } from './animation/types';
+import type { StartupController } from './boot/startup';
 
 interface AssetEntry {
   id: string;
@@ -13,6 +14,8 @@ export class UIManager {
   private canvas: HTMLCanvasElement;
 
   private playDuncanBtn: HTMLButtonElement;
+  private replayBootBtn: HTMLButtonElement | null = null;
+  private startupController: StartupController | null = null;
   private musicBtn: HTMLButtonElement;
   private categorySelect: HTMLSelectElement;
   private itemSelect: HTMLSelectElement;
@@ -20,7 +23,7 @@ export class UIManager {
   private debugOverlayBtn: HTMLButtonElement;
   private resetCamBtn: HTMLButtonElement;
   private graphicsBtn: HTMLButtonElement;
-  private graphicsPanel: HTMLElement;
+  public graphicsPanel: HTMLElement;
   private hud: HTMLElement;
   private minimizeHudBtn: HTMLButtonElement;
   private hudNugget: HTMLButtonElement;
@@ -105,6 +108,7 @@ export class UIManager {
     this.canvas = canvas;
 
     this.playDuncanBtn = document.getElementById('playDuncanBtn') as HTMLButtonElement;
+    this.replayBootBtn = document.getElementById('replayBootBtn') as HTMLButtonElement | null;
     this.musicBtn = document.getElementById('musicBtn') as HTMLButtonElement;
     this.categorySelect = document.getElementById('categorySelect') as HTMLSelectElement;
     this.itemSelect = document.getElementById('itemSelect') as HTMLSelectElement;
@@ -190,6 +194,10 @@ export class UIManager {
     void this.populateAnimationModels();
     this.bindGraphicsEvents();
     this.startFpsLoop();
+  }
+
+  public setStartupController(controller: StartupController): void {
+    this.startupController = controller;
   }
 
   public setStatus(msg: string): void {
@@ -645,37 +653,55 @@ export class UIManager {
     });
   }
 
+  public async enterDuncanMode(): Promise<void> {
+    if (this.viewer.currentMode === 'duncan') {
+      if (this.viewer.player.isSpawned) {
+        this.viewer.player.respawn(this.viewer.getDefaultSpawnPos(this.viewer.currentSceneId));
+      }
+      return;
+    }
+
+    this.playDuncanBtn.classList.add('active');
+    this.playDuncanBtn.textContent = '🛑 Exit Duncan Mode';
+    this.camModeBtn.textContent = 'Cam: Duncan 3rd Person';
+
+    if (
+      this.categorySelect.value !== 'scenes' ||
+      (this.itemSelect.value !== 'h18angkr.gltf' &&
+        this.itemSelect.value !== 'f08_gpic.gltf')
+    ) {
+      this.categorySelect.value = 'scenes';
+      this.populateItemSelect();
+      this.itemSelect.value = 'h18angkr.gltf';
+      if (this.viewer.currentSceneId !== 'h18angkr') {
+        await this.viewer.loadAsset('scenes', 'h18angkr.gltf');
+      }
+    }
+
+    this.viewer.setCameraMode('duncan', this.canvas);
+    this.animModelSelect.value = 'xh_';
+    if (document.getElementById('debugTabAnimation')?.classList.contains('active') &&
+        !this.debugOverlay.classList.contains('hidden')) void this.loadModelAnimations('xh_');
+    this.showPortalBanner(
+      'Spawned Duncan at Temple Altar! Walk into the mouth for the portal.'
+    );
+  }
+
+  public exitDuncanMode(): void {
+    if (this.viewer.currentMode !== 'duncan') return;
+    this.viewer.setCameraMode('orbit', this.canvas);
+    this.playDuncanBtn.classList.remove('active');
+    this.playDuncanBtn.textContent = '🎮 Play as Duncan (3rd Person)';
+    this.camModeBtn.textContent = 'Cam: Orbit';
+  }
+
   private bindEvents(): void {
     // Play as Duncan third-person mode toggle
     this.playDuncanBtn.addEventListener('click', async () => {
       if (this.viewer.currentMode === 'duncan') {
-        this.viewer.setCameraMode('orbit', this.canvas);
-        this.playDuncanBtn.classList.remove('active');
-        this.playDuncanBtn.textContent = '🎮 Play as Duncan (3rd Person)';
-        this.camModeBtn.textContent = 'Cam: Orbit';
+        this.exitDuncanMode();
       } else {
-        this.playDuncanBtn.classList.add('active');
-        this.playDuncanBtn.textContent = '🛑 Exit Duncan Mode';
-        this.camModeBtn.textContent = 'Cam: Duncan 3rd Person';
-
-        if (
-          this.categorySelect.value !== 'scenes' ||
-          (this.itemSelect.value !== 'h18angkr.gltf' &&
-            this.itemSelect.value !== 'f08_gpic.gltf')
-        ) {
-          this.categorySelect.value = 'scenes';
-          this.populateItemSelect();
-          this.itemSelect.value = 'h18angkr.gltf';
-          await this.viewer.loadAsset('scenes', 'h18angkr.gltf');
-        }
-
-        this.viewer.setCameraMode('duncan', this.canvas);
-        this.animModelSelect.value = 'xh_';
-        if (document.getElementById('debugTabAnimation')?.classList.contains('active') &&
-            !this.debugOverlay.classList.contains('hidden')) void this.loadModelAnimations('xh_');
-        this.showPortalBanner(
-          'Spawned Duncan at Temple Altar! Walk into the mouth for the portal.'
-        );
+        await this.enterDuncanMode();
       }
     });
 
@@ -720,6 +746,10 @@ export class UIManager {
     // Reset camera / Respawn
     this.resetCamBtn.addEventListener('click', () => {
       this.viewer.resetCamera();
+    });
+
+    this.replayBootBtn?.addEventListener('click', () => {
+      void this.startupController?.startBootSequence();
     });
   }
 

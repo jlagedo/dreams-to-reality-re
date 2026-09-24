@@ -235,11 +235,32 @@ function dreamsAssetPlugin(): Plugin {
               '.wav': 'audio/wav',
             };
 
+            const stat = fs.statSync(filePath);
+            const fileSize = stat.size;
+            const range = req.headers.range;
+
             res.setHeader('Content-Type', contentTypes[ext] || 'application/octet-stream');
             res.setHeader('Access-Control-Allow-Origin', '*');
-            const stream = fs.createReadStream(filePath);
-            stream.pipe(res);
-            return;
+            res.setHeader('Accept-Ranges', 'bytes');
+
+            if (range) {
+              const parts = range.replace(/bytes=/, '').split('-');
+              const start = parseInt(parts[0], 10);
+              const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+              const chunkSize = end - start + 1;
+
+              res.statusCode = 206;
+              res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+              res.setHeader('Content-Length', chunkSize);
+              const stream = fs.createReadStream(filePath, { start, end });
+              stream.pipe(res);
+              return;
+            } else {
+              res.setHeader('Content-Length', fileSize);
+              const stream = fs.createReadStream(filePath);
+              stream.pipe(res);
+              return;
+            }
           } else {
             res.statusCode = 404;
             const hint = targetDir.startsWith(BAKED_DIR)

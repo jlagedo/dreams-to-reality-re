@@ -1,7 +1,8 @@
 import { DreamsViewer } from './viewer';
 import { UIManager } from './ui';
+import { StartupController } from './boot/startup';
 
-window.addEventListener('DOMContentLoaded', async () => {
+async function startApp(): Promise<void> {
   const canvas = document.getElementById('renderCanvas') as HTMLCanvasElement;
   if (!canvas) {
     console.error('Could not find #renderCanvas');
@@ -21,5 +22,21 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
 
   ui = new UIManager(viewer, canvas);
-  await ui.initData();
-});
+  const initPromise = ui.initData();
+
+  const boot = new StartupController(viewer, ui);
+  ui.setStartupController(boot);
+  void boot.startBootSequence(initPromise);
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', () => void startApp());
+} else {
+  void startApp();
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    window.location.reload();
+  });
+}

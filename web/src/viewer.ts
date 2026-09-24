@@ -226,6 +226,7 @@ export interface ProjectData {
 }
 
 export class DreamsViewer {
+  public canvas: HTMLCanvasElement;
   public engine: Engine;
   public scene: Scene;
   public orbitCamera: ArcRotateCamera;
@@ -254,7 +255,7 @@ export class DreamsViewer {
   private inspectionBlendRequest = 0;
 
   private currentContainer: AssetContainer | null = null;
-  private currentAssetMeshes: AbstractMesh[] = [];
+  public currentAssetMeshes: AbstractMesh[] = [];
   public currentSceneId: string = '';
 
   private spawnedNpcContainers: AssetContainer[] = [];
@@ -310,6 +311,7 @@ export class DreamsViewer {
     this.onAnimFrameUpdate = callbacks?.onAnimFrameUpdate;
     this.onProjectDataLoaded = callbacks?.onProjectDataLoaded;
 
+    this.canvas = canvas;
     this.audio = new AudioManager();
 
     this.engine = new Engine(
