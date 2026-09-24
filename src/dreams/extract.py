@@ -310,8 +310,11 @@ def extract_video(
             yield Item(group, src.rel, status="failed", note=msg[-1] if msg else "decode failed")
             return
 
-        enc = subprocess.run(
-            [
+        sd_wav = video.extract_sd_audio(src.path) if info.magic in ("HNS6", "HNM6") else None
+        if sd_wav:
+            tmp_wav = Path(tmp) / "audio.wav"
+            tmp_wav.write_bytes(sd_wav)
+            enc_cmd = [
                 ffmpeg,
                 "-hide_banner",
                 "-loglevel",
@@ -319,6 +322,12 @@ def extract_video(
                 "-y",
                 "-i",
                 str(raw),
+                "-i",
+                str(tmp_wav),
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0",
                 "-c:v",
                 "ffv1",
                 "-level",
@@ -329,17 +338,47 @@ def extract_video(
                 "4",
                 "-slicecrc",
                 "1",
+                "-c:a",
+                "flac",
                 str(dest),
-            ],
-            capture_output=True,
-            text=True,
-        )
+            ]
+        else:
+            enc_cmd = [
+                ffmpeg,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                str(raw),
+                "-map",
+                "0:v:0",
+                "-map",
+                "0:a?",
+                "-c:v",
+                "ffv1",
+                "-level",
+                "3",
+                "-g",
+                "1",
+                "-slices",
+                "4",
+                "-slicecrc",
+                "1",
+                "-c:a",
+                "flac",
+                str(dest),
+            ]
+
+        enc = subprocess.run(enc_cmd, capture_output=True, text=True)
         if enc.returncode != 0:
             yield Item(group, src.rel, status="failed", note=(enc.stderr or "").strip()[:160])
             return
 
     note = f"{info.magic} {info.width}x{info.height} {info.frames}f"
-    if info.magic == "HNM4":
+    if sd_wav:
+        note += "; audio: 22050 Hz stereo FLAC (SD chunks)"
+    elif info.magic == "HNM4":
         note += "; header implies 24 fps, decoder emits 15"
     yield Item(group, src.rel, [dest.name], "ok", note)
 

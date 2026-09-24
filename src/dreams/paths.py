@@ -18,6 +18,7 @@ VARIABLES = {
     "watcom": "DREAMS_WATCOM",
     "work_root": "DREAMS_WORK_ROOT",
     "extract": "DREAMS_EXTRACT",
+    "baked": "DREAMS_BAKED",
     "out": "DREAMS_OUT",
     "ghidra": "DREAMS_GHIDRA_ROOT",
     "na_game_tool": "DREAMS_NA_GAME_TOOL",
@@ -68,6 +69,9 @@ def configured(key: str) -> Path | None:
     if key == "extract":
         work = _value("DREAMS_WORK_ROOT", local)
         return Path(work).expanduser().resolve() / "extract" if work else None
+    if key == "baked":
+        work = _value("DREAMS_WORK_ROOT", local)
+        return Path(work).expanduser().resolve() / "baked" if work else None
     return None
 
 
@@ -93,7 +97,17 @@ def out_dir(*parts: str) -> Path:
 
 def describe() -> list[tuple[str, Path | None, bool]]:
     """(key, resolved path, exists) for every configured path."""
-    keys = ("disc1", "disc2", "watcom", "work_root", "extract", "out", "ghidra", "na_game_tool")
+    keys = (
+        "disc1",
+        "disc2",
+        "watcom",
+        "work_root",
+        "extract",
+        "baked",
+        "out",
+        "ghidra",
+        "na_game_tool",
+    )
     rows = []
     for key in keys:
         path = configured(key)

@@ -11,7 +11,7 @@ import struct
 import pytest
 
 from dreams import binio, paths, probe
-from dreams.formats import audio, dialog, disc, node, project, resource, scene
+from dreams.formats import audio, dialog, disc, node, project, resource, scene, video
 
 DISC1 = paths.configured("disc1")
 DISCS_PRESENT = DISC1 is not None and DISC1.exists()
@@ -547,3 +547,51 @@ def test_dialogue_carries_script_and_audio():
     assert "world of dreams" in " ".join(first.lines)
     # every recovered line is printable ASCII
     assert all(ch.isprintable() for e in entries for line in e.lines for ch in line)
+
+
+# ------------------------------------------------------------- HNM Audio ---
+
+
+def test_extract_sd_audio_synthetic(tmp_path):
+    # Header: 64 bytes HNS6
+    hdr = b"HNS6" + b"\x00" * 60
+
+    # 256 int16 delta table (e.g. index i maps to i * 10)
+    table = struct.pack("<256h", *[i * 10 for i in range(256)])
+    payload = bytes([1, 2, 3, 4])  # 2 stereo pairs
+    sd_chunk = struct.pack("<I2sH", 8 + len(table) + len(payload), b"SD", 0x8400) + table + payload
+    frame = struct.pack("<I", len(sd_chunk) + 4) + sd_chunk
+
+    test_file = tmp_path / "test.hnm"
+    test_file.write_bytes(hdr + frame)
+
+    wav = video.extract_sd_audio(test_file)
+    assert wav is not None
+    # Check sample values (integrated DPCM accumulator)
+    data_idx = wav.index(b"data") + 8
+    samples = struct.unpack("<4h", wav[data_idx : data_idx + 8])
+    assert samples == (10, 20, 40, 60)
+
+
+@needs_discs
+def test_extract_sd_audio_intro():
+    intro = paths.disc(1) / "DATA/HNM/INTRO.HNM"
+    if not intro.is_file():
+        pytest.skip("INTRO.HNM not found on disc 1")
+    wav = video.extract_sd_audio(intro)
+    assert wav is not None
+    assert len(wav) > 10_000_000
+    assert wav[:4] == b"RIFF"
+
+
+def test_extract_sd_audio_bit_exact_reference():
+    ref_file = paths.configured("work_root")
+    if not ref_file:
+        pytest.skip("work_root not configured")
+    ref_wav_path = ref_file / "codex/hnm-audio/PROJECT_hnm_dpcm.wav"
+    disc2_project = paths.disc(2) / "DATA/HNM/PROJECT.HNM"
+    if not ref_wav_path.is_file() or not disc2_project.is_file():
+        pytest.skip("PROJECT_hnm_dpcm.wav or PROJECT.HNM not found")
+    wav = video.extract_sd_audio(disc2_project)
+    assert wav is not None
+    assert wav[44:] == ref_wav_path.read_bytes()[44:]

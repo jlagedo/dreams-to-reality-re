@@ -40,7 +40,7 @@ function dreamsAssetPlugin(): Plugin {
       const GLTF_DIR = path.join(DREAMS_WORK, 'gltf');
       const MODELS_DIR = path.join(DREAMS_WORK, 'models');
       const ANIMATIONS_DIR = path.join(DREAMS_WORK, 'animations');
-      const EXTRACT_DIR = path.resolve(setting('DREAMS_EXTRACT') || path.join(DREAMS_WORK, 'extract'));
+      const BAKED_DIR = path.resolve(setting('DREAMS_BAKED') || path.join(DREAMS_WORK, 'baked'));
       server.middlewares.use((req, res, next) => {
         const url = req.url || '';
 
@@ -208,8 +208,11 @@ function dreamsAssetPlugin(): Plugin {
           targetDir = MODELS_DIR;
           relPath = decodeURIComponent(url.replace('/api/assets/models/', '').split('?')[0]);
         } else if (url.startsWith('/api/assets/audio/')) {
-          targetDir = path.join(EXTRACT_DIR, 'audio');
+          targetDir = path.join(BAKED_DIR, 'audio');
           relPath = decodeURIComponent(url.replace('/api/assets/audio/', '').split('?')[0]);
+        } else if (url.startsWith('/api/assets/video/')) {
+          targetDir = path.join(BAKED_DIR, 'video');
+          relPath = decodeURIComponent(url.replace('/api/assets/video/', '').split('?')[0]);
         }
 
         if (targetDir && relPath) {
@@ -222,9 +225,14 @@ function dreamsAssetPlugin(): Plugin {
               '.png': 'image/png',
               '.jpg': 'image/jpeg',
               '.jpeg': 'image/jpeg',
+              '.opus': 'audio/ogg',
+              '.ogg': 'audio/ogg',
+              '.mp3': 'audio/mpeg',
+              '.m4a': 'audio/mp4',
+              '.mp4': 'video/mp4',
+              '.webm': 'video/webm',
               '.flac': 'audio/flac',
               '.wav': 'audio/wav',
-              '.mp3': 'audio/mpeg',
             };
 
             res.setHeader('Content-Type', contentTypes[ext] || 'application/octet-stream');
@@ -234,7 +242,10 @@ function dreamsAssetPlugin(): Plugin {
             return;
           } else {
             res.statusCode = 404;
-            res.end('File not found in dreams-work: ' + relPath);
+            const hint = targetDir.startsWith(BAKED_DIR)
+              ? ' Please run "uv run dreams bake" to produce web-ready media assets.'
+              : '';
+            res.end(`File not found: ${relPath}.${hint}`);
             return;
           }
         }

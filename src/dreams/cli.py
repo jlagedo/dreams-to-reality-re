@@ -20,6 +20,7 @@ from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
+from dreams import bake as baker
 from dreams import binio, paths, pe, probe
 from dreams import extract as extractor
 from dreams.formats import audio, disc, image, model, resource, scene, video
@@ -546,8 +547,167 @@ def extract(
             console.print(f"[red]failed[/] {item['group']}: {item['source']} — {item['note']}")
 
 
-if __name__ == "__main__":
-    app()
+@app.command()
+def bake(
+    extract_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--extract-dir",
+            help="Source extract root. Defaults to DREAMS_EXTRACT / DREAMS_WORK_ROOT/extract.",
+        ),
+    ] = None,
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Destination baked root. Defaults to DREAMS_BAKED / DREAMS_WORK_ROOT/baked."
+        ),
+    ] = None,
+    only: Annotated[
+        str | None, typer.Option(help="Comma-separated groups to bake. Default: all.")
+    ] = None,
+    skip: Annotated[str | None, typer.Option(help="Comma-separated groups to skip.")] = None,
+    audio_format: Annotated[
+        str, typer.Option("--format", help="Audio codec: opus, mp3, or aac.")
+    ] = "opus",
+    force: Annotated[bool, typer.Option(help="Re-encode files that already exist.")] = False,
+    list_groups: Annotated[bool, typer.Option("--list", help="List bake groups and exit.")] = False,
+) -> None:
+    """Transform extracted media into lightweight, web-optimized delivery formats.
+
+    Audio becomes Opus (or MP3/AAC), cutscenes and textures become H.264 MP4.
+    """
+    if list_groups:
+        table = Table("group", "layout", "description")
+        for g in baker.ALL_GROUPS:
+            sub, _pat = baker.LAYOUT[g]
+            table.add_row(g, sub, baker.DESCRIPTIONS.get(g, ""))
+        console.print(table)
+        return
+
+    groups = [g.strip() for g in only.split(",")] if only else list(baker.ALL_GROUPS)
+    if skip:
+        drop = {g.strip() for g in skip.split(",")}
+        groups = [g for g in groups if g not in drop]
+
+    unknown = [g for g in groups if g not in baker.LAYOUT]
+    if unknown:
+        console.print(f"[red]unknown group(s):[/] {', '.join(unknown)}")
+        console.print(f"[dim]valid: {', '.join(baker.ALL_GROUPS)}[/]")
+        raise typer.Exit(1)
+
+    audio_fmt = audio_format.lower().strip()
+    if audio_fmt not in ("opus", "mp3", "aac"):
+        console.print(
+            f"[red]unsupported audio format:[/] {audio_format} (choose from opus, mp3, aac)"
+        )
+        raise typer.Exit(1)
+
+    src_root = extract_dir or paths.get("extract")
+    dest_root = out or paths.get("baked")
+
+    if not src_root.is_dir():
+        console.print(f"[red]extract directory not found:[/] {src_root}")
+        console.print("[dim]run 'dreams extract' first to generate source assets[/]")
+        raise typer.Exit(1)
+
+    console.print(
+        f"baking [cyan]{', '.join(groups)}[/] (audio: [yellow]{audio_fmt}[/])\n"
+        f"  source: [cyan]{src_root}[/]\n"
+        f"  destination: [cyan]{dest_root}[/]\n"
+    )
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description:<12}"),
+        BarColumn(),
+        TextColumn("{task.completed}/{task.total}"),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        manifest = baker.run(
+            extract_root=src_root,
+            baked_root=dest_root,
+            groups=groups,
+            audio_format=audio_fmt,
+            force=force,
+            progress=progress,
+        )
+
+    t = manifest["totals"]
+    table = Table(
+        "group", "ok", "skip", "fail", "src MB", "baked MB", "savings", title="bake results"
+    )
+    for g in groups:
+        rows = [i for i in manifest["items"] if i["group"] == g]
+        ok_count = sum(1 for r in rows if r["status"] == "ok")
+        skip_count = sum(1 for r in rows if r["status"] == "skipped")
+        fail_count = sum(1 for r in rows if r["status"] == "failed")
+        src_mb = sum(r["src_bytes"] for r in rows if r["status"] == "ok") / 1048576
+        dest_mb = sum(r["dest_bytes"] for r in rows if r["status"] == "ok") / 1048576
+        savings = f"-{(1.0 - (dest_mb / src_mb)) * 100:.1f}%" if src_mb > 0 else "0%"
+        table.add_row(
+            g,
+            str(ok_count),
+            str(skip_count),
+            str(fail_count),
+            f"{src_mb:.1f}",
+            f"{dest_mb:.1f}",
+            f"[green]{savings}[/]" if src_mb > 0 else "-",
+        )
+
+    console.print()
+    console.print(table)
+    src_total = t["source_bytes"] / 1048576
+    dest_total = t["baked_bytes"] / 1048576
+    overall_savings = (1.0 - (dest_total / src_total)) * 100 if src_total > 0 else 0
+    console.print(
+        f"\n[green]{t['files_written']} files written[/]: "
+        f"{src_total:,.1f} MB -> {dest_total:,.1f} MB "
+        f"([bold green]-{overall_savings:.1f}% savings[/])"
+    )
+    console.print(f"[dim]manifest written to {dest_root / 'manifest.json'}[/]")
+
+    for item in manifest["items"]:
+        if item["status"] == "failed":
+            console.print(f"[red]failed[/] {item['group']}: {item['source']} — {item['note']}")
+
+
+@app.command()
+def bundle(
+    scene: Annotated[
+        str | None,
+        typer.Argument(help="Scene stem (e.g. E01GROTT) to bundle for standalone web demo."),
+    ] = None,
+    out: Annotated[
+        Path | None,
+        typer.Option("--out", help="Output directory for web bundle. Defaults to out/bundle."),
+    ] = None,
+    zip_bundle: Annotated[
+        bool, typer.Option("--zip", help="Package destination bundle into a .zip file.")
+    ] = False,
+) -> None:
+    """Package a minimal, standalone web distribution bundle for live deployment.
+
+    (Sub-pipeline stub - in development)
+    """
+    dest = out or paths.out_dir("bundle")
+    target_scene = scene.upper() if scene else "(all reachable scenes)"
+
+    console.print("[bold cyan]dreams bundle[/] [dim](deployment packaging stub)[/]\n")
+    console.print(f"Target Scene:     [green]{target_scene}[/]")
+    console.print(f"Destination:      [cyan]{dest}[/]")
+    console.print(f"Zip Archive:      [yellow]{'yes' if zip_bundle else 'no'}[/]\n")
+
+    console.print("[bold]Planned bundle pipeline workflow:[/]")
+    console.print("  1. Cherry-pick scene glTF & binary geometry buffers")
+    console.print("  2. Include referenced object texture PNGs for the active level")
+    console.print("  3. Include scene CD audio track (.opus) + essential FSB SFX clips")
+    console.print("  4. Include trigger cutscenes & animated textures linked by DREAMS.DAT")
+    console.print("  5. Output minimal static site ready for direct upload to Cloudflare Pages\n")
+    console.print(
+        "[dim]Note: In standard development mode, the web viewer already serves "
+        "baked media directly from DREAMS_BAKED and models from DREAMS_WORK_ROOT.[/]"
+    )
 
 
 @app.command("mesh")
@@ -615,3 +775,7 @@ def mesh_cmd(
     console.print(table)
     if out:
         console.print(f"\nexported [green]{exported}[/] scene(s) to {out}")
+
+
+if __name__ == "__main__":
+    app()

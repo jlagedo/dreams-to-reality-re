@@ -110,3 +110,76 @@ def read_header(path: str | Path) -> Video:
         copyright_,
         size,
     )
+
+
+def extract_sd_audio(path: str | Path) -> bytes | None:
+    """Extract audio from HNS6/HNM6 SD chunks as raw 22050 Hz stereo 16-bit PCM WAV.
+
+    The first SD chunk contains a 256-entry signed 16-bit delta table (512 bytes).
+    Every payload byte thereafter is a DPCM delta code, interleaved L/R.
+    The predictor is integrated with 16-bit unsigned addition mod 65536 and
+    persists across chunk boundaries from zero.
+    Returns WAV bytes if audio was found, or None if no SD chunks exist.
+    """
+    p = Path(path)
+    b = p.read_bytes()
+    if len(b) < 64:
+        return None
+
+    pos = 64
+    payloads: list[bytes] = []
+    while pos + 4 <= len(b):
+        raw = struct.unpack_from("<I", b, pos)[0]
+        if raw == 0:
+            break
+        end = pos + (raw & 0xFFFFFF)
+        if end > len(b):
+            break
+        q = pos + 4
+        while q < end:
+            if q + 8 > end:
+                break
+            c = struct.unpack_from("<I", b, q)[0]
+            if c < 8 or q + c > end:
+                break
+            if b[q + 4 : q + 6] == b"SD":
+                payloads.append(b[q + 8 : q + c])
+            q += (c + 3) & ~3
+        pos = end
+
+    if not payloads or len(payloads[0]) < 512:
+        return None
+
+    lut = struct.unpack("<256h", payloads[0][:512])
+
+    state = [0, 0]
+    out = bytearray()
+    for pld in payloads:
+        data = pld[512:] if pld is payloads[0] else pld
+        for j, code in enumerate(data):
+            ch = j & 1
+            state[ch] = (state[ch] + lut[code]) & 0xFFFF
+            s = state[ch] - 65536 if state[ch] >= 32768 else state[ch]
+            out.extend(struct.pack("<h", s))
+
+    if not out:
+        return None
+
+    # Construct standard 16-bit stereo 22050 Hz RIFF WAVE
+    wav_hdr = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF",
+        36 + len(out),
+        b"WAVE",
+        b"fmt ",
+        16,
+        1,  # PCM
+        2,  # Stereo
+        22050,  # Sample rate
+        22050 * 4,  # Byte rate (22050 * 2ch * 2 bytes)
+        4,  # Block align
+        16,  # Bits per sample
+        b"data",
+        len(out),
+    )
+    return wav_hdr + out

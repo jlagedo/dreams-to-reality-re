@@ -20,6 +20,7 @@ def test_local_file_and_process_environment_precedence(tmp_path, monkeypatch):
 
     assert paths.disc(1) == Path("C:/local/disc1").resolve()
     assert paths.get("extract") == Path("C:/local/work").resolve() / "extract"
+    assert paths.get("baked") == Path("C:/local/work").resolve() / "baked"
 
     monkeypatch.setenv("DREAMS_DISC1", str(tmp_path / "override"))
     assert paths.disc(1) == tmp_path / "override"
