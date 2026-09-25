@@ -11,6 +11,10 @@ import {
 import { AnimationLibrary } from './animation/library';
 import { detachContainerRoots, SkeletalAnimator } from './animation/renderer';
 import type { AnimationClipData } from './animation/types';
+import { MODEL_FILE, modelFolder } from './content';
+
+/** Duncan's model folder: XH_.DAN, named without its trailing underscore. */
+const DUNCAN = 'xh';
 
 export interface PlayerInput {
   forward: boolean;
@@ -102,8 +106,8 @@ export class DuncanPlayer {
     }
     try {
       const container = await SceneLoader.LoadAssetContainerAsync(
-        '/api/assets/models/',
-        'xh.gltf',
+        modelFolder(DUNCAN),
+        MODEL_FILE,
         this.scene
       );
       if (generation !== this.spawnGeneration) { container.dispose(); return; }
@@ -314,14 +318,15 @@ export class DuncanPlayer {
 
   public showBones(show: boolean): void { this.animator?.showBones(show); }
 
-  public respawn(pos?: Vector3): void {
+  public respawn(pos?: Vector3, yaw?: number): void {
     const target = pos || new Vector3(-2.0, 8.5, 14.0);
     this.rootNode.position = target.clone();
     this.velocity = Vector3.Zero();
     this.isGrounded = true;
-    this.targetRotation = 0;
-    this.currentRotation = 0;
-    this.snapCamera();
+    this.targetRotation = yaw ?? 0;
+    this.currentRotation = yaw ?? 0;
+    this.rootNode.rotation.y = this.targetRotation;
+    this.snapCamera(yaw);
   }
 
   private bindKeyboard(): void {

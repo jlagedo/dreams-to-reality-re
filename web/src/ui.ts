@@ -1,13 +1,16 @@
-import { DreamsViewer, CameraMode, ProjectData, ProjectObject, AnimationClipData } from './viewer';
-import type { GraphicsSettings } from './viewer';
+import { DreamsViewer, CameraMode, ProjectRecord, ProjectObject, AnimationClipData } from './viewer';
+import type { BrowseCategory, GraphicsSettings } from './viewer';
 import type { ClipEntry } from './animation/types';
 import type { StartupController } from './boot/startup';
+import { isActive, isCharacter, loadIndex, requestedProject } from './content';
+import { headingToDegrees, headingToYaw } from './units';
 
-interface AssetEntry {
-  id: string;
-  filename: string;
-  hasTextures: boolean;
+interface BrowseEntry {
+  value: string;
+  label: string;
 }
+
+const vec = (v: readonly number[]): string => `(${v.join(', ')})`;
 
 export class UIManager {
   private viewer: DreamsViewer;
@@ -97,8 +100,7 @@ export class UIManager {
   private boneMonitorTableBody: HTMLElement;
   private speedButtons: NodeListOf<HTMLButtonElement>;
 
-  private scenesList: AssetEntry[] = [];
-  private modelsList: AssetEntry[] = [];
+  private browseLists: Record<BrowseCategory, BrowseEntry[]> = { projects: [], scenes: [], models: [] };
   private currentClipsList: ClipEntry[] = [];
   private selectedEntity: ProjectObject | null = null;
   private animationRequest = 0;
@@ -221,14 +223,13 @@ export class UIManager {
     }, 3200);
   }
 
-  public syncSelectedScene(sceneId: string): void {
-    if (this.categorySelect.value !== 'scenes') {
-      this.categorySelect.value = 'scenes';
+  public syncSelection(category: BrowseCategory, id: string): void {
+    if (this.categorySelect.value !== category) {
+      this.categorySelect.value = category;
       this.populateItemSelect();
     }
-    const filename = `${sceneId}.gltf`;
-    if (this.itemSelect.value !== filename) {
-      this.itemSelect.value = filename;
+    if (this.itemSelect.value !== id) {
+      this.itemSelect.value = id;
     }
   }
 
@@ -278,46 +279,29 @@ export class UIManager {
     }
   }
 
-  public updateProjectDebugHUD(project: ProjectData): void {
-    this.dbgProjectName.textContent = project.name;
-    this.dbgSceneFile.textContent = project.scene;
-    this.dbgSceneStem.textContent = project.sceneStem;
-    this.dbgCdTrack.textContent = project.cdTrack ? `Track ${project.cdTrack}` : 'None';
-    this.dbgCameraFov.textContent = project.cameraFov ? `${project.cameraFov}°` : '64°';
-    this.dbgLightingMode.textContent =
-      project.lightingMode === 0 ? 'Day (Mode 0)' : `Mode ${project.lightingMode}`;
+  /** Raw record values, in the engine's own units: they match the docs and Ghidra. */
+  public updateProjectDebugHUD(project: ProjectRecord): void {
+    this.dbgProjectName.textContent = `P${project.index} ${project.name || project.id}`;
+    this.dbgSceneFile.textContent = project.objects.find((o) => o.slot === 0)?.asset ?? '—';
+    this.dbgSceneStem.textContent = project.scene;
+    this.dbgCdTrack.textContent = project.cdTrack
+      ? `Track ${project.cdTrack}${project.music ? '' : ' (not baked)'}`
+      : 'None';
+    this.dbgCameraFov.textContent = `${project.fov}°`;
+    this.dbgLightingMode.textContent = `x138 = ${project.x138}`;
+    this.dbgSpawnPos.textContent = vec(project.spawn);
+    this.dbgSpawnHeading.textContent = `${headingToDegrees(project.heading).toFixed(1)}° (raw ${project.heading})`;
+    this.dbgSpawnYaw.textContent = headingToYaw(project.heading).toFixed(4);
 
-    if (project.spawnPosition) {
-      const [x, y, z] = project.spawnPosition;
-      this.dbgSpawnPos.textContent = `(${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)})`;
-    } else {
-      this.dbgSpawnPos.textContent = '(0.00, 0.00, 0.00)';
-    }
-
-    this.dbgSpawnHeading.textContent = `${(project.spawnHeadingDeg ?? 0).toFixed(1)}° (raw ${project.spawnRawHeading ?? 0})`;
-    this.dbgSpawnYaw.textContent = `${(project.spawnYaw ?? 0).toFixed(4)}`;
-
-    if (project.ambientRgb) {
-      const [r, g, b] = project.ambientRgb;
-      this.dbgAmbientRgb.textContent = `${r}, ${g}, ${b}`;
-      this.dbgAmbientSwatch.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
-    }
-
-    if (project.dirLight1) {
-      const [x, y, z] = project.dirLight1;
-      this.dbgDirLight1.textContent = `(${x}, ${y}, ${z})`;
-    }
-    if (project.dirLight2) {
-      const [x, y, z] = project.dirLight2;
-      this.dbgDirLight2.textContent = `(${x}, ${y}, ${z})`;
-    }
-    if (project.fog) {
-      const [r, g, b, d] = project.fog;
-      this.dbgFog.textContent = d > 0 ? `Density ${d} (${r}, ${g}, ${b})` : 'None (0, 0, 0, 0)';
-    }
+    const [r, g, b] = project.ambient;
+    this.dbgAmbientRgb.textContent = `${r}, ${g}, ${b}`;
+    this.dbgAmbientSwatch.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+    this.dbgDirLight1.textContent = vec(project.light1);
+    this.dbgDirLight2.textContent = vec(project.light2);
+    this.dbgFog.textContent = vec(project.fog);
 
     // Populate Entities Table
-    const activeObjects = project.objects.filter((o) => o.name !== 'OBJET0');
+    const activeObjects = project.objects.filter((o) => o.slot !== 0);
     this.debugEntityCountBadge.textContent = String(activeObjects.length);
     this.entitiesTableBody.innerHTML = '';
 
@@ -325,26 +309,16 @@ export class UIManager {
       const tr = document.createElement('tr');
       tr.setAttribute('data-obj-name', obj.name);
 
-      const [x, y, z] = obj.position;
-      const deg = ((obj.rawYaw / 4096.0) * 360).toFixed(1);
-      const behaviorNames: Record<number, string> = {
-        0: 'Static',
-        1: 'Patrol',
-        3: 'Hostile',
-        5: 'Path',
-        6: 'Fly',
-      };
-      const aiLabel = behaviorNames[obj.behaviorType ?? 0] || `Type ${obj.behaviorType}`;
-
+      const kind = isCharacter(obj) ? 'npc' : 'prop';
       tr.innerHTML = `
         <td><strong>${obj.name}</strong></td>
         <td>${obj.asset}</td>
-        <td><span class="cat-badge ${obj.category}">${obj.category.toUpperCase()}</span></td>
-        <td>(${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)})</td>
-        <td>${deg}°</td>
-        <td>${aiLabel}</td>
-        <td>${obj.speed ?? 0}</td>
-        <td>0x${(obj.flags ?? 0).toString(16).padStart(4, '0')}</td>
+        <td><span class="cat-badge ${kind}">${isCharacter(obj) ? 'CHAR' : 'OBJ'}</span></td>
+        <td>${vec(obj.pos)}</td>
+        <td>${headingToDegrees(obj.heading).toFixed(1)}°</td>
+        <td>${obj.x64}</td>
+        <td>${obj.x68}</td>
+        <td>0x${obj.flags.toString(16).padStart(4, '0')}</td>
         <td><button class="table-btn" data-focus="${obj.name}">Focus</button></td>
       `;
 
@@ -375,26 +349,25 @@ export class UIManager {
       r.classList.toggle('selected', r.getAttribute('data-obj-name') === obj.name);
     });
 
-    const [x, y, z] = obj.position;
-    const deg = ((obj.rawYaw / 4096.0) * 360).toFixed(1);
-
-    this.inspBadgeCategory.textContent = obj.category.toUpperCase();
-    this.inspBadgeCategory.className = `badge cat-badge ${obj.category}`;
-    this.inspProjectName.textContent = this.viewer.currentProjectData?.name || 'Project0';
+    const kind = isCharacter(obj) ? 'npc' : 'prop';
+    this.inspBadgeCategory.textContent = isCharacter(obj) ? 'CHAR' : 'OBJ';
+    this.inspBadgeCategory.className = `badge cat-badge ${kind}`;
+    const project = this.viewer.currentProject;
+    this.inspProjectName.textContent = project ? `P${project.index} ${project.name || project.id}` : '—';
     this.inspObjName.textContent = obj.name;
     this.inspObjAsset.textContent = obj.asset;
-    this.inspObjPos.textContent = `(${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)})`;
-    this.inspObjSpeed.textContent = `${obj.speed ?? 16} (base)`;
-    this.inspObjPhySpeed.textContent = `${obj.speed ?? 16}`;
-    this.inspObjFlags.textContent = `0x${(obj.flags ?? 0).toString(16).padStart(8, '0')} (${
-      obj.isActive ? 'Active' : 'Dormant'
-    }${obj.isCharacter ? ', Char' : ''})`;
-    this.inspObjAngle.textContent = `Yaw ${deg}° (raw ${obj.rawYaw})`;
-    this.inspObj3dCol.textContent = `Radius ${obj.radius ?? 0}`;
+    this.inspObjPos.textContent = vec(obj.pos);
+    this.inspObjSpeed.textContent = String(obj.x68);
+    this.inspObjPhySpeed.textContent = `x78 ${obj.x78} • x88 ${obj.x88}`;
+    this.inspObjFlags.textContent = `0x${obj.flags.toString(16).padStart(4, '0')} (${
+      isActive(obj) ? 'Active' : 'Dormant'
+    }${isCharacter(obj) ? ', Char' : ''})`;
+    this.inspObjAngle.textContent = `${headingToDegrees(obj.heading).toFixed(1)}° (raw ${obj.heading})`;
+    this.inspObj3dCol.textContent = String(obj.x3c);
     this.inspObjAnim0.textContent = this.viewer.entityAnimationStatus(obj.name);
     this.inspObjAnim1.textContent = 'Default clip preview; action selection not recovered';
-    this.inspObjRoute.textContent = obj.routeIndex ? `Route #${obj.routeIndex}` : 'None';
-    this.inspObjHealth.textContent = obj.health ? `${obj.health} HP` : '--';
+    this.inspObjRoute.textContent = String(obj.x6c);
+    this.inspObjHealth.textContent = String(obj.x70);
   }
 
   private animationStatus(message: string, ready = false): void {
@@ -492,7 +465,7 @@ export class UIManager {
       this.viewer.setAnimationLoop((document.getElementById('animLoop') as HTMLInputElement).checked);
       if (this.viewer.currentAssetCategory === 'models') {
         this.categorySelect.value = 'models'; this.populateItemSelect();
-        this.itemSelect.value = `${this.viewer.currentSceneId}.gltf`;
+        this.itemSelect.value = this.viewer.currentSceneId;
       }
       if (this.viewer.currentMode !== 'duncan') {
         this.playDuncanBtn.textContent = '🎮 Play as Duncan (3rd Person)';
@@ -584,11 +557,11 @@ export class UIManager {
     });
 
     this.inspAnimBtn.addEventListener('click', () => {
-      if (this.selectedEntity) {
-        const assetStem = this.selectedEntity.assetStem;
+      const model = this.selectedEntity?.model;
+      if (model) {
         this.switchDebugTab('animation');
-        this.animModelSelect.value = assetStem;
-        this.loadModelAnimations(assetStem);
+        this.animModelSelect.value = model;
+        this.loadModelAnimations(model);
       }
     });
 
@@ -656,7 +629,7 @@ export class UIManager {
   public async enterDuncanMode(): Promise<void> {
     if (this.viewer.currentMode === 'duncan') {
       if (this.viewer.player.isSpawned) {
-        this.viewer.player.respawn(this.viewer.getDefaultSpawnPos(this.viewer.currentSceneId));
+        this.viewer.player.respawn(this.viewer.getDefaultSpawnPos(), this.viewer.getSpawnYaw());
       }
       return;
     }
@@ -665,17 +638,13 @@ export class UIManager {
     this.playDuncanBtn.textContent = '🛑 Exit Duncan Mode';
     this.camModeBtn.textContent = 'Cam: Duncan 3rd Person';
 
-    if (
-      this.categorySelect.value !== 'scenes' ||
-      (this.itemSelect.value !== 'h18angkr.gltf' &&
-        this.itemSelect.value !== 'f08_gpic.gltf')
-    ) {
-      this.categorySelect.value = 'scenes';
-      this.populateItemSelect();
-      this.itemSelect.value = 'h18angkr.gltf';
-      if (this.viewer.currentSceneId !== 'h18angkr') {
-        await this.viewer.loadAsset('scenes', 'h18angkr.gltf');
-      }
+    // Duncan needs a project to stand in: its spawn, links and objects.
+    if (!this.viewer.currentProject) {
+      const index = await loadIndex();
+      const start = index.projects.some((p) => p.index === index.boot.startProject)
+        ? index.boot.startProject
+        : index.projects[0]?.index;
+      if (start !== undefined) await this.viewer.loadProject(start);
     }
 
     this.viewer.setCameraMode('duncan', this.canvas);
@@ -989,53 +958,55 @@ export class UIManager {
 
   public async initData(): Promise<void> {
     try {
-      this.setStatus('Fetching asset lists...');
-      const [scenesRes, modelsRes] = await Promise.all([
-        fetch('/api/scenes'),
-        fetch('/api/models'),
-      ]);
-
-      this.scenesList = await scenesRes.json();
-      this.modelsList = await modelsRes.json();
+      this.setStatus('Reading data index...');
+      const index = await loadIndex();
+      const tag = (textured: boolean | undefined): string => (textured ? ' [textured]' : '');
+      const byTexture = <T extends { textured: boolean }>(entries: [string, T][]) =>
+        entries.sort(([a, x], [b, y]) => Number(y.textured) - Number(x.textured) || a.localeCompare(b));
+      this.browseLists = {
+        projects: index.projects.map((p) => ({
+          value: String(p.index),
+          label: `P${p.index} · ${p.name || p.id} (${p.scene})${index.scenes[p.scene]?.textured ? '' : ' [untextured]'}`,
+        })),
+        scenes: byTexture(Object.entries(index.scenes)).map(([id, s]) => ({ value: id, label: `${id}${tag(s.textured)}` })),
+        models: byTexture(Object.entries(index.models)).map(([id, m]) => ({ value: id, label: `${id}${tag(m.textured)}` })),
+      };
 
       this.populateItemSelect();
 
-      // Default to h18angkr [textured]
-      const angkor = this.scenesList.find((s) => s.id === 'h18angkr');
-      if (angkor) {
-        this.itemSelect.value = angkor.filename;
-        await this.loadSelectedItem();
-      } else if (this.scenesList.length > 0) {
-        this.itemSelect.value = this.scenesList[0].filename;
+      // Default to ?project=N, else New Game's project, Ile d'Angkor
+      const start = String(requestedProject() ?? index.boot.startProject);
+      const first = this.browseLists.projects.find((p) => p.value === start) ?? this.browseLists.projects[0];
+      if (first) {
+        this.itemSelect.value = first.value;
         await this.loadSelectedItem();
       }
     } catch (err) {
-      console.error('Error fetching asset list:', err);
-      this.setStatus('Could not connect to asset server');
+      console.error('Error reading the data index:', err);
+      this.setStatus(`No data index: ${err}`);
     }
   }
 
   private populateItemSelect(): void {
-    const isScenes = this.categorySelect.value === 'scenes';
-    const list = isScenes ? this.scenesList : this.modelsList;
+    const list = this.browseLists[this.categorySelect.value as BrowseCategory] ?? [];
 
     this.itemSelect.innerHTML = '';
 
     for (const item of list) {
       const option = document.createElement('option');
-      option.value = item.filename;
-      const tag = item.hasTextures ? ' [textured]' : '';
-      option.textContent = `${item.id}${tag}`;
+      option.value = item.value;
+      option.textContent = item.label;
       this.itemSelect.appendChild(option);
     }
   }
 
   private async loadSelectedItem(): Promise<void> {
-    const category = this.categorySelect.value as 'scenes' | 'models';
-    const filename = this.itemSelect.value;
-    if (!filename) return;
+    const category = this.categorySelect.value as BrowseCategory;
+    const id = this.itemSelect.value;
+    if (!id) return;
 
-    await this.viewer.loadAsset(category, filename);
+    if (category === 'projects') await this.viewer.loadProject(Number(id));
+    else await this.viewer.loadAsset(category, id);
   }
 
   private startFpsLoop(): void {

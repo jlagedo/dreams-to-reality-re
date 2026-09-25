@@ -32,9 +32,18 @@ import { detachContainerRoots, SkeletalAnimator } from './animation/renderer';
 import { sampleClipPose } from './animation/controller';
 import type { PlaybackState } from './animation/controller';
 import type { AnimationClipData, RootMode } from './animation/types';
+import {
+  animationCatalog, dataUrl, isActive, isCharacter, loadIndex, loadProject,
+  MODEL_FILE, modelFolder, SCENE_FILE, sceneFolder,
+} from './content';
+import type { ProjectLink, ProjectObject, ProjectRecord } from './content';
+import { boxToRender, headingToYaw, toRender } from './units';
+import type { Vec3 } from './units';
 export type { AnimationClipData } from './animation/types';
+export type { ProjectObject, ProjectRecord } from './content';
 
 export type CameraMode = 'orbit' | 'walk' | 'duncan';
+export type BrowseCategory = 'projects' | 'scenes' | 'models';
 
 Effect.ShadersStore['dreamsCrtFragmentShader'] = `
 precision highp float;
@@ -162,69 +171,6 @@ export const DEFAULT_GRAPHICS_SETTINGS: GraphicsSettings = {
   crtAspectLock: true,
 };
 
-export interface ProjectObject {
-  name: string;
-  asset: string;
-  assetStem: string;
-  type: number;
-  category: 'scene' | 'npc' | 'creature' | 'prop';
-  position: [number, number, number];
-  rawYaw: number;
-  yaw: number;
-  flags?: number;
-  isActive?: boolean;
-  isCharacter?: boolean;
-  behaviorType?: number;
-  speed?: number;
-  routeIndex?: number;
-  health?: number;
-  radius?: number;
-}
-
-export interface ProjectLink {
-  name: string;
-  destination: string;
-  destProject: number | null;
-  destSceneStem?: string;
-  destSceneName?: string;
-  min: [number, number, number];
-  max: [number, number, number];
-  center: [number, number, number];
-  size: [number, number, number];
-}
-
-export interface ProjectBox {
-  name: string;
-  kind: number;
-  points: [number, number, number][];
-}
-
-export interface ProjectData {
-  index: number;
-  name: string;
-  scene: string;
-  sceneStem: string;
-  spawnPosition?: [number, number, number];
-  spawnRawHeading?: number;
-  spawnHeadingDeg?: number;
-  spawnYaw?: number;
-  animVideo?: string;
-  animMaterial?: string;
-  animVideo2?: string;
-  animMaterial2?: string;
-  ambientRgb?: [number, number, number];
-  dirLight1?: [number, number, number];
-  dirLight2?: [number, number, number];
-  fog?: [number, number, number, number];
-  skyRgb?: [number, number, number, number];
-  lightingMode?: number;
-  cameraFov?: number;
-  cdTrack?: number;
-  objects: ProjectObject[];
-  links: ProjectLink[];
-  boxes: ProjectBox[];
-}
-
 export class DreamsViewer {
   public canvas: HTMLCanvasElement;
   public engine: Engine;
@@ -241,8 +187,8 @@ export class DreamsViewer {
 
   public player: DuncanPlayer;
   public audio: AudioManager;
-  public readonly animations = new AnimationLibrary();
-  public currentAssetCategory: 'scenes' | 'models' = 'scenes';
+  public readonly animations = new AnimationLibrary({ catalog: animationCatalog, url: dataUrl });
+  public currentAssetCategory: BrowseCategory = 'projects';
   private npcAnimators = new Map<string, SkeletalAnimator>();
   private npcAnimationErrors = new Map<string, string>();
   private modelAnimator: SkeletalAnimator | null = null;
@@ -262,8 +208,8 @@ export class DreamsViewer {
   private spawnedNpcRoots: TransformNode[] = [];
   private waypointLines: LinesMesh[] = [];
   private portalMeshes: Mesh[] = [];
-  private activePortalLinks: { mesh: Mesh; link: ProjectLink }[] = [];
-  public currentProjectData: ProjectData | null = null;
+  private activePortalLinks: { mesh: Mesh; link: ProjectLink; min: Vec3; max: Vec3 }[] = [];
+  public currentProject: ProjectRecord | null = null;
 
   // Entity selection and debug overlay states
   public selectedEntity: ProjectObject | null = null;
@@ -286,10 +232,10 @@ export class DreamsViewer {
   private onStatusChange?: (msg: string) => void;
   private onStatsChange?: (meshCount: number) => void;
   private onPortalTransitionNotify?: (targetScene: string) => void;
-  private onSceneChange?: (sceneId: string) => void;
+  private onSelectionChange?: (category: BrowseCategory, id: string) => void;
   public onEntitySelected?: (entity: ProjectObject | null) => void;
   public onAnimFrameUpdate?: (frame: number, maxFrame: number, pose: Record<number, number[]>) => void;
-  public onProjectDataLoaded?: (project: ProjectData) => void;
+  public onProjectDataLoaded?: (project: ProjectRecord) => void;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -297,16 +243,16 @@ export class DreamsViewer {
       onStatusChange?: (msg: string) => void;
       onStatsChange?: (meshCount: number) => void;
       onPortalTransitionNotify?: (targetScene: string) => void;
-      onSceneChange?: (sceneId: string) => void;
+      onSelectionChange?: (category: BrowseCategory, id: string) => void;
       onEntitySelected?: (entity: ProjectObject | null) => void;
       onAnimFrameUpdate?: (frame: number, maxFrame: number, pose: Record<number, number[]>) => void;
-      onProjectDataLoaded?: (project: ProjectData) => void;
+      onProjectDataLoaded?: (project: ProjectRecord) => void;
     }
   ) {
     this.onStatusChange = callbacks?.onStatusChange;
     this.onStatsChange = callbacks?.onStatsChange;
     this.onPortalTransitionNotify = callbacks?.onPortalTransitionNotify;
-    this.onSceneChange = callbacks?.onSceneChange;
+    this.onSelectionChange = callbacks?.onSelectionChange;
     this.onEntitySelected = callbacks?.onEntitySelected;
     this.onAnimFrameUpdate = callbacks?.onAnimFrameUpdate;
     this.onProjectDataLoaded = callbacks?.onProjectDataLoaded;
@@ -399,9 +345,9 @@ export class DreamsViewer {
     this.scene.onPointerDown = (_evt, pickResult) => {
       if (pickResult && pickResult.hit && pickResult.pickedMesh) {
         const mName = pickResult.pickedMesh.name;
-        if (mName.startsWith('bbox_') && this.currentProjectData) {
+        if (mName.startsWith('bbox_') && this.currentProject) {
           const objName = mName.replace('bbox_', '');
-          const obj = this.currentProjectData.objects.find((o) => o.name === objName);
+          const obj = this.currentProject.objects.find((o) => o.name === objName);
           if (obj) {
             this.selectEntity(obj);
           }
@@ -481,34 +427,26 @@ export class DreamsViewer {
 
       // If not yet spawned, spawn Duncan; otherwise immediately snap camera
       if (!this.player.isSpawned) {
-        const spawnPos = this.getDefaultSpawnPos(this.currentSceneId);
-        const spawnYaw = this.currentProjectData ? this.currentProjectData.spawnYaw : undefined;
-        this.player.spawn(spawnPos, this.currentAssetMeshes, spawnYaw);
+        this.player.spawn(this.getDefaultSpawnPos(), this.currentAssetMeshes, this.getSpawnYaw());
       } else {
-        const spawnYaw = this.currentProjectData ? this.currentProjectData.spawnYaw : undefined;
-        this.player.snapCamera(spawnYaw);
+        this.player.snapCamera(this.getSpawnYaw());
       }
     }
   }
 
-  public getDefaultSpawnPos(sceneId: string): Vector3 {
-    if (this.currentProjectData && this.currentProjectData.spawnPosition) {
-      const sp = this.currentProjectData.spawnPosition;
-      return new Vector3(sp[0], sp[1], sp[2]);
-    }
-    if (sceneId === 'h18angkr') {
-      return new Vector3(-3.19, 6.25, -31.87);
-    } else if (sceneId === 'f08_gpic') {
-      return new Vector3(0.0, 1.0, 0.0);
-    } else if (sceneId === 'e13_angk') {
-      return new Vector3(0.0, 5.0, 0.0);
-    }
+  /** The project's canonical spawn (header +0xB4), or a point above the origin. */
+  public getDefaultSpawnPos(): Vector3 {
+    if (this.currentProject) return Vector3.FromArray(toRender(this.currentProject.spawn));
     return new Vector3(0.0, 5.0, 0.0);
+  }
+
+  public getSpawnYaw(): number | undefined {
+    return this.currentProject ? headingToYaw(this.currentProject.heading) : undefined;
   }
 
   public resetCamera(): void {
     if (this.currentMode === 'duncan' && this.player.isSpawned) {
-      this.player.respawn(this.getDefaultSpawnPos(this.currentSceneId));
+      this.player.respawn(this.getDefaultSpawnPos());
       return;
     }
 
@@ -551,12 +489,42 @@ export class DreamsViewer {
     }
   }
 
-  public async loadAsset(category: 'scenes' | 'models', filename: string, preserveInspection = false): Promise<void> {
+  /** Load a project: its scene, then the objects, links and boxes its record places. */
+  public async loadProject(index: number): Promise<void> {
+    const ticket = ++this.loadGeneration;
+    this.onStatusChange?.(`Loading project ${index}...`);
+    let project: ProjectRecord;
+    try {
+      project = await loadProject(index);
+    } catch (err) {
+      this.onStatusChange?.(`Could not load project ${index}: ${err}`);
+      return;
+    }
+    if (ticket !== this.loadGeneration) return;
+    const generation = await this.loadGeometry('scenes', project.scene, false, `P${index} ${project.name}`);
+    if (generation === null) return;
+    this.currentAssetCategory = 'projects';
+    this.currentProject = project;
+    this.onProjectDataLoaded?.(project);
+    await this.spawnProjectEntities(project, generation);
+    if (generation !== this.loadGeneration) return;
+    this.onSelectionChange?.('projects', String(index));
+  }
+
+  /** Browse one scene's geometry or one model, with no project around it. */
+  public async loadAsset(category: 'scenes' | 'models', id: string, preserveInspection = false): Promise<void> {
+    const generation = await this.loadGeometry(category, id, preserveInspection, id);
+    if (generation !== null) this.onSelectionChange?.(category, id);
+  }
+
+  private async loadGeometry(
+    category: 'scenes' | 'models', id: string, preserveInspection: boolean, label: string,
+  ): Promise<number | null> {
     const generation = ++this.loadGeneration;
     if (!preserveInspection) { ++this.inspectionRequest; this.activeClip = null; this.isPlayingAnimation = false; }
     this.currentAssetCategory = category;
-    this.onStatusChange?.(`Loading ${filename}...`);
-    this.currentSceneId = filename.replace('.gltf', '').toLowerCase();
+    this.onStatusChange?.(`Loading ${label}...`);
+    this.currentSceneId = id.toLowerCase();
 
     // Clean up previous loaded container, spawned NPCs, portals, and waypoints
     this.clearSceneEntities();
@@ -568,11 +536,13 @@ export class DreamsViewer {
     }
     this.currentAssetMeshes = [];
 
-    const rootUrl = `/api/assets/${category}/`;
+    const [rootUrl, filename] = category === 'scenes'
+      ? [sceneFolder(this.currentSceneId), SCENE_FILE]
+      : [modelFolder(this.currentSceneId), MODEL_FILE];
 
     try {
       const container = await SceneLoader.LoadAssetContainerAsync(rootUrl, filename, this.scene);
-      if (generation !== this.loadGeneration) { container.dispose(); return; }
+      if (generation !== this.loadGeneration) { container.dispose(); return null; }
       container.addAllToScene();
 
       this.currentContainer = container;
@@ -600,17 +570,10 @@ export class DreamsViewer {
 
       this.applyTextureFiltering();
 
-      // If loading a scene, spawn its project entities (NPCs, portals, waypoints)
-      if (category === 'scenes') {
-        await this.spawnProjectEntities(this.currentSceneId, generation);
-        if (generation !== this.loadGeneration) return;
-        this.onSceneChange?.(this.currentSceneId);
-      }
-
       if (category === 'models') {
         try {
           const animator = await this.animations.attach(this.currentSceneId, container, this.scene);
-          if (generation !== this.loadGeneration) { animator?.dispose(); return; }
+          if (generation !== this.loadGeneration) { animator?.dispose(); return null; }
           this.modelAnimator = animator;
         } catch (error) {
           this.modelAnimationError = String(error);
@@ -626,11 +589,13 @@ export class DreamsViewer {
       this.resetCamera();
 
       const totalVerts = this.currentAssetMeshes.reduce((acc, m) => acc + m.getTotalVertices(), 0);
-      this.onStatusChange?.(`Loaded ${filename} (${totalVerts.toLocaleString()} vertices)`);
+      this.onStatusChange?.(`Loaded ${label} (${totalVerts.toLocaleString()} vertices)`);
       this.onStatsChange?.(this.currentAssetMeshes.length);
+      return generation;
     } catch (err) {
       console.error('Failed to load glTF asset:', err);
-      this.onStatusChange?.(`Error loading ${filename}: ${err}`);
+      this.onStatusChange?.(`Error loading ${label}: ${err}`);
+      return null;
     }
   }
 
@@ -678,42 +643,32 @@ export class DreamsViewer {
     }
     this.portalMeshes = [];
     this.activePortalLinks = [];
-    this.currentProjectData = null;
+    this.currentProject = null;
   }
 
-  private async spawnProjectEntities(sceneStem: string, generation: number): Promise<void> {
+  private async spawnProjectEntities(project: ProjectRecord, generation: number): Promise<void> {
     try {
-      const res = await fetch(`/api/project/scene/${sceneStem}`);
-      if (!res.ok) return;
-
-      const project: ProjectData | null = await res.json();
-      if (!project || generation !== this.loadGeneration) return;
-
-      this.currentProjectData = project;
-      console.log(`[Dreams] Spawning entities for ${project.name} (${sceneStem}):`, project);
-      this.onProjectDataLoaded?.(project);
+      console.log(`[Dreams] Spawning entities for P${project.index} ${project.name} (${project.scene}):`, project);
+      if (project.missing.length) console.warn(`[Dreams] P${project.index} references unbaked assets:`, project.missing);
 
       // Apply project ambient lighting if available
-      if (project.ambientRgb && project.ambientRgb.length === 3) {
-        const [r, g, b] = project.ambientRgb;
-        if (r > 0 || g > 0 || b > 0) {
-          this.hemiLight.groundColor = new Color3(r / 255.0, g / 255.0, b / 255.0);
-        }
+      const [ar, ag, ab] = project.ambient;
+      if (ar > 0 || ag > 0 || ab > 0) {
+        this.hemiLight.groundColor = new Color3(ar / 255.0, ag / 255.0, ab / 255.0);
       }
 
-      // 1. Spawn Scene Objects (NPCs, Creatures, Props)
+      // 1. Spawn Scene Objects (characters and props)
       for (const obj of project.objects) {
-        if (obj.name === 'OBJET0') continue; // OBJET0 is the scene terrain itself
-        if (obj.isActive === false) continue; // Skip dormant objects
+        if (obj.slot === 0) continue; // OBJET0 is the scene terrain itself
+        if (!isActive(obj)) continue; // Skip dormant objects
+        if (!obj.model) { console.warn(`No baked model for ${obj.name} (${obj.asset})`); continue; }
 
         try {
-          const modelUrl = `/api/assets/models/`;
-          const modelFile = `${obj.assetStem}.gltf`;
-          const container = await SceneLoader.LoadAssetContainerAsync(modelUrl, modelFile, this.scene);
+          const container = await SceneLoader.LoadAssetContainerAsync(modelFolder(obj.model), MODEL_FILE, this.scene);
           if (generation !== this.loadGeneration) { container.dispose(); return; }
           container.addAllToScene();
 
-          const rootNode = new TransformNode(`entity_${obj.name}_${obj.assetStem}`, this.scene);
+          const rootNode = new TransformNode(`entity_${obj.name}_${obj.model}`, this.scene);
           for (const mesh of container.meshes) {
             if (!mesh.parent) {
               mesh.parent = rootNode;
@@ -721,8 +676,9 @@ export class DreamsViewer {
             mesh.isPickable = false; // Don't interfere with camera or player ground raycast
           }
 
-          rootNode.position.set(obj.position[0], obj.position[1], obj.position[2]);
-          rootNode.rotation.y = obj.yaw;
+          const position = toRender(obj.pos);
+          rootNode.position.set(...position);
+          rootNode.rotation.y = headingToYaw(obj.heading);
 
           for (const mat of container.materials) {
             mat.backFaceCulling = false;
@@ -730,13 +686,11 @@ export class DreamsViewer {
 
           // Add 3D debug wireframe bounding box marker
           const bbox = MeshBuilder.CreateBox(`bbox_${obj.name}`, { size: 2.2 }, this.scene);
-          bbox.position.set(obj.position[0], obj.position[1] + 1.1, obj.position[2]);
+          bbox.position.set(position[0], position[1] + 1.1, position[2]);
           const bmat = new StandardMaterial(`bboxMat_${obj.name}`, this.scene);
           bmat.wireframe = true;
-          bmat.emissiveColor = obj.category === 'npc'
+          bmat.emissiveColor = isCharacter(obj)
             ? new Color3(0.2, 0.8, 1.0)
-            : obj.category === 'creature'
-            ? new Color3(1.0, 0.75, 0.2)
             : new Color3(0.7, 0.4, 1.0);
           bbox.material = bmat;
           bbox.isPickable = true;
@@ -746,7 +700,7 @@ export class DreamsViewer {
           this.spawnedNpcContainers.push(container);
           this.spawnedNpcRoots.push(rootNode);
           try {
-            const animator = await this.animations.attach(obj.assetStem, container, this.scene);
+            const animator = await this.animations.attach(obj.model, container, this.scene);
             if (generation !== this.loadGeneration) { animator?.dispose(); return; }
             if (animator) this.npcAnimators.set(obj.name, animator);
           } catch (error) {
@@ -762,7 +716,9 @@ export class DreamsViewer {
       // 2. Spawn Portal Links (LINK0 .. LINK7)
       for (let i = 0; i < project.links.length; i++) {
         const link = project.links[i];
-        const center = new Vector3(link.center[0], link.center[1], link.center[2]);
+        const { min, max } = boxToRender(link.min, link.max);
+        const center = Vector3.FromArray(min).add(Vector3.FromArray(max)).scale(0.5);
+        const size = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
 
         // Distinct colors for portals: Link 0 = Cyan, Link 1 = Magenta, Link 2+ = Amber
         const color = i === 0
@@ -772,7 +728,7 @@ export class DreamsViewer {
           : new Color3(1.0, 0.85, 0.2);
 
         // Size scaled to trigger bounding box, clamped to comfortable bubble size
-        const radius = Math.max(1.8, Math.min(Math.max(...link.size), 4.5));
+        const radius = Math.max(1.8, Math.min(Math.max(...size), 4.5));
 
         const portalMesh = MeshBuilder.CreateSphere(
           `portal_${link.name}`,
@@ -790,19 +746,19 @@ export class DreamsViewer {
         portalMesh.isPickable = false;
 
         this.portalMeshes.push(portalMesh);
-        this.activePortalLinks.push({ mesh: portalMesh, link });
+        this.activePortalLinks.push({ mesh: portalMesh, link, min, max });
       }
 
-      // 3. Spawn Waypoint & Patrol Paths (BOX0 .. BOX11)
+      // 3. BOX point sets (BOX0 .. BOX11), coloured by their open +0xF0 type code
       for (const box of project.boxes) {
         if (!box.points || box.points.length < 2) continue;
 
-        const points = box.points.map((p) => new Vector3(p[0], p[1], p[2]));
-        const lineColor = box.kind === 0
-          ? new Color4(0.2, 0.85, 1.0, 0.6)  // Cyan patrol path
-          : box.kind === 1
-          ? new Color4(1.0, 0.75, 0.2, 0.6)  // Gold flight route
-          : new Color4(0.5, 1.0, 0.5, 0.6);  // Green trigger zone
+        const points = box.points.map((p) => Vector3.FromArray(toRender(p)));
+        const lineColor = box.xf0 === 0
+          ? new Color4(0.2, 0.85, 1.0, 0.6)
+          : box.xf0 === 1
+          ? new Color4(1.0, 0.75, 0.2, 0.6)
+          : new Color4(0.5, 1.0, 0.5, 0.6);
 
         const linesMesh = MeshBuilder.CreateLines(
           `box_${box.name}`,
@@ -824,17 +780,18 @@ export class DreamsViewer {
 
     const playerPos = this.player.rootNode.position;
 
-    for (const { mesh, link } of this.activePortalLinks) {
+    for (const { mesh, link, min, max } of this.activePortalLinks) {
       const dist = Vector3.Distance(playerPos, mesh.position);
 
-      // Trigger if player is close to portal center OR inside its bounding volume with a margin
+      // Viewer convenience: a margin around the LINK volume, in render units.
+      // The engine's own test is the plain box, and belongs in the simulation.
       const inBounds =
-        playerPos.x >= link.min[0] - 1.5 &&
-        playerPos.x <= link.max[0] + 1.5 &&
-        playerPos.y >= link.min[1] - 2.0 &&
-        playerPos.y <= link.max[1] + 2.0 &&
-        playerPos.z >= link.min[2] - 1.5 &&
-        playerPos.z <= link.max[2] + 1.5;
+        playerPos.x >= min[0] - 1.5 &&
+        playerPos.x <= max[0] + 1.5 &&
+        playerPos.y >= min[1] - 2.0 &&
+        playerPos.y <= max[1] + 2.0 &&
+        playerPos.z >= min[2] - 1.5 &&
+        playerPos.z <= max[2] + 1.5;
 
       if (dist < 3.2 || inBounds) {
         await this.handlePortalEntry(link);
@@ -849,16 +806,18 @@ export class DreamsViewer {
 
     this.audio.playPortalSfx();
 
-    const targetSceneStem = link.destSceneStem;
-    const destLabel = link.destSceneName || link.destination;
+    const index = await loadIndex();
+    const target = index.projects.find((p) => p.index === link.to);
+    const destLabel = target ? `P${target.index} ${target.name}` : link.destination;
 
-    this.onPortalTransitionNotify?.(`Entering ${link.name} -> ${destLabel}`);
-    this.onStatusChange?.(`Entering ${link.name} -> ${destLabel}...`);
-
-    if (targetSceneStem) {
-      await this.loadAsset('scenes', `${targetSceneStem}.gltf`);
-      const targetSpawn = this.getDefaultSpawnPos(targetSceneStem);
-      this.player.respawn(targetSpawn);
+    if (!target) {
+      this.onPortalTransitionNotify?.(`${link.name} -> ${destLabel} is not in this build`);
+    } else {
+      this.onPortalTransitionNotify?.(`Entering ${link.name} -> ${destLabel}`);
+      this.onStatusChange?.(`Entering ${link.name} -> ${destLabel}...`);
+      await this.loadProject(target.index);
+      this.player.respawn(this.getDefaultSpawnPos(), this.getSpawnYaw());
+      if (this.currentProject?.music) void this.audio.playTrack(dataUrl(this.currentProject.music), true, 0.55);
     }
 
     setTimeout(() => {
@@ -1012,13 +971,15 @@ export class DreamsViewer {
       this.entityHighlightBox.isPickable = false;
     }
 
-    this.entityHighlightBox.position.set(obj.position[0], obj.position[1] + 1.2, obj.position[2]);
+    const [x, y, z] = toRender(obj.pos);
+    this.entityHighlightBox.position.set(x, y + 1.2, z);
     this.entityHighlightBox.setEnabled(true);
   }
 
   public focusOnEntity(obj: ProjectObject): void {
     this.selectEntity(obj);
-    const targetPos = new Vector3(obj.position[0], obj.position[1] + 1.2, obj.position[2]);
+    const [x, y, z] = toRender(obj.pos);
+    const targetPos = new Vector3(x, y + 1.2, z);
     this.orbitCamera.target = targetPos;
     this.orbitCamera.radius = 16;
     if (this.currentMode !== 'orbit') {
@@ -1121,14 +1082,14 @@ export class DreamsViewer {
       if (request !== this.inspectionRequest) throw new Error('Animation selection changed.');
       const canvas = this.engine.getRenderingCanvas();
       if (canvas) this.setCameraMode('orbit', canvas);
-      await this.loadAsset('models', `${entry.assetStem}.gltf`, true);
+      await this.loadAsset('models', entry.assetStem, true);
       target = this.modelAnimator; label = `${entry.assetStem} model preview`;
     }
     if (request !== this.inspectionRequest) throw new Error('Animation selection changed.');
     if (!target || target.disposed) throw new Error(this.modelAnimationError || `No playable model for ${entry.model}.`);
     this.inspectionTarget = target;
     this.activeClip = clip;
-    const entity = this.currentProjectData?.objects.find(obj => this.npcAnimators.get(obj.name) === target);
+    const entity = this.currentProject?.objects.find(obj => this.npcAnimators.get(obj.name) === target);
     if (entity) this.focusOnEntity(entity);
     this.activateInspection();
     this.setAnimFrame(0);

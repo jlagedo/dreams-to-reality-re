@@ -253,7 +253,11 @@ def export_animations(
     out: Annotated[Path | None, typer.Option("--out")] = None,
     models_out: Annotated[Path | None, typer.Option("--models-out")] = None,
 ) -> None:
-    """Export clips, complete named rigs and skin bindings for every .DAN model."""
+    """Export clips, complete named rigs and skin bindings for every .DAN model.
+
+    A standalone debugging export. The pipeline gets the same data from
+    `dreams extract --only animations,models` followed by `dreams bake`.
+    """
     from dreams.animation_export import export_library
     from dreams.extract import merge_discs
 
@@ -572,15 +576,16 @@ def bake(
     force: Annotated[bool, typer.Option(help="Re-encode files that already exist.")] = False,
     list_groups: Annotated[bool, typer.Option("--list", help="List bake groups and exit.")] = False,
 ) -> None:
-    """Transform extracted media into lightweight, web-optimized delivery formats.
+    """Build the web app's data root from the extract archive.
 
-    Audio becomes Opus (or MP3/AAC), cutscenes and textures become H.264 MP4.
+    Projects, scenes, models, clips, UI and text become the layout the app
+    reads; audio becomes Opus (or MP3/AAC), video H.264 MP4. The dev server
+    serves the result at /data unchanged. See docs/pipeline.md.
     """
     if list_groups:
         table = Table("group", "layout", "description")
         for g in baker.ALL_GROUPS:
-            sub, _pat = baker.LAYOUT[g]
-            table.add_row(g, sub, baker.DESCRIPTIONS.get(g, ""))
+            table.add_row(g, baker.LAYOUT[g], baker.DESCRIPTIONS.get(g, ""))
         console.print(table)
         return
 
@@ -659,12 +664,15 @@ def bake(
     console.print(table)
     src_total = t["source_bytes"] / 1048576
     dest_total = t["baked_bytes"] / 1048576
-    overall_savings = (1.0 - (dest_total / src_total)) * 100 if src_total > 0 else 0
-    console.print(
-        f"\n[green]{t['files_written']} files written[/]: "
-        f"{src_total:,.1f} MB -> {dest_total:,.1f} MB "
-        f"([bold green]-{overall_savings:.1f}% savings[/])"
-    )
+    written = f"\n[green]{t['files_written']} items written[/]"
+    if src_total > 0:
+        overall_savings = (1.0 - (dest_total / src_total)) * 100
+        written += (
+            f"; media {src_total:,.1f} MB -> {dest_total:,.1f} MB "
+            f"([bold green]-{overall_savings:.1f}%[/])"
+        )
+    console.print(written)
+    console.print(f"[dim]index.json rebuilt in {dest_root}[/]")
     console.print(f"[dim]manifest written to {dest_root / 'manifest.json'}[/]")
 
     for item in manifest["items"]:
@@ -673,40 +681,54 @@ def bake(
 
 
 @app.command()
-def bundle(
-    scene: Annotated[
+def pack(
+    name: Annotated[str, typer.Argument(help="Release folder name, e.g. demo.")],
+    projects: Annotated[
         str | None,
-        typer.Argument(help="Scene stem (e.g. E01GROTT) to bundle for standalone web demo."),
+        typer.Option(help="Comma-separated project indices, e.g. 0,62,134. Default: everything."),
+    ] = None,
+    build: Annotated[bool, typer.Option(help="Run the web app build first.")] = True,
+    baked_dir: Annotated[
+        Path | None, typer.Option("--baked-dir", help="Data root. Defaults to DREAMS_BAKED.")
     ] = None,
     out: Annotated[
-        Path | None,
-        typer.Option("--out", help="Output directory for web bundle. Defaults to out/bundle."),
+        Path | None, typer.Option(help="Releases root. Defaults to DREAMS_RELEASES.")
     ] = None,
-    zip_bundle: Annotated[
-        bool, typer.Option("--zip", help="Package destination bundle into a .zip file.")
-    ] = False,
 ) -> None:
-    """Package a minimal, standalone web distribution bundle for live deployment.
+    """Write a deployable static site: the app build plus a subset of the data root.
 
-    (Sub-pipeline stub - in development)
+    Content files are copied unchanged; only index.json is rebuilt, for the
+    subset. Upload releases/<name>/site as-is. See docs/pipeline.md.
     """
-    dest = out or paths.out_dir("bundle")
-    target_scene = scene.upper() if scene else "(all reachable scenes)"
+    from dreams import pack as packer
 
-    console.print("[bold cyan]dreams bundle[/] [dim](deployment packaging stub)[/]\n")
-    console.print(f"Target Scene:     [green]{target_scene}[/]")
-    console.print(f"Destination:      [cyan]{dest}[/]")
-    console.print(f"Zip Archive:      [yellow]{'yes' if zip_bundle else 'no'}[/]\n")
+    selected = [int(p) for p in projects.split(",")] if projects else None
+    try:
+        manifest = packer.run(
+            baked_dir or paths.get("baked"),
+            out or paths.get("releases"),
+            name,
+            projects=selected,
+            build=build,
+        )
+    except (RuntimeError, ValueError) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
 
-    console.print("[bold]Planned bundle pipeline workflow:[/]")
-    console.print("  1. Cherry-pick scene glTF & binary geometry buffers")
-    console.print("  2. Include referenced object texture PNGs for the active level")
-    console.print("  3. Include scene CD audio track (.opus) + essential FSB SFX clips")
-    console.print("  4. Include trigger cutscenes & animated textures linked by DREAMS.DAT")
-    console.print("  5. Output minimal static site ready for direct upload to Cloudflare Pages\n")
     console.print(
-        "[dim]Note: In standard development mode, the web viewer already serves "
-        "baked media directly from DREAMS_BAKED and models from DREAMS_WORK_ROOT.[/]"
+        f"[green]{manifest['files']} files[/], {manifest['bytes'] / 1048576:,.1f} MB, "
+        f"{len(manifest['projects'])} projects -> [cyan]{manifest['site']}[/]\n"
+        f"largest: {manifest['largest']['path']} "
+        f"({manifest['largest']['bytes'] / 1048576:.1f} MB)"
+    )
+    for entry in manifest["missing"]:
+        console.print(f"[yellow]listed but not baked:[/] {entry}")
+    for problem in manifest["problems"]:
+        console.print(f"[red]over the hosting limit:[/] {problem}")
+    if manifest["problems"]:
+        raise typer.Exit(1)
+    console.print(
+        f'[dim]deploy: npx wrangler pages deploy "{manifest["site"]}" --project-name <name>[/]'
     )
 
 

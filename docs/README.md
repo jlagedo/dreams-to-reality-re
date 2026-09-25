@@ -22,12 +22,15 @@ docs do.
 | [animation-subsystem.md](animation-subsystem.md) | **Shared runtime** — NPC/player animation, complete rig exports, inspector, playback and lifecycle |
 | [animation-smoothing.md](animation-smoothing.md) | **Smoothing** — recovered quaternion splines, easing, missing controls, and initialization-pose loop fix |
 | [animation-root-blending.md](animation-root-blending.md) | **Root movement and blending** — translation curves, extracted deltas, original transition timing and inspector experiments |
+| [ai-animation-runtime.md](ai-animation-runtime.md) | **Retail AI and action selection** — actor scheduler, project AI transition lists, NPC action requests, and player movement-to-clip lookup |
+| [sprites-ui-dialog.md](sprites-ui-dialog.md) | **Retail sprites, menus, and timed dialogue** — indexed/blended pixels, decoded fonts, separate UI loops, and voice/captions |
 | [assets.md](assets.md) | **Models, textures, animation, sound** — where content lives and how it's packed |
 | [file-formats.md](file-formats.md) | Asset format catalogue with verified magic numbers |
 | [hnm-video.md](hnm-video.md) | HNM inventory **and how to decode it** — all 113 videos decode |
 | [hnm6-spec.md](hnm6-spec.md) | Full HNM6 container + codec specification (MultimediaWiki, mirrored) |
 | [disc-layout.md](disc-layout.md) | Both discs inventoried, install manifest, disc-check mechanism, merge map |
 | [running.md](running.md) | How to actually run the game, ranked by difficulty |
+| [pipeline.md](pipeline.md) | **Extract → bake → pack**: the data root the web app reads, its JSON, releases for static hosting |
 | [research-log.md](research-log.md) | Findings log, corrections, dead ends, open questions |
 
 ## Evidence tags

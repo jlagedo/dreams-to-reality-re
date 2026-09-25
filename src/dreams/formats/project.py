@@ -91,13 +91,13 @@ class Objet:
     name: str
     asset: str
     position: Vec
-    entity_type: int = 1  #: 1=prop/landmark, 19=gnome/NPC, 3=creature, 531/1043=special
+    entity_type: int = 1  #: Legacy view of the +0x34 flags word; not a type enum.
     heading: int = 0  #: 12-bit angle 0..4095 where 4096 == 360 deg (2*pi)
     flags: int = 1  #: 16-bit flag +0x34 (bit 0=active, bit 1=character, bit 8=dormant)
-    behavior_type: int = 0  #: +0x64 AI (1=static, 3=hostile, 5=gnome patrol, 6=flying)
-    speed: float = 16.0  #: +0x68 velocity / speed scale (default 16.0f)
-    route_index: int = 0  #: +0x6C waypoint route index into BOX
-    health: int = 0  #: +0x70 health points / dialogue ID
+    behavior_type: int = 0  #: +0x64 runtime behavior/class selector; exact labels are open.
+    speed: float = 16.0  #: +0x68 movement scale copied to actor +0x104 (default 16.0).
+    route_index: int = 0  #: Legacy name for +0x6C; copied to actor +0x108, not proven a BOX index.
+    health: int = 0  #: Legacy name for +0x70; actor +0x10C scales attack-effect launch velocity.
     radius: int = 0  #: +0x3C bounding / collision radius
 
     @property
@@ -118,7 +118,7 @@ class Objet:
 @dataclass
 class Box:
     name: str
-    kind: int  #: 0=ground patrol, 1=aerial flight waypoints
+    kind: int  #: Raw type code; its gameplay meaning and relation to NPC routing are open.
     points: list[Vec]
 
 
@@ -154,6 +154,7 @@ class Project:
     objets: list[Objet] = field(default_factory=list)
     boxes: list[Box] = field(default_factory=list)
     advents: list[LinkAdvent] = field(default_factory=list)
+    ai_schedule_selector: int = 0  #: Header +0xD0 selects a retail actor-state transition list.
 
     @property
     def spawn_yaw_radians(self) -> float:
@@ -168,12 +169,34 @@ class Project:
 
 
 def _slots(rec: bytes, at: int, size: int, count: int, family: bytes):
+    for _, cell in _live(rec, at, size, count, family):
+        yield cell
+
+
+def _live(rec: bytes, at: int, size: int, count: int, family: bytes):
     for i in range(count):
         cell = rec[at + size * i : at + size * (i + 1)]
         # Unused slots can hold stale fragments ("INK0", "BJET3"); only a slot
         # that starts with its family name is live.
         if cell.startswith(family):
-            yield cell
+            yield i, cell
+
+
+#: Family -> (offset, slot size, slot count, name prefix) inside a record.
+FAMILIES = {
+    "LINK": (LINK_AT, LINK_SIZE, LINKS, b"LINK"),
+    "OBJET": (OBJET_AT, OBJET_SIZE, OBJETS, b"OBJET"),
+    "BOX": (BOX_AT, BOX_SIZE, BOXES, b"BOX"),
+    "LINKADVENT": (ADVENT_AT, ADVENT_SIZE, ADVENTS, b"LINKADVENT"),
+}
+
+
+def slots(rec: bytes, family: str) -> list[tuple[int, bytes]]:
+    """``(slot index, raw cell)`` for each live slot, in the order :func:`parse` reads them.
+
+    For reading fields whose meaning is still open straight from the bytes.
+    """
+    return list(_live(rec, *FAMILIES[family]))
 
 
 def parse(index: int, rec: bytes) -> Project:
@@ -196,6 +219,7 @@ def parse(index: int, rec: bytes) -> Project:
         fog=struct.unpack_from("<4i", hdr, 0xE0),
         sky_rgb=struct.unpack_from("<4i", hdr, 0xF0),
         lighting_mode=struct.unpack_from("<i", hdr, 0x138)[0],
+        ai_schedule_selector=struct.unpack_from("<i", hdr, 0xD0)[0],
         camera_fov=struct.unpack_from("<i", hdr, 0xA4)[0],
         cd_track=struct.unpack_from("<i", hdr, 0x1F8)[0],
     )
@@ -237,16 +261,20 @@ def parse(index: int, rec: bytes) -> Project:
     return pj
 
 
-def read(path: str | Path) -> list[Project]:
-    """Every project in ``DREAMS.DAT``."""
+def records(path: str | Path) -> list[bytes]:
+    """Every record in ``DREAMS.DAT``, decompressed to its 0x2200 bytes."""
     data = Path(path).read_bytes()
     offsets = struct.unpack_from(f"<{INDEX}I", data, 0)
     if RECORDS + offsets[-1] != len(data):
         raise ValueError("DREAMS.DAT: index does not end at the file size")
     return [
-        parse(i, decompress(data[RECORDS + offsets[i] : RECORDS + offsets[i + 1]]))
-        for i in range(INDEX - 1)
+        decompress(data[RECORDS + offsets[i] : RECORDS + offsets[i + 1]]) for i in range(INDEX - 1)
     ]
+
+
+def read(path: str | Path) -> list[Project]:
+    """Every project in ``DREAMS.DAT``."""
+    return [parse(i, rec) for i, rec in enumerate(records(path))]
 
 
 def reachable(projects: list[Project], start: int = 0) -> set[int]:

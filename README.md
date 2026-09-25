@@ -82,11 +82,27 @@ are skipped, not failed.
 
 Output goes **outside the repo** by design: it is derived game content.
 
+## Bake and pack
+
+The web app never reads `extract/`. `dreams bake` turns it into the **data
+root** the app reads, and `dreams pack` copies part of that, with the app
+build, into a static site:
+
+```bash
+uv run dreams bake                             # -> $DREAMS_WORK_ROOT/baked
+npm --prefix web run dev                       # serves baked/ at /data
+uv run dreams pack demo --projects 0,62,134    # -> $DREAMS_WORK_ROOT/releases/demo/site
+```
+
+Stages, layout and JSON formats are in [docs/pipeline.md](docs/pipeline.md).
+
 ## What works
 
 | Command | Status |
 |---|---|
 | `dreams extract` | **solved** — every decodable asset, lossless |
+| `dreams bake` | **working** — the web app's data root: projects, scenes, models, clips, UI, text, media |
+| `dreams pack` | **working** — a static release of chosen projects, checked against host limits |
 | `dreams audio info/unpack` | **solved** — extracts all 202 clips as WAV |
 | `dreams video` | **solved** — HNM4/5/6 headers |
 | `dreams res` | **solved** — 30 items, 150 levels from `DREAMS.INI` |

@@ -44,9 +44,10 @@ class Resources:
         return out
 
 
-def read(path: str | Path) -> Resources:
+def read(path: str | Path, encoding: str = ENCODING) -> Resources:
+    """Parse the file. ``extract`` writes a UTF-8 copy; the disc original is CP1252."""
     p = Path(path)
-    text = p.read_text(encoding=ENCODING, errors="replace")
+    text = p.read_text(encoding=encoding, errors="replace")
 
     res = Resources(p)
     section: str | None = None

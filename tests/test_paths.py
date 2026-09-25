@@ -40,3 +40,12 @@ def test_output_defaults_to_repository(tmp_path, monkeypatch):
     monkeypatch.delenv("DREAMS_OUT", raising=False)
 
     assert paths.get("out") == paths.REPO_ROOT / "out"
+
+
+def test_pipeline_roots_default_under_the_work_root(tmp_path, monkeypatch):
+    monkeypatch.setattr(paths, "LOCAL_ENV", tmp_path / "absent.env")
+    for name in ("DREAMS_EXTRACT", "DREAMS_BAKED", "DREAMS_RELEASES"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("DREAMS_WORK_ROOT", str(tmp_path / "work"))
+    for key in ("extract", "baked", "releases"):
+        assert paths.get(key) == (tmp_path / "work").resolve() / key

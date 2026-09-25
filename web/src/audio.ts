@@ -1,3 +1,5 @@
+import { audioFile, loadIndex } from './content';
+
 export class AudioManager {
   private musicAudio: HTMLAudioElement;
   private sfxAudio: HTMLAudioElement;
@@ -10,18 +12,31 @@ export class AudioManager {
   private fadeInterval?: number;
 
   constructor() {
-    this.musicAudio = new Audio('/api/assets/audio/music/d1_track02.opus');
+    this.musicAudio = new Audio();
     this.musicAudio.loop = true;
     this.musicAudio.volume = 0; // muted initially
 
-    this.sfxAudio = new Audio('/api/assets/audio/sfx/sfx_001.opus');
+    this.sfxAudio = new Audio();
     this.sfxAudio.volume = 0;
 
-    this.menuMoveAudio = new Audio('/api/assets/audio/sfx/sfx_009.opus');
+    this.menuMoveAudio = new Audio();
     this.menuMoveAudio.volume = 0;
 
-    this.menuConfirmAudio = new Audio('/api/assets/audio/sfx/sfx_010.opus');
+    this.menuConfirmAudio = new Audio();
     this.menuConfirmAudio.volume = 0;
+
+    // FSB.DAT clips: 1 for the portal (a viewer choice); 9/10 for menu move and
+    // confirm, assuming the menu's sound events 9 and 10 (docs/boot-sequence.md)
+    // index the bank directly - not verified.
+    void loadIndex().then((index) => {
+      const sfx = (stem: string) => audioFile(index.audio.sfx, stem);
+      for (const [element, stem] of [
+        [this.sfxAudio, 'sfx_001'], [this.menuMoveAudio, 'sfx_009'], [this.menuConfirmAudio, 'sfx_010'],
+      ] as const) {
+        const url = sfx(stem);
+        if (url) element.src = url;
+      }
+    }).catch((error) => console.warn('Sound effects unavailable:', error));
 
     // Listen for first user click / key to unmute audio automatically
     const unmuteHandler = () => {
@@ -112,10 +127,14 @@ export class AudioManager {
       this.isMusicPlaying = false;
     } else {
       this.unmute();
-      this.playTrack(this.musicAudio.src || '/api/assets/audio/music/d1_track02.opus', true);
+      const track = this.musicAudio.getAttribute('src') || this.defaultTrack;
+      if (track) this.playTrack(track, true);
     }
     return this.isMusicPlaying;
   }
+
+  /** What the music toggle plays when nothing has played yet: the level's track. */
+  public defaultTrack: string | null = null;
 
   public playMenuMove(): void {
     if (this.isMuted) return;

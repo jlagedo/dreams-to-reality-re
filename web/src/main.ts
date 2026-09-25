@@ -15,7 +15,7 @@ async function startApp(): Promise<void> {
     onStatusChange: (msg) => ui?.setStatus(msg),
     onStatsChange: (count) => ui?.setMeshCount(count),
     onPortalTransitionNotify: (msg) => ui?.showPortalBanner(msg),
-    onSceneChange: (sceneId) => ui?.syncSelectedScene(sceneId),
+    onSelectionChange: (category, id) => ui?.syncSelection(category, id),
     onEntitySelected: (entity) => ui?.displayEntityInspection(entity),
     onAnimFrameUpdate: (frame, maxFrame, pose) => ui?.updateAnimScrubber(frame, maxFrame, pose),
     onProjectDataLoaded: (project) => ui?.updateProjectDebugHUD(project),

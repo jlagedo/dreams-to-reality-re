@@ -1,9 +1,9 @@
 """Extract and decode every asset whose format we have actually solved.
 
-Scope: **content only**. Engine code, level geometry and animation payloads are
-still packed or still need reverse engineering, so they are not exported — but
-their decoded headers are, as JSON, because that metadata is the useful part of
-what we know.
+Scope: **content only**, faithful to the disc. This is the first of three
+stages - extract, bake, pack - described in ``docs/pipeline.md``; nothing here
+makes a choice for the web app. Where a format is only partly understood, its
+raw bytes (``projects/*.bin``) or decoded headers (``metadata/``) are kept.
 
 Everything written here is lossless:
 
@@ -58,6 +58,8 @@ LAYOUT = {
     "scenes": "scenes",
     "gallery": "images/gallery",
     "renders": "images/renders",
+    "projects": "projects",
+    "animations": "animations",
     "metadata": "metadata",
     "text": "text",
 }
@@ -387,11 +389,35 @@ def extract_video(
 
 
 def extract_sprites(root: Path, src: Source, force: bool) -> Iterator[Item]:
-    """Indexed .SPR bundles -> one RGBA PNG per record."""
+    """Indexed .SPR bundles and HI font glyphs -> RGBA PNGs."""
     try:
         sheet = image.read_spritesheet(src.path)
     except ValueError as exc:
-        yield Item("sprites", src.rel, status="skipped", note=str(exc))
+        try:
+            font = image.read_font_sheet(src.path)
+        except ValueError:
+            yield Item("sprites", src.rel, status="skipped", note=str(exc))
+            return
+
+        out = root / LAYOUT["sprites"] / src.stem
+        written = []
+        for glyph in font.glyphs:
+            if not glyph.renderable:
+                continue
+            dest = out / f"{glyph.codepoint:03d}_{glyph.width}x{glyph.height}.png"
+            if dest.exists() and not force:
+                written.append(dest.name)
+                continue
+            png.write(
+                dest,
+                glyph.width,
+                glyph.height,
+                image.font_glyph_rgba(font, glyph),
+                alpha=True,
+            )
+            written.append(dest.name)
+        note = f"{len(written)} indexed glyphs; invalid descriptors skipped"
+        yield Item("sprites", src.rel, written, "ok" if written else "failed", note)
         return
 
     out = root / LAYOUT["sprites"] / src.stem
@@ -408,42 +434,67 @@ def extract_sprites(root: Path, src: Source, force: bool) -> Iterator[Item]:
         src.rel,
         written,
         "ok" if written else "failed",
-        f"{len(written)} sprites; index 0 treated as transparent [unverified]",
+        f"{len(written)} indexed sprites; palette index 0 treated as transparent [unverified]",
     )
+
+
+def _write_menu_sprites(out: Path, path: Path, prefix: str, bank: str, force: bool) -> list[str]:
+    sheet = image.read_menu_sheet(path, bank=bank)
+    written = []
+    for sprite in sheet.sprites:
+        label = sprite.name or f"{sprite.index:03d}"
+        dest = out / f"{prefix}_{label}_{sprite.width}x{sprite.height}.png"
+        if dest.exists() and not force:
+            written.append(dest.name)
+            continue
+        png.write(
+            dest,
+            sprite.width,
+            sprite.height,
+            image.menu_sprite_rgba(sheet, sprite),
+            alpha=True,
+        )
+        written.append(dest.name)
+    return written
 
 
 def extract_icons(root: Path, src: Source, force: bool) -> Iterator[Item]:
-    """ICONES.BF -> its members, then decode any that are indexed sprites."""
-    try:
-        bundle = image.read_bundle(src.path)
-    except ValueError as exc:
-        yield Item("icons", src.rel, status="failed", note=str(exc))
-        return
-
+    """ICONES.BF banks and standalone SOUR.ALP cursor -> raw + PNG sprites."""
     out = root / LAYOUT["icons"] / src.stem
-    members = image.extract_bundle(bundle, out)
-    written = [m.name for m in members]
-
-    for m in members:
+    if src.path.suffix.lower() == ".bf":
         try:
-            sheet = image.read_spritesheet(m)
-        except ValueError:
-            continue  # .ALP members: pixel layout not established, keep raw
-        for i, sp in enumerate(sheet.sprites):
-            dest = out / f"{m.stem.lower()}_{i:03d}_{sp.width}x{sp.height}.png"
-            if dest.exists() and not force:
-                continue
-            png.write(dest, sp.width, sp.height, image.sprite_rgba(sheet, sp), alpha=True)
-            written.append(dest.name)
+            bundle = image.read_bundle(src.path)
+        except ValueError as exc:
+            yield Item("icons", src.rel, status="failed", note=str(exc))
+            return
 
-    yield Item(
-        "icons",
-        src.rel,
-        written,
-        "ok",
-        f"{bundle.entry_count} members, chain exact={bundle.chain_is_exact}; "
-        ".ALP members kept raw (layout unknown)",
-    )
+        members = image.extract_bundle(bundle, out)
+        written = [member.name for member in members]
+        for member in members:
+            try:
+                written += _write_menu_sprites(
+                    out, member, member.stem.lower(), member.stem.lower(), force
+                )
+            except ValueError:
+                continue
+        note = (
+            f"{bundle.entry_count} members; menu sprite pixels decoded; "
+            "PYRAM layer references are false-color diagnostics"
+        )
+    else:
+        out.mkdir(parents=True, exist_ok=True)
+        raw = out / src.path.name
+        raw.write_bytes(src.path.read_bytes())
+        try:
+            written = [raw.name] + _write_menu_sprites(
+                out, raw, src.path.stem.lower(), src.path.stem.lower(), force
+            )
+        except ValueError as exc:
+            yield Item("icons", src.rel, [raw.name], "skipped", str(exc))
+            return
+        note = "standalone menu cursor sprite bank decoded"
+
+    yield Item("icons", src.rel, written, "ok", note)
 
 
 def extract_dialogue(root: Path, src: Source, force: bool) -> Iterator[Item]:
@@ -467,13 +518,28 @@ def extract_dialogue(root: Path, src: Source, force: bool) -> Iterator[Item]:
     doc = out / "dialogue.txt"
     if force or not doc.exists():
         doc.write_bytes(dialog.script(entries).encode("utf-8"))
+    # The same script, structured. Timings stay raw: the game scales them by
+    # 15/100 at display time, and that belongs to whoever displays them.
+    table = out / "dialogue.json"
+    if force or not table.exists():
+        rows = [
+            {
+                "index": e.index,
+                "hasWave": bool(e.wave),
+                "lines": [
+                    {"t": t, "text": line} for t, line in zip(e.timings, e.lines, strict=False)
+                ],
+            }
+            for e in entries
+        ]
+        table.write_text(json.dumps(rows, indent=1), encoding="utf-8")
 
     lines = sum(len(e.lines) for e in entries)
     clips = sum(1 for e in entries if e.wave)
     yield Item(
         "dialogue",
         src.rel,
-        [str(doc.relative_to(root))],
+        [str(doc.relative_to(root)), str(table.relative_to(root))],
         note=f"{len(entries)} entries, {lines} lines; {clips} clips left to the voice group",
     )
 
@@ -653,6 +719,65 @@ def copy_verbatim(root: Path, group: str, src: Source, force: bool) -> Iterator[
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src.path, dest)
     yield Item(group, src.rel, [dest.name], "ok", "copied verbatim")
+
+
+def extract_projects(root: Path, force: bool) -> Iterator[Item]:
+    """``DREAMS.DAT`` -> one file per project, each the decompressed 0x2200-byte record.
+
+    Decompression is the engine's own zero-run loop and the only step taken:
+    the fields stay bytes, so a new reading of an offset never needs a
+    re-extract. Disc 1's copy, as for ``metadata`` - the two discs differ in
+    six records, and only in numbers.
+    """
+    from dreams.formats import project
+
+    src = next((s for s in merge_discs("DREAMS.DAT") if s.suffix in ("", "_d1")), None)
+    if src is None:
+        yield Item("projects", "-", status="skipped", note="DREAMS.DAT not found")
+        return
+    out = root / LAYOUT["projects"]
+    out.mkdir(parents=True, exist_ok=True)
+    written = []
+    for i, rec in enumerate(project.records(src.path)):
+        dest = out / f"{i}.bin"
+        if force or not dest.exists():
+            dest.write_bytes(rec)
+        written.append(dest.name)
+    yield Item(
+        "projects",
+        src.rel,
+        written,
+        note=f"{len(written)} records of {project.RECORD_SIZE:#x} bytes, disc {src.disc}",
+    )
+
+
+def extract_animations(root: Path, force: bool) -> Iterator[Item]:
+    """Every ``.DAN``'s clips, named rig and skin bindings, as JSON.
+
+    See :mod:`dreams.animation_export`. The bindings index the ``models``
+    group's glTF corners; both come from the same node decoder, which is what
+    keeps them in step - so re-extract the two together.
+    """
+    from dreams.animation_export import export_library
+
+    out = root / LAYOUT["animations"]
+    if not force and (out / "catalog.json").exists():
+        yield Item("animations", "*.DAN", ["catalog.json"], "skipped", "exists")
+        return
+    try:
+        report = export_library(out, [s.path for s in merge_discs("*.DAN")])
+    except Exception as exc:  # noqa: BLE001 - report, don't abort the run
+        yield Item("animations", "*.DAN", status="failed", note=f"{type(exc).__name__}: {exc}")
+        return
+    yield Item(
+        "animations",
+        "*.DAN",
+        ["catalog.json", "manifest.json", "export-report.json"],
+        note=(
+            f"{report['models']} rigs, {report['clips']} clips, "
+            f"{report['playable']} with verified bindings"
+        ),
+    )
 
 
 # --------------------------------------------------------------- metadata ----
@@ -898,8 +1023,8 @@ DESCRIPTIONS = {
     "cutscenes": "HNS6/HNM6 640x304 full-motion video",
     "movies": "UBB2/UBS2 640x304 video (HNM generation 5)",
     "textures": "HNM4 256x256 animated textures",
-    "sprites": "Indexed .SPR bundles, one PNG per record",
-    "icons": "ICONES.BF members, decoded where the format is known",
+    "sprites": "Indexed .SPR records and HI320/HI480/HI640 bitmap-font glyphs",
+    "icons": "ICONES.BF/SOUR.ALP sprite banks; PYRAM layer references are diagnostics",
     "tiles": ".3DM blocks as 128x128 -- a byte diagnostic, NOT a texture, see note",
     "leveltex": "Level textures from .DSN scenes: one 256x256 per object",
     "models": "Character and prop models (.DAN, .3DC) as glTF, with texture pages"
@@ -908,6 +1033,8 @@ DESCRIPTIONS = {
     "scenes": "Level geometry from .DSN as glTF, with textures",
     "gallery": "CRYOPLUS bonus gallery, 16-bit TGA",
     "renders": "Developer reference renders, copied verbatim",
+    "projects": "DREAMS.DAT records, decompressed: one 0x2200-byte file per project",
+    "animations": ".DAN clips, named rigs and skin bindings as JSON",
     "metadata": "Decoded headers for formats whose bodies stay packed",
     "text": "Config and manifests, CP1252 -> UTF-8",
 }
@@ -951,6 +1078,7 @@ def plan(groups: list[str]) -> dict[str, list[Source]]:
             out[g] = [
                 s for s in merge_discs("ICONES.*") if s.path.open("rb").read(4) == image.UBIK_MAGIC
             ]
+            out[g] += [s for s in merge_discs("SOUR.ALP") if "OBJET" in s.rel.upper()]
         elif g == "tiles":
             out[g] = merge_discs("*.3DM")
         elif g == "leveltex":
@@ -1003,6 +1131,10 @@ def run(
 
         if g == "music":
             items += list(extract_music(root, ffmpeg, force))
+        elif g == "projects":
+            items += list(extract_projects(root, force))
+        elif g == "animations":
+            items += list(extract_animations(root, force))
         elif g == "metadata":
             items += list(extract_metadata(root))
         elif g == "text":
@@ -1090,10 +1222,10 @@ def _readme(m: dict) -> str:
         "PNG for stills, JSON for metadata. Files already in a modern format are",
         "copied byte-for-byte rather than re-encoded.",
         "",
-        "This directory holds **game content only**. The engine, the packed `.DSN`",
-        "level bodies and the `.DAN` animation payloads are not here — those are",
-        "still being reverse engineered. What is known about them is in",
-        "`metadata/` as decoded headers.",
+        "This directory holds **game content only**, decoded and faithful to the",
+        "disc. `dreams bake` turns it into what the web app reads; nothing reads",
+        "this directory at runtime. Formats that are only partly understood keep",
+        "their raw bytes (`projects/*.bin`) or decoded headers (`metadata/`).",
         "",
         "## Contents",
         "",
@@ -1117,7 +1249,8 @@ def _readme(m: dict) -> str:
         "  128x128 RGB555 and the unused high bit behaves, but rendering them gives",
         "  noise. The value distributions look like shading lookup tables instead.",
         "  The PNGs are kept as visual evidence, not as usable art.",
-        "- Sprite transparency assumes palette index 0. Not checked against the engine.",
+        "- OBJET indexed-sprite transparency still assumes palette index 0;",
+        "  menu and font keying is confirmed.",
         "- HNM4 headers imply 24 fps; the decoder emits 15. Timing may be wrong.",
         "- HNM audio (`SD` chunks) is **not** extracted — the codec is undecoded.",
         "- Files that differ between the two discs are exported twice, `_d1` / `_d2`.",

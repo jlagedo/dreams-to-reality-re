@@ -31,7 +31,8 @@
         <div class="control-row">
           <label for="categorySelect">Type:</label>
           <select id="categorySelect">
-            <option value="scenes" selected>Scenes (Levels)</option>
+            <option value="projects" selected>Projects (Levels)</option>
+            <option value="scenes">Scenes (Geometry only)</option>
             <option value="models">Models (Characters/Props)</option>
           </select>
         </div>
@@ -238,12 +239,12 @@
               <div class="debug-prop-row"><span class="lbl">Scene Stem:</span><span id="dbgSceneStem" class="val">h18angkr</span></div>
               <div class="debug-prop-row"><span class="lbl">CD Audio Track:</span><span id="dbgCdTrack" class="val">Track 2</span></div>
               <div class="debug-prop-row"><span class="lbl">Camera FOV:</span><span id="dbgCameraFov" class="val">64°</span></div>
-              <div class="debug-prop-row"><span class="lbl">Lighting Mode:</span><span id="dbgLightingMode" class="val">Day (Mode 0)</span></div>
+              <div class="debug-prop-row"><span class="lbl">x138:</span><span id="dbgLightingMode" class="val">—</span></div>
             </div>
 
             <div class="debug-card">
               <h3>Player Spawn Parameters</h3>
-              <div class="debug-prop-row"><span class="lbl">Spawn Position:</span><span id="dbgSpawnPos" class="val highlight">(-3.19, 6.25, -31.87)</span></div>
+              <div class="debug-prop-row"><span class="lbl">Spawn (engine units):</span><span id="dbgSpawnPos" class="val highlight">—</span></div>
               <div class="debug-prop-row"><span class="lbl">Spawn Heading:</span><span id="dbgSpawnHeading" class="val">267.7° (raw 3046)</span></div>
               <div class="debug-prop-row"><span class="lbl">Spawn Yaw (rad):</span><span id="dbgSpawnYaw" class="val">4.6725</span></div>
               <div class="debug-prop-row"><span class="lbl">Current Player Pos:</span><span id="dbgPlayerPos" class="val">--</span></div>
@@ -292,8 +293,8 @@
                     <th>Category</th>
                     <th>Position (X, Y, Z)</th>
                     <th>Heading</th>
-                    <th>AI Behavior</th>
-                    <th>Speed</th>
+                    <th>x64</th>
+                    <th>x68</th>
                     <th>Flags</th>
                     <th>Action</th>
                   </tr>
@@ -315,15 +316,15 @@
                 <div class="insp-row"><span class="insp-lbl">Object Name:</span><span id="inspObjName" class="insp-val highlight">OBJET2</span></div>
                 <div class="insp-row"><span class="insp-lbl">Object Asset:</span><span id="inspObjAsset" class="insp-val">F07BLEU.DAN</span></div>
                 <div class="insp-row"><span class="insp-lbl">Object Pos:</span><span id="inspObjPos" class="insp-val">(-6.95, 8.75, -2.10)</span></div>
-                <div class="insp-row"><span class="insp-lbl">Object Speed:</span><span id="inspObjSpeed" class="insp-val">113</span></div>
-                <div class="insp-row"><span class="insp-lbl">Object PHY Speed:</span><span id="inspObjPhySpeed" class="insp-val">113</span></div>
+                <div class="insp-row"><span class="insp-lbl">x68:</span><span id="inspObjSpeed" class="insp-val">113</span></div>
+                <div class="insp-row"><span class="insp-lbl">x78 / x88:</span><span id="inspObjPhySpeed" class="insp-val">113</span></div>
                 <div class="insp-row"><span class="insp-lbl">Object Flags:</span><span id="inspObjFlags" class="insp-val">0x00000013 (Active, Character)</span></div>
                 <div class="insp-row"><span class="insp-lbl">Object Angle:</span><span id="inspObjAngle" class="insp-val">Yaw 66.1° (raw 752)</span></div>
-                <div class="insp-row"><span class="insp-lbl">Object 3D Col:</span><span id="inspObj3dCol" class="insp-val">Radius 0</span></div>
+                <div class="insp-row"><span class="insp-lbl">x3c:</span><span id="inspObj3dCol" class="insp-val">Radius 0</span></div>
                 <div class="insp-row"><span class="insp-lbl">Object Anim 0:</span><span id="inspObjAnim0" class="insp-val highlight">Track 0 / Speed 113</span></div>
                 <div class="insp-row"><span class="insp-lbl">Object Anim 1:</span><span id="inspObjAnim1" class="insp-val">Track 1 / Standby</span></div>
-                <div class="insp-row"><span class="insp-lbl">AI Route Index:</span><span id="inspObjRoute" class="insp-val">Route #113</span></div>
-                <div class="insp-row"><span class="insp-lbl">Health / Quest ID:</span><span id="inspObjHealth" class="insp-val">70 HP</span></div>
+                <div class="insp-row"><span class="insp-lbl">x6c:</span><span id="inspObjRoute" class="insp-val">Route #113</span></div>
+                <div class="insp-row"><span class="insp-lbl">x70:</span><span id="inspObjHealth" class="insp-val">70 HP</span></div>
               </div>
               <div class="inspector-actions">
                 <button id="inspFocusBtn" class="action-btn">🎯 Focus Camera</button>

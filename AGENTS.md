@@ -6,12 +6,12 @@
 |---|---|
 | `src/dreams/cli.py` | `dreams` CLI entry points |
 | `src/dreams/formats/` | Asset format decoders |
-| `src/dreams/bake.py` | Media transcoding pipeline (extract -> baked) |
+| `src/dreams/bake.py`, `src/dreams/pack.py` | Pipeline stages 2 and 3: extract -> baked data root -> release (`docs/pipeline.md`) |
 | `src/dreams/paths.py` | Disc and output path resolution |
 | `dev/paths.example.env` | Template for local path settings |
 | `.dreams.local.env` | Machine paths (gitignored) |
 | `tests/` | Python tests |
-| `web/` | Babylon.js viewer; `web/src/` contains its source |
+| `web/` | Babylon.js viewer; `web/src/` contains its source; `web/src/content.ts` owns every data URL |
 | `docs/README.md` | Research documentation index |
 | `docs/re-setup.md` | Ghidra setup and workflow |
 | `re/symbols/*.tsv` | Saved Ghidra symbols and comments |
@@ -26,14 +26,14 @@
 |---|---|
 | `DREAMS_DISC1`, `DREAMS_DISC2` | Extracted game discs |
 | `DREAMS_WATCOM` | Watcom reference files |
-| `DREAMS_WORK_ROOT` | Scratch and generated content; extraction defaults to its `extract/` subdirectory |
+| `DREAMS_WORK_ROOT` | Scratch and generated content; the pipeline defaults to its `extract/`, `baked/` and `releases/` subdirectories |
 | `DREAMS_GHIDRA_ROOT` | Ghidra installation |
-| `DREAMS_EXTRACT`, `DREAMS_BAKED`, `DREAMS_OUT` | Optional output overrides (`extract/`, `baked/`, `out/`) |
+| `DREAMS_EXTRACT`, `DREAMS_BAKED`, `DREAMS_RELEASES`, `DREAMS_OUT` | Optional output overrides (`extract/`, `baked/`, `releases/`, `out/`) |
 | `DREAMS_NA_GAME_TOOL` | Optional path to the patched video decoder |
 
 Process environment takes precedence over `.dreams.local.env`. The toolkit
-uses the repository's `out/` directory when `DREAMS_OUT` is unset, and defaults
-baked media assets to `$DREAMS_WORK_ROOT/baked` (or `DREAMS_BAKED`).
+uses the repository's `out/` directory when `DREAMS_OUT` is unset; pipeline
+output always lives outside the repository.
 
 ## Python toolkit
 
@@ -51,6 +51,7 @@ uv run dreams bake --list
 uv run dreams bake
 uv run dreams bake --only music,sfx --format opus
 uv run dreams bake --force
+uv run dreams pack demo --projects 0,62,134
 uv run dreams mesh
 uv run dreams mesh E01GROTT --gltf out/
 uv run dreams mesh --preview out/
@@ -64,24 +65,25 @@ See `README.md` for CLI examples, including `disc`, `audio`, `scene`, `model`,
 `ffmpeg` and, for video extraction, `na_game_tool`; setup details are in
 `docs/hnm-video.md`.
 
-## Media pipeline and baked assets
+## Pipeline: extract, bake, pack
 
-The media pipeline consists of two stages:
+Three stages, each with one rule; details in `docs/pipeline.md`.
 
-1. **Extraction (`dreams extract`)**: Decodes game disc assets into a lossless,
-   canonical archive (FLAC audio, FFV1 MKV video, PNG images) under
-   `$DREAMS_WORK_ROOT/extract` (or `DREAMS_EXTRACT`).
-2. **Baking (`dreams bake`)**: Transcodes lossless media into lightweight,
-   web-optimized delivery formats under `$DREAMS_WORK_ROOT/baked` (or `DREAMS_BAKED`):
-   - Audio (`music`, `sfx`, `voice`): Opus (`.opus`, default) or MP3 / AAC.
-   - Video (`cutscenes`, `movies`, `textures`): Faststart H.264 MP4 (`.mp4`).
-   - Writes a `manifest.json` indexing all baked assets with byte savings.
+1. **`dreams extract`**: discs -> `$DREAMS_WORK_ROOT/extract`, lossless and
+   faithful to the disc (FLAC, FFV1 MKV, PNG, glTF, JSON, raw project records).
+2. **`dreams bake`**: extract -> `$DREAMS_WORK_ROOT/baked`, the **data root**:
+   exactly what the web app reads, laid out as it is served. Project JSON keeps
+   raw engine units; fields whose meaning is unverified are named by offset
+   (`x6c`). Every run rebuilds `index.json`. Bake never reads the discs.
+3. **`dreams pack <name> --projects ...`**: data root + app build ->
+   `$DREAMS_WORK_ROOT/releases/<name>/site`, a static site ready for
+   `npx wrangler pages deploy`. Pack copies content unchanged.
 
-**The game and web viewer must use media from `baked/` (`DREAMS_BAKED`), not from `extract/`.**
-The raw extraction directory holds uncompressed/lossless archive assets meant for
-preservation, while the game client and web runtime stream web-ready media
-(e.g., `/api/assets/audio/` and `/api/assets/video/` endpoints in Vite). If media
-assets return 404 in the viewer, run `uv run dreams bake`.
+**The web app reads only the data root.** The dev server mounts it at `/data`
+as plain files; there are no API routes. If the viewer shows 404s for data,
+run `uv run dreams bake`. No game data belongs in the repository or in
+`web/` (`publicDir` is disabled). There is no format versioning: change bake
+and the app together and re-bake.
 
 ## Web viewer
 
@@ -89,7 +91,11 @@ assets return 404 in the viewer, run `uv run dreams bake`.
 npm --prefix web ci
 npm --prefix web run dev
 npm --prefix web run build
+npm --prefix web test
 ```
+
+`http://localhost:5173/?project=62` skips the boot flow and starts in that
+project.
 
 ## Ghidra
 

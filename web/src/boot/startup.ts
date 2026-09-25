@@ -1,5 +1,9 @@
 import type { DreamsViewer } from '../viewer';
 import type { UIManager } from '../ui';
+import { dataUrl, loadIndex, requestedProject } from '../content';
+
+/** A decoded menu sprite from the data root (ui/menu/, baked from ICONES.BF). */
+const menuSprite = (name: string): string => dataUrl(`ui/menu/${name}.png`);
 
 export type BootStep =
   | 'unstarted'
@@ -80,13 +84,13 @@ export class StartupController {
               <!-- Item 0: NEW GAME (Top-Left) -->
               <div class="menu-cell" data-index="0">
                 <div class="bracket-frame">
-                  <img class="bracket tl" src="/ui/menu/bracket_uplf.png" alt="" />
-                  <img class="bracket tr" src="/ui/menu/bracket_uprg.png" alt="" />
-                  <img class="bracket bl" src="/ui/menu/bracket_dnlf.png" alt="" />
-                  <img class="bracket br" src="/ui/menu/bracket_dnrg.png" alt="" />
+                  <img class="bracket tl" src="${menuSprite('bracket_uplf')}" alt="" />
+                  <img class="bracket tr" src="${menuSprite('bracket_uprg')}" alt="" />
+                  <img class="bracket bl" src="${menuSprite('bracket_dnlf')}" alt="" />
+                  <img class="bracket br" src="${menuSprite('bracket_dnrg')}" alt="" />
                 </div>
                 <div class="menu-label-wrapper">
-                  <img class="menu-sprite" src="/ui/menu/title_new_game_active.png" alt="NEW GAME" />
+                  <img class="menu-sprite" src="${menuSprite('title_new_game_active')}" alt="NEW GAME" />
                   <span class="menu-text">NEW GAME</span>
                 </div>
               </div>
@@ -94,13 +98,13 @@ export class StartupController {
               <!-- Item 1: LOAD A GAME (Top-Right) -->
               <div class="menu-cell" data-index="1">
                 <div class="bracket-frame">
-                  <img class="bracket tl" src="/ui/menu/bracket_uplfna.png" alt="" />
-                  <img class="bracket tr" src="/ui/menu/bracket_uprgna.png" alt="" />
-                  <img class="bracket bl" src="/ui/menu/bracket_dnlfna.png" alt="" />
-                  <img class="bracket br" src="/ui/menu/bracket_dnrgna.png" alt="" />
+                  <img class="bracket tl" src="${menuSprite('bracket_uplfna')}" alt="" />
+                  <img class="bracket tr" src="${menuSprite('bracket_uprgna')}" alt="" />
+                  <img class="bracket bl" src="${menuSprite('bracket_dnlfna')}" alt="" />
+                  <img class="bracket br" src="${menuSprite('bracket_dnrgna')}" alt="" />
                 </div>
                 <div class="menu-label-wrapper">
-                  <img class="menu-sprite" src="/ui/menu/title_load_game_normal.png" alt="LOAD A GAME" />
+                  <img class="menu-sprite" src="${menuSprite('title_load_game_normal')}" alt="LOAD A GAME" />
                   <span class="menu-text">LOAD A GAME</span>
                 </div>
               </div>
@@ -108,13 +112,13 @@ export class StartupController {
               <!-- Item 2: OPTIONS (Bottom-Left) -->
               <div class="menu-cell" data-index="2">
                 <div class="bracket-frame">
-                  <img class="bracket tl" src="/ui/menu/bracket_uplfna.png" alt="" />
-                  <img class="bracket tr" src="/ui/menu/bracket_uprgna.png" alt="" />
-                  <img class="bracket bl" src="/ui/menu/bracket_dnlfna.png" alt="" />
-                  <img class="bracket br" src="/ui/menu/bracket_dnrgna.png" alt="" />
+                  <img class="bracket tl" src="${menuSprite('bracket_uplfna')}" alt="" />
+                  <img class="bracket tr" src="${menuSprite('bracket_uprgna')}" alt="" />
+                  <img class="bracket bl" src="${menuSprite('bracket_dnlfna')}" alt="" />
+                  <img class="bracket br" src="${menuSprite('bracket_dnrgna')}" alt="" />
                 </div>
                 <div class="menu-label-wrapper">
-                  <img class="menu-sprite" src="/ui/menu/title_options_normal.png" alt="OPTIONS" />
+                  <img class="menu-sprite" src="${menuSprite('title_options_normal')}" alt="OPTIONS" />
                   <span class="menu-text">OPTIONS</span>
                 </div>
               </div>
@@ -122,13 +126,13 @@ export class StartupController {
               <!-- Item 3: QUIT (Bottom-Right) -->
               <div class="menu-cell" data-index="3">
                 <div class="bracket-frame">
-                  <img class="bracket tl" src="/ui/menu/bracket_uplfna.png" alt="" />
-                  <img class="bracket tr" src="/ui/menu/bracket_uprgna.png" alt="" />
-                  <img class="bracket bl" src="/ui/menu/bracket_dnlfna.png" alt="" />
-                  <img class="bracket br" src="/ui/menu/bracket_dnrgna.png" alt="" />
+                  <img class="bracket tl" src="${menuSprite('bracket_uplfna')}" alt="" />
+                  <img class="bracket tr" src="${menuSprite('bracket_uprgna')}" alt="" />
+                  <img class="bracket bl" src="${menuSprite('bracket_dnlfna')}" alt="" />
+                  <img class="bracket br" src="${menuSprite('bracket_dnrgna')}" alt="" />
                 </div>
                 <div class="menu-label-wrapper">
-                  <img class="menu-sprite" src="/ui/menu/title_quit_normal.png" alt="QUIT" />
+                  <img class="menu-sprite" src="${menuSprite('title_quit_normal')}" alt="QUIT" />
                   <span class="menu-text">QUIT</span>
                 </div>
               </div>
@@ -274,8 +278,43 @@ export class StartupController {
     const hud = document.getElementById('hud');
     if (hud) hud.style.display = 'none';
 
+    // Development shortcut: ?project=62 skips the boot flow and starts there.
+    const jump = requestedProject();
+    if (jump !== null) {
+      await this.jumpToProject(jump);
+      return;
+    }
+
     // Start with Intro Video
     await this.stepIntro();
+  }
+
+  private async jumpToProject(index: number): Promise<void> {
+    this.hideAllOverlays();
+    this.bootContainer.classList.add('hidden');
+    // initData already loads the requested project; only load if it did not.
+    if (this.initPromise) await this.initPromise.catch(() => {});
+    if (this.viewer.currentProject?.index !== index) await this.viewer.loadProject(index);
+    await this.stepInGame();
+  }
+
+  /** A boot asset named by the index (docs/boot-sequence.md), or null if not in this build. */
+  private async bootAsset(key: 'intro' | 'warp' | 'elder' | 'menuMusic'): Promise<string | null> {
+    try {
+      const path = (await loadIndex()).boot[key];
+      return path ? dataUrl(path) : null;
+    } catch (error) {
+      console.warn('Data index unavailable:', error);
+      return null;
+    }
+  }
+
+  /** New Game's project: the boot entry, or the first one a subset build contains. */
+  private async startProject(): Promise<number | null> {
+    const index = await loadIndex().catch(() => null);
+    if (!index || index.projects.length === 0) return null;
+    const wanted = index.boot.startProject;
+    return index.projects.some((p) => p.index === wanted) ? wanted : index.projects[0].index;
   }
 
   private syncBannerState(): void {
@@ -293,7 +332,9 @@ export class StartupController {
     this.syncBannerState();
     this.bannerEl.classList.remove('hidden');
 
-    this.videoEl.src = '/api/assets/video/cutscenes/intro_d1.mp4';
+    const intro = await this.bootAsset('intro');
+    if (!intro) { void this.stepWarp(); return; }
+    this.videoEl.src = intro;
     this.videoEl.loop = false;
     this.videoEl.muted = this.viewer.audio.isMuted;
 
@@ -315,7 +356,9 @@ export class StartupController {
   // Phase 2: Warp Animation
   private async stepWarp(): Promise<void> {
     this.currentStep = 'warp';
-    this.videoEl.src = '/api/assets/video/cutscenes/generic.mp4';
+    const warp = await this.bootAsset('warp');
+    if (!warp) { void this.stepMenu(); return; }
+    this.videoEl.src = warp;
     this.videoEl.loop = false;
     this.videoEl.muted = this.viewer.audio.isMuted;
 
@@ -338,14 +381,18 @@ export class StartupController {
     this.currentStep = 'menu';
     this.hideAllOverlays();
 
-    // Loop generic.mp4 under menu
-    this.videoEl.src = '/api/assets/video/cutscenes/generic.mp4';
-    this.videoEl.loop = true;
-    this.videoEl.muted = true; // Video muted, music plays
-    void this.videoEl.play().catch(() => {});
+    // Loop the warp video under the menu
+    const warp = await this.bootAsset('warp');
+    if (warp) {
+      this.videoEl.src = warp;
+      this.videoEl.loop = true;
+      this.videoEl.muted = true; // Video muted, music plays
+      void this.videoEl.play().catch(() => {});
+    }
 
     // Start CD Track 13
-    void this.viewer.audio.playTrack('/api/assets/audio/music/d2_track13.opus', true, 0.6);
+    const menuMusic = await this.bootAsset('menuMusic');
+    if (menuMusic) void this.viewer.audio.playTrack(menuMusic, true, 0.6);
 
     this.menuEl.classList.remove('hidden');
     this.bannerEl.classList.remove('hidden');
@@ -368,17 +415,17 @@ export class StartupController {
       const br = cell.querySelector('.bracket.br') as HTMLImageElement;
 
       if (tl && tr && bl && br) {
-        tl.src = isSelected ? '/ui/menu/bracket_uplf.png' : '/ui/menu/bracket_uplfna.png';
-        tr.src = isSelected ? '/ui/menu/bracket_uprg.png' : '/ui/menu/bracket_uprgna.png';
-        bl.src = isSelected ? '/ui/menu/bracket_dnlf.png' : '/ui/menu/bracket_dnlfna.png';
-        br.src = isSelected ? '/ui/menu/bracket_dnrg.png' : '/ui/menu/bracket_dnrgna.png';
+        tl.src = isSelected ? menuSprite('bracket_uplf') : menuSprite('bracket_uplfna');
+        tr.src = isSelected ? menuSprite('bracket_uprg') : menuSprite('bracket_uprgna');
+        bl.src = isSelected ? menuSprite('bracket_dnlf') : menuSprite('bracket_dnlfna');
+        br.src = isSelected ? menuSprite('bracket_dnrg') : menuSprite('bracket_dnrgna');
       }
 
       // Title sprite
       const sprite = cell.querySelector('.menu-sprite') as HTMLImageElement;
       if (sprite) {
         const state = isSelected ? 'active' : 'normal';
-        sprite.src = `/ui/menu/title_${titles[idx]}_${state}.png`;
+        sprite.src = menuSprite(`title_${titles[idx]}_${state}`);
       }
     });
   }
@@ -422,7 +469,7 @@ export class StartupController {
     const activeCell = this.menuItems[this.selectedMenuIndex];
     const sprite = activeCell?.querySelector('.menu-sprite') as HTMLImageElement;
     if (sprite) {
-      sprite.src = `/ui/menu/title_${titles[this.selectedMenuIndex]}_pressed.png`;
+      sprite.src = menuSprite(`title_${titles[this.selectedMenuIndex]}_pressed`);
     }
 
     setTimeout(() => {
@@ -505,7 +552,9 @@ export class StartupController {
     this.hideAllOverlays();
     this.bannerEl.classList.remove('hidden');
 
-    this.videoEl.src = '/api/assets/video/cutscenes/tete_e~1.mp4';
+    const elder = await this.bootAsset('elder');
+    if (!elder) { void this.stepLoading(); return; }
+    this.videoEl.src = elder;
     this.videoEl.loop = false;
     this.videoEl.muted = this.viewer.audio.isMuted;
 
@@ -535,7 +584,7 @@ export class StartupController {
     this.videoEl.removeAttribute('src');
     this.videoEl.load();
 
-    // Prepare scene loading: await background initData if in progress, or load h18angkr if missing
+    // Load the first project: await background initData if in progress, then load it if missing
     const loadPromise = (async () => {
       if (this.initPromise) {
         try {
@@ -544,12 +593,9 @@ export class StartupController {
           console.warn('Initial data load error:', e);
         }
       }
-      if (this.viewer.currentSceneId !== 'h18angkr' || this.viewer.currentAssetMeshes.length === 0) {
-        try {
-          await this.viewer.loadAsset('scenes', 'h18angkr.gltf');
-        } catch (err) {
-          console.warn('Could not load h18angkr.gltf:', err);
-        }
+      const start = await this.startProject();
+      if (start !== null && (this.viewer.currentProject?.index !== start || this.viewer.currentAssetMeshes.length === 0)) {
+        await this.viewer.loadProject(start);
       }
     })();
 
@@ -590,8 +636,12 @@ export class StartupController {
     this.videoEl.removeAttribute('src');
     this.videoEl.load();
 
-    // Start CD track 2 for Angkor
-    void this.viewer.audio.playTrack('/api/assets/audio/music/d1_track02.opus', true, 0.55);
+    // The project's own CD track (header +0x1F8): track 2 for Ile d'Angkor
+    const music = this.viewer.currentProject?.music;
+    if (music) {
+      this.viewer.audio.defaultTrack = dataUrl(music);
+      void this.viewer.audio.playTrack(dataUrl(music), true, 0.55);
+    }
 
     // Reveal main HUD
     const hud = document.getElementById('hud');
