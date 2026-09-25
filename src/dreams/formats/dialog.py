@@ -2,7 +2,7 @@
 
 24.6 MB, and it was catalogued as a "dialog bundle". It is overwhelmingly
 audio: **72.6% is 178 RIFF/WAVE clips**, 27.3% is auxiliary binary, and only
-**0.084%** is the 589 lines of script. **[verified]**
+**0.084%** is the 575 timed text lines. **[verified]**
 
 ::
 
@@ -12,15 +12,18 @@ audio: **72.6% is 178 RIFF/WAVE clips**, 27.3% is auxiliary binary, and only
     0x0c  u32      two further words, meaning unknown
     0x14  u32[N]   entry table
 
-A table word is **not** a plain offset. Its low byte is a bank/flag and the
-upper three bytes are the offset within that bank::
+A table word is **not** a plain offset. The upper three bytes hold a 24-bit
+offset field; the low byte has an unknown role::
 
-    offset = (word & 0xff) << 24 | word >> 8
+offset24 = word >> 8
+absolute_offset = (wrap_count << 24) | offset24
 
-The low byte is 0 for entries 0-122 and 1 for 123-177, so treating the word as
-a plain address breaks at the 122/123 boundary. **[unverified]** as to what the
-bank means; what is certain is that this reading walks all 178 entries exactly
-to EOF, with ``P[i] + entry_size == P[i+1]`` throughout.
+The low byte is 0 for entries 0-122 and 1 for 123-177. Treating the full word
+as a plain offset breaks at the 122/123 boundary. The parser reconstructs the
+absolute position by detecting a wrap in the 24-bit field and incrementing a
+high-byte wrap counter; that reading walks all 178 entries exactly to EOF, with
+``P[i] + entry_size == P[i+1]`` throughout. **[verified]**; the low byte's
+semantic role is still unknown.
 
 Each entry header is 14 bytes, then sub-blocks tagged ``u8 tag, u32 size``::
 
@@ -34,6 +37,12 @@ Each entry header is 14 bytes, then sub-blocks tagged ``u8 tag, u32 size``::
 
 The dialogue is plain 7-bit ASCII and **English**, while ``DATA/LANG`` is
 French-labelled — this dump is a mixed build.
+
+At runtime, `FUN_0041072c` caches the entry-offset table and a reusable entry
+buffer; `FUN_00410928` seeks and reads one requested entry. Event `0x40` routes
+the selected entry to the voice/text presentation path. The game scales each
+raw line timing by `15/100` before scheduling its caption. See
+`docs/sprites-ui-dialog.md` for the retail call path.
 """
 
 from __future__ import annotations
@@ -119,8 +128,8 @@ def script(entries: list[Entry]) -> str:
     """The whole script as plain text, one block per entry."""
     parts = [
         "# DIALOG.DRD - recovered script",
-        f"# {len(entries)} entries, {sum(len(e.lines) for e in entries)} lines, 7-bit ASCII",
-        "# t= is the line's timing field, in the game's own units.",
+        f"# {len(entries)} entries, {sum(len(e.lines) for e in entries)} timed lines, 7-bit ASCII",
+        "# t= is the raw stored timing; the game multiplies it by 15/100 before display.",
         "",
     ]
     for e in entries:

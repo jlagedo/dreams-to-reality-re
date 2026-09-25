@@ -34,9 +34,14 @@ zero-crossing rate 0.101, DC offset −1.3, **zero** clipped samples across
 24.6 MB was never plausible for dialogue text, and it is not: **72.6% is 178
 RIFF/WAVE clips** (mono, 11,025 Hz, 8-bit), 27.3% is type-4 binary, and only
 **0.084%** is the script. Decoded in `dreams.formats.dialog`: 178 entries, 575 lines, every one printable ASCII, each carrying a timing field.
-The 178 clips total 17,848,529 bytes and the entry chain walks exactly to EOF. A
-table word is not a plain offset - its low byte is a bank and the upper
-three bytes the offset, so a naive read breaks at entry 123.
+The 178 clips total 17,848,529 bytes and the entry chain walks exactly to EOF.
+An offset-table word is not a plain file offset: the upper three bytes contain
+a wrapping 24-bit field, while the low byte's role is unknown. Reconstructing
+the absolute position at each wrap reaches all 178 entries. The retail loader
+keeps that table and reads an entry into a reusable buffer on demand; event
+`0x40` starts its voice and timed-caption path. The executable scales each
+stored line time by `15/100` before display. Details are in
+[sprites-ui-dialog.md](sprites-ui-dialog.md).
 
 ### `ICONES.BF` is a named-file container
 
@@ -348,7 +353,7 @@ banks with decoded index headers. Music is redbook CD audio.
 
 Textures have **no standalone files** — level textures are packed inside the 98
 `.DSN` scene files (157 MB, zlib 72%, a density comparable to compressed video).
-Sprites, icons and alpha maps (`.SPR`, `.ALP`, `.BF`) are raw and uncompressed.
+Sprite sheets and icon banks (`.SPR`, `.ALP`, `.BF`) are raw and uncompressed.
 
 Full analysis in [assets.md](assets.md).
 
@@ -512,10 +517,12 @@ Things that make future work easier:
     camera FOV at `+0xA4`, canonical player spawn `(x, y, z)` at `+0xB4`, fog
     parameters at `+0xE0`, sky/clear color at `+0xF0`, spawn heading at `+0x10C`,
     day/night mode at `+0x138`, CD audio track at `+0x1F8`.
-  - `OBJET` records: bitfield flags at `+0x34` (bit 0 = active on start, bit 1 = dynamic
-    character, bit 8 = dormant/hidden), AI archetype at `+0x64` (1 = prop, 3 = creature
-    attack, 5 = gnome patrol, 6 = flying aerial), velocity multiplier at `+0x68`, patrol
-    route box index at `+0x6C`, health/dialogue at `+0x70`.
+  - `OBJET` records: bitfield flags at `+0x34` (bit 0 = active on start, bit 1 = character,
+    bit 8 = dormant/hidden), runtime behavior/class selector at `+0x64`, and movement scale
+    at `+0x68`. The old labels “entity type” and “patrol route box index” for `+0x34` and
+    `+0x6C` were not established. `+0x6C` is copied to actor `+0x108`; its role is open, and
+    its retail values exceed the 12 local `BOX` slots. `+0x70` is copied to actor `+0x10C`,
+    which `FUN_00442786` uses as attack-effect launch magnitude.
   - `.DSN` 20-byte records at `16 + 11*B`: word 0 allocation flag (`0x004741A0` vs `0x0`),
     word 1 relocated pointer, word 2 constant 3, word 3 compass normal (`0x202` North,
     `0x246` East, `0x286` West), word 4 surface friction/sound category.
@@ -666,23 +673,28 @@ event table, and reproduction commands are in
 ## 2026-09-24 — menu sprites decoded: the `TABLE` family
 
 The `ICONES.BF` members — the actual menu sprites — are a third sprite family,
-now fully decoded (loader `FUN_00426c46`): 512-byte RGB555 palette, pixel
-blobs, a `"TABLE"` marker, then 28-byte descriptors (width `+4`, height `+8`,
-absolute pixel offset `+0x18`). Pixel depth is per file, recovered from the
-offset stride: 8-bit indexed (`TOUCHES.SPR`, `TITRES.SPR`) or direct RGB555
-(`MAGIE`/`ANIM`/`PYRAM`/`INTERF` `.ALP`, and `DATA\OBJET\SOUR.ALP`, the
-two-frame mouse cursor). Every member's pixel data ends exactly at its TABLE
-marker — the format reading is exact, not fitted. Rendered contact sheets
-confirm it visually: golden `NEW GAME`/`LOAD A GAME`/`OPTIONS`/`QUIT` titles
-in three states (TITRES, disc 2 only), wireframe spell-selector pyramids,
-yellow joypad key caps, 40×40 inventory icons.
+decoded from loader `FUN_00426c46`: 512-byte RGB555 palette, pixel blobs, a
+`"TABLE"` marker, then 28-byte descriptors (width `+4`, height `+8`, absolute
+pixel offset `+0x18`). Pixel layout is per file, recovered from the offset
+stride: 8-bit palette indices (`TOUCHES.SPR`, `TITRES.SPR`) or two-byte
+`(palette index, opacity/blend)` texels (`MAGIE`/`ANIM`/`PYRAM`/`INTERF`
+`.ALP`, and `DATA\OBJET\SOUR.ALP`, the two-frame mouse cursor). The renderer
+`FUN_00401935` confirms the two-byte path uses byte 0 for palette lookup and
+byte 1 as blend amount. Every member's pixel data ends exactly at its TABLE
+marker. Rendered contact sheets confirm the recognizable contents: golden
+`NEW GAME`/`LOAD A GAME`/`OPTIONS`/`QUIT` titles in three states (TITRES, disc
+2 only), yellow joypad key caps, and 40×40 inventory icons. `PYRAM` slots 0
+and 5 contain dynamic layer-reference codes; their standalone sheet is
+false-color diagnostic art until the UI compositor is recreated.
 
 Sprite names are **not** in the files: the engine resolves a 72-entry name
 table at `0x49db12` → `(bank, slot)` at `0x49dd9a`, bank filenames at
-`0x49dacc`. The map labels every sprite — inventory items occupy MAGIE slots
-0–30 in exactly the `DREAMS.INI` order, the menu corner markers are INTERF
-slots 0–7, joypad caps TOUCHES 0–10. Decoder: `dreams.formats.image.
-read_menu_sheet` + tests in `tests/test_menu_sprites.py`.
+`0x49dacc`. The first 30 **name-table IDs** correspond to `[OBJECT]` records
+in `DREAMS.INI` order, but the `(bank, slot)` indirection means their actual
+MAGIE pixel slots are non-linear. Category byte `0x49dfda` divides those IDs
+into 14 powers and 16 inventory/quest objects. The main-menu corner markers
+are INTERF slots 0–7; joypad caps are TOUCHES slots 0–10. Decoder:
+`dreams.formats.image.read_menu_sheet` + tests in `tests/test_menu_sprites.py`.
 
 Two corrections follow. `.ALP` is **not** an "alpha map" — it is this sprite
 bundle format (`.SPR`/`.ALP` extensions carry the same layout here). And
@@ -690,22 +702,150 @@ bundle format (`.SPR`/`.ALP` extensions carry the same layout here). And
 — `DATA\TGA\` is empty on disc 1 — so the shipped menu background is the
 looping `GENERIC.HNM` video, not a TGA.
 
-## 2026-09-24 — menu sprite pixels are byte-swapped RGB555
+## 2026-09-24 — correction: two-byte menu texels are indexed opacity
 
-The first render of the `ICONES.BF` 16-bit sprites was wrong in colour: the
-main menu's corner brackets came out green. Against a real in-game screenshot
-the brackets are blue/cyan, and the sprite's brightness ramp lives entirely
-in bits [9:5] — green under a little-endian RGB555 read, blue under a
-**byte-swapped** one. Only the swapped read reproduces the screenshot's
-colours (`0x0200` ramp → blue, `0x3F10` → saturated blue, `0x397B` → cyan).
-Palette-based files are unaffected — TITRES renders gold/red/dark-red title
-states on a blue-violet glow, coherent across all three variants — so the
-palette stays little-endian and only the 2-byte pixels swap.
-`menu_sprite_rgba` now swaps 2-byte pixels; a regression test pins the UpLf
-bracket to a blue-dominant histogram. The engine-side blit that reconciles
-the stored byte order with the framebuffer is not yet located (candidates
-`FUN_00436ab6` region checked were the credits scroller and the single-sprite
-loader `FUN_00427020`).
+The earlier RGB555/byte-swap reading was wrong. It reinterpreted each
+`(index, blend)` byte pair as a 16-bit color word; a blue-looking isolated
+screenshot match was not sufficient evidence. The executable resolves the
+ambiguity: `FUN_00426c46` binds the RGB555 palette and copies `w*h*2` source
+bytes unchanged, while `FUN_00401935` uses the first source byte to look up a
+palette word and the second as blend amount. Both paths skip index 0; the
+two-byte path skips coverage 0, copies values >=63 opaque, and blends values
+1–62. The earlier zero-divisor concern was a branch mix-up: `FUN_004274B0`
+sets source flag `0x10`, which selects the raw coverage branch at `0x401DAD`.
+The divide at `0x401EBF` is under a different flag (`DAT_0049D12A=1`).
+`FUN_00401524` uses `coverage>>1` as a 0–31 source weight and combines each
+channel as `((31-weight)*destination + weight*source)>>5`; `FUN_00424F7E`
+initializes the product lookup table for those multiplications. The preview
+maps this blend weight to 8-bit alpha; straight-alpha compositing cannot
+reproduce the game's exact per-channel sum (the weights total 31 before the
+5-bit shift), so blended edge pixels can differ slightly.
+
+The corrected `menu_sprite_rgba` now uses the palette index and coverage byte;
+RGB555 palette channels expand to 8-bit with bit replication. The revised test
+checks each UpLf texel against its indexed palette color and blend value. This
+replaces the prior claim that the engine blits byte-swapped RGB555 pixels.
+
+## 2026-09-25 — stale sprite previews regenerated
+
+The green/purple `MAGIE_sheet.png`, `INTERF_sheet.png`, and `PYRAM_sheet.png`
+under `out/boot/icones/` were stale renders from the discarded byte-swapped
+RGB555 experiment. Regenerating these sheets through the current
+`menu_sprite_rgba` path gives the retail palette colors (for example, the fire
+icon is orange/red and the interface corners are blue/white). The retail proof
+remains the `FUN_00426c46` bank loader, `FUN_004274b0` draw wrapper (source flag
+`0x10`), and the indexed/coverage branch in `FUN_00401935`.
+
+The browser asset exporter had one remaining copy of the old interpretation:
+it converted each `INTERF.ALP` texel to a byte-swapped 16-bit color word. It now
+uses `menu_sprite_rgba`, and the eight `bracket_*.png` outputs were regenerated
+from the configured disc 2 bundle. This keeps the browser's menu corners on the
+same verified decoder as the research previews.
+
+## 2026-09-24 — pause overlay inventory hub
+
+The gameplay overlay has four internal states in `FUN_004337C0` /
+`FUN_00432B45`: a 14-entry power/spell grid, a 16-entry object grid, a four-
+toggle settings page, and a return-to-play state. `FUN_004308F2` and
+`FUN_0042FB74` build the two grids by filtering the 72-name sprite table with
+the category bytes at `0x49DFDA`; the first 30 name-table IDs follow the
+`DREAMS.INI [OBJECT]` enumeration, but resolve to non-linear MAGIE pixel slots.
+`FUN_00430E46` binds the four interface corner markers, description panels,
+and ribbons; `FUN_004318D0` handles input and `FUN_00432B45` draws the chosen
+page. State 2's nested selection maps index 0 to load, 1 to save, 2 to
+Options, and 3 to setting the game-exit flag. `FUN_00437AA2(0)` selects a load
+slot; mode 1 filters for unprotected/writeable slots. `FUN_00430A45` confirms
+four settings: real/2D shadow, manual/automatic fighting, volume max/min, and
+cinemascope/full screen. The static English `Save` label is not tied to its
+rendered string source yet. Full path:
+[sprites-ui-dialog.md](sprites-ui-dialog.md).
+
+## 2026-09-24 — HI fonts are indexed 256-glyph sheets
+
+The font notes had read only the first 32 palette bytes and eight trailing
+records. The retail loader `FUN_00425254` reads a 512-byte palette, a
+`0x1c00`-byte table of 256 records, and the trailing count `0x100`. `HI*`
+glyph offsets step by exactly `width*height` bytes, and `FUN_00403BCD`
+renders their bytes as palette indices with index 0 transparent. `FUN_00425C61`
+precomputes each horizontal advance as `width - s32(descriptor[+0x0c])`, with
+space assigned the `0` glyph's advance. The new decoder renders all glyphs
+except the malformed-looking `%` descriptor in HI320 (code 37); the same
+glyph is well-formed in HI480/HI640. Visual contact sheets match readable
+ASCII glyphs in all three sizes.
+
+## 2026-09-25 — PYRAM pixels contain layer commands
+
+The PYRAM bank's second texel byte is not always opacity. Its shipping
+`pyrambo` sprite (slot 0) contains `0xfd`/`0xfe`/`0xff` markers; `exprbor`
+(slot 5) contains `0xfe`/`0xff`. `FUN_00427859` runs a dedicated
+`FUN_0040368B` compositor, which substitutes pixels from linked descriptors
+for those codes; `0xfd` may also choose a state-dependent fill. The PNG sheet
+renderer now marks these bytes with diagnostic colors instead of presenting
+them as literal opaque colors. The field producer is now traced: BSS at
+`0x5DFB8C` is an 84×64 byte plane. `FUN_00403B60` writes a 16-word PRNG row at
+`+0x14C0` (row 83), masks those words with `0xAFAFAFAF`, then sets each byte
+in rows 1–82 and columns 1–62 to the average of itself, its next horizontal
+byte, and two bytes in the next row (`+0x3f`, `+0x40`), walking upward from
+the seed row. The PRNG state is initialized in the executable to `0xFE9A735C`.
+`FUN_004184D3` runs eight passes after the DirectDraw unlock call; EAX carries
+that call's HRESULT into the first pass, so the normal successful path starts
+from zero. `FUN_00434596` updates the field during UI drawing; it calls the
+smoother after `FUN_004344AE` leaves the screen-height quotient in EAX (1 at
+400/480 lines).
+
+`FUN_00427859` updates the `pyrafvi`/`pyrafma` descriptors, and
+`FUN_00427AE9` copies two 84×32 horizontal windows from the field into byte 1
+(opacity) of their 64×84 sprite texels. The windows begin 15 bytes apart.
+Those dynamic opacity masks are consumed by the PYRAM layer compositor; the
+field is generated at runtime, not loaded from a texture asset. The final
+composite still depends on animation and state because `0xfd`/`0xfe`/`0xff`
+are commands resolved by `FUN_0040368B`.
+
+## 2026-09-24 — retail AI scheduler and action-to-clip path
+
+Decompiled the AI pass called by the frame tick: `FUN_00415109` walks separate
+actor lists for mode transitions, linked-member updates, per-actor decisions,
+target refresh, and status aggregation. `FUN_0041208f` selects one of three
+executable transition lists using the project header dword `+0xD0`; the retail
+`DREAMS.DAT` uses selectors 0 and 1. The selector-1 list contains five
+`(current mode, required status bits, next mode)` rows. `FUN_004115a1` groups
+eligible project actors into controllers of up to three members;
+`FUN_00410f03` appends member pointers and stores the back-pointer. Controllers
+carry mode/previous-mode/flags/target at `+0x1B4/+0x1BC/+0x1B0/+0x1D0`.
+
+`FUN_004131a4` builds target candidates and `FUN_00414d61` selects from them.
+`FUN_00414646` applies distance, facing, and random gates and queues states
+`0x10`, `0x14`, `0x12`, or `0x16`; on its collision/timer branches it also queues
+`0x39` or `0x1C`. These requests go through `FUN_00405118` into actor `+0x160`.
+Project54 `OBJET1` (`IBI.DAN`, behavior selector 5) is a specific ranged-action
+match: flags `0x1247` give byte `+0x35 = 0x12`, whose `0x10` bit maps to actor
+`+0xAE & 2`, the `FUN_00414646` attack gate. Its parameters are `+0x78 = 6250`,
+`+0x88 = 20`, and `+0x70 = 585`. Its four attack states resolve to `IBIAN016`
+(82 frames); state `0x39` resolves to `IBIAN057`.
+
+At the attack-state frame threshold, `FUN_00407b51` calls `FUN_00442944`, which
+allocates a transient effect actor. The selector-5 flag makes this class `0x14`;
+`FUN_00442786` launches it from the actor's oriented position using the `+0x70`
+value, and `FUN_00442e0d` advances its position by velocity. `FUN_00444b8f`
+checks effect collision; class `0x14` calls `FUN_004440aa`, which calls
+`FUN_00443619` to reduce target health and queue hit/death states. This is the
+retail firing sequence recovered so far. The exact effect asset name remains
+open.
+
+The same trace recovered the 16 × 64 model-family action table at
+`0x004F7728`. `FUN_00404D98` parses each `AN###` suffix into its family slot;
+missing slots copy the nearest earlier available clip. `FUN_004058D5` resolves
+the current/requested numeric state through that table. For class-1 player
+movement it selects slots 0, 41, 25, or 42 from actor `+0x240` divided by frame
+delta, at thresholds 1, 20, and 45. `FUN_0043d360` updates
+`+0x238/+0x240/+0x248` as a velocity vector; the action labels still need
+pose-by-pose confirmation.
+
+This corrects two earlier `DREAMS.DAT` labels in `project.py`: `OBJET +0x34` is
+the flags word rather than an entity-kind enum, and `OBJET +0x6C` is copied to
+runtime actor `+0x108` but is not a direct index into the 12 local `BOX` records.
+The full trace and remaining checks are in
+[ai-animation-runtime.md](ai-animation-runtime.md).
 
 ## Sources
 

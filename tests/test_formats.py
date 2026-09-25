@@ -518,19 +518,21 @@ def test_project_bank_is_the_level_graph():
 # ---------------------------------------------------------- DIALOG.DRD ---
 
 
-def test_drd_table_word_is_bank_plus_offset():
-    """The low byte is a bank, not part of the address.
+def test_drd_table_reconstructs_wrap_in_upper_24_bits():
+    """The low byte lags the wrap and is not a bank number."""
+    words = (0xFF24E000, 0x00EE2800, 0x02BC3B01)
+    bank = 0
+    previous = -1
+    offsets = []
+    for word in words:
+        field = word >> 8
+        if field < previous:
+            bank += 1
+        previous = field
+        offsets.append((bank << 24) | field)
 
-    Reading the word as a plain offset works for entries 0-122 and breaks at
-    123, where the bank flips to 1.
-    """
-
-    def decode(word: int) -> int:
-        return ((word & 0xFF) << 24) | (word >> 8)
-
-    assert decode(0x0002DD00) == 0x0002DD
-    assert decode(0x00EE2800) == 0x00EE28
-    assert decode(0x02BC3B01) == 0x0102BC3B
+    assert offsets == [0x00FF24E0, 0x0100EE28, 0x0102BC3B]
+    assert (words[1] & 0xFF) == 0 and (words[2] & 0xFF) == 1
 
 
 @needs_discs
@@ -540,6 +542,7 @@ def test_dialogue_carries_script_and_audio():
         pytest.skip("DIALOG.DRD not present")
     entries = dialog.read(drd)
     assert len(entries) == 178
+    assert sum(len(entry.lines) for entry in entries) == 575
     assert sum(1 for e in entries if e.wave) >= 177
     assert all(e.wave[:4] == b"RIFF" for e in entries if e.wave)
     first = entries[0]

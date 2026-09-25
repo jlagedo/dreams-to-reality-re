@@ -368,9 +368,24 @@ that is the only archived model.
 ### `.DRD` — dialog (`DRDF`)
 
 `DATA\3DC\DIALOG.DRD` is **24.6 MB**. That is far too large for dialog text, so
-it must bundle voice audio or video. Notably it is one of only eight files copied
-by even the *minimum* install (see `disc-layout.md`), meaning the engine needs it
-resident on the hard disk rather than streamed from CD.
+it bundles voice audio. It is one of only eight files copied by even the
+*minimum* install (see `disc-layout.md`). The runtime keeps the entry-offset
+table and one reusable record buffer, then seeks and reads a requested entry;
+it does not load the full bank into memory.
+
+The header stores `DRDF`, the physical file size, and 178 entries. A 178-word
+packed offset table starts at `0x14`; the first entry starts at `0x2EB`. The
+upper three bytes of each word hold a wrapping 24-bit offset field and the
+low-byte role is unknown. Reconstructing positions by detecting wraps yields
+all 178 adjacent records through EOF. Each record carries a RIFF/WAVE block,
+timed text lines, and sometimes a tag-4 auxiliary block. The recovered parser
+finds 575 non-empty text lines total.
+
+At runtime, event `0x40` selects an entry index. The game loads the matching
+record, submits its WAVE bytes to the sound buffer, and displays its timed
+lines through the font renderer. Runtime line timing is scaled by `15/100`.
+The decompiled call path and remaining open points are in
+[sprites-ui-dialog.md](sprites-ui-dialog.md).
 
 ### `.BF` — `UBIK` bundle
 
@@ -483,19 +498,33 @@ So `ALPHABET`/`ALPHABE2` are bitmap fonts (64 glyphs each) and
 
 #### `DATA\FONT\` — `HI320` / `HI480` / `HI640` (3 files)
 
-A different layout: a **16-entry RGB555 palette** in the first 32 bytes, then
-glyph data, then a tail table of **8 × 28-byte descriptors** (absolute offset at
-`+0x00`, width at `+0x08`, height at `+0x0C`), then an 8-byte footer
-`[u32 data_end][u32 0x100]`. **[verified]** 3/3.
+These are **256-character, 8-bit indexed bitmap fonts**. **[verified]** 3/3 by
+the file layout, descriptor offsets, and rendering in the executable.
 
-The names are display modes, not dimensions: `HI320`/`HI480`/`HI640` are the
-320, 480 and 640-wide screen modes.
+```
+0x000  u16[256]       RGB555 palette (512 bytes)
+0x200  ...            1-byte palette-index glyph bitmaps; index 0 is transparent
+len-0x1c04            256 × 28-byte descriptor table
+len-4  u32 0x100      glyph count
+```
+
+Each descriptor is `u32[7]`: palette pointer `+0x00` (0 in file), width
+`+0x04`, height `+0x08`, three additional fields at `+0x0c/+0x10/+0x14`,
+and absolute bitmap offset `+0x18`. The runtime text loader indexes all 256
+records. `FUN_00425C61` computes per-character horizontal advance as
+`width - s32(field_0c)`; it assigns the space advance from the `'0'` record.
+`FUN_00403BCD` blits each nonzero glyph index through the palette.
+
+The names identify display modes, not dimensions: `HI320`/`HI480`/`HI640`
+are the 320-, 480-, and 640-wide modes. One `HI320` descriptor, codepoint
+`%` (37), has invalid dimensions and cannot be rendered by the decoder; the
+same glyph is valid in `HI480` and `HI640`. The runtime font renderer uses
+formatted strings, so whether this anomalous slot is reachable as a literal
+character remains open.
 
 > **Correction.** `HI320.SPR` opening `1F 1C FF 7F` was previously read as a
-> width/height header followed by white RGB555 pixels. It is not: `1F 1C` is
-> palette entry `0x1C1F`, and `FF 7F` is entry `0x7FFF`. The file starts with its
-> palette. The engine *is* RGB555 — that is independently confirmed by `bpp = 16`
-> in every HNM6 header and by `0x3DEF3DEF` in `.3DC` — but not by these bytes.
+> width/height header followed by white RGB555 pixels. It is not: these are
+> the first two entries in its 256-word palette (`0x1C1F`, `0x7FFF`).
 
 #### Menu `TABLE` bundles — `.ALP` and menu `.SPR` — **fully decoded**
 
@@ -520,21 +549,42 @@ pixel data ends exactly at its `TABLE` marker.
 end-8  [u32 0][u32 N]  footer (approximate; the loader re-derives the table)
 ```
 
-Pixel depth is **per file**, recovered from the offset stride: 1 byte/pixel is
-an index into the palette (`TOUCHES.SPR`, `TITRES.SPR`); 2 bytes/pixel is
-direct RGB555 stored **big-endian** — byte-swapped on little-endian hosts
-(all four `.ALP` banks, and `SOUR.ALP`). The engine always reads `w*h*2`
-bytes, which harmlessly over-reads the 8-bit files.
+Pixel layout is **per file**, recovered from the offset stride: one byte per
+pixel is a palette index (`TOUCHES.SPR`, `TITRES.SPR`); two bytes per pixel
+are a **palette index followed by an opacity/blend value** (the `.ALP` banks
+and `SOUR.ALP`). These are not packed RGB555 pixels. The retail evidence is
+the loader `FUN_00426c46` plus its renderer `FUN_00401935`: the loader binds
+the RGB555 palette to each descriptor and copies the two-byte texel stream
+unchanged; the two-byte draw path uses the first byte to select a palette word
+and the second as its blend amount. A zero index is skipped in both paths; in
+the two-byte path coverage 0 is skipped and values >=63 are written opaque.
+The engine always reads `w*h*2` bytes, which over-reads the one-byte files.
 
-> **Correction.** The first decode read the 2-byte pixels little-endian,
-> which places each sprite's brightness ramp in the green channel — the
-> menu's corner brackets rendered green. A real in-game screenshot shows
-> them blue/cyan, and only the byte-swapped read reproduces that
-> (`0x0200` ramp steps become blue, `0x3F10` saturated blue, `0x397B`
-> cyan). Palette entries stay little-endian: TITRES renders gold/red
-> title states on a blue-violet glow, consistent across its three
-> variants. **[verified]** against the screenshot; the engine-side blit
-> that performs the swap is not yet located.
+For coverage 1–62, `FUN_00401524` uses `weight = coverage >> 1` and blends
+each packed channel as `((31-weight)*destination + weight*source) >> 5`.
+`FUN_00424F7E` initializes the multiply lookup table used by `FUN_004014D0`,
+confirming the weight formula. The helper has separate RGB555 and RGB565
+channel-packing paths.
+
+The apparent zero-divisor concern was a branch mix-up. `FUN_004274B0` sets
+source flag `0x10`, which selects the raw two-byte coverage path at `0x401DAD`.
+The divide at `0x401EBF` is under a different flag (`DAT_0049D12A=1`) and is
+not selected by that menu wrapper.
+
+The earlier byte-swapped-RGB555 interpretation was wrong: it treated the pair
+as a color word and produced green/purple artifacts. It appeared to fit one
+main-menu screenshot but contradicted the retail renderer's indexed lookup.
+`menu_sprite_rgba` expands the palette index and maps the effective blend
+weight to PNG alpha. This preserves the palette colors and transparency; a
+straight-alpha PNG cannot reproduce the game's exact packed-channel weighted
+sum. **[verified]** against the decompiled load/draw path and every `.ALP`
+bank's pixel stream.
+
+`PYRAM.ALP` has layer-reference markers in slots 0 and 5: coverage bytes
+`0xff` and `0xfe` substitute pixels from linked descriptors; `0xfd` selects
+another layer or a state-dependent fill. `FUN_0040368B` resolves them during
+the animated pyramid UI. Standalone extractor sheets use false colors for
+these commands because the final composite depends on live UI state.
 
 Sprite **names are not in the files**. The engine carries a 72-entry name
 table at `0x49db12` (stride 9) mapping to `(bank, slot)` at `0x49dd9a`; the
@@ -543,17 +593,19 @@ bank filenames live at `0x49dacc` (stride 13). The mapping is reproduced in
 
 | Bank | Size | Contents |
 |---|---|---|
-| `MAGIE.ALP` | 40×40 ×34, 16bpp | inventory item icons (slots 0–30 in `DREAMS.INI` order: feu, shaman, cleeau, …) + `infosne`/`mcombat`/`infosde` |
-| `ANIM.ALP` | 32×32 ×16, 16bpp | animation frames (name `nothing` → slot 0) |
-| `PYRAM.ALP` | 64×84 ×9 + strips, 16bpp | the pyramid spell-selector UI — `pyrambo/vi/ma/ox` variants, `pyrcurs` cursor, `exprbor`/`exprlev` 64×4 strips, `replay`/`record` |
+| `MAGIE.ALP` | 40×40 ×34, 2-byte indexed + blend | 30 inventory/ability icons plus `infosne`/`mcombat`/`infosde`; the first 30 *name-table IDs* follow `[OBJECT]` order, while their pixel slots are indirect and non-linear |
+| `ANIM.ALP` | 32×32 ×16, 2-byte indexed + blend | animation frames (name `nothing` → slot 0) |
+| `PYRAM.ALP` | 64×84 ×9 + strips, 2-byte indexed + blend | the pyramid spell-selector UI — `pyrambo/vi/ma/ox` variants, `pyrcurs` cursor, `exprbor`/`exprlev` 64×4 strips, `replay`/`record` |
 | `TOUCHES.SPR` | 24×24 ×11, 8bpp | key/joypad caps — `joy_up/dn/lf/rt/k1/k2/k3/sel/swi/bt0/bt1` (the F10 controls screen) |
-| `INTERF.ALP` | 64×64 ×8 + panels, 16bpp | menu corner markers `DnRg/DnLf/UpLf/UpRg` + `…NA` inactive variants, `RubLf/RubRg` ribbons, `Desc1–4` panels |
-| `TITRES.SPR` (disc 2) | ~128×42 ×12, 8bpp | the four menu titles `NEW GAME`/`LOAD A GAME`/`OPTIONS`/`QUIT` in three render states (gold, red-highlight, third variant); **not in the engine's 5-file load list** — **[unverified]** what draws it |
-| `SOUR.ALP` (`DATA\OBJET`) | 16×24 ×2, 16bpp | the mouse cursor, two frames |
+| `INTERF.ALP` | 64×64 ×8 + panels, 2-byte indexed + blend | menu corner markers `DnRg/DnLf/UpLf/UpRg` + `…NA` inactive variants, `RubLf/RubRg` ribbons, `Desc1–4` panels |
+| `TITRES.SPR` (disc 2) | ~128×42 ×12, 8bpp | the four title images in three render states (gold, red-highlight, third variant); **not in the engine's 5-file load list and not used for boot-menu labels** (drawn by font routine `FUN_00426073`); no other runtime use found |
+| `SOUR.ALP` (`DATA\OBJET`) | 16×24 ×2, 2-byte indexed + blend | the mouse cursor, two frames |
 
 Rendered contact sheets confirmed the decode visually: TITRES shows the four
-golden (and red-highlight) menu titles, PYRAM the wireframe pyramids, TOUCHES
-the yellow direction arrows and key caps.
+golden (and red-highlight) menu titles and TOUCHES the yellow direction arrows
+and key caps. `PYRAM` slots 0 and 5 are animated layer composites; the static
+sheet marks their linked-layer commands in diagnostic colors instead of
+claiming to show the final in-game pyramid.
 
 ## File census
 

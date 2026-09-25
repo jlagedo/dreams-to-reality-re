@@ -65,8 +65,11 @@ under the intro's name.
   is empty on disc 1, holds only reference JPEGs on disc 2), so the menu
   background is effectively the looping `GENERIC.HNM` warp video plus the
   sprite overlays. The `data\icone\icones.bf` icon bank (bound at init,
-  `0x4341eb`) **is fully decoded** — corner markers, joypad caps, item icons
-  and the golden menu titles; see the menu `TABLE` section in
+  `0x4341eb`) supplies the corner markers and other UI sprites. Disc 2 also
+  contains gold/red title images in `TITRES.SPR`; this menu's labels come from
+  the executable string table and are rendered by font routine `0x426073`.
+  `TITRES.SPR` is omitted from the five-bank loader list, and no use elsewhere
+  has been found. See the menu `TABLE` section in
   [file-formats.md](file-formats.md).
 * Confirm on item 0 (new game) sets the exit flag with load/quit flags cleared;
   item 1 opens the save browser (`0x437aa2`), item 2 the options screen
@@ -88,7 +91,9 @@ Slot rendering at `0x437c–0x4384k`: `"%d.  %s"`, protected slots as
 ### In-game pause menu (different code, for contrast)
 
 `0x4337c0` → `0x432b45` renders the **lowercase** `Load` / `Options` / `Quit`
-items (`0x4c519e…`) — the ESC menu during play, not the boot menu.
+items (`0x4c519e…`) — the ESC overlay during play, not the boot menu. Its
+spell/object grids and four option toggles are traced in
+[sprites-ui-dialog.md](sprites-ui-dialog.md).
 
 ## The ETE mystery — the new-game video that isn't there
 

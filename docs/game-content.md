@@ -28,10 +28,11 @@ shipped text**:
 | Boule de feu | `Et voici la description / du sort de feu` — literally "and here is the description of the fire spell" |
 | Spirit | `I'm the best with / the spirit power` — **in English**, in the French file |
 
-`[DIALOG]` contains a single entry: `Encore`.
-
-Either this file is dead weight the engine never reads, or the shipped game
-displays placeholder text. **[unverified]** which.
+`[DIALOG]` contains one entry: `Encore`. This is a string in the language
+resource file, separate from the 178 spoken entries and timed caption lines in
+`DIALOG.DRD`. The retail voice/caption path is now traced, but whether this
+single `DREAMS.INI` string appears in a particular UI remains open. See
+[sprites-ui-dialog.md](sprites-ui-dialog.md).
 
 ## Inventory items (30)
 
@@ -55,8 +56,9 @@ In file order — this is likely the in-game item enumeration:
 14  Cl� (key)                      29  Plans du surf (surfboard plans)
 ```
 
-Items 0-14 are abilities and spells; 15-29 are quest objects. The split lines up
-with the game's action/puzzle hybrid genre.
+Items 0-13 are abilities and spells; 14-29 are quest objects (the Key starts
+the second group). This 14/16 split also matches the retail menu's category
+flags for ability versus object icons.
 
 ## Levels — 150 "projects"
 
@@ -145,8 +147,10 @@ Erreur sur le disque / Impossible de sauver l'�tat des parties
 Erreur sur le disque / Disque plein     disk full
 ```
 
-The **"protected slot"** concept is notable — slots can be locked against
-overwriting. This is a richer save system than "autosave only" implies.
+The **"protected slot"** concept is confirmed in the retail save menu:
+`FUN_00437AA2(1)` searches only slots whose status field at `0x5DAB98 + 4*i`
+is zero, while load mode (`FUN_00437AA2(0)`) considers all slots. The resource
+strings include the matching "protected slot cannot be saved here" error.
 
 ## Save files
 

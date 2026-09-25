@@ -405,12 +405,14 @@ embedded label such as “idle” or “walk” in the clip directory. The Frenc
 `WINDREAM.EXE` at `FUN_00404d98` reads the `.DAN` clip directory (or searches
 `an???.3da` files when there is no container), parses each numeric suffix via
 `FUN_004551b5`, and installs the loaded clip in that numbered runtime slot.
-`FUN_00455278` later retrieves a clip by numeric slot; animation state values
-pack the slot number into their high 16 bits. The executable contains control
-labels including “Run”, “Walk”, “Jump”, “Take-off”, and “Flight or Swim”, but no
-textual action-to-clip lookup was found. The action labels below remain
-inferences until the state selectors or original-game debug HUD establish the
-numeric mapping.
+`FUN_00455278` retrieves a track entry from a clip slot. Its helper
+`FUN_004553f8` splits a packed `(clip slot << 16) | track slot` value; that is a
+track lookup encoding. Gameplay action selectors at actor `+0x15c`/`+0x160`
+are separate direct 0..63 IDs, resolved through the model-family action table
+documented in [ai-animation-runtime.md](ai-animation-runtime.md). The executable
+contains control labels including “Run”, “Walk”, “Jump”, “Take-off”, and
+“Flight or Swim”, but no textual action-to-clip name lookup was found. The
+human-readable action labels below remain inferences.
 The engine's loader at `FUN_0040fff7` / `FUN_004105eb` decompresses each Tag 3 chunk via Cryo's LZ decompressor (`FUN_0049afd1`) into runtime skeletal animation tracks.
 
 ### Tag 3 Stream Layout [verified]

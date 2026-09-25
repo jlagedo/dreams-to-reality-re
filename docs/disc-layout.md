@@ -149,11 +149,12 @@ geometry: `ARC.3DC`, `BOULE.3DC`, `CARRE.3DC`, `EPEE.3DC`, `GR00..GR04.3DC`,
 `X01SOL1.3DC`, `ESSAI.3DM`, `GRILLE.3DM`, `OMBRE2.3DM`, `SPRITE.3DM`.
 
 Two things follow. First, `DIALOG.DRD` (24.6 MB) is copied even by the minimum
-install, so the engine requires it resident rather than streamed. Second — and
-this is the important one — **`FULL.ID` is written only by the maxi install**. It
-is the "maximum installation" marker, matching `README.TXT`'s note that the maxi
-version "also offers video-maps in the game". It is *not* self-evidently a
-"no-disc-needed" flag.
+install. The runtime keeps its offset table and reads individual entries into
+a reusable buffer on request; it does not preload the entire bank into memory.
+Second — and this is the important one — **`FULL.ID` is written only by the
+maxi install**. It is the "maximum installation" marker, matching
+`README.TXT`'s note that the maxi version "also offers video-maps in the game".
+It is *not* self-evidently a "no-disc-needed" flag.
 
 Other useful keys:
 

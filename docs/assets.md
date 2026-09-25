@@ -16,8 +16,8 @@ marked otherwise.
 | **Props / weapons** | `DATA\3DC\*.3DC` | 32 | ~0.5 MB | no | **geometry solved** — raw `F3DC`, same node, 165 nodes over 16 files; only `ARC` still open |
 | **Shading LUTs** | `DATA\3DC\*.3DM` | 8 | 0.8 MB | no | 3×32 KB blocks — **not** textures, see below |
 | **Model archive** | `DATA\OBJET\*.PAK` | 2 | 62 KB | no | one `F3DC` chunk at `0x0C` |
-| **Sprites / fonts** | `*.SPR` | 16 | 0.9 MB | no | **fully decoded** — indexed, inline palette |
-| **Alpha maps** | `*.ALP` | 2 | small | no | raw, very sparse |
+| **Sprites / fonts** | `*.SPR` | 16 | 0.9 MB | no | **pixel data decoded** — indexed sheets, 256-glyph fonts, and menu `TABLE` sprites |
+| **Menu/cursor sprites** | `ICONES.BF` members, `OBJET\SOUR.ALP` | 5/6 banks + 2 cursor copies | ~0.5 MB | no | **decoded** — indexed colors with per-pixel blend; `.ALP` is not an alpha-map format |
 | **Icons** | `ICONE\ICONES.BF` | 1 + 4 old copies | 372 KB | no | **fully decoded** — named-asset container |
 | **Video** | 113 × HNM4/5/6 | 113 | ~300 MB | yes | **all decodable** — see `hnm-video.md` |
 
@@ -54,22 +54,28 @@ Extraction is trivial — walk the size table and `open(f'{i}.wav','wb').write(.
 
 ### `DIALOG.DRD` — voice bank
 
-24,592,952 bytes, and the reason it is copied by even the *minimum* install: the
-engine needs all speech resident rather than streamed from CD. **[verified]**
+24,592,952 bytes, and copied by even the *minimum* install. **[verified]** The
+retail loader keeps the offset table and a reusable entry buffer, then seeks
+and reads a requested entry on demand; it does not preload the full bank into
+memory.
 
 ```
 char[4]   "DRDF"
 u32       total file size   = 0x01774238 = 24,592,952   (exact, at offset 4)
 u32       count             = 178
-...       offset/size index
+0x014  u32[178] packed entry offsets
 --- 0x2eb ---
-RIFF WAVE × 178
+entry records × 178: WAVE, timed text, optional auxiliary block
 ```
 
-Note the size field sits at offset **4** here, unlike `DSNF`/`DANF` which place
-it at offset 5. The index layout between offset 12 and 0x2eb is not fully pinned
-down — 747 bytes for 178 entries does not divide evenly, so there is either a
-trailing block or a wider record. **[unverified]**
+The size field sits at offset **4**, unlike `DSNF`/`DANF` which place it at
+offset 5. Each offset word packs a 24-bit offset field in its upper three
+bytes and a low byte of unknown purpose. The parser reconstructs absolute
+positions by detecting wraps of that 24-bit field; all 178 records then abut
+exactly through EOF. At runtime `FUN_00410928` reads one selected record,
+`FUN_00446e01` submits its WAVE data to the sound buffer, and the same entry's
+575 total text lines are drawn on the timed-caption path. See
+[`sprites-ui-dialog.md`](sprites-ui-dialog.md).
 
 Every clip: **PCM, mono, 11025 Hz, 8-bit**.
 
@@ -277,8 +283,12 @@ whole format. Full layout in [file-formats.md](file-formats.md): a 256-entry
 `u32 width, u32 height, 2×u32, 8-bit indices`, padded to `round4(16 + w*h)`.
 **[verified]** across all 232 payload records.
 
-The three `DATA\FONT\` files use a different layout — a 16-entry RGB555 palette
-and a tail table of 8×28-byte glyph descriptors.
+The three `DATA\FONT\` files use a different layout: a 256-entry RGB555
+palette, indexed glyph bitmaps, and a tail table of 256×28-byte descriptors.
+The final `u32` is the glyph count (`256`). The retail loader confirms that all
+256 codepoints are addressable; `HI320.SPR` has one malformed-looking
+descriptor at `%` (code 37), while the corresponding `HI480` and `HI640` glyphs
+are valid.
 
 Original evidence, which still stands:
 
@@ -296,7 +306,8 @@ palette.
 mode) instead opens with a descending **RGB555 grey ramp**: `0x7FFF, 0x7FFF,
 0x7BDE, 0x4210, 0x3DEF, 0x35AD, 0x318C, 0x2D6B, 0x2529, 0x2108, 0x18C6, 0x14A5`.
 
-`SOUR.ALP` is 84% zeros with a slow monotonic ramp — an alpha gradient table.
+`SOUR.ALP` is the two-frame 16×24 mouse cursor, using the same palette-index
+plus opacity layout as the menu `.ALP` banks.
 
 ### `ICONES.BF` — cracked
 

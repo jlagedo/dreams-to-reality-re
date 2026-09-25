@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import pathlib
-import struct
 import tempfile
 
 from dreams import paths, png
 from dreams.formats.image import (
     _rgb555,
     extract_bundle,
+    menu_sprite_rgba,
     read_bundle,
     read_menu_sheet,
 )
@@ -35,22 +35,16 @@ def export_sprites() -> None:
         # 1. Export INTERF corner brackets (sprites 0..7)
         interf_path = next(p for p in extracted if p.name.lower() == "interf.alp")
         interf_sheet = read_menu_sheet(interf_path, bank="interf")
-        interf_data = interf_path.read_bytes()
-
         for sp in interf_sheet.sprites[:8]:
-            rgba = bytearray(sp.width * sp.height * 4)
-            for i in range(sp.width * sp.height):
-                raw = struct.unpack_from("<H", interf_data, sp.offset + i * 2)[0]
-                swapped = (raw << 8 | raw >> 8) & 0xFFFF
-                if swapped == 0:
-                    rgba[i * 4 : i * 4 + 4] = bytes((0, 0, 0, 0))
-                else:
-                    r, g, b = _rgb555(swapped)
-                    rgba[i * 4 : i * 4 + 4] = bytes((r, g, b, 255))
-
             name = sp.name.lower()
             out_png = DEST_DIR / f"bracket_{name}.png"
-            png.write(out_png, sp.width, sp.height, bytes(rgba), alpha=True)
+            png.write(
+                out_png,
+                sp.width,
+                sp.height,
+                menu_sprite_rgba(interf_sheet, sp),
+                alpha=True,
+            )
             print(f"Wrote {out_png} ({sp.width}x{sp.height})")
 
         # 2. Export TITRES (12 title sprites: 4 titles x 3 states)

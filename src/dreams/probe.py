@@ -59,7 +59,7 @@ def identify(path: str | Path) -> Identity:
     ext = p.suffix.lower().lstrip(".")
     guesses = {
         "spr": ("spr", "sprite / palette data (raw)"),
-        "alp": ("alp", "alpha map (raw)"),
+        "alp": ("alp", "palette/blend sprite bank"),
         "tga": ("tga", "Truevision Targa"),
         "id": ("id", "disc/install marker"),
         "ini": ("ini", "text resource"),

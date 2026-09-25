@@ -1,6 +1,8 @@
 """Image assets: ``UBIK`` bundles (``.BF``), sprites (``.SPR``) and ``.ALP`` maps.
 
-All three sprite families are decoded. **[verified]**
+Indexed sprites, menu sprites, and bitmap-font glyph pixels are decoded.
+`HI320`'s percent-code descriptor is malformed and is preserved but skipped
+by the renderer. **[verified]**
 
 ``ICONES.BF`` — UBIK bundle
     char[4]  "UBIK"
@@ -27,17 +29,20 @@ image format of its own.
            record size = round4(16 + width*height)
 
 *Font files* (``DATA/FONT`` — ``HI320``/``HI480``/``HI640``):
-    0x00   u16[16]      RGB555 palette
-    tail   8 x 28-byte glyph descriptors (offset @+0, width @+8, height @+0x0C)
-    end    u32 data_end, u32 0x100
+    0x00   u16[256]     RGB555 palette
+    0x200  ...          one-byte palette-index glyph bitmaps
+    tail   256 x 28 B   glyph descriptors (width @+4, height @+8, pixels @+0x18)
+    end    u32 0x100    glyph count
 
-The glyph *pixel* encoding is not pinned down, so fonts are reported but not
-rendered. Guessing would produce confidently wrong images.
+The engine renders each character code through its descriptor and advances by
+``width - s32(descriptor[+0x0c])`` (space is assigned the advance of ``'0'``).
+See :func:`read_font_sheet`.
 
 *Menu sprite bundles* (the ``ICONES.BF`` members) — see
 :func:`read_menu_sheet` below: a 512-byte RGB555 palette, pixel blobs, a
 ``"TABLE"`` marker, and 28-byte descriptors. One or two bytes per pixel,
-per file; the 2-byte pixels are byte-swapped RGB555.
+per file. The two-byte texels are a palette index and an opacity/blend value,
+not a packed RGB color.
 """
 
 from __future__ import annotations
@@ -133,11 +138,21 @@ def extract_bundle(bundle: Bundle, out_dir: str | Path) -> list[Path]:
 #                        +8 height, +0xC/+0x10/+0x14 flags, +0x18 pixel offset
 #     end-8  u32 0, u32 N   footer (approximate; record area is zero-padded)
 #
-# Pixel depth is per file, recovered from the offset stride: 1 byte/pixel is
-# an index into the palette (TOUCHES.SPR, TITRES.SPR), 2 bytes/pixel is
-# direct RGB555 stored BIG-ENDIAN - byte-swapped on little-endian hosts
-# (MAGIE/ANIM/PYRAM/INTERF .ALP). The engine always reads w*h*2 bytes,
+# Pixel layout is per file, recovered from the offset stride: 1 byte/pixel is
+# an index into the palette (TOUCHES.SPR, TITRES.SPR); 2 bytes/pixel are
+# (palette index, opacity/blend value) (MAGIE/ANIM/PYRAM/INTERF .ALP and
+# SOUR.ALP). The retail blitter looks up the first byte in the palette and
+# uses the second as a blend amount. The engine always reads w*h*2 bytes,
 # which over-reads the 8-bit files harmlessly.
+
+# In the PYRAM two-byte compositor, these coverage-byte values reference other
+# live sprite layers instead of expressing opacity. The PNG preview colors the
+# references visibly so they cannot be mistaken for opaque pixels.
+PYRAM_LAYER_MARKERS: dict[int, tuple[int, int, int]] = {
+    0xFD: (255, 255, 0),  # layer 5 / state-dependent fill
+    0xFE: (0, 255, 255),  # layer 4
+    0xFF: (255, 0, 255),  # layer 3
+}
 
 
 @dataclass
@@ -241,16 +256,19 @@ MENU_SPRITE_NAMES: dict[tuple[str, int], str] = {
 
 
 def _rgb555(value: int) -> tuple[int, int, int]:
-    return ((value >> 10 & 0x1F) * 8, (value >> 5 & 0x1F) * 8, (value & 0x1F) * 8)
+    r, g, b = value >> 10 & 0x1F, value >> 5 & 0x1F, value & 0x1F
+    return (r << 3 | r >> 2, g << 3 | g >> 2, b << 3 | b >> 2)
 
 
 def read_menu_sheet(path: str | Path, bank: str = "") -> MenuSheet:
     """Parse an ``ICONES.BF`` member (.ALP or menu .SPR) with a TABLE section.
 
-    ``bank`` only supplies sprite names for :attr:`MenuSprite.name`.
+    ``bank`` overrides the filename stem used for sprite names and the PYRAM
+    layer-marker preview.
     """
     p = Path(path)
     data = p.read_bytes()
+    name_bank = (bank or p.stem).lower()
     table = data.find(b"TABLE")
     if table < 0x200:
         raise ValueError(f"{p.name}: no TABLE section - not a menu sprite bundle")
@@ -266,7 +284,7 @@ def read_menu_sheet(path: str | Path, bank: str = "") -> MenuSheet:
         pix = struct.unpack_from("<I", data, off + 0x18)[0]
         if not (0 < width <= 4096 and 0 < height <= 4096 and 0x200 <= pix < table):
             break
-        sprites.append(MenuSprite(len(sprites), width, height, pix, bank_name=bank))
+        sprites.append(MenuSprite(len(sprites), width, height, pix, bank_name=name_bank))
         off += 28
 
     if not sprites:
@@ -291,24 +309,43 @@ def read_menu_sheet(path: str | Path, bank: str = "") -> MenuSheet:
 def menu_sprite_rgba(sheet: MenuSheet, sprite: MenuSprite) -> bytes:
     """Expand one menu sprite to tightly packed RGBA bytes.
 
-    1-byte pixels index the file palette (little-endian RGB555 entries —
-    exactly what the engine converts at load). 2-byte pixels are
-    **byte-swapped RGB555**: stored most-significant byte first. Reading
-    them little-endian puts the sprite's brightness ramp in the green
-    channel and renders the menu's blue corner markers green. **[verified]**
-    against a real in-game screenshot of the main menu, whose corner
-    ornaments are blue/cyan and match only the swapped read.
+    One-byte texels are palette indices; index 0 is transparent in the retail
+    indexed blit path. Two-byte texels are ``(palette index, blend value)``.
+    The renderer uses the index to fetch RGB555 from the palette and feeds the
+    second byte through its blend path. Index 0 is transparent in both paths.
+    The menu wrapper sets source flag 0x10. In that renderer path, values 0
+    are skipped, values >=63 are opaque, and values 1..62 blend with weight
+    ``value >> 1``. The returned alpha maps that weight to an 8-bit preview.
+    PNG straight alpha cannot reproduce the game's exact weighted sum, whose
+    coefficients total 31 before shifting by 5. In `PYRAM`, coverage bytes
+    ``0xfd``/``0xfe``/``0xff`` are layer-reference commands for a dynamic
+    compositor; the preview marks them in color rather than treating them as
+    ordinary alpha.
     """
     data = sheet.path.read_bytes()
     w, h = sprite.width, sprite.height
     out = bytearray(w * h * 4)
     for i in range(w * h):
         if sheet.bytes_per_pixel == 1:
-            r, g, b = _rgb555(sheet.palette[data[sprite.offset + i]])
+            index = data[sprite.offset + i]
+            alpha = 0 if index == 0 else 255
         else:
-            raw = struct.unpack_from("<H", data, sprite.offset + i * 2)[0]
-            r, g, b = _rgb555((raw << 8 | raw >> 8) & 0xFFFF)
-        out[i * 4 : i * 4 + 4] = bytes((r, g, b, 255))
+            index = data[sprite.offset + i * 2]
+            blend = data[sprite.offset + i * 2 + 1]
+            if index != 0 and sprite.bank_name == "pyram" and blend in PYRAM_LAYER_MARKERS:
+                r, g, b = PYRAM_LAYER_MARKERS[blend]
+                out[i * 4 : i * 4 + 4] = bytes((r, g, b, 255))
+                continue
+            weight = blend >> 1
+            alpha = (
+                0
+                if index == 0
+                else 255
+                if blend >= 63
+                else (weight * 255 + 16) // 32
+            )
+        r, g, b = _rgb555(sheet.palette[index])
+        out[i * 4 : i * 4 + 4] = bytes((r, g, b, alpha))
     return bytes(out)
 
 
@@ -335,6 +372,105 @@ class SpriteSheet:
     path: Path
     palette: list[tuple[int, int, int]]
     sprites: list[Sprite] = field(default_factory=list)
+
+
+FONT_GLYPH_COUNT = 256
+FONT_GLYPH_RECORD_SIZE = 28
+FONT_GLYPH_TABLE_SIZE = FONT_GLYPH_COUNT * FONT_GLYPH_RECORD_SIZE
+
+
+@dataclass
+class FontGlyph:
+    codepoint: int
+    offset: int
+    width: int
+    height: int
+    field_0c: int
+    field_10: int
+    field_14: int
+    renderable: bool
+
+    @property
+    def base_advance(self) -> int:
+        """Descriptor advance: width minus signed field +0x0c."""
+        adjustment = self.field_0c if self.field_0c < 0x80000000 else self.field_0c - 0x100000000
+        return self.width - adjustment
+
+
+@dataclass
+class FontSheet:
+    path: Path
+    palette: list[int]
+    table_offset: int
+    glyphs: list[FontGlyph] = field(default_factory=list)
+    glyph_count: int = FONT_GLYPH_COUNT
+
+    def advance(self, codepoint: int) -> int:
+        """Return the retail text cursor advance for one byte character code."""
+        if not 0 <= codepoint < len(self.glyphs):
+            raise ValueError(f"font codepoint out of range: {codepoint}")
+        # FUN_00425c61 fills the space slot from the glyph record for '0'.
+        glyph = self.glyphs[0x30 if codepoint == 0x20 else codepoint]
+        return glyph.base_advance
+
+
+def read_font_sheet(path: str | Path) -> FontSheet:
+    """Decode a ``DATA/FONT/HI*.SPR`` 256-glyph indexed bitmap font."""
+    p = Path(path)
+    data = p.read_bytes()
+    min_size = 0x200 + FONT_GLYPH_TABLE_SIZE + 4
+    if len(data) < min_size:
+        raise ValueError(f"{p.name}: too short for a HI font")
+
+    glyph_count = struct.unpack_from("<I", data, len(data) - 4)[0]
+    if glyph_count != FONT_GLYPH_COUNT:
+        raise ValueError(f"{p.name}: expected 256 font glyphs, found {glyph_count}")
+    table = len(data) - 4 - FONT_GLYPH_TABLE_SIZE
+    if table < 0x200:
+        raise ValueError(f"{p.name}: glyph table overlaps palette")
+
+    palette = list(struct.unpack_from("<256H", data, 0))
+    glyphs = []
+    for codepoint in range(FONT_GLYPH_COUNT):
+        base = table + codepoint * FONT_GLYPH_RECORD_SIZE
+        _palette_ptr, width, height, field_0c, field_10, field_14, offset = (
+            struct.unpack_from("<7I", data, base)
+        )
+        renderable = (
+            0 < width <= 256
+            and 0 < height <= 256
+            and offset >= 0x200
+            and offset + width * height <= table
+        )
+        glyphs.append(
+            FontGlyph(
+                codepoint,
+                offset,
+                width,
+                height,
+                field_0c,
+                field_10,
+                field_14,
+                renderable,
+            )
+        )
+    return FontSheet(p, palette, table, glyphs, glyph_count)
+
+
+def font_glyph_rgba(
+    sheet: FontSheet, glyph: FontGlyph, transparent_index: int = 0
+) -> bytes:
+    """Expand one indexed font glyph to tightly packed RGBA bytes."""
+    if not glyph.renderable:
+        raise ValueError(f"{sheet.path.name}: glyph {glyph.codepoint:#04x} is malformed")
+    data = sheet.path.read_bytes()
+    pixels = data[glyph.offset : glyph.offset + glyph.width * glyph.height]
+    out = bytearray(glyph.width * glyph.height * 4)
+    for i, index in enumerate(pixels):
+        r, g, b = _rgb555(sheet.palette[index])
+        alpha = 0 if index == transparent_index else 255
+        out[i * 4 : i * 4 + 4] = bytes((r, g, b, alpha))
+    return bytes(out)
 
 
 def looks_like_vga_palette(data: bytes, entries: int = 256) -> bool:
