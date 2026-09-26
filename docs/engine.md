@@ -524,9 +524,10 @@ Each frame (`CAM_UpdateFollowPos` (`0x40a866`)):
 1. **Distances.** eye distance `D = (min+max)/2`, lead `L = (min+max)/2`.
 2. **Mode.** Actor mode `+0x34` = 1 (ground) uses `CAM_ComputeChasePos` (`0x409de2`); modes 2/3
    (swim/fly) use `CAM_ComputeOrbitPos` (`0x40a4a5`) with D and L + 100 and the eye 30 higher. Ground
-   actors in flying state (`+0xac & 0x20`), action `0x2e`, or actions
-   `0x19/0x29/0x2a` with `+0x278 & 1` also orbit, with +300 (+150 when flying)
-   and the eye 50 (40) higher.
+   actors in combat stance (`+0xac & 0x20`, set by the player controller when an
+   enemy is near), action `0x2e`, or actions
+   `0x19/0x29/0x2a` (falling) with `+0x278 & 1` also orbit, with +300 (+150 in
+   combat stance) and the eye 50 (40) higher.
 3. **Chase (ground).** Yaw = `(0x1000 − heading) · 2π/4096`, heading actor
    `+0x5c`; the eye sits at yaw + π (behind), the target ahead. Target =
    actor + L along the heading; eye = actor + D behind, at the preset height.
@@ -543,7 +544,7 @@ Each frame (`CAM_UpdateFollowPos` (`0x40a866`)):
 7. **Close range** (`CAM_ApplyCloseRange` (`0x409ba0`)). If the horizontal eye-to-actor
    distance `d` is below `D` for a ground actor: L scales by `d/D`, eye
    easing becomes 2 below `0.7·D` and 1 below `0.5·D`, `d` is floored at
-   `0.2·D`, and eye.y = actor.y + lo − 1.2·(D − d) (80 higher when flying).
+   `0.2·D`, and eye.y = actor.y + lo − 1.2·(D − d) (80 higher in combat stance).
 8. **Collision** (`CAM_CollideEye` (`0x40d5e4`), when `0x52c84c` is set by `CAM_EnableCollision` (`0x40b6d3`)): a
    sphere (radius `0x49d2dc`) swept from the previous eye; if the push-out is
    below √`0x49d2e4` the eye is moved out.

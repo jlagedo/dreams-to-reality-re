@@ -1175,6 +1175,32 @@ Settles north-star's open decision (the answer lives in
   ticks), the recorder's value. If whole ticks are required, 7 (Δt 1.05)
   rather than 6 (Δt 0.9).
 
+## 2026-09-26 — player controls, movement and level exits
+
+Full key-to-action trace in [ai-animation-runtime.md](ai-animation-runtime.md),
+*Player controls*.
+
+- **Keys**: eleven action words filled from the `GetAsyncKeyState` table by
+  virtual-key code: arrows, Alt, Ctrl, Space, Esc, 1/2/3 (Alt + 5..0 for the
+  camera, Insert for look). Joysticks feed the same words.
+- **Controllers**: `ENT_TickPlayerControl` (`0x423767`) picks ground, swimming or flying by
+  mode `+0x34` and sets the combat stance (`+0xac & 0x20`) when an enemy is
+  within 800 units (1,500 or 2,500 with a weapon). The ground controller
+  (`ENT_TickPlayerGround` (`0x421717`)) maps each input to a numbered action; jumps are 9/10/11,
+  walking 4, take-off into flight 8 (costs magic), and slots 1/2/3 cast items.
+- **Turning** accelerates the yaw rate by `step·12/32` to a cap of `100·Δt`
+  per frame; the step is `0x30` (or OBJET `+0x6c`/level `+0xa4`), ¾ outside
+  combat stance. **Speed** is the clip's root motion blended into the velocity
+  with weight `+0x104/128` (default 16/128; per-mode level overrides).
+- **Level exits**: LINK `+0x18` is a condition flag byte and `+0x3c` a required
+  object; all 242 used links carry flag 1, 45 have no volume.
+
+**Corrections.** The player's airborne states 41/25/42 are picked from
+vertical speed while falling, not walk/run speeds. Actor `+0xac & 0x20` is the
+combat stance, not flying (`+0xad & 0x20`); the camera section and one
+registry note said flying and are fixed. OBJET `+0x70` → actor `+0x10c` is also
+the walker's collision radius.
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)

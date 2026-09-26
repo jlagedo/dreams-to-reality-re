@@ -174,8 +174,8 @@ identity is still open. **[verified sequence; effect label unverified]**
 | `+0x34` | Flag word. Its low bits control active/character behavior; it is not an entity-kind enum. |
 | `+0x64` | Copied to actor `+0x34` as a behavior/class selector. Values 5 and 6 are remapped to runtime classes 1 and 3, with extra flags. |
 | `+0x68` | Copied as a movement scale to actor `+0x104`. |
-| `+0x6c` | Copied to actor `+0x108`, the **turn step**: `ANIM_RequestState` (`0x405118`) turns by it (default `0x30` of 4096 per turn, ¾ of it unless flying). Not a `BOX` index. **[verified]** 2026-09-26 |
-| `+0x70` | Copied to actor `+0x10c`; used as the facing-offset magnitude for attack effects by `ENT_PlaceAtFacingOffset` (`0x442786`). |
+| `+0x6c` | Copied to actor `+0x108`, the **turn step**: `ANIM_RequestState` (`0x405118`) turns by it (default `0x30` of 4096 per turn, ¾ of it outside combat stance `+0xac & 0x20`). Not a `BOX` index. **[verified]** 2026-09-26 |
+| `+0x70` | Copied to actor `+0x10c`: the walker's **collision-sphere radius** (`PHYS_AttachActorCollider` (`0x40bedb`)), also used as the facing-offset magnitude for attack effects by `ENT_PlaceAtFacingOffset` (`0x442786`). |
 | `+0x78` | Target-distance parameter copied to actor `+0x118`. |
 | `+0x88` | Random-action threshold copied to actor `+0x194`. |
 
@@ -213,22 +213,112 @@ alternate character) through `ENT_LoadObject` (`0x41d624`) and `ANIM_LoadEntityS
 requests state 0, and enters the same resolver. **[verified]**
 
 For runtime class 1, `ANIM_ApplyPendingState` (`0x4058d5`) selects an action from actor `+0x240`
-divided by frame delta. Physics code `PHYS_IntegrateMotion` (`0x43d360`) updates `+0x238`, `+0x240`,
-and `+0x248` as a three-component velocity vector, so `+0x240` is one velocity
-component rather than a named “run speed.” Under the relevant actor flags, its
-thresholds are: **[verified]**
+divided by frame delta. `+0x240` is the **vertical** velocity (Y points down)
+of the physics vector `+0x238/+0x240/+0x248`, and the test only runs while
+the actor is **airborne** (`+0x278` bit 0) and player-controlled (`+0xa8 & 4`,
+disassembly `0x405b98`–`0x405c5c`). These are **falling** states, not walk and
+run speeds (correction 2026-09-26): **[verified]**
 
-| Actor `+0x240` / frame delta | Requested state | `XH_.DAN` slot |
+| Downward speed `+0x240 / Δt` while airborne | Requested state | `XH_.DAN` slot |
 |---:|---:|---|
-| below 1, or movement flags inactive | 0 | `AN000` |
+| below 1, or not airborne | 0 | `AN000` |
 | 1 to below 20 | `0x29` (41) | `AN041` |
 | 20 to below 45 | `0x19` (25) | `AN025` |
 | 45 or above | `0x2a` (42) | `AN042` |
 
-The executable therefore has a real movement-state-to-animation selector.
-These state IDs are certain; names such as idle, walk, run, and sprint still
-need to be matched to the stored poses before assigning them. Other action
-requests come from controls and AI through `ANIM_RequestState` (`0x405118`).
+The camera treats the same three states with the airborne bit as falling
+(orbit camera), and the flying controller leaves flight into state `0x19` with
+a downward speed of `20/Δt`. Walking and the other player actions come from
+the controls through `ANIM_RequestState` (`0x405118`); see *Player controls* below.
+
+### Player controls **[verified]**
+
+Traced 2026-09-26. Keys reach the game as eleven **action words**
+(`0x49d2fe`–`0x49d326`), filled each frame by `INPUT_UpdateActions` (`0x40dce4`) from the
+`GetAsyncKeyState` table at `0x6308d8` (indexed by Windows virtual-key code)
+or, on joystick devices, from the axes and two buttons. Bit 0 is held, bit 1
+the press edge, bit 2 the change edge (directions also auto-repeat every 40
+ticks).
+
+| Action word | Key (VK) | Joystick |
+|---|---|---|
+| `0x49d2fe` | ↑ (`0x26`) | Y− |
+| `0x49d302` | ↓ (`0x28`) | Y+ |
+| `0x49d306` | ← (`0x25`) | X− |
+| `0x49d30a` | → (`0x27`) | X+ |
+| `0x49d316` | Alt (`0x12`) | button 1 |
+| `0x49d31a` | Ctrl (`0x11`) | button 2 |
+| `0x49d30e` | Space (`0x20`) | — |
+| `0x49d312` | Esc (`0x1b`) | — |
+| `0x49d31e`/`322`/`326` | 1 / 2 / 3 | — |
+
+Alt + 5, 6, 7, 8, 9, 0 select the camera presets (`GAME_HandleHotkeys` (`0x415aa7`));
+Insert turns the arrows into look keys. The same words are what the demo
+recorder stores.
+
+**Per frame** (`ENT_TickPlayerControl` (`0x423767`), from `GAME_Tick` (`0x4240ba`)): the player scans for enemies
+within 800 units (1,500 or 2,500 with the two weapon kinds tested by
+`0x441160`/`0x441726`/`0x441cb2`); an enemy in range sets the **combat
+stance** `+0xac & 0x20` for at least 60 Δt units. It then runs one
+controller by movement mode `+0x34`: ground (1) `ENT_TickPlayerGround` (`0x421717`), swimming (2)
+`ENT_TickPlayerSwimming` (`0x422af2`), flying (3) `ENT_TickPlayerFlying` (`0x422cd7`).
+
+**Ground** (outside combat stance), in priority order:
+
+| Input | State requested |
+|---|---|
+| ← / → held | `0x3d` / `0x3c` (turn) |
+| Esc press | `0x18` when no weapon is drawn (the pick-up state) |
+| 1 / 2 / 3 press | select slot; message `0x44` 0/1/2 |
+| 1 / 2 / 3 release with an item | cast it: `0x1c`, `0x1e`, `0x1f`, `0x20` or `0x21` by item id, if magic `+0x3c` covers the cost (`0x442431`); else message `0x45` |
+| Ctrl press near an object | `0x18`, the object goes to the inventory (`0x42a182`) |
+| Alt + Ctrl + ↓, grounded | `0x30` |
+| Ctrl, grounded | `0x23` beside an enemy; with ↓ `0x2e` |
+| Ctrl press, grounded | jump: `9`; `10` when `+0xac & 1`; `0xb` from a forward walk with ↑ |
+| Alt + Ctrl press, flight-capable (`+0xab & 2`), magic > 4, ↑ | take off: state 8, mode 3 |
+| ↑ held | walk: `4` (`0x2c`/`0x2d` with a weapon) |
+| ↓ held, grounded | `0x1a` (step back) |
+
+In combat stance Alt attacks chain `0x10 → 0x12 → 0x14` (and
+`0x16 → 0x15 → 0x11` with Ctrl) when the current clip is far enough along,
+weapons swap in `0x36`/`0x37`/`0x3a`, ↑ is `0x17`, ↓ `0x2e`, and the
+flight-capable form fires (`5`, `ENT_SpawnAttackObject` (`0x442944`)) at a magic cost of
+`0.05 · Δt` per frame.
+
+**Swimming**: ←/→ `0x3d`/`0x3c`, ↑ `0x24`, ↓ `0x26`, Alt picks up and plays
+`6`/`7`. **Flying**: the same four directions (↑ only after a 45-unit
+take-off countdown), Alt and Ctrl attacks; magic drains by `0.04 · Δt` per
+frame. Out of magic, or on an impact > 64, the controller requests state
+`0xe`, which ends the flight: mode back to 1, airborne, state `0x19` with a
+downward speed of `20/Δt`.
+
+**Turning** (`ANIM_RequestState` (`0x405118`), states `0x3c`/`0x3d`): the turn step is `0x30` (or
+the actor's `+0x108`, from OBJET `+0x6c` or level `+0xa4`), ¾ of it outside
+combat stance, 0 when `+0xb1 & 4`. Each request adds `step · 12 / 32` (scaled by
+the frame) to the yaw rate `+0x60`, capped at `±100 · Δt`, and
+`ENT_TickEntity` (`0x407b51`) adds the rate to the heading `+0x5c` every frame (4096 per
+turn). Flyers also bank (`+0x64`) and pitch (`+0x6c`) the same way.
+
+**Speed** comes from the clips. Each frame the actor's velocity is pulled
+toward the clip's root-motion delta (`+0x18..+0x20`) with weight `s/128`:
+`v = v·(128 − s)/128 + root·s/128`, where `s` is the movement scale `+0x104`
+(default 16; level record `+0xa0` on the ground, `+0xd8` swimming, `+0xdc`
+flying). Physics then steps by `v` (engine.md, *Collision and physics*).
+
+**Landing** (ground controller, before anything else): with an impact > 1 and
+last frame's downward speed `s = v_y / Δt`: > 60 deals 5, > 100 +10, > 120 +15,
+> 180 +40, > 250 +100, and > 90 knocks the player down (state `0x27`) if
+still alive. A flying player takes 2 when `v_y` > 100 and 1 for an impact
+> 64. See engine.md, *The fixed step*, for why this depends on Δt.
+
+**Level exits** (`SCENE_CheckExits` (`0x420b60`), eight LINK records, file-formats.md): a
+link fires when the player (or any actor, flag `0x80`) is inside its box — or
+at once when the box is empty — and its conditions hold: flag 2 no living
+enemy of the other faction, 4 the actor's `+0x1d4` partner flagged `+0xac &
+0x10`, `0x10` the level's trigger-completion flag, `0x20` Ctrl pressed, and a
+named object held (or, with flag 8, not held). It then starts a 15-frame
+transition, plays sound 13 and, if the target level names an intro video,
+plays it.
 
 The generic actor updater `ENT_TickEntity` (`0x407b51`) advances animation and movement
 together. The engine's nominal animation base is 30 frames per second. The

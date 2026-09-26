@@ -97,7 +97,7 @@ class Objet:
     behavior_type: int = 0  #: +0x64 runtime behavior/class selector; exact labels are open.
     speed: float = 16.0  #: +0x68 movement scale copied to actor +0x104 (default 16.0).
     route_index: int = 0  #: Legacy name for +0x6C: the turn step copied to actor +0x108.
-    health: int = 0  #: Legacy name for +0x70; actor +0x10C scales attack-effect launch velocity.
+    health: int = 0  #: Legacy name for +0x70: actor +0x10C, the collision radius.
     radius: int = 0  #: +0x3C bounding / collision radius
 
     @property

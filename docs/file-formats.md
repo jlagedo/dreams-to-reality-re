@@ -776,7 +776,7 @@ Decompiled from `SCENE_LoadLevel` (`0x41f9db`) and `ENT_InstantiateFromObjet` (`
 - `+0x08C` `char[32]`: Target scene material name receiving secondary video texture (e.g. `M01DRA`).
 - `+0x09C` `i32`: Player movement mode, copied to actor `+0x34` by `ENT_LoadObject` (`0x41d624`) when non-zero (4 → 3, 5 → 1 flying, 6 → 3 flying). **Not** a camera projection mode. **[verified]**
 - `+0x0A0` `i32`: Player movement scale, copied as a float to actor `+0x104` (the animation step scale `ANIM_TickBlend` (`0x405f1f`) and `ANIM_TickClip` (`0x4068be`) multiply by). **Not** a near clip. **[verified]**
-- `+0x0A4` `i32`: Player turn step, copied to actor `+0x108`; `ANIM_RequestState` (`0x405118`) turns by it (default `0x30` of 4096 per turn, ¾ of it unless flying). Values 63–65 were read as a field of view; the real FOV is a constant 76.36° (engine.md, *Camera and projection*). **[verified]**
+- `+0x0A4` `i32`: Player turn step, copied to actor `+0x108`; `ANIM_RequestState` (`0x405118`) turns by it (default `0x30` of 4096 per turn, ¾ of it outside combat stance `+0xac & 0x20`). Values 63–65 were read as a field of view; the real FOV is a constant 76.36° (engine.md, *Camera and projection*). **[verified]**
 - `+0x0B4` `i32[3]`: Player canonical spawn coordinates `(x, y, z)` in scene units (negative Y is up).
 - `+0x0E0` `i32[4]`: Depth fog parameters: start distance, end distance, density, fog color.
 - `+0x0F0` `i32[4]`: Clear color / Sky color RGB components.
@@ -819,9 +819,18 @@ The engine's debug HUD at `DBG_DrawObjectInfo` (`0x416606`) directly labels thes
 ##### `LINK` fields (0x80 bytes) **[verified]**
 - `+0x00` `char[12]`: link slot name (`LINK0` .. `LINK7`).
 - `+0x0C` `char[12]`: destination project name (e.g. `Project134`).
+- `+0x18` `u8`: flags, read by `SCENE_CheckExits` (`0x420b60`): 1 enabled (set in all 242 used
+  links), 2 no living enemy left, 4 a partner condition, 8 invert the item
+  test, `0x10` the level's trigger-completion flag, `0x20` Ctrl pressed,
+  `0x40` no volume test, `0x80` any actor may take it (else the player only).
+  **[verified]** 2026-09-26
 - `+0x24` `i32[3]`: bounding volume minimum `(minX, minY, minZ)`.
 - `+0x30` `i32[3]`: bounding volume maximum `(maxX, maxY, maxZ)`.
-Entering this axis-aligned 3D volume triggers the level transition to the target project.
+- `+0x3C` `char[16]`: object that must be held (or, with flag 8, not held),
+  e.g. `CLESOUFF.DAN`, `TALISMAN.DAN`, `O01FLUTE.DAN`. **[verified]**
+Entering this axis-aligned 3D volume while the conditions hold triggers the
+level transition to the target project; an all-zero volume (45 links) fires
+on the conditions alone.
 
 ##### `BOX` fields (0x100 bytes) **[verified]**
 - `+0x00` `char[12]`: box name (`BOX0` .. `BOX11`).
