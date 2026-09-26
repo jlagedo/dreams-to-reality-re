@@ -34,4 +34,7 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m 'not corpus'"
+markers = [
+    "corpus: sweeps every scene or record on the discs; run with -m corpus",
+]

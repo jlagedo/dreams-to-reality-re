@@ -95,6 +95,10 @@ HNMPI_DecodeFrame  (ordinal 2)
 HNMPI_Cleanup      (ordinal 1)
 ```
 
+The game's own HNM6 decoder is CryoLib's assembly, rebuilt for the 640×304
+frame. `HNM6_DecompressFrame` is at `0x45c2c0` in `WINDREAM.EXE`; see
+[cryolib.md](cryolib.md), *The game carries CryoLib's HNM6 decoder*.
+
 `.text` is only 36,368 bytes; the ~100 KB of `.data` is almost certainly
 quantisation and Huffman tables. That makes it both a **decode oracle** (callable
 from a ~50-line C harness, or under Wine) and a **cleaner RE target than

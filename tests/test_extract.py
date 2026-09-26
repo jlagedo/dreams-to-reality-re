@@ -2,6 +2,7 @@
 
 Anything needing real game data is marked ``needs_discs`` and skips when the
 configured paths are missing, so CI stays green without shipping assets.
+Whole-corpus sweeps are also marked ``corpus`` and only run with ``-m corpus``.
 """
 
 from __future__ import annotations
@@ -18,6 +19,8 @@ from dreams.formats import audio, cdaudio, image, lz, scene, video
 DISC1 = paths.configured("disc1")
 DISCS_PRESENT = DISC1 is not None and DISC1.exists()
 needs_discs = pytest.mark.skipif(not DISCS_PRESENT, reason="disc images not configured")
+# Sweeps over every scene or record: minutes, not seconds. Opt in with -m corpus.
+corpus = pytest.mark.corpus
 
 
 # ------------------------------------------------------------- pure logic ---
@@ -270,6 +273,7 @@ def test_rgb565_expands_to_full_range():
     assert scene.rgb565_to_rgb(0x07E0) == (0, 255, 0)
 
 
+@corpus
 @needs_discs
 def test_lz_decodes_every_packed_record():
     """Tags 1 and 2 are LZ streams; all 610 across both formats must decode."""
@@ -284,6 +288,7 @@ def test_lz_decodes_every_packed_record():
     assert total == 610, total
 
 
+@corpus
 @needs_discs
 def test_tag1_carries_the_object_names():
     """Decompressed tag 1 holds the material table, so the names reappear in it.
@@ -327,6 +332,7 @@ def test_gltf_writer_emits_a_valid_document(tmp_path):
     assert pos["min"] == [0.0, -1.0, 0.0] and pos["max"] == [1.0, 0.0, 0.0]  # Y negated
 
 
+@corpus
 @needs_discs
 def test_every_scene_decodes_to_a_mesh():
     from dreams.formats import mesh
@@ -339,6 +345,7 @@ def test_every_scene_decodes_to_a_mesh():
             assert len(o.uvs) == 3 * len(o.faces), s.rel
 
 
+@corpus
 @needs_discs
 def test_five_scenes_verify_against_tag2():
     """Every tag-1 face must also be a tag-2 triangle - proof, not a heuristic."""
@@ -352,6 +359,7 @@ def test_five_scenes_verify_against_tag2():
     assert good == {"E01GROTT", "E98ARAI1", "L03_REQI", "L16_BOMB", "O01EAU01"}
 
 
+@corpus
 @needs_discs
 def test_arena_directory_holds_for_every_scene():
     """tag 1 records where each source vertex array began - 95/95."""
@@ -459,6 +467,7 @@ def test_preview_renders_all_three_views(tmp_path):
     assert (width, height) == (64 * len(preview.VIEWS), 64)
 
 
+@corpus
 @needs_discs
 def test_tag2_triangle_mesh_decodes_every_scene():
     """Tag 2's own triangle array resolves arithmetically - all 95, no gate."""

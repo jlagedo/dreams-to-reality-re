@@ -196,6 +196,22 @@ them all, e.g. `fprintf_|fscanf_|sscanf_`.
   header prototypes; see `re-setup.md`. The generated `windream_ghidra.py`
   needs PyGhidra, which this machine's Python 3.14 cannot run.
 
+## Layout rules, from the compiler source
+
+Read from Open Watcom 1.0 (the 11.0c tree), then checked against
+`WINDREAM.EXE`. Together these rules make source-file boundaries recoverable
+(`tools/find_modules.py`, [re-setup.md](re-setup.md)). The file *names* are
+not in the binaries.
+
+| Rule | Source | Seen in the binary |
+|---|---|---|
+| A whole `.c` file is parsed before any code is generated; functions are then emitted in source order (`GenModuleCode`) | `cc/c/cgen2.c` `DoCompile` | order is kept across builds within a file |
+| String literals are emitted the first time the code generator meets them, 4-byte aligned when optimising for time, into that file's `CONST` | `cgen2.c` `Emit1String`, `EmitLiteral` | constants are in code order even inside a file |
+| Uninitialised variables, globals included, go to that file's `_BSS`; there are no common symbols | `cc/c/cinfo.c` `AssignSeg` | `.bss` is contiguous per file |
+| File-scope variables are emitted by walking `GlobalSym`, which is chained by **name-hash bucket** | `cc/c/csym.c`, `cgen2.c` `EmitSyms` | `.bss` order inside a file looks scrambled |
+| Function alignment: 1 byte with `-os` or the default, 4 with `-3` for speed, 16 with `-4`/`-5` | `cg/intel/c/i86enc2.c` `DepthAlign(PROC_ALIGN)` | game functions are unaligned (about 25% are 4-aligned, i.e. chance), so no per-file compiler options can be read off the code |
+| The linker keeps each segment's contributions in link order: every game file, then the libraries | not read; observed only | each data region is the game part, then the library part |
+
 ## Was the C++ compiler used?
 
 Probably not, but this is not settled. **[unverified]**

@@ -17,7 +17,7 @@
 | `re/symbols/*.tsv` | Saved Ghidra symbols and comments |
 | `re/structs/` | C layouts and typed-global lists for Ghidra (`windream.h`, `directx.h`, `windream-globals.tsv`) |
 | `ghidra_scripts/` | Java scripts for Ghidra |
-| `tools/` | Ghidra import and checkpoint PowerShell scripts; `lx-loader-watcom.cspec` for the DOS-build LE loader; `match_functions.py` cross-build function matcher |
+| `tools/` | Ghidra import and checkpoint PowerShell scripts; `lx-loader-watcom.cspec` for the DOS-build LE loader; `match_functions.py` cross-build function matcher; `match_identical.py` byte-identical code shared between binaries (CryoLib in the game); `find_modules.py` source-file blocks |
 | `ghidra/` | Local Ghidra project (gitignored) |
 | `out/` | Default toolkit output (gitignored) |
 
@@ -57,6 +57,7 @@ uv run dreams mesh
 uv run dreams mesh E01GROTT --gltf out/
 uv run dreams mesh --preview out/
 uv run pytest
+uv run pytest -m corpus        # whole-disc sweeps (slow, needs discs)
 uv run ruff check .
 uv run ruff format .
 ```
@@ -121,6 +122,8 @@ on `=`, so `Rename.java` uses `address:name` (or `@file`):
 ```powershell
 & (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') ghidra dreams -process WINDREAM.EXE -noanalysis -scriptPath ghidra_scripts -postScript Rename.java 0043a306:MGM_SendMessage
 uv run python tools/match_functions.py DREAMSFX.EXE WINDREAM.EXE --renames
+uv run --with capstone python tools/match_identical.py CRYO.DLL WINDREAM.EXE --insn
+uv run python tools/find_modules.py WINDREAM.EXE --cross DREAMSFX.EXE
 ```
 
 `tools/ghidra-import.ps1` accepts `-Ghidra`, `-Project`, `-Disc1`, `-Disc2`

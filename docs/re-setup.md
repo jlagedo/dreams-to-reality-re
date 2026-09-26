@@ -230,6 +230,80 @@ functions; 5 of the 6 hand-matched renderer pairs recovered without names;
 multisets agree at Jaccard 1.00 where exact code never matches, and mnemonic
 bigrams at 0.4–0.87. Treat low-score `slot` pairs as leads, not facts.
 
+### Proving shared library code: `match_identical.py`
+
+`match_functions.py` pairs *recompiled* functions by likeness. Where the same
+code was linked into two binaries — hand-written assembly survives any
+compiler — a much stricter test applies, and it is the only one a name
+transfer between *different* products should rest on.
+
+```powershell
+& $h ghidra dreams -process CRYO.DLL -noanalysis -readOnly `
+  -scriptPath ghidra_scripts -postScript ExportFunctionFeatures.java
+uv run --with capstone python tools/match_identical.py CRYO.DLL WINDREAM.EXE --insn
+```
+
+Tiers, written to `out/ghidra/match/<a>--<b>.identical.tsv`:
+
+- **`VERIFIED`** — same length on Ghidra's boundaries, every byte equal except
+  absolute addresses that *both* relocation tables list at the same offsets, and
+  rel32 operands whose targets map consistently across all accepted pairs.
+  Bodies that are identical in several places (16-byte stubs) are resolved by
+  their calls to already-paired functions, or reported as ambiguous.
+- **`INSN-IDENTICAL`** (`--insn`, needs capstone) — same instruction sequence
+  with addresses masked; the bytes differ only in encoding choices.
+- **`MODIFIED`** — at most a quarter of the instructions differ. The same
+  source with changed constants; a lead for comments, never for names.
+
+It resolves MSVC's incremental-link `jmp` thunks, so CryoLib exports name their
+real bodies. Results for CryoLib are in [cryolib.md](cryolib.md).
+
+### Source-file blocks: `find_modules.py`
+
+The `.c` file names are lost, but each file's code, constants, initialised
+data and `.bss` stay contiguous, in link order (rules in
+[toolchain.md](toolchain.md)). The tool groups the game's functions into blocks
+that must share a file:
+
+```powershell
+uv run python tools/find_modules.py WINDREAM.EXE --cross DREAMSFX.EXE
+```
+
+**Evidence that two functions share a file**, listed in the `evidence`
+column:
+- **`C`**: a literal or constant they share, or one out of order between them.
+  Constants are never shared across files.
+- **`shared`**: a data or `.bss` item used only within the window (10
+  functions), on both sides of the cut.
+- **`calls`**: a helper called only by at most two nearby functions.
+
+**Proven boundaries** come from `--cross`. The two builds link their files in
+different orders, and a file keeps its own function order in every build. So
+two confidently matched functions (score ≥ 0.60, with callees agreeing) that
+appear in reversed order must be in different files.
+
+**Calibration** on `WINDREAM.EXE`, against 17 proven boundaries:
+
+| Evidence | Blocks | Proven boundaries joined wrongly |
+|---|---|---|
+| `C` | 642 | 0 |
+| `C` + `shared` | 337 | 0 |
+| `C` + `shared` + `calls` | 170 | 1 |
+
+Only the last row's single wrong join is a known error. With `--cross`, the
+proof overrides it.
+
+**Results** in `out/ghidra/modules/<program>.tsv`: 170 blocks, 99 of them
+single functions with no evidence either way, and 18 proven boundaries.
+- A block is one file or part of one. Adjacent blocks marked `candidate` may
+  still be the same file.
+- Blocks agree with names given independently. For example, the `DDraw_*` and
+  `Video_Present` functions form one block, `MGM_SendMessage` sits with
+  `Input_Init`, and `MENJ_Dispatcher` with `MainMenu_*`.
+
+The PE relocation table supplies the data references, so the tool handles
+only the Windows builds for now.
+
 ### `FixWatcomBss.java` — the Windows `.bss` is truncated
 
 The Watcom linker writes `VirtualSize = 0` for every PE section. Ghidra then

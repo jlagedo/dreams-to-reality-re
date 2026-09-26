@@ -163,6 +163,17 @@ FUNC	144c	GL_InitDirectSound	undefined4 GL_InitDirectSound(void)
 FUNC	1451	GL_Line	undefined4 GL_Line(int param_1, int param_2, int param_3, int param_4)	
 FUNC	1456	GL_InitAllScreen	undefined GL_InitAllScreen(void)	
 FUNC	145b	GL_ClrKeybTable	undefined4 GL_ClrKeybTable(uint param_1, uint param_2)	
+FUNC	2abf9	HNM6_Init_All_16	undefined8 HNM6_Init_All_16(void)	Body of _GL_HNM6_Init_All_16@0 (via the one-call wrapper 10002050). Byte-identical in WINDREAM.EXE at 0045c2a0.
+FUNC	2ac09	HNM6_Init_All_15	undefined8 HNM6_Init_All_15(void)	Body of _GL_HNM6_Init_All_15@0 (via 10002065). Byte-identical in WINDREAM.EXE at 0045c2b0.
+FUNC	2ac1c	HNM6_DecompressFrame	undefined HNM6_DecompressFrame(int * param_1, undefined4 param_2, int param_3, int param_4)	Version-6 branch of GL_dcpt_one_frame_ubb. Byte-identical in WINDREAM.EXE at 0045c2c0.
+FUNC	2ad7c	HNM6_InitTables	undefined HNM6_InitTables(void)	Byte-identical in WINDREAM.EXE at 0047eb70.
+FUNC	2ae54	HNM6_InitColorTables565	undefined HNM6_InitColorTables565(void)	Byte-identical in WINDREAM.EXE at 0047ec48.
+FUNC	2aef8	HNM6_InitColorTables555	undefined HNM6_InitColorTables555(void)	Byte-identical in WINDREAM.EXE at 0047ecec.
+FUNC	2afa0	HNM6_SetQuality	undefined HNM6_SetQuality(void)	Byte-identical in WINDREAM.EXE at 0047ed94.
+FUNC	2b0d8	HNM6_UnpackNibbles	undefined HNM6_UnpackNibbles(void)	Byte-identical in WINDREAM.EXE at 0047eecc.
+FUNC	2b18f	HNM6_DecodeCoefficients	undefined8 HNM6_DecodeCoefficients(undefined4 param_1, undefined4 param_2)	Byte-identical in WINDREAM.EXE at 0047ef83.
+FUNC	2bb68	HNM6_DecodeMacroblock	undefined HNM6_DecodeMacroblock(undefined4 param_1, undefined4 param_2)	Byte-identical in WINDREAM.EXE at 0047fa94.
+FUNC	2bbae	HNM6_IDCT8x8	undefined HNM6_IDCT8x8(void)	Instruction-identical in WINDREAM.EXE at 0047fb20.
 FUNC	35da0	_malloc	void * _malloc(size_t _Size)	Library Function - Single Match\n _malloc\n\nLibrary: Visual Studio 1998 Debug
 FUNC	35dd0	__malloc_dbg	undefined __malloc_dbg(uint param_1, uint param_2, int param_3, undefined4 param_4)	Library Function - Single Match\n __malloc_dbg\n\nLibrary: Visual Studio 1998 Debug
 FUNC	35e00	__nh_malloc	void * __nh_malloc(size_t _Size, int _NhFlag)	Library Function - Single Match\n __nh_malloc\n\nLibrary: Visual Studio 1998 Debug
@@ -1093,6 +1104,17 @@ CMT	a39e0	pre	147  timeBeginPeriod  <<not bound>>
 CMT	a39e4	pre	148  timeEndPeriod  <<not bound>>
 CMT	a3a1c	pre	9  GetOpenFileNameA  <<not bound>>
 CMT	a3a20	pre	11  GetSaveFileNameA  <<not bound>>
+CMT	2abf9	plate	Body of _GL_HNM6_Init_All_16@0 (via the one-call wrapper 10002050). Byte-identical in WINDREAM.EXE at 0045c2a0.
+CMT	2ac09	plate	Body of _GL_HNM6_Init_All_15@0 (via 10002065). Byte-identical in WINDREAM.EXE at 0045c2b0.
+CMT	2ac1c	plate	Version-6 branch of GL_dcpt_one_frame_ubb. Byte-identical in WINDREAM.EXE at 0045c2c0.
+CMT	2ad7c	plate	Byte-identical in WINDREAM.EXE at 0047eb70.
+CMT	2ae54	plate	Byte-identical in WINDREAM.EXE at 0047ec48.
+CMT	2aef8	plate	Byte-identical in WINDREAM.EXE at 0047ecec.
+CMT	2afa0	plate	Byte-identical in WINDREAM.EXE at 0047ed94.
+CMT	2b0d8	plate	Byte-identical in WINDREAM.EXE at 0047eecc.
+CMT	2b18f	plate	Byte-identical in WINDREAM.EXE at 0047ef83.
+CMT	2bb68	plate	Byte-identical in WINDREAM.EXE at 0047fa94.
+CMT	2bbae	plate	Instruction-identical in WINDREAM.EXE at 0047fb20.
 CMT	35da0	plate	Library Function - Single Match\n _malloc\n\nLibrary: Visual Studio 1998 Debug
 CMT	35dd0	plate	Library Function - Single Match\n __malloc_dbg\n\nLibrary: Visual Studio 1998 Debug
 CMT	35e00	plate	Library Function - Single Match\n __nh_malloc\n\nLibrary: Visual Studio 1998 Debug

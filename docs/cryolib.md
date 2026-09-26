@@ -32,7 +32,7 @@ things fall out of that string:
 
 165 exported functions, all prefixed `GL_`.
 
-## CryoLib is *not* the game engine
+## CryoLib is *not* the game engine — but its video decoder is inside it
 
 This is the important structural distinction. `WINDREAM.EXE` does **not** import
 `CRYO.DLL` — its only imports are `DDRAW`, `DSOUND`, `WINMM`, `GDI32`, `USER32`
@@ -40,7 +40,12 @@ and `KERNEL32` (see [engine.md](engine.md)). The only consumers of `CRYO.DLL` on
 these discs are `PLAYUBB.EXE` and `PLAYTGA.EXE`, the two bonus-content players,
 and both import it **by ordinal** rather than by name.
 
-So the discs carry **two independent codebases**: **[verified]**
+The C layers are independent. The HNM decoders, which are hand-written
+assembly, are not: the game links **the same assembly source**. See *The game
+carries CryoLib's HNM6 decoder* below.
+
+So the discs carry **two independent codebases** that share one assembly
+module: **[verified]**
 
 | | Game engine | CryoLib |
 |---|---|---|
@@ -109,6 +114,70 @@ Two routes, both far cheaper than writing a decoder from the spec:
 
 **[unverified]** — neither attempted yet. Risk: the DLL may be built against the
 demo content's specific HNM revision rather than the game's.
+
+## The game carries CryoLib's HNM6 decoder **[verified]**
+
+`tools/match_identical.py CRYO.DLL WINDREAM.EXE --insn` (method in
+[re-setup.md](re-setup.md)) finds the HNM6 decoder of `CRYO.DLL` inside
+`WINDREAM.EXE`, and the same bytes in `GDIDREAM.EXE` at the same addresses.
+
+**What "the same" means here.** 11 functions are byte-identical over their
+whole bodies. The only differences are absolute addresses at matching
+relocation offsets, and call targets that pair up consistently. Their data
+operands point to byte-identical tables, with two exceptions, both explained:
+- The jump tables of `HNM6_DecodeCoefficients`: all 348 entries land at the
+  same offset inside the paired function.
+- The dispatch table of `0x4818a0`: it points to the game's block-copy
+  handlers, which are rebuilt for the wider row (`[esi+0x400]` →
+  `[esi+0x500]`).
+
+The game calls
+them: its frame routine `FUN_004268ac` runs `HNM6_DecompressFrame`, then copies
+the 640×304×2 (`0x5F000`) frame into `g_frameBuffer`. Two more functions match
+instruction for instruction, but one `cmp bl,al` is encoded `3A D8` in the game
+and `38 C3` in the DLL. So the game did **not** copy the DLL's binary. It
+assembled the same source with its own tools: operand order, alignment padding
+and encoding choices differ, while the instructions agree.
+
+| Game (`WINDREAM`/`GDIDREAM`) | `CRYO.DLL` | Tier | Name source |
+|---|---|---|---|
+| `0x45c2a0` `HNM6_Init_All_16` | `0x1002abf9` | byte-identical | export `_GL_HNM6_Init_All_16@0` wraps it |
+| `0x45c2b0` `HNM6_Init_All_15` | `0x1002ac09` | byte-identical | export `_GL_HNM6_Init_All_15@0` wraps it |
+| `0x45c2c0` `HNM6_DecompressFrame` | `0x1002ac1c` | byte-identical | descriptive: version-6 branch of `GL_dcpt_one_frame_ubb` |
+| `0x47eb70` `HNM6_InitTables` | `0x1002ad7c` | byte-identical | descriptive |
+| `0x47ec48` `HNM6_InitColorTables565` | `0x1002ae54` | byte-identical | descriptive: `R<<11` |
+| `0x47ecec` `HNM6_InitColorTables555` | `0x1002aef8` | byte-identical | descriptive: `R<<10` |
+| `0x47ed94` `HNM6_SetQuality` | `0x1002afa0` | byte-identical | descriptive: JPEG quality formula |
+| `0x47eecc` `HNM6_UnpackNibbles` | `0x1002b0d8` | byte-identical | descriptive |
+| `0x47ef83` `HNM6_DecodeCoefficients` | `0x1002b18f` | byte-identical | descriptive |
+| `0x47fa94` `HNM6_DecodeMacroblock` | `0x1002bb68` | byte-identical | descriptive |
+| `0x4818a0` (unnamed) | `0x10032b30` | byte-identical | role not established |
+| `0x47fb20` `HNM6_IDCT8x8` | `0x1002bbae` | instruction-identical | descriptive |
+| `0x481978` (unnamed) | `0x10032c08` | instruction-identical | role not established |
+
+Only the two `Init_All` names are CryoLib's own. The others describe what the
+code does and are marked that way in each plate comment. The export
+`_GL_HNM6_Decompression_Warp@8` ends in a one-byte stub in this build.
+
+**What the game changed.** Ten more routines are the same source with
+different constants. These have comments but no new names:
+- The frame loops and block copies step `0x500` bytes per row with a
+  `0x130` (304) row limit, where CryoLib uses `0x400` and `0x198`. That is the
+  640×304 16-bit cutscene frame (`0x4802c4`, `0x4813d4`, `0x480fd4`,
+  `0x481138`, `0x4812b8`, `0x481448`, `0x480d70`).
+- The block-to-RGB routine `0x47f814` has its row step changed and its copy
+  loop rewritten without FPU moves.
+- CryoLib keeps two identical copies of each top-level loop; the game has one
+  of each.
+- The **HNM5 (UBB) decoder** is CryoLib's too. `0x44e9b0` and `0x1002276c`,
+  the 640-wide branch of `GL_dcpt_one_frame_ubb`, both have 7,428
+  instructions. 906 differ, in operand order and in reading their arguments
+  from globals instead of the stack.
+
+The codec itself is a DCT design. `HNM6_SetQuality` scales two 64-entry
+quantisation tables by `q < 50 ? 5000/q : 200 − 2q`, clamped to 8–255, which
+is the IJG JPEG formula. Each macroblock is three 8×8 blocks, run through an
+integer inverse DCT and converted to 16-bit RGB.
 
 ## Other subsystems worth knowing about
 

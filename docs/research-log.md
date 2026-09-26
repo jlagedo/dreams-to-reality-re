@@ -2,6 +2,37 @@
 
 ## Corrections
 
+### Source files leave a layout, not names
+
+The binaries keep no file names, but Watcom's layout rules, read from the
+Open Watcom source ([toolchain.md](toolchain.md)), keep each `.c` file's code
+and data contiguous. `tools/find_modules.py` groups `WINDREAM.EXE`'s 757 game
+functions into 170 blocks and finds 18 proven boundaries. The proven ones come
+from the 3dfx build, which links the same files in a **different order**.
+Calibration and limits are in [re-setup.md](re-setup.md). Two conclusions:
+- Code alignment carries no signal: the game was compiled without function
+  alignment.
+- Uninitialised globals are placed per file (no common symbols), so `.bss` is
+  as good a file marker as the constants.
+
+### CryoLib and the game share their video decoders
+
+[cryolib.md](cryolib.md) said the discs carry *"two independent codebases"*.
+Their C layers are independent, but the HNM6 decoder assembly in `CRYO.DLL`
+is also linked into `WINDREAM.EXE` and `GDIDREAM.EXE`:
+- 11 functions are byte-identical after relocations and consistent call
+  targets, and the game calls them.
+- 2 functions are instruction-identical, differing only in encoding.
+- 10 are rebuilt for the game's 640-pixel row stride.
+- The HNM5/UBB decoder is the same source, reassembled.
+
+This came from the question of which names the binaries leave behind. The game
+executables themselves carry no debug info, exports, C++ mangling, RTTI or
+source paths, so there are no classes to recover. The HNM6 decoder is where
+CryoLib's names can reach the game, through `tools/match_identical.py`. Only
+`HNM6_Init_All_15` and `HNM6_Init_All_16` are real CryoLib names; the other
+names describe what the code does.
+
 ### `CARRE.3DC` was never broken — *carre* means square
 
 The open questions asked why `CARRE` "fails to decode as a box". It decodes as

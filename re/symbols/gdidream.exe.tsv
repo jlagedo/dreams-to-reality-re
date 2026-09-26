@@ -70,6 +70,9 @@ FUNC	5c1e7	IF@DTAN	undefined IF@DTAN(void)	Watcom 10.6 runtime: IF@DTAN (module 
 FUNC	5c208	sqrt_	undefined sqrt_(uint param_1, undefined4 param_2, int param_3, uint param_4)	Watcom 10.6 runtime: sqrt_ (module sqrt387, 48 bytes, full match; gdidream.csv).
 FUNC	5c23a	__@DSQRT	undefined8 __@DSQRT(uint param_1, undefined4 param_2)	Watcom 10.6 runtime: __@DSQRT (module sqrt387, 53 bytes, full match; gdidream.csv).
 FUNC	5c278	memcpy_	void * memcpy_(void * __s1, void * __s2, size_t __n)	Watcom 10.6 runtime: memcpy_ (module memcpy, 37 bytes, full match; gdidream.csv).
+FUNC	5c2a0	HNM6_Init_All_16	undefined8 HNM6_Init_All_16(void)	CryoLib HNM6. Byte-identical to CRYO.DLL 1002abf9 (VERIFIED: relocations, calls, data tables). Name recovered: CryoLib export _GL_HNM6_Init_All_16@0 is a one-call wrapper around it; GL_OpenHnm calls it for RGB565 output.
+FUNC	5c2b0	HNM6_Init_All_15	undefined8 HNM6_Init_All_15(void)	CryoLib HNM6. Byte-identical to CRYO.DLL 1002ac09 (VERIFIED). Name recovered: CryoLib export _GL_HNM6_Init_All_15@0 wraps it; GL_OpenHnm calls it when the output is 15-bit (masks 0x7c00/0x3e0).
+FUNC	5c2c0	HNM6_DecompressFrame	undefined HNM6_DecompressFrame(int * param_1, undefined4 param_2, int param_3, int param_4)	CryoLib HNM6. Byte-identical to CRYO.DLL 1002ac1c (VERIFIED). Descriptive name: CryoLib calls it from GL_dcpt_one_frame_ubb for version-6 files; here FUN_004268ac calls it, then copies the 640x304x2 (0x5F000) frame into g_frameBuffer.
 FUNC	5c420	_uopen_	undefined _uopen_(void * this, undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: _uopen_, open_ (module openwnt, 36 bytes, full match; gdidream.csv).
 FUNC	5c444	_bprintf_	int _bprintf_(char * __buf, uint __bufsize, char * __fmt, ...)	Watcom 10.6 runtime: _bprintf_ (module bprintf, 39 bytes, full match; gdidream.csv).
 FUNC	5cc8b	fprintf_	int fprintf_(FILE * __fp, char * __format, ...)	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; gdidream.csv).
@@ -116,6 +119,14 @@ FUNC	78800	Render_AltObjectHook	undefined Render_AltObjectHook(void)
 FUNC	7e498	Render_DrawObject	undefined Render_DrawObject(void)	
 FUNC	7e99c	__fptan_chk	undefined __fptan_chk(void)	Watcom 10.6 runtime: __fptan_chk (module chipt32, 177 bytes, full match; gdidream.csv).
 FUNC	7eaec	__init_8087_	undefined __init_8087_(void)	Watcom 10.6 runtime: __init_8087_ (module chk8087, 49 bytes, full match; gdidream.csv).
+FUNC	7eb70	HNM6_InitTables	undefined HNM6_InitTables(void)	CryoLib HNM6. Byte-identical to CRYO.DLL 1002ad7c (VERIFIED). Descriptive name: builds the zigzag-indexed block tables and the /10 and /3 range tables; called by both Init_All variants.
+FUNC	7ec48	HNM6_InitColorTables565	undefined HNM6_InitColorTables565(void)	CryoLib HNM6. Byte-identical to CRYO.DLL 1002ae54 (VERIFIED). Descriptive name: clamped R<<11, G<<5, B tables; called only by HNM6_Init_All_16.
+FUNC	7ecec	HNM6_InitColorTables555	undefined HNM6_InitColorTables555(void)	CryoLib HNM6. Byte-identical to CRYO.DLL 1002aef8 (VERIFIED). Descriptive name: clamped R<<10, G<<5, B tables; called only by HNM6_Init_All_15.
+FUNC	7ed94	HNM6_SetQuality	undefined HNM6_SetQuality(void)	CryoLib HNM6. Byte-identical to CRYO.DLL 1002afa0 (VERIFIED). Descriptive name: scales two 64-entry quantisation tables by quality EAX (0..100) with the JPEG formula q<50 ? 5000/q : 200-2q, clamped to 8..255.
+FUNC	7eecc	HNM6_UnpackNibbles	undefined HNM6_UnpackNibbles(void)	CryoLib HNM6. Byte-identical to CRYO.DLL 1002b0d8 (VERIFIED). Descriptive name: splits the 4-bit stream into one byte per nibble (up to 0x400 dwords).
+FUNC	7ef83	HNM6_DecodeCoefficients	undefined8 HNM6_DecodeCoefficients(undefined4 param_1, undefined4 param_2)	CryoLib HNM6. Byte-identical to CRYO.DLL 1002b18f (VERIFIED). Descriptive name: clears three 64-coefficient blocks and refills the nibble buffer before decoding them; called only by HNM6_DecodeMacroblock.
+FUNC	7fa94	HNM6_DecodeMacroblock	undefined HNM6_DecodeMacroblock(undefined4 param_1, undefined4 param_2)	CryoLib HNM6. Byte-identical to CRYO.DLL 1002bb68 (VERIFIED). Descriptive name: HNM6_DecodeCoefficients, then HNM6_IDCT8x8 three times, then FUN_0047f814 (block to 16-bit RGB).
+FUNC	7fb20	HNM6_IDCT8x8	undefined HNM6_IDCT8x8(void)	CryoLib HNM6. Instruction-identical to CRYO.DLL 1002bbae (INSN-IDENTICAL: one cmp bl,al assembled as 3A D8 here, 38 C3 there). Descriptive name: integer 8x8 inverse DCT, row and column butterflies, DC-only shortcut.
 FUNC	8521b	__NTAtMaxFiles_	undefined8 __NTAtMaxFiles_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __NTAtMaxFiles_ (module nthdl, 69 bytes, full match; gdidream.csv).
 FUNC	85260	__NTAddFileHandle_	undefined8 __NTAddFileHandle_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __NTAddFileHandle_ (module nthdl, 121 bytes, full match; gdidream.csv).
 FUNC	8537e	__NTRemoveFileHandle_	undefined __NTRemoveFileHandle_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __NTRemoveFileHandle_ (module nthdl, 44 bytes, full match; gdidream.csv).
@@ -421,6 +432,7 @@ CMT	45955	plate	DirectDrawCreate, QueryInterface IDirectDraw2, SetCooperativeLev
 CMT	463e9	plate	DirectSoundCreate, SetCooperativeLevel(PRIORITY), primary buffer, channel buffers.
 CMT	46ebb	plate	CreateSoundBuffer(primary), SetFormat 22050 Hz 16-bit stereo.
 CMT	46f98	plate	CreateSoundBuffer for the voice records (0x633b40), the 22 kHz stereo and the 11 kHz 8-bit channels.
+CMT	4e9b0	plate	CryoLib HNM5 (UBB) decoder, MODIFIED copy of CRYO.DLL 1002276c, the 640-wide branch of GL_dcpt_one_frame_ubb for version-5 files. Same 7428 instructions; 906 differ in operand order ([esi+edx] vs [edx+esi]) and in reading arguments from globals instead of the stack.
 CMT	54feb	plate	Watcom 10.6 runtime: __CHK (module stkwnt, 16 bytes, full match; gdidream.csv).
 CMT	54ffb	plate	Watcom 10.6 runtime: __STK (module stkwnt, 31 bytes, full match; gdidream.csv).
 CMT	5502a	plate	Watcom 10.6 runtime: __GRO (module stkwnt, 32 bytes, full match; gdidream.csv).
@@ -434,6 +446,9 @@ CMT	5c1e7	plate	Watcom 10.6 runtime: IF@DTAN (module trig387, 21 bytes, full mat
 CMT	5c208	plate	Watcom 10.6 runtime: sqrt_ (module sqrt387, 48 bytes, full match; gdidream.csv).
 CMT	5c23a	plate	Watcom 10.6 runtime: __@DSQRT (module sqrt387, 53 bytes, full match; gdidream.csv).
 CMT	5c278	plate	Watcom 10.6 runtime: memcpy_ (module memcpy, 37 bytes, full match; gdidream.csv).
+CMT	5c2a0	plate	CryoLib HNM6. Byte-identical to CRYO.DLL 1002abf9 (VERIFIED: relocations, calls, data tables). Name recovered: CryoLib export _GL_HNM6_Init_All_16@0 is a one-call wrapper around it; GL_OpenHnm calls it for RGB565 output.
+CMT	5c2b0	plate	CryoLib HNM6. Byte-identical to CRYO.DLL 1002ac09 (VERIFIED). Name recovered: CryoLib export _GL_HNM6_Init_All_15@0 wraps it; GL_OpenHnm calls it when the output is 15-bit (masks 0x7c00/0x3e0).
+CMT	5c2c0	plate	CryoLib HNM6. Byte-identical to CRYO.DLL 1002ac1c (VERIFIED). Descriptive name: CryoLib calls it from GL_dcpt_one_frame_ubb for version-6 files; here FUN_004268ac calls it, then copies the 640x304x2 (0x5F000) frame into g_frameBuffer.
 CMT	5c420	plate	Watcom 10.6 runtime: _uopen_, open_ (module openwnt, 36 bytes, full match; gdidream.csv).
 CMT	5c444	plate	Watcom 10.6 runtime: _bprintf_ (module bprintf, 39 bytes, full match; gdidream.csv).
 CMT	5cc8b	plate	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; gdidream.csv).
@@ -474,6 +489,24 @@ CMT	786d1	plate	Watcom 10.6 runtime: __set_errno_dos_ (module dosret, 81 bytes, 
 CMT	78786	plate	Watcom 10.6 runtime: __GetNTDirInfo_ (module ntdirinf, 59 bytes, full match; gdidream.csv).
 CMT	7e99c	plate	Watcom 10.6 runtime: __fptan_chk (module chipt32, 177 bytes, full match; gdidream.csv).
 CMT	7eaec	plate	Watcom 10.6 runtime: __init_8087_ (module chk8087, 49 bytes, full match; gdidream.csv).
+CMT	7eb70	plate	CryoLib HNM6. Byte-identical to CRYO.DLL 1002ad7c (VERIFIED). Descriptive name: builds the zigzag-indexed block tables and the /10 and /3 range tables; called by both Init_All variants.
+CMT	7ec48	plate	CryoLib HNM6. Byte-identical to CRYO.DLL 1002ae54 (VERIFIED). Descriptive name: clamped R<<11, G<<5, B tables; called only by HNM6_Init_All_16.
+CMT	7ecec	plate	CryoLib HNM6. Byte-identical to CRYO.DLL 1002aef8 (VERIFIED). Descriptive name: clamped R<<10, G<<5, B tables; called only by HNM6_Init_All_15.
+CMT	7ed94	plate	CryoLib HNM6. Byte-identical to CRYO.DLL 1002afa0 (VERIFIED). Descriptive name: scales two 64-entry quantisation tables by quality EAX (0..100) with the JPEG formula q<50 ? 5000/q : 200-2q, clamped to 8..255.
+CMT	7eecc	plate	CryoLib HNM6. Byte-identical to CRYO.DLL 1002b0d8 (VERIFIED). Descriptive name: splits the 4-bit stream into one byte per nibble (up to 0x400 dwords).
+CMT	7ef83	plate	CryoLib HNM6. Byte-identical to CRYO.DLL 1002b18f (VERIFIED). Descriptive name: clears three 64-coefficient blocks and refills the nibble buffer before decoding them; called only by HNM6_DecodeMacroblock.
+CMT	7f814	plate	CryoLib HNM6, MODIFIED copy of CRYO.DLL 1002ba20 (block YUV to 16-bit RGB): row step 0x3f0 -> 0x4f0 for the 640-pixel frame, and the copy loop rewritten without the FPU (104 vs 72 instructions).
+CMT	7fa94	plate	CryoLib HNM6. Byte-identical to CRYO.DLL 1002bb68 (VERIFIED). Descriptive name: HNM6_DecodeCoefficients, then HNM6_IDCT8x8 three times, then FUN_0047f814 (block to 16-bit RGB).
+CMT	7fb20	plate	CryoLib HNM6. Instruction-identical to CRYO.DLL 1002bbae (INSN-IDENTICAL: one cmp bl,al assembled as 3A D8 here, 38 C3 there). Descriptive name: integer 8x8 inverse DCT, row and column butterflies, DC-only shortcut.
+CMT	802c4	plate	CryoLib HNM6, MODIFIED copy of CRYO.DLL 1002c354 / 10031580 (identical twins there): row stride 0x400 -> 0x500 (640 px x 2 B), row limit 0x198 -> 0x130 (304). Called by HNM6_DecompressFrame.
+CMT	80d70	plate	CryoLib HNM6, MODIFIED copy of CRYO.DLL 10032020 (36 of 161 instructions differ).
+CMT	80fd4	plate	CryoLib HNM6, MODIFIED copy of CRYO.DLL 10032280: stride 0x400 -> 0x500 and alignment padding only.
+CMT	81138	plate	CryoLib HNM6, MODIFIED copy of CRYO.DLL 100323e4: stride 0x400 -> 0x500 and alignment padding only.
+CMT	812b8	plate	CryoLib HNM6, MODIFIED copy of CRYO.DLL 10032564: stride 0x400 -> 0x500 and alignment padding only.
+CMT	813d4	plate	CryoLib HNM6, MODIFIED copy of CRYO.DLL 1002d380 / 10032680: row stride 0x400 -> 0x500, row limit 0x198 -> 0x130. Called by HNM6_DecompressFrame.
+CMT	81448	plate	CryoLib HNM6, MODIFIED copy of CRYO.DLL 1002d3f4 / 100326f4 (25 of 169 instructions differ; row address computed for the 640 stride).
+CMT	818a0	plate	CryoLib HNM6. Byte-identical to CRYO.DLL 10032b30 (VERIFIED). Role not established: reads a 16-bit op word and dispatches on bits 12-14 through a jump table.
+CMT	81978	plate	CryoLib HNM6. Instruction-identical to CRYO.DLL 10032c08 (INSN-IDENTICAL). Role not established.
 CMT	8521b	plate	Watcom 10.6 runtime: __NTAtMaxFiles_ (module nthdl, 69 bytes, full match; gdidream.csv).
 CMT	85260	plate	Watcom 10.6 runtime: __NTAddFileHandle_ (module nthdl, 121 bytes, full match; gdidream.csv).
 CMT	8537e	plate	Watcom 10.6 runtime: __NTRemoveFileHandle_ (module nthdl, 44 bytes, full match; gdidream.csv).
