@@ -1,8 +1,9 @@
-"""Scenes (``.DSN``) and animations (``.DAN``). **Headers solved, bodies packed.**
+"""Scenes (``.DSN``) and animations (``.DAN``): headers and tagged records.
 
 Both share a 9-byte preamble with the file size stored **unaligned at offset 5**,
 then a u32 span field and a u16 count. Verified against every file on the discs -
-98 scenes and 191 animations.
+95 unique scenes and 191 animations. Packed records use :mod:`dreams.formats.lz`;
+scene tag 1 is render geometry and tag 2 is collision (see docs/scene-geometry.md).
 
 ``.DSN``::
 
@@ -64,11 +65,11 @@ class DsnObject:
     """One 20-byte sub-object entry in the .DSN header table."""
 
     name: str
-    flags: int  #: Word 0 (0x4741A0 = static mesh / relocated buffer)
-    sub_flags: int  #: Word 1 (relocated address / flags)
-    role_id: int  #: Word 2 (constant 3)
-    compass_or_type: int  #: Word 3 (0x202=North, 0x246=East, 0x286=West, 0x206/0x287/etc.)
-    surface_param: int  #: Word 4 (surface category / collision friction / sound)
+    flags: int  #: Raw word 0; legacy label, semantics unverified.
+    sub_flags: int  #: Raw word 1; legacy label, semantics unverified.
+    role_id: int  #: Raw word 2; often 3, not constant across the corpus.
+    compass_or_type: int  #: Raw word 3; the compass interpretation is unverified.
+    surface_param: int  #: Raw word 4; no confirmed friction or sound meaning.
 
 
 @dataclass
@@ -89,7 +90,7 @@ class Scene:
 
     @property
     def span_ok(self) -> bool:
-        """``A = 31*name_count + 7`` — holds in all 98 scenes on the discs.
+        """``A = 31*name_count + 7`` — holds in all 95 unique scenes on the discs.
 
         Equivalently ``body_offset == 9 + A``, the same relation ``.DAN`` uses.
         """
@@ -139,7 +140,7 @@ def read_dsn(path: str | Path) -> Scene:
     """Parse a ``DSNF`` scene header.
 
     ``count_a`` is a derived header span, not a count: ``A = 31*name_count + 7``
-    holds in all 98 files on the discs, putting the packed body at
+    holds in all 95 unique scenes on the discs, putting the record body at
     ``9 + A == 16 + 31*name_count`` - confirmed against the loader in
     ``WINDREAM.EXE``, which reads the two tables back to back.
     """

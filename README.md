@@ -3,8 +3,12 @@
 Reverse-engineering toolkit and research notes for **Dreams to Reality**
 (Cryo Interactive Entertainment, 1997 — DOS / Windows).
 
-The goal is to understand and decode the game's proprietary formats. The engine
-target is undecided; right now this is exploration and decoding.
+The goal is **OpenDreams**, a portable C++17 engine that runs the original game
+data with the game's recovered logic, a 30 Hz simulation and GPU rendering.
+The native engine is not implemented yet; this repository currently contains
+the Python reference decoders, RE evidence and Babylon.js inspection viewer.
+See [the north star](docs/north-star.md) for decisions and
+[current RE status](docs/re-status.md) for coverage and priorities.
 
 **No game data lives in this repo.** The discs are copyrighted; `.gitignore`
 blocks every asset extension, extraction directory and derived media type. Keep
@@ -109,9 +113,9 @@ Stages, layout and JSON formats are in [docs/pipeline.md](docs/pipeline.md).
 | `dreams disc iso/cue` | **solved** |
 | `dreams pe` | **solved** — sections, imports, exports, toolchain |
 | `dreams bundle` | **solved** — `UBIK` table and members |
-| `dreams mesh` | **partial** — geometry + glTF export; 4 of 95 scenes verified |
+| `dreams mesh` | **working** — all 95 scenes use the render graph, with names, signed UVs and face types; collision placement stays diagnostic |
 | `dreams scene` / `anim` | **solved** — headers, record chain, LZ; payload meanings partly open |
-| `dreams model` | partial — `F3DC` header, materials, `PAK0` chunk bounds |
+| `dreams model` | inspection — `F3DC` headers, materials, `PAK0` bounds; model/prop node decoders are in `dreams.formats.node` |
 
 Exploration helpers: `census`, `identify`, `stats`, `regions`, `tags`,
 `strings`, `dump`, `render`, `stride`.
@@ -153,15 +157,16 @@ guide for coding agents. Headlines:
   the retail disc. It is a separate codebase from the game.
 - **All audio is plain PCM WAV** inside two custom banks: `FSB.DAT` (24 effects,
   16-bit) and `DIALOG.DRD` (178 voice clips, 8-bit). Music is CD audio.
-- **`.DSN` is fully decodable.** The body is a chain of tagged records; tags 1
-  and 2 use **Cryo's own LZ codec**, recovered from the binary and verified on
-  610/610 records across both discs. Nothing in a scene file is opaque any more.
+- **`.DSN` records decompress.** Tags 1 and 2 use **Cryo's own LZ codec**,
+  recovered from the binary. Tag 1 is the renderable scene graph; tag 2 is the
+  collision mesh. Record decoding does not settle every runtime placement.
 - **The level textures are decoded.** Each object owns one **256x256** 8-bit
   surface, interleaved from 64 subsampled 32x32 planes, indexing a 256-entry
   **RGB565** palette. There is no separate texture file anywhere on the discs.
 - **Scene geometry exports to glTF.** Vertices, faces, UVs and materials, for
-  **4 of 95 scenes** so far — the rest are blocked on one unresolved mapping
-  step. `E01GROTT` comes out as a closed cave chamber with a single doorway.
+  **all 95 scenes**. The old collision-placement gate is removed; no guessed
+  transforms are applied. The native runtime still needs to reproduce movers.
+  `E01GROTT` is a closed cave chamber with a single doorway.
   See [docs/scene-geometry.md](docs/scene-geometry.md).
 
 Claims in the docs are tagged **[verified]** (measured here), **[sourced]**

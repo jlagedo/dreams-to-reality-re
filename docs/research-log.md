@@ -1,6 +1,48 @@
 # Research log
 
+This is the historical record, including rejected readings and coverage at
+the time of each entry. For current conclusions and priorities, start at
+[re-status.md](re-status.md) and its subsystem references.
+
+## 2026-09-26 — recovered knowledge consolidated
+
+- North star now selects 30 Hz with Δt = 1.0 from the recorder/clamp trace;
+  rendering interpolation remains optional at milestone 7.
+- Recounted both configured discs and the 150 project scene references:
+  **95 unique scene names**, all present, rather than the stale 98. The
+  checked export coverage remains **84/95**; eleven placement cases remain.
+- Updated current guides and `re/structs/windream.h` with the recovered
+  movement/turn/radius fields, palette-bank layout, particle-emitter role,
+  collision/render split and save/language findings. Older readings below
+  are historical, including the discarded `.3DM` three-image interpretation.
+- Added `re-status.md` to distinguish decoding, naming, implementation and
+  behavior validation. Existing Python/baked field names are documented as
+  legacy aliases; this consolidation does not change the viewer's data format.
+
 ## Corrections
+
+### Renderer/loader gap pass: reviewed results (2026-09-26)
+
+Three isolated worker batches plus independent root reviews produced
+[glide-renderer.md](glide-renderer.md), [lighting.md](lighting.md) and
+[scene-placement.md](scene-placement.md). The adjudication and naming evidence
+are in [re/reviews/renderer-gaps-20260926.md](../re/reviews/renderer-gaps-20260926.md).
+
+- All 95 scene graphs now export from tag 1. Collision disagreement no longer
+  substitutes collision geometry; no offsets are guessed. ARC's 75 triangles
+  and 15 open boundary edges are preserved as source topology.
+- Signed UVs and face types survive decoding and glTF export; hardware type 2
+  clamps and type 9 wraps. The source already stores triangles; there is no
+  quad-diagonal decision in the Glide hook.
+- Glide deferred alpha retains depth writes and insertion order. Palette
+  cache keys only the page pointer; model textures upload at 128x128. Fog
+  includes a density multiplier and water branch omitted by the C decompiler.
+- Project +0x18/+0x24 are RGB base/variation, not directions. Palette updates
+  consume three shared RNG draws per normal tick. The apparent pixel-fetch
+  helpers are RET stubs, so no extra framebuffer dependency is asserted.
+- Corrected light types (position-only type 1, oriented type 2), raw mode-16
+  behavior and palette-row arguments. Added 12 checked WIN and 19 checked FX
+  names; software-span candidate deferred rather than bypassing two-source review.
 
 ### The level record has no camera fields at `+0x9c`-`+0xa4` (2026-09-26)
 

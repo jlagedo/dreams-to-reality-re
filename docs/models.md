@@ -2,8 +2,10 @@
 
 > **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
 
-**Solved.** 159/159 models on the discs decode to glTF: **1,886 parts, 41,614
-triangles, 131 collision proxies**, with texture pages. **[verified]**
+The current reader accepts **41,608 triangles over 1,886 parts in 159 models**,
+with texture pages, signed UVs and face types (recounted 2026-09-26).
+The old 41,614-face aggregate is not the current baseline; see
+[scene-placement.md](scene-placement.md) for its unresolved historical difference.
 
 `.DAN` was catalogued for two passes as *"Animation. Same container and LZ as
 `.DSN`; payload meanings open."* That was wrong in an expensive way — **tag 1
@@ -109,13 +111,13 @@ words 12, 13, 14 are UV references. A reference is a stale pointer:
 **1. A face may span two nodes.** Resolve each of the three references
 *independently*, in its own node's world space. These bridging triangles are
 the skin over a joint and always join a **parent-child** pair — pelvis↔torso,
-torso↔head, torso↔arms, hip↔thigh. **12,373 of 41,614 faces (30%)** are
+torso↔head, torso↔arms, hip↔thigh. **12,373 of 41,608 faces (30%)** are
 bridges. Requiring one owner for all three corners drops them and the model
 falls apart into floating segments.
 
-This is the opposite of `.DSN` levels, where **all 71,689 faces sit in a
-single node** — so the level rule does *not* carry over, and assuming it does
-is what produced a character with a missing foot and gaps at every joint.
+A static level face may keep its corners in one node, but that must not become
+a decoder restriction. Imposing it on models produced a missing foot and gaps
+at every joint. Resolve each corner through its own node.
 
 **2. The last block may overrun.** In **86 of 159 models** the final face
 block declares four bytes more than the decompressed record holds. Only the
@@ -248,38 +250,33 @@ The lesson is recorded in [research-log.md](research-log.md): a reference that
 resolves in range is **not** evidence that it resolves correctly. Only
 rasterising the result separated the two.
 
-**One small gap.** Over the whole corpus **126,819 of 126,819** UV references
-decode, and both coordinates land in range in **125,059 — 98.6%**. The
-remainder are confined to `F37.DAN`, `H14.DAN` and `L14.DAN`. At most 0.35% of
-a model's corners, so nothing shows, but it is unexplained. **[unverified]**
+The current corpus contains **124,824 UV corner references**, all pointing to
+complete records. Values outside one page are authored signed coordinates:
+F37/H14 use Glide type-2 clamp and L14 uses type-9 wrap. The reader now retains
+these values and the face type instead of clamping negatives to zero. The
+older 126,819-reference figure used a different, untraced counting baseline.
+See [scene-placement.md](scene-placement.md) and [glide-renderer.md](glide-renderer.md).
 
 ## The rest of the 68-byte face record
 
-Records begin at `off + 40`, which is what the block's `+0x14` points at and
-what makes the next-pointer chain close — it validates **2,768 of 2,768**
-blocks there and 134 of 2,768 one word later. The table below indexes from
-`off + 44`, one word in, which is where the decoder reads:
+The layout is now traced from the code that reads it, with offsets measured
+from the actual record start. The previous word table started four bytes
+later and incorrectly described 88-byte edges. **[verified]**
 
-| word | what it is |
+| Offset | Meaning |
 |---|---|
-| `w0` | address of the **next** record — the block is a linked list |
-| `w1` `w4` `w7` | the three corner vertices, `slot = (ref − base) / 40` |
-| `w2` `w5` `w8` | into a 16-byte-stride array, one entry per vertex |
-| `w3` `w6` `w9` | into an 88-byte-stride array, one entry per corner |
-| `w10` | into a 16-byte-stride array, one entry per **face** |
-| `w11` | a small **signed** int, −14..+70 in `XH_`; carried through clipping, and *not* the shade selector |
-| `w12` `w13` `w14` | the three UV records |
-| `w15` `w16` | `w15` is **zero in every record on the discs**; `w16` takes 535 values, 8 in 23,174 of 42,174 |
+| `+0x00`, `+0x04` | flags, next visible face |
+| `+0x08/+0x14/+0x20` | pointers to 40-byte node-local vertex records |
+| `+0x0c/+0x18/+0x24` | pointers to 16-byte corner normals |
+| `+0x10/+0x1c/+0x28` | pointers to 100-byte shared rasterizer edge scratch |
+| `+0x2c`, `+0x30` | face normal and signed plane distance |
+| `+0x34/+0x38/+0x3c` | pointers to 8-byte 16.16 UVs |
+| `+0x40`, `+0x41..+0x43` | face shade and Gouraud corner shades |
 
-`w0` chaining by exactly 68 is what confirms the record stride independently of
-the `68` stored at the block's `+0x20`. The block header carries the object
-name in its first 8 bytes, the face count at `+0x10`, the address of the first
-record at `+0x14`, and at `+0x24` a pointer that is the same for every block in
-a file — in 174 of 175 files, `F74.DAN` being the exception.
-
-**[unverified]** — `w2`/`w5`/`w8`, `w3`/`w6`/`w9`, `w10`, `w11`, `w15`, `w16`
-and the block header's `+0x1c` are named by their stride and their arity, not
-by anything found in the binary.
+See [scene-geometry.md](scene-geometry.md#the-records-from-the-code-that-reads-them)
+for readers and corpus evidence, and `MDL_Face` / `MDL_FaceBlock` in
+`re/structs/windream.h` for the typed layouts. The Python scanner's `off`
+starts inside the block, so its relative offsets differ from the C layout.
 
 ## Two pages, not two copies
 
@@ -293,11 +290,12 @@ vertex positions — 18 of 26 nodes in `XH_`, 13 of 15 in `F01`. Exported as one
 primitive with one page, every `_B` face reads the wrong atlas: the character's
 chest lands on his back and a trainer appears under his arm.
 
-So a model exports as **one material and one page per group**, mapped in sorted
-name order — `_A` before `_B`, `MHEROI1` before `MHEROI2`. The order is
-**[unverified]** in the sense that nothing in the file states it, but swapping
-it deliberately reproduces the chest-on-the-back artefact exactly, and the
-correct order gives shoulder blades and a spine.
+The exporter uses **one material and one page per group**, mapped in sorted
+name order — `_A` before `_B`, `MHEROI1` before `MHEROI2`. The original's
+binding is now traced: `MDL_LoadMaterials` (`0x456038`) fills the material cache,
+and `MDL_BindFaceMaterials` (`0x4554e0`) selects the entry matching the face
+block's name. A native loader should reproduce that name binding rather than
+infer it from page order. See [scene-geometry.md](scene-geometry.md).
 
 Three models — `E_P`, `E66` and one other — have groups that share **no**
 vertices. For those the two groups are disjoint geometry, so whether they are
@@ -376,7 +374,7 @@ bytes. **165 nodes across the 16 unique `.3DC` files**, exported by the same
 | `EPEE` | 1 | 28 | 52 | **0** |
 | `GUN` | 2 | 19 | 56 | **0** |
 | `CARRE` | 1 | 4 | 2 | 4 — correct, see below |
-| `ARC` | 2 | 49 | 75 | 15 — still open |
+| `ARC` | 2 | 49 | 75 | 15 — present in source triangles; preserve |
 
 `CARRE` was listed for two passes as "fails to decode as a box". It is a quad,
 and *carré* is French for **square**. The decode was right; the expectation was
@@ -384,7 +382,10 @@ the bug.
 
 ## Still open
 
-- **The unnamed face-record fields** in the table above.
+- ARC's artistic intent needs visual comparison, but all 75 source triangles
+  resolve and their open boundaries must be preserved. Signed UV interpretation
+  for the faithful Glide path is established above.
+
 ## Animation — `.DAN` Tag 3 Decoded [verified]
 
 For the executable hypothesis harness, named node directory, and the correction
@@ -578,7 +579,8 @@ Implemented in [`src/dreams/formats/animation.py`](../src/dreams/formats/animati
 
 ## Still open
 
-- **The unnamed face-record fields** in the table above.
-- Which bank a face group samples is assigned **by order**, not read from the
-  file. Swapping it is visibly wrong, so the order is right, but the field that
-  states it has not been found. **[unverified]**
+- Exact runtime animation parity: action flags, fixed-point and weight rounding,
+  special roots and comparison with original-game poses; see
+  [animation-root-blending.md](animation-root-blending.md).
+- Original-game appearance comparisons; ARC's source topology and valid signed
+  UV records are now established. The inspection exporter is not the full renderer.

@@ -79,33 +79,36 @@ whose material name equals the block name, or the material's colour word for
 flat-colour block types. So `Face.group` choosing the texture is what the
 engine does.
 
-**Face block types.** `SW_DrawObjectFaces` dispatches on block `+0x04`.
-Every block in every level is type **3**, the perspective-correct textured
-rasterizer (`0x46fe20`: `u·K/z`). Types `0x14`/`0x15` also compute a texture
-gradient bucket 0-6; negative types are the ones the 3dfx build defers to its
-translucent pass.
+**Face block types.** The signed block type is runtime `+0x04` (the
+Python name cursor minus 8). All 95 scenes contain type 3, but twelve also
+contain types 9, -6, -4, -7 or -3. Negative types do not all mean alpha:
+Glide draws -5/-6 with chroma key and defers -7/-4/-3. See the complete
+[Glide contract](glide-renderer.md).
 
-### Coverage — 84 of 95
+### Coverage — 95 of 95
 
-Tag 2 omits what cannot be collided with: skies (`E15_CIE*`, `E19_CIE*`,
-`F31CIEL`), video surfaces (`*HNM*`), roofs, water. So "every node vertex is in
-tag 2" was the wrong gate. `mesh.check_nodes` asks the question tag 2 can still
-answer — is each node where the file says? — per node:
+All 95 scenes select the tag-1 graph, with 157,433 faces and every one of
+472,299 checked vertex pointers resolved. The old collision-placement gate
+rejected eleven valid render graphs. It is removed: the original composes
+node transforms and renders tag 1 without consulting tag 2 for approval.
+No guessed offset is applied. `mesh.check_nodes` remains a comparison tool.
 
-- **anchored**: some vertices sit in tag 2 at the composed position (±4, the
-  exporter's own float rounding reaches 3), and no other offset explains more;
-- **unanchored**: nothing in tag 2 at any offset (non-collidable, unchecked);
-- **displaced**: one non-zero offset puts at least half the node on tag 2.
+The eleven former cases, including repeated shapes and alternate collision
+placements, are detailed in [scene-placement.md](scene-placement.md). Their
+specific mover identities are not all established. The earlier label of
+E12_EAU as a moving block was stronger than the evidence supports.
 
-A scene takes the node route when no node is displaced. **84 of 95** now do
-(58 before), with names and UVs. The 11 that keep the tag 2 fallback each have
-a displaced node: moving blocks baked into tag 2 in another pose (`E12_ANGK`
-node 3, 408 units down; `E11_ANGK`, `F33BATMO` 284-286 up), the ride scene
-`E15_RIDE` (every node 7-88 units up), and small repeated shapes the vote
-cannot tell apart (`E04ARAI2`, `E99ARAI2`, `F15SOUFF`). Which pose a runtime
-should draw a mover in belongs to the entity code, not the decoder.
+<!-- docs-sync: off -->
 
-## The pipeline
+## Historical investigation: reference mapping
+
+The following sections retain the earlier reconstruction attempts. Their
+tag-1-to-tag-2 mapping assumptions and 5/95 or 58/95 coverage counts are
+superseded by *The engine's view* and *Coverage — 95 of 95* above. The old
+verification helpers remain useful for comparing data, but do not describe
+the engine's render path.
+
+### The pipeline
 
 ```
 DSNF header  ->  body = chain of tagged records
@@ -318,7 +321,7 @@ negated because the engine puts the floor at 0 and the ceiling at large
 negative Y, geometry unindexed because UVs are per corner. Textures are the
 interleaved 256x256 surfaces, one PNG per object.
 
-## The scene-graph node — and why it solves models but not levels
+## Historical node-placement investigation
 
 The struct behind `.DSN` tag 1 is the engine's **scene-graph node**, documented
 in full in [models.md](models.md) and implemented in

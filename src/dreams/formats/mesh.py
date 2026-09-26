@@ -1,5 +1,13 @@
 """Scene geometry from ``.DSN`` record tags 1 and 2.
 
+Current path: :func:`read_scene` prefers tag 1's renderable scene graph via
+``dreams.formats.node``; tag 2 is a separate collision mesh. Face pointers
+resolve to 40-byte node vertices in every checked scene. All 95 scenes use
+tag 1; comparison with collision positions is diagnostic only. See
+``docs/scene-geometry.md`` for the runtime interpretation.
+
+Historical reference-mapping path (retained helpers, not the engine's model):
+
 Tag 2 is the vertex pool; tag 1 holds the material table and, per object, a run
 of 68-byte face records that reference it. Both are LZ-packed - see
 :mod:`dreams.formats.lz`.
@@ -76,6 +84,7 @@ class Object:
     material: str
     faces: list[tuple[int, int, int]] = field(default_factory=list)
     uvs: list[tuple[float, float]] = field(default_factory=list)  # 3 per face
+    primitive_type: int | None = None  # unknown for legacy/collision fallback routes
 
 
 @dataclass
@@ -132,7 +141,7 @@ class Mesh:
 
     @property
     def mapping_is_clean(self) -> bool:
-        """True when the reference-to-vertex mapping is provably right.
+        """Legacy single-run mapping check; not the current node export gate.
 
         References are stale pointers into 40-byte slots. Three conditions
         together make rank the index: the references form **one contiguous run
@@ -490,11 +499,12 @@ def read_node_mesh(path: str | Path) -> Mesh:
 
     index: dict[tuple[int, int, int], int] = {}
     vertices: list[tuple[int, int, int]] = []
-    objects: dict[str, Object] = {}
+    objects: dict[tuple[str, int], Object] = {}
     for f in faces:
-        obj = objects.get(f.group)
+        key = (f.group, f.primitive_type)
+        obj = objects.get(key)
         if obj is None:
-            obj = objects[f.group] = Object(f.group, f.group)
+            obj = objects[key] = Object(f.group, f.group, primitive_type=f.primitive_type)
         tri = []
         for corner in f.corners:
             at = index.get(corner)
@@ -507,7 +517,7 @@ def read_node_mesh(path: str | Path) -> Mesh:
     return Mesh(
         path=p,
         vertices=vertices,
-        materials=[Material(n, n, 0) for n in objects],
+        materials=[Material(n, n, 0) for n in dict.fromkeys(f.group for f in faces)],
         objects=list(objects.values()),
     )
 
@@ -663,10 +673,10 @@ def read_scene(path: str | Path) -> tuple[Mesh, str]:
     Order is by what survives the decode:
 
     ``nodes``
-        The scene-graph node, taken when :func:`verify_nodes` agrees with tag
-        2 to within a unit or two, or when :func:`check_nodes` finds no node
-        displaced against it. The only route that keeps per-object names and
-        UVs, so the only one that can produce a **textured** level.
+        The tag-1 scene graph, taken when its face list decodes. This is the
+        renderer's source and the only route that keeps per-object names and
+        UVs. Tag 2 is collision geometry; a different collision pose cannot
+        select the render mesh.
     ``tag1``
         The reference-mapped decode, taken when every face it makes is also a
         tag 2 triangle. Exact, and rare.
@@ -676,8 +686,9 @@ def read_scene(path: str | Path) -> tuple[Mesh, str]:
     """
     p = Path(path)
     try:
-        if verify_nodes(p) >= 0.99 or check_nodes(p).passes:
-            return read_node_mesh(p), "nodes"
+        node_mesh = read_node_mesh(p)
+        if node_mesh.face_count:
+            return node_mesh, "nodes"
     except (ValueError, struct.error, StopIteration, KeyError):
         pass
     m = read_mesh(p)

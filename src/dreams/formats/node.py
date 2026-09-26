@@ -69,13 +69,27 @@ UV_WORDS = (12, 13, 14)
 #: The UV atlas is the 256x256 texture page, addressed in texels.
 ATLAS = 256
 
-#: A UV is a texel in 16.16 fixed point, so ``value / 65536`` is a pixel in
-#: 0..255 and dividing again by :data:`ATLAS` normalises it for glTF. There is
+#: A UV is a signed texel in 16.16 fixed point. Values can be negative or
+#: extend past the page; the primitive type chooses clamp/wrap in Glide.
+#: Dividing by :data:`ATLAS` normalises the texel coordinate for glTF. There is
 #: no extra byte offset: a UV reference is **exact**, and adding the record's
 #: relocation delta lands on the first of the two words. The ``-5`` that
 #: ``mesh.py`` applies is not a field offset either - it is ``.DSN``'s own
 #: relocation delta, which happens to be -5 where a model's is positive.
 UV_SCALE = 65536 * ATLAS
+
+
+def glide_wrap(primitive_type: int) -> bool | None:
+    """Glide block sampling: True repeats, False clamps, None is unspecified.
+
+    DREAMSFX 0x67568/0x68128; see docs/glide-renderer.md. This is the hardware
+    contract, not a claim about each software rasterizer's address arithmetic.
+    """
+    if primitive_type in (-7, -6, -5, -4, -3, 9):
+        return True
+    if primitive_type in (2, 3, 22, 23, 24):
+        return False
+    return None
 
 
 @dataclass
@@ -207,6 +221,7 @@ class Face:
     group: str = ""  #: the owning block's name, which selects the texture page
     node_indices: tuple[int, ...] = field(default_factory=tuple)
     local_coords: tuple[tuple[int, int, int], ...] = field(default_factory=tuple)
+    primitive_type: int = 3  #: signed block type at name-8 / runtime block +0x04
 
 
 @dataclass
@@ -232,8 +247,8 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
     *independently*, each in its owning node's world space. These bridging
     triangles are the skin over a joint and always join a parent-child pair;
     requiring one owner for all three corners drops them and leaves the model
-    in disconnected pieces. ``.DSN`` levels are the opposite case - all
-    71,689 faces there sit in a single node.
+    in disconnected pieces. Resolve each pointer's owner even when a static
+    level face happens to keep all its corners in one node.
 
     **The last block may overrun.** In 86 of 159 models the final face block
     declares four bytes more than the record holds. Only the unused tail is
@@ -279,6 +294,9 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
             continue
         if struct.unpack_from("<I", buf, off + FACE_FIRST_AT)[0] + delta != off + FACE_ORIGIN:
             continue
+        if off < 8:
+            continue
+        primitive_type = struct.unpack_from("<i", buf, off - 8)[0]
         group = buf[off : off + FACE_NAME].split(b"\x00")[0].decode("latin-1", "replace")
         for f in range(n):
             at = off + FACE_DATA + FACE_RECORD * f
@@ -311,10 +329,10 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
             for k in range(3):
                 a = (row[UV_WORDS[k]] + delta) if row else -1
                 if 0 <= a and a + 8 <= len(buf):
-                    # 0xFFFFFFFF stands in for zero at a texture edge, as in
-                    # .DSN; anything else out of range would be a decode bug.
+                    # Preserve authored signed UVs; sampler behavior belongs
+                    # to the face block, not to coordinate decoding.
                     u, v = struct.unpack_from("<2i", buf, a)
-                    uvs.append((max(u, 0) / UV_SCALE, max(v, 0) / UV_SCALE))
+                    uvs.append((u / UV_SCALE, v / UV_SCALE))
                 else:
                     uvs.append((0.0, 0.0))
             seen.add(at)
@@ -327,6 +345,7 @@ def read_faces(buf: bytes, nodes: list[Node]) -> tuple[list[Face], set[int]]:
                     group=group,
                     node_indices=tuple(corner_nodes),
                     local_coords=tuple(corner_locals),
+                    primitive_type=primitive_type,
                 )
             )
     return faces, used
@@ -348,7 +367,7 @@ def read_model(path: str | Path) -> Model:
     ``.DAN`` was catalogued for years as "animation, payload meanings open".
     Tag 1 is in fact the **model**, built from the same node as ``.DSN`` tag 1,
     so the level decode solved it for free. 159/159 models on the discs decode
-    to 1,886 nodes and 41,614 triangles.
+    to 1,886 nodes and 41,608 accepted triangles (current corpus recount).
     """
     from dreams.formats import lz, scene
 
@@ -374,8 +393,8 @@ def read_3dc(path: str | Path) -> Model:
     This closes a long-standing defect: ``BOULE`` reaches **0 boundary edges**
     (it was 18), as do ``EPEE`` and ``GUN``. ``CARRE`` comes out as 4 vertices
     and 2 triangles - *carre* is French for **square**, so a quad is correct and
-    the old expectation of a box was the error. ``ARC`` still has 15 boundary
-    edges and is unresolved.
+    the old expectation of a box was the error. ``ARC``'s 15 boundary edges are
+    present in its 75 stored triangles; preserve that open source topology.
     """
     p = Path(path)
     buf = p.read_bytes()

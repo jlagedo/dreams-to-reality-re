@@ -13,9 +13,9 @@ marked otherwise.
 | **Sound effects** | `DATA\SOUND\FSB.DAT` | 1 bank / 24 clips | 741 KB | no | **format fully decoded** |
 | **Voice** | `DATA\3DC\DIALOG.DRD` | 1 bank / 178 clips | 23.5 MB | no | **format fully decoded** |
 | **Music** | redbook CD audio tracks | 11 + 13 tracks | ~700 MB | n/a | mount the `.cue` |
-| **Scenes / levels** | `DATA\3DC\*.DSN` | 98 | **157 MB** | ~3% | **header + record chain + textures decoded**; only tags 1-2 packed |
-| **Models + animation** | `DATA\3DC\*.DAN` | 191 | 23.4 MB | **yes** | **solved** — 159 models, 1,886 parts, 41,614 triangles, texture pages; animation partly read. [models.md](models.md) |
-| **Props / weapons** | `DATA\3DC\*.3DC` | 32 | ~0.5 MB | no | **geometry solved** — raw `F3DC`, same node, 165 nodes over 16 files; only `ARC` still open |
+| **Scenes / levels** | `DATA\3DC\*.DSN` | 95 unique names | **150.8 MiB** | ~3% | scene graph, collision and textures decoded; **95/95** export with names, signed UVs and face types |
+| **Models + animation** | `DATA\3DC\*.DAN` | 191 | 23.4 MB | **yes** | geometry, texture pages and animation tracks decoded; exact runtime playback still needs validation. [models.md](models.md) |
+| **Props / weapons** | `DATA\3DC\*.3DC` | 32 | ~0.5 MB | no | **geometry decoded** — raw `F3DC`, same node, 165 nodes over 16 files; ARC's open edges are source topology |
 | **Prop textures** | `DATA\3DC\*.3DM` | 8 | 0.8 MB | no | **decoded** — one texture bank each (32-row palette ramp + 256×256 page), `dreams.formats.node.read_3dm`; see below |
 | **Model archive** | `DATA\OBJET\*.PAK` | 2 | 62 KB | no | one `F3DC` chunk at `0x0C` |
 | **Sprites / fonts** | `*.SPR` | 16 | 0.9 MB | no | **pixel data decoded** — indexed sheets, 256-glyph fonts, and menu `TABLE` sprites |
@@ -23,8 +23,8 @@ marked otherwise.
 | **Icons** | `ICONE\ICONES.BF` | 1 + 4 old copies | 372 KB | no | **fully decoded** — named-asset container |
 | **Video** | 113 × HNM4/5/6 | 113 | ~300 MB | yes | **all decodable** — see `hnm-video.md` |
 
-There is no standalone texture file anywhere on either disc — **because the
-level textures are inside the `.DSN` scene files, and they are now decoded.**
+**Level textures are inside the `.DSN` scene files and are decoded.**
+Standalone `.3DM` texture banks supply prop materials.
 Each object owns a 256-entry RGB565 palette plus 64 distinct 32x32 8-bit tiles,
 stored uncompressed as fixed-size records. See
 [file-formats.md](file-formats.md); extract with
@@ -124,7 +124,7 @@ independent confirmation of the RGB555 colour format.
 as **16.16 fixed-point** coordinates (`71.257`, `69.790`) was **wrong**. In hex
 they are `0x004741B0` and `0x0045CA34`, and the byte-identical values recur
 across `.3DM`, `.DSN` *and* `.DAN` — `0x004741A0` appears in all three. A
-coordinate cannot be bit-identical in a shadow LUT, an animation and a cave.
+coordinate cannot be bit-identical in a shadow texture bank, an animation and a cave.
 These are **stale pointers** into a `0x400000`-based address space, written out
 by the exporter and fixed up at load. **[verified]**
 
@@ -185,7 +185,8 @@ Also present: material references `DEFAULTP`, `yarain`, `bass`.
 
 ## Scenes — `.DSN`, where the levels actually are
 
-**98 files, 157 MB — the largest non-video asset class by far.** A typical scene
+**95 unique scene names, 158,175,187 bytes (150.8 MiB)** in the merged corpus
+(disc 2 takes precedence for duplicate names in this count). A typical scene
 is 1.8 MB.
 
 ```
@@ -203,9 +204,9 @@ u32[5][nameCount]                   20-byte record per object
           packed body
 ```
 
-`nameCount` is confirmed exact in all 98 files, and `A` turned out to be a
+`nameCount` is confirmed exact in all 95 unique scenes, and `A` turned out to be a
 **derived header span**, not a second count: `A = 31·nameCount + 7` holds in
-98/98, putting the body at `9 + A == 16 + 31·nameCount` — confirmed against the
+95/95, putting the body at `9 + A == 16 + 31·nameCount` — confirmed against the
 loader in `WINDREAM.EXE`. For `E01GROTT.DSN` that is `0x336`. Full detail in
 [file-formats.md](file-formats.md).
 
@@ -227,20 +228,13 @@ is consistent (`E02_COL1..COL4` = colonnes/columns, `E02_BAS` = base,
 
 So a scene is a room assembled from named directional surface pieces.
 
-### The body is packed
+### The body is a decoded record chain
 
-A 64 KB-bucket map across all 28 buckets of `E01GROTT.DSN` is flat: every bucket
-reports 12-15% zeros and 31-33% printable-range bytes. Entropy 6.43, zlib 72%.
-
-For comparison the `INTRO.HNM` video — known-compressed — measures **69%**, and
-raw control files (`.TGA`, `.3DC`, `.SPR`) all sit at 18-31%.
-
-**The `.DSN` body is therefore packed, at a density comparable to compressed
-video.** It is homogeneous end to end, with no distinct raw sections. Autocorrel-
-ation finds no image stride, only small power-of-two record alignment (32/64/128
-bytes).
-
-This is where the level textures are, and they are not stored raw.
+Only tags 1 and 2 are LZ-packed: the renderable scene graph and collision mesh.
+Tags 3 and 4 are uncompressed palettes and texture planes, about 97% of the
+body. Whole-file entropy led to an earlier, incorrect claim that the entire
+body was compressed. See [file-formats.md](file-formats.md) for the records and
+[scene-geometry.md](scene-geometry.md) for the node and collision distinction.
 
 ---
 
@@ -334,27 +328,15 @@ version — and an earlier `MENU.ALP` was dropped before release.
 
 ---
 
-## Priority targets
+## Remaining asset work
 
-1. **Resolve multi-run vertex references.** The `.DSN` body is fully decoded
-   and 4 of 95 scenes export to glTF; the other 91 split their vertex
-   references across several runs with unrelated bases and nothing yet maps a
-   run to its place in the pool. This is the single blocker on every remaining
-   level. See [scene-geometry.md](scene-geometry.md).
-2. **Finish the `.3DC` mesh decode.** `BOULE` verifies as a sphere (94 vertices
-   on a shell, radius SD 2.6% of mean) and `EPEE` as a sword, but `BOULE` has
-   18 boundary edges, `CARRE` does not decode as a box, and `ARC`/`GUN` use an
-   unsolved compact UV variant.
-5. **Try NihAV's Cryo archive reader** (`src/input/archives/cryo.rs`) against
-   `.PAK`, `ICONES.BF` and `DREAMS.DAT`. Untested, and it already understands a
-   Cryo "BigFile" layout.
-6. **Check whether CryoLib's `GL_UnpackLZW` matches `.DSN`.** CryoLib carries an
-   `LZWCRYO` signature and a full LZW API — but no `LZWCRYO` tag appears inside
-   any `.DSN`, so if LZW is used it is headerless. **[unverified]**
-
-> **Dropped from this list:** parsing `ICONES.BF` (done) and the `CUBE.ASC`
-> known-plaintext attack, which was **tried and failed** — see
-> [research-log.md](research-log.md).
+The ordered runtime backlog is in [re-status.md](re-status.md). All 95 scene
+graphs now export. Signed model UVs are valid inputs with type-specific Glide
+clamp/wrap, and ARC's open edges are in the source triangles. Preserve these
+rather than patching the artwork. Remaining work is native implementation,
+original-game appearance checks and the bounded questions in
+[glide-renderer.md](glide-renderer.md), [lighting.md](lighting.md) and
+[scene-placement.md](scene-placement.md).
 
 ## Scratch output
 

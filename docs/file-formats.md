@@ -12,7 +12,7 @@ a single shared chunk-IO layer under all asset loading.
 | Ext | Magic (ASCII) | Magic (hex) | Sample | Size | Contents |
 |---|---|---|---|---|---|
 | `.3DC` | `F3DC` | `46 33 44 43` | `ARC.3DC` | 22,112 | 3D geometry |
-| `.3DM` | `F3DC` | `46 33 44 43` | `ESSAI.3DM` | 98,332 | **Different structure** — fixed 3×32 KB blocks, likely textures |
+| `.3DM` | `F3DC` | `46 33 44 43` | `ESSAI.3DM` | 98,332 | **Texture bank** — 32-row RGB565 palette ramp + 256×256 indexed page |
 | `.DAN` | `DANF` | `44 41 4E 46` | `AR0.DAN` | 58,862 | **Character and prop models** + animation — see [models.md](models.md) |
 | `.DSN` | `DSNF` | `44 53 4E 46` | `E01GROTT.DSN` | 1,771,734 | Scene / level |
 | `.DRD` | `DRDF` | `44 52 44 46` | `DIALOG.DRD` | **24,592,952** | **Voice bank** — 178 WAVE clips (72.6% by size) plus 589 timed script lines |
@@ -26,7 +26,7 @@ a single shared chunk-IO layer under all asset loading.
 | `.ASC` | `Ambient light co...` | — | `CUBE.ASC` | 6,623 | **3D Studio ASCII export** |
 | `.TGA` | standard Targa | `00 01 01` | `INSTALL2.TGA` | 8,870 | Colour-mapped Targa |
 | `.ID` | plain text | — | `1CD.ID` | 5 | Disc marker, see `disc-layout.md` |
-| `.BIN` | none | — | `REPLAY.BIN` | 316 | u32 array |
+| `.BIN` | none | — | `REPLAY.BIN` | 316 | Three-frame demo recording in an older layout; [game-content.md](game-content.md#save-format-verified-2026-09-26) |
 
 ## Shared header convention
 
@@ -58,14 +58,16 @@ file format.
 
 ### `.DSN` — scene (`DSNF`)
 
-The largest structured data class on the discs: 98 files, **157 MB**.
+The merged scene corpus has **95 unique filenames**, totaling **150.8 MiB**
+with disc 2 taking precedence for duplicate names in this measurement.
 
-The header is **fully decoded**, validated against **all 98 files**: **[verified]**
+The header boundaries are decoded and validated across **all 95 unique scenes**;
+the per-object record fields below remain partly understood. **[verified]**
 
 ```
 offset  0  u8[4]  "DSNF"
 offset  4  u8     0x00
-offset  5  u32    file size (unaligned)   — exact in 98/98
+offset  5  u32    file size (unaligned)   — exact in 95/95
 offset  9  u8     0x00
 offset 10  u32    headerSpan  A           (38 .. 999)
 offset 14  u16    objectCount B           (1 .. 32)
@@ -74,7 +76,7 @@ offset 16+11B u32[5][B]  one 20-byte record per object
 offset 16+31B ...        packed payload
 ```
 
-**`A` is not an independent count.** In every one of the 98 files:
+**`A` is not an independent count.** In every one of the 95 unique scenes:
 
 ```
 A = 31 * B + 7          body starts at 9 + A  ==  16 + 31*B
@@ -94,8 +96,8 @@ invented an 8-byte "scene-wide block" to account for the difference; there is no
 such block, and every body-parsing attempt before this was starting 8 bytes
 late. `body == 9 + A` is the same relation `.DAN` uses.
 
-The 8-byte block and the 20-byte per-object records are confirmed present and
-correctly sized in all 98 files; their **field meanings are [unverified]**.
+The 20-byte per-object records are present in all 95 scenes. Their observed
+fields are listed below; there is no extra 8-byte block before the body.
 
 The name table is **11-byte fixed-length records**, null-padded — the classic DOS
 FCB 8+3 filename field, used here for object names: **[verified]**
@@ -122,19 +124,22 @@ Beware the single-letter `P` rule: it claimed `H18_PELZ` for *plafond* when the
 object is a lawn. Any other `P...` name is suspect for the same reason.
 but consistent across every sample. See [assets.md](assets.md).
 
-**[verified]** `B` is exactly the number of name records — confirmed in 98/98.
-Across all files there are **2,145 records, 1,642 distinct names**, 4–8 printable
+**[verified]** `B` is exactly the number of name records — confirmed in 95/95.
+Across the merged corpus there are **2,059 records, 1,642 distinct names**, 4–8 printable
 characters each with 3–7 trailing NULs.
 
 #### The 20-byte object records **[verified]**
 
-Immediately following the $B \times 11$-byte name table at offset $16 + 11B$ are $B \times 20$-byte records, one per sub-object in the scene (2,145 records across 98 scenes):
+Immediately following the $B \times 11$-byte name table at offset $16 + 11B$ are
+$B \times 20$-byte records: 2,059 across the 95 unique scenes. **[verified]**
+The parser exposes all five u32 words. A fresh merged-corpus count finds word 0
+zero in 1,554 records, `0x004741A0` in 421 and other values elsewhere; word 2
+is 3 in 1,719 records, not in every record.
 
-- **Word 0 (`u32`)**: Allocation / relocation flag. When non-zero, holds `0x004741A0` (in 1,719 of 2,145 records), marking static world geometry loaded directly into memory arenas.
-- **Word 1 (`u32`)**: Relocated address / runtime buffer offset (e.g. `0x0045C9xx`).
-- **Word 2 (`u32`)**: Role / class ID — constant `3` across all 2,145 records on both discs.
-- **Word 3 (`u32`)**: Compass normal / surface facing orientation. Directly correlates with French wall compass names: `0x202` for North walls (`MN`), `0x246` for East walls (`ME`), `0x286` for West walls (`MO`), `0x206` / `0x216` for slopes and diagonal slabs.
-- **Word 4 (`u32`)**: Surface category and physics friction / footstep sound property (e.g. floor tile friction vs water vs stone).
+Earlier labels such as allocation flag, compass normal, friction and footstep
+sound were not established by a reader trace. Their semantics remain
+**[unverified]**; the Python field names are legacy labels. Do not confuse
+these header records with tag 1's node table or tag 2's decoded collision data.
 
 #### The body is a chain of tagged records
 
@@ -202,16 +207,18 @@ tile-grid arrangement produced diagonal smearing.
 
 Extract them with `uv run dreams extract --only leveltex` — 2,059 sheets, 118 MB.
 
-#### What is left packed
+#### Packed records and their decoded meaning
 
-Only tags 1 and 2: roughly 40 KB per scene against 1.7 MB of raw texture. Both
-are genuinely packed — entropy 7.1–7.5, zlib -9 still needs 68–92%, and sizes do
-not divide evenly by any small record width (only 19/95 are even divisible by 4).
+Only tags 1 and 2 are LZ-packed, roughly 40 KB per scene against 1.7 MB of raw
+texture. Both decode with `dreams.formats.lz`. **Tag 1 is the renderable scene
+graph**, with node-local vertices, face/normal/UV pointers and named materials;
+**tag 2 is the collision mesh**, with points and 96-byte triangles carrying
+planes, edge tests and bounds. The renderer never reads tag 2.
 
-Tag 1 contains a header object name in **90/95** files, plus `DEFAULT` (60/95)
-and 3D Studio's `Object0` (21/95), so it holds the object/material directory.
-Tag 2 contains an object name in **0/95** and looks more thoroughly packed.
-Geometry is **[unverified]** but tag 1 is the likely home.
+The old search for a mapping from tag-1 faces into tag-2 vertices is obsolete.
+See [scene-geometry.md](scene-geometry.md) for verified layouts and
+[scene-placement.md](scene-placement.md) for the eleven former export fallbacks;
+`dreams.formats.collision` reads the separate collision data.
 
 Which scene belongs to which level is now fully mapped — see
 [level-map.md](level-map.md).
@@ -280,7 +287,7 @@ Content reuse is heavy: nine byte-identical `CAISSE` animations, eight identical
 
 ## Notes per format
 
-### `.3DC` / `.3DM` — geometry (`F3DC`)
+### `.3DC` / `.3DM` — geometry and texture banks (`F3DC`)
 
 **They share the `F3DC` tag but are structurally different formats.** An earlier
 reading of `.3DM` as "the same container" was wrong. **[verified]** across all 16
@@ -307,12 +314,11 @@ mat+0x3C char[16]  lowercase texture name (== the address stored at 0x20)
 mat+0x58 ...    repeated (count, absolute-offset) descriptor pairs
 ```
 
-**[verified]** in 16/16 files. The descriptor pairs are the way into the geometry:
-`CARRE.3DC` holds `04 00 00 00 DD 00 00 00 06 00 00 00 7D 01 00 00` at `0xFC`.
-First-pair counts across the 16 files are 3, 4, 6, 15, 26, 28, 44, 98; second-pair
-counts are 3, 6, 12, 156, 216, 288, 576 — a spread consistent with vertex and
-index counts. **[unverified]** that the pairs are vertices/indices specifically;
-the target blocks do **not** decode as plain float32 or as simple u16/u32 indices.
+The geometry uses the shared scene-graph node, integer positions in 40-byte
+vertex records and pointer-based faces. `dreams.formats.node.read_3dc` decodes
+165 nodes across the 16 unique files. `CARRE` is a quad; `BOULE`, `EPEE` and
+`GUN` have closed meshes. `ARC` still has 15 boundary edges to investigate.
+See [models.md](models.md#3dc-props-and-weapons).
 
 Object labels are readable and French: `archer`, `fleche`, `sword`, `feu`, `pan`,
 `cube`, `tri`.
@@ -322,29 +328,27 @@ error strings name `DAN_Load3DC` (see [engine.md](engine.md)); that text appears
 both `DAN_OpenArchive` (`0x40fff7`) and `DAN_Read3DC` (`0x41020f`), and neither is
 proven to be the function of that name.
 
-### `.3DM` — fixed three-block container
+### `.3DM` — texture bank **[verified]**
 
 Every `.3DM` file is **exactly 98,332 bytes**: **[verified]** 8/8 physical copies.
 
 ```
 0x00     char[4]  "F3DC"
 0x04     u32      450
-0x08     u32[5]   per-file header values, schema differs from .3DC
-0x1C     0x8000 bytes   block 0
-0x801C   0x8000 bytes   block 1
-0x1001C  0x8000 bytes   block 2        -> 28 + 3*32768 = 98,332
+0x08     20 bytes        texture-bank header
+0x1C     0x8000 bytes    32 palette rows × 256 entries × 4 bytes
+0x801C   0x10000 bytes   256×256 8-bit indexed texture page
 ```
 
 There is **no material/object directory** in any `.3DM`. Only four exist:
 `ESSAI`, `GRILLE`, `OMBRE2`, `SPRITE` — and each name also exists as a `.3DC`
-material name, which suggests `.3DM` holds the *texture* for that material.
-
-**[unverified] but well supported: the blocks are 128×128 RGB555 images.**
-`128 × 128 × 2 = 32,768` exactly. Testing `ESSAI.3DM` as u16: blocks 1 and 2 have
-the top bit set in **0 of 16,384 words** and block 0 in only 2.2% — precisely the
-signature of RGB555's unused high bit. Distinct values per block are 945–1,134 out
-of 16,384, the low colour diversity of a texture. This also matches the engine's
-confirmed RGB555 format. Not yet rendered to an image for visual confirmation.
+material name. `RES_ReadFile` (`0x41c666`) skips the first eight bytes;
+`MDL_LoadMaterials` (`0x456038`) binds the page at bank `+0x8014`.
+Each palette entry has a zero u16 followed by an **RGB565** u16. The ramp has
+32 brightness rows; shade selects row `31 - shade`. This is the same bank
+layout as `.DAN` tag 2, decoded by `dreams.formats.node.read_3dm`.
+The older three-image/RGB555 interpretation is rejected. See
+[assets.md](assets.md#textures--the-honest-position) for the decoded content.
 
 ### `.PAK` — geometry container (`PAK0`)
 
@@ -727,7 +731,8 @@ list is probably load-order rather than a set. With hard-disk caching,
 `0x400 + offset[150]` equals the file size **exactly** on both discs — 138,879 on
 disc 1, 138,835 on disc 2. Record bodies contain the strings `LINK0`, `OBJETn`,
 `BOXn`, `LINKADVENTn`, so this is a project *graph*, not a
-flat asset list. Binary fields within a record are **[unverified]**.
+flat asset list. The decoded fixed record and verified fields are listed below;
+fields without established semantics remain identified by offset.
 
 > **Correction.** Describing this as "a monotonically increasing table of u32
 > offsets" across the whole file was wrong. Only the first 151 entries are that
@@ -767,8 +772,8 @@ over the corpus: `LINK` 244 (239 naming a project), `OBJET` 711, `BOX` 420,
 ##### Project Header fields (0x200 bytes) **[verified]**
 Decompiled from `SCENE_LoadLevel` (`0x41f9db`) and `ENT_InstantiateFromObjet` (`0x41deb8`) in `WINDREAM.EXE`:
 - `+0x000` `char[16]`: project identifier (e.g. `Project0\0`).
-- `+0x018` `i32[3]`: Directional light 1 orientation vector `(x, y, z)`.
-- `+0x024` `i32[3]`: Directional light 2 orientation vector `(x, y, z)`.
+- `+0x018` `i32[3]`: Signed palette RGB base, used by `REND_TickPaletteLighting`.
+- `+0x024` `i32[3]`: Signed palette RGB random variation; these triplets are not spatial directions. See [lighting.md](lighting.md).
 - `+0x030` `i32[3]`: Ambient light RGB components (values in $0 \dots 255$, e.g. `(152, 168, 126)`).
 - `+0x03C` `char[32]`: Primary animated video filename (`.HNM` or `.UBB`, e.g. `ETE_E~1.HNM`, `CASC2.HNM`).
 - `+0x05C` `char[32]`: Secondary animated video filename (e.g. `M01DRA.HNM` in Project 12).
@@ -778,10 +783,15 @@ Decompiled from `SCENE_LoadLevel` (`0x41f9db`) and `ENT_InstantiateFromObjet` (`
 - `+0x0A0` `i32`: Player movement scale, copied as a float to actor `+0x104` (the animation step scale `ANIM_TickBlend` (`0x405f1f`) and `ANIM_TickClip` (`0x4068be`) multiply by). **Not** a near clip. **[verified]**
 - `+0x0A4` `i32`: Player turn step, copied to actor `+0x108`; `ANIM_RequestState` (`0x405118`) turns by it (default `0x30` of 4096 per turn, ¾ of it outside combat stance `+0xac & 0x20`). Values 63–65 were read as a field of view; the real FOV is a constant 76.36° (engine.md, *Camera and projection*). **[verified]**
 - `+0x0B4` `i32[3]`: Player canonical spawn coordinates `(x, y, z)` in scene units (negative Y is up).
-- `+0x0E0` `i32[4]`: Depth fog parameters: start distance, end distance, density, fog color.
-- `+0x0F0` `i32[4]`: Clear color / Sky color RGB components.
+- `+0x0C0/+0x0C4` `i32`: Actor-bound/other palette-row scales (defaults 8/2).
+- `+0x0C8` `i32`: Enables actor effect lights.
+- `+0x0CC` `i32`: Far-plane override, also the player's effect-light outer radius.
+- `+0x0E0` `i32[4]`: Additional palette-effect channel biases/range, formerly mislabeled fog.
+- `+0x0F0` `i32[4]`: Palette interpolation target RGB and duration, formerly mislabeled sky.
 - `+0x10C` `i32`: Player canonical spawn heading (12-bit angle, $0 \dots 4095 \equiv 360^\circ$).
-- `+0x138` `i32`: Lighting mode: `0` = Day (positive ambient bias `+0x40`/`+0x80`), `1` = Night (dark negative bias `0xFFFFFFC0`/`0xFFFFFF80`).
+- `+0x138` `i32`: Raw lighting mode. Exact 0/1 branches assign positive/negative biases; 16 occurs in P0/P108 and bypasses those assignments. Actor binding separately uses the non-1 branch for 16; author intent remains unknown.
+- `+0x1C0/+0x1C4/+0x1C8/+0x1CC` `i32`: Glide fog RGB and density input, with water override behavior; see [glide-renderer.md](glide-renderer.md).
+- `+0x1E8/+0x1EC` `i32`: Optional palette contrast strength and material-name filter.
 - `+0x1F8` `i32`: Redbook CD audio track number (matches audio tracks 2..14).
 
 ##### `OBJET` fields (0xC0 bytes) **[verified]**
@@ -793,22 +803,19 @@ Decompiled from `ENT_InstantiateFromObjet` (`0x41deb8`) (entity instantiation) a
   - bit 0 (`0x01`): active / spawn immediately on level entry.
   - bit 1 (`0x02`): dynamic character / creature entity (`XH_.DAN`, `F07BLEU.DAN`, `CH0.DAN`).
   - bit 8 (`0x0100`): dormant / disabled entity (kept inactive until triggered by adventure script).
-  - bit 14 (`0x4000`): `ENT_InstantiateFromObjet` calls `FUN_0043b8aa`, a 44-byte setter that stores the actor pointer in global `0x626fa4`; that global has no other known use yet.
+  - bit 14 (`0x4000`): `PART_SetEmitterActor` (`0x43b8aa`) makes the mana-particle spawn box follow this actor. Verified from code; not yet compared in play.
 - `+0x3C` `i32`: bounding / collision radius (scaled by the engine if $> 256$ or $> 512$).
 - `+0x40` `i32[3]`: spawn position `(x, y, z)` in scene units (negative Y is up).
 - `+0x5C` `i32`: facing orientation / heading — a **12-bit fixed point angle** ($0 \dots 4095$ where $4096 = 360^\circ$ or $2\pi$).
-- `+0x64` `i32`: AI / behavior archetype:
-  - `1`: static obstacle or prop.
-  - `3`: hostile creature / attack behavior (`CH0.DAN`, `F59.DAN`).
-  - `5`: friendly NPC / patrol behavior (`F07BLEU.DAN`, `F07ORIG.DAN`).
-  - `6`: aerial waypoint flight behavior.
-- `+0x68` `i32`: movement speed / velocity multiplier (default `16.0f`).
-- `+0x6C` `i32`: waypoint route target index (indexes into `BOX0` .. `BOX11`).
-- `+0x70` `i32`: behavior-specific parameter, not the player's HUD vitality.
-  Selector-5 actors copy it to runtime actor `+0x10C`, where the attack-effect
-  launcher uses it as a launch magnitude. It is not the source of the
-  dialogue-event index: speech event `0x40` gets its one-based entry ID from
-  `LINKADVENT +0x1C`. Player HUD vitality is read from runtime actor `+0x38`.
+- `+0x64` `i32`: movement/behavior selector copied to actor `+0x34`, with
+  remapping and extra flags (5 → class 1, 6 → class 3). This alone does not
+  establish faction or friendliness; see [ai-animation-runtime.md](ai-animation-runtime.md).
+- `+0x68` `i32`: movement scale, converted to float at actor `+0x104` (default 16).
+- `+0x6C` `i32`: turn step at actor `+0x108`, used by `ANIM_RequestState`.
+- `+0x70` `i32`: actor `+0x10C`, the walker collision-sphere radius used by
+  `PHYS_AttachActorCollider` (`0x40bedb`), also the attack facing-offset magnitude
+  in `ENT_PlaceAtFacingOffset` (`0x442786`). Vitality is actor `+0x38`; dialogue
+  event `0x40` gets its one-based entry ID from `LINKADVENT +0x1C`.
 - `+0x74` .. `+0x98`: animation playback state, secondary action timers, and sub-object visibility masks.
 
 The engine's debug HUD at `DBG_DrawObjectInfo` (`0x416606`) directly labels these fields:
@@ -837,8 +844,15 @@ on the conditions alone.
 - `+0x24` `i32[16][3]`: sequence of up to 16 3D waypoint coordinates `(x, y, z)`.
 - `+0xE4` `i32`: number of points used ($0 \dots 16$).
 - `+0xF0` `i32`: path kind:
-  - `0`: ground patrol routes (used by walking NPCs like gnomes).
-  - `1`: aerial flight waypoints (used by floating/flying creatures).
+  - `0`: patrol regions/paths; `AI_FindPatrolBox` selects an active box by XZ bounds.
+  - `1`: aerial flight waypoints.
+  - `2`: mana pickups; `3`: X01SOL props; `4`: random respawn points;
+    `5`: re-entry points; `6`: air points; `7`: maintained spawn points;
+    `8`: trigger zones; `9`: health-drain zones.
+
+The 2–9 uses are traced from their readers in the name registry (2026-09-26);
+they still need corpus and play validation. The kind-8 zone is separate from
+the `LINKADVENT` condition/action table below.
 
 ##### `LINKADVENT` fields (0x40 bytes) **[verified]**
 - `+0x00` `char[12]`: advent slot name (`LINKADVENT0` .. `LINKADVENT15`).

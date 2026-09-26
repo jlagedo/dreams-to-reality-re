@@ -102,3 +102,28 @@ def test_doc_units_split_tables_lists_and_sentences():
     assert ("Loader", "First sentence cites `0x410928`.") in got
     assert not any("in code" in u for _, u in got)
     assert not any(set(u) <= set("|-: ") for _, u in got)
+
+
+def test_doc_sync_excludes_history_without_joining_current_paragraphs():
+    from sync_doc_comments import units
+
+    text = (
+        "## Current\n\nFirst current claim.\n"
+        "<!-- docs-sync: off -->\n"
+        "## Historical\n\nRejected claim about FUN_00401000.\n"
+        "<!-- docs-sync: on -->\n"
+        "## Current again\n\nSecond current claim.\n"
+    )
+    assert list(units(text)) == [
+        ("Current", "First current claim."),
+        ("Current again", "Second current claim."),
+    ]
+
+
+def test_doc_sync_history_marker_to_eof_and_literal_in_code():
+    from sync_doc_comments import current_text, units
+
+    example = "```html\n<!-- docs-sync: off -->\n```\n"
+    assert "<!-- docs-sync: off -->" in current_text(example)
+    text = example + "\nCurrent claim.\n\n<!-- docs-sync: off -->\nOld claim.\n"
+    assert [unit for _, unit in units(text)] == ["Current claim."]

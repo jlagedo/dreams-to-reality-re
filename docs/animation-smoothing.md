@@ -75,8 +75,9 @@ fallback, and frame-zero exclusion. Binary tests check the control offsets and
 constants in the original executable.
 
 Translation curves and root-delta extraction have since been implemented; see
-[animation-root-blending.md](animation-root-blending.md). Game-state action
-selection and physics consumption of those deltas remain open.
+[animation-root-blending.md](animation-root-blending.md). Action selection and
+physics consumption are now traced in [ai-animation-runtime.md](ai-animation-runtime.md)
+and [engine.md](engine.md); exact integration into the native simulation remains pending.
 The mesh renderer still uses source integer transform rounding. This work does
 not claim every remaining jerk is fixed or that every preview clip should loop.
 

@@ -33,6 +33,7 @@ class Scene:
     name: str
     primitives: list[Primitive] = field(default_factory=list)
     materials: list[tuple[str, str | None]] = field(default_factory=list)
+    material_types: dict[int, int] = field(default_factory=dict)
 
 
 def write(target: str | Path, doc: Scene, scale: float = 0.01) -> Path:
@@ -105,11 +106,29 @@ def write(target: str | Path, doc: Scene, scale: float = 0.01) -> Path:
     images: list[dict] = []
     textures: list[dict] = []
     materials: list[dict] = []
-    for name, texture in doc.materials:
+    samplers: list[dict] = []
+    for material_index, (name, texture) in enumerate(doc.materials):
         entry: dict = {"name": name, "doubleSided": True}
+        primitive_type = doc.material_types.get(material_index)
+        if primitive_type is not None:
+            entry["extras"] = {"dreamsFaceType": primitive_type}
         if texture:
             images.append({"uri": texture})
             textures.append({"source": len(images) - 1})
+            if primitive_type is not None:
+                from dreams.formats.node import glide_wrap
+
+                wrap = glide_wrap(primitive_type)
+                if wrap is not None:
+                    sampler = {
+                        "magFilter": 9729,  # LINEAR, as in GLIDE_Open
+                        "minFilter": 9729,
+                        "wrapS": 10497 if wrap else 33071,  # REPEAT / CLAMP_TO_EDGE
+                        "wrapT": 10497 if wrap else 33071,
+                    }
+                    if sampler not in samplers:
+                        samplers.append(sampler)
+                    textures[-1]["sampler"] = samplers.index(sampler)
             entry["pbrMetallicRoughness"] = {
                 "baseColorTexture": {"index": len(textures) - 1},
                 "metallicFactor": 0.0,
@@ -137,6 +156,8 @@ def write(target: str | Path, doc: Scene, scale: float = 0.01) -> Path:
     if images:
         gltf["images"] = images
         gltf["textures"] = textures
+    if samplers:
+        gltf["samplers"] = samplers
 
     out.with_suffix(".bin").write_bytes(bytes(blob))
     out.write_text(json.dumps(gltf, indent=1), encoding="utf-8")
@@ -149,12 +170,9 @@ def from_scene(path, out_dir: str | Path, textures: bool = True) -> tuple[Path, 
     Writes one 256x256 PNG per object - the surface interleaved from that
     object's 64 subsampled planes, which is exactly the space the UVs address.
 
-    Three decoders, in order of what they preserve. The **scene-graph node**
-    is tried first and taken when it agrees with tag 2's geometry to within a
-    unit or two; it is the only one that keeps per-object names and UVs, so it
-    is the only one that yields a textured level. Failing that, tag 1 where its
-    references verify exactly, and tag 2 - correct geometry, one nameless
-    merged object - as the floor.
+    Tag 1's node graph is the render source, independent of tag 2's collision
+    placement. The legacy decoders remain fallbacks for an unreadable graph.
+    Face types survive in material extras, with the verified Glide samplers.
     """
     from dreams import png
     from dreams.formats import mesh as _mesh
@@ -175,7 +193,7 @@ def from_scene(path, out_dir: str | Path, textures: bool = True) -> tuple[Path, 
             banks = {}
 
     doc = Scene(name=Path(path).stem)
-    slot: dict[str, int] = {}
+    slot: dict[tuple[str, int | None], int] = {}
     for obj in m.objects:
         tex = None
         bank = banks.get(obj.name)
@@ -185,8 +203,11 @@ def from_scene(path, out_dir: str | Path, textures: bool = True) -> tuple[Path, 
             if not img.exists():
                 png.write(img, _scene.SURFACE, _scene.SURFACE, bank.surface_rgb())
             tex = img.name
-        if obj.name not in slot:
-            slot[obj.name] = len(doc.materials)
+        key = (obj.name, obj.primitive_type)
+        if key not in slot:
+            slot[key] = len(doc.materials)
+            if obj.primitive_type is not None:
+                doc.material_types[slot[key]] = obj.primitive_type
             doc.materials.append((obj.name, tex))
 
         positions, uvs = [], []
@@ -195,7 +216,7 @@ def from_scene(path, out_dir: str | Path, textures: bool = True) -> tuple[Path, 
                 positions.append(tuple(float(c) for c in m.vertices[vi]))
                 n = i * 3 + k
                 uvs.append(obj.uvs[n] if n < len(obj.uvs) else (0.0, 0.0))
-        doc.primitives.append(Primitive(obj.name, positions, uvs, slot[obj.name]))
+        doc.primitives.append(Primitive(obj.name, positions, uvs, slot[key]))
 
     target = write(out / f"{stem}.gltf", doc)
     return target, {
@@ -235,12 +256,13 @@ def from_model(
     model = _node.read_3dc(path) if suffix == ".3dc" else _node.read_model(path)
     banks = _node.texture_pages(path) if (textures and suffix != ".3dc") else []
 
-    # One material per face-block name, because the name is the texture page.
+    # The name selects the page; the block type independently selects sampling.
     groups = sorted({f.group for f in model.faces})
     slot = _node.page_for_group(groups)
+    typed_groups = sorted({(f.group, f.primitive_type) for f in model.faces})
 
     doc = Scene(name=stem)
-    for n, name in enumerate(groups):
+    for n, (name, primitive_type) in enumerate(typed_groups):
         tex = None
         bank = banks[slot[name]] if slot[name] < len(banks) else None
         if bank is not None:
@@ -253,11 +275,12 @@ def from_model(
             tex = img.name
         positions, uvs = [], []
         for face in model.faces:
-            if face.group != name:
+            if (face.group, face.primitive_type) != (name, primitive_type):
                 continue
             positions += [tuple(float(c) for c in corner) for corner in face.corners]
             uvs += list(face.uvs)
         doc.materials.append((name or stem, tex))
+        doc.material_types[n] = primitive_type
         doc.primitives.append(Primitive(name or stem, positions, uvs, n))
     target = write(out / f"{stem}.gltf", doc)
     if preview is not None:

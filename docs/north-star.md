@@ -3,7 +3,8 @@
 What we are building, why, and the decisions already made. This page is the
 reference for every design choice in OpenDreams; change it before changing
 the code. Research findings stay in the other docs; this one only points at
-them.
+them. Current evidence, coverage and remaining work are consolidated in
+[re-status.md](re-status.md).
 
 ## Goal
 
@@ -34,19 +35,23 @@ Requirements, from the owner:
 | Language | **C++17**, no exceptions, no RTTI, standard library allowed | Close to the decompiled C; RAII and containers without a runtime; compiles everywhere including Emscripten |
 | Platform layer | **SDL3**: window, input, audio, timers, file dialogs | One API on all four targets |
 | Rendering | **sokol_gfx** with the platform's native backend (D3D11 on Windows, Metal on macOS, OpenGL on Linux, WebGL2 in the browser) | Small, C, one renderer for every target; SDL3's own GPU API has no browser backend |
+| Tool UI | **Dear ImGui**, wired through SDL3 and sokol in the foundation | Both applications exercise it with Hello World in spec 001; ODViewer uses it for navigation from spec 002. Original game menus/HUD retain their recovered implementation |
 | Video | HNM4/5/6 decoded by our own C++ decoder, from the spec in [hnm6-spec.md](hnm6-spec.md) and the decoder in `CRYO.DLL` ([cryolib.md](cryolib.md)) | No dependency on `CRYO.DLL` or on ffmpeg at runtime |
 | Game data | **The runtime reads the two disc images** (`.cue`/`.bin`) through its own ISO 9660 reader and **native loaders for the original formats**. No extraction step for players. | Proves the reverse engineering; one code path; point at the original media and play, as OpenLara does |
 | Music | **Read straight from the images' audio tracks** (raw 44.1 kHz PCM sectors) | The original plays CD audio through MCI; the image already holds it, so nothing is ripped or transcoded on desktop |
 | Web pack | **Parked (desktop first).** When taken up: the only preprocessing; `opendreams pack` reads the images and writes a chunked, versioned pack: the loaders' structs serialized, music and voice as **Vorbis** (stb_vorbis), video in a browser-friendly form | The browser cannot fetch 1.4 GB or decode raw HNM fast enough; made by the same loaders, so there is no second format world |
-| Repository | **This repository**, new top-level `opendreams/` directory; the Python toolkit stays as the reference decoder and test oracle; the Babylon.js viewer is frozen and retired once the runtime's web build supersedes it | Cross-checking C++ loaders against the Python decoders is a local test, not a cross-repo chore |
+| Repository | **This repository**, new top-level `opendreams/` directory; the Python toolkit stays as the reference decoder and test oracle; the Babylon.js viewer is frozen and retired once ODViewer covers its inspection workflows and browser use | Cross-checking C++ loaders against the Python decoders is a local test, not a cross-repo chore |
+| Applications | **ODShared**, the reconstructed engine shared by **ODRuntime**, the game, and **ODViewer**, the asset browser | One implementation of loaders and presentation; gameplay debugging stays in ODRuntime |
 | Fidelity | **Port the original code, fixed step, free renderer** (below) | The only option where the result is recognisably the same game |
 | Licence | MIT, like the rest of the repository; no game data in the repository, ever | |
 
 ## Port the original code, fixed step, free renderer
 
-The engine is two halves with a hard line between them: the game, ported
-from the original code, and the plumbing that lets it run on a modern
-machine instead of inside DOSBox.
+The port preserves the original game's code and replaces the plumbing that
+lets it run on a modern machine instead of inside DOSBox. Keeping behaviour
+faithful does not require reorganizing the recovered source into isolated
+subsystem libraries; necessary replacements must remain traceable to the
+original functions and call sites.
 
 ### The game is a port of the original code
 
@@ -72,15 +77,14 @@ Miles, Glide, Watcom runtime, the message loop's OS half) and the software
 rasterizer. Where the docs have not settled a behaviour, the rule is to go
 back to the binary, not to invent.
 
-The game runs as a **fixed-step loop**. The original advanced the world by
-the elapsed count of a 200 Hz counter, clamped, scaled to 30 animation
-frames per second ([animation-timing.md](animation-timing.md)); at high frame
-rates that produced tiny deltas and the landing-damage bug. We advance by a
-fixed number of counter ticks per step, chosen inside the original's normal
-envelope: 30 steps per second is not a whole number of ticks, so the
-candidates are 6 ticks (33.3 steps/s) and 7 ticks (28.6 steps/s), or whatever
-rate the original's clamps enforce; open until the clamps are traced. The
-game never learns the display's refresh rate.
+The game runs as a **fixed-step loop at 30 steps per second**, passing
+**Δt = 1.0** to the ported code each step. The original derives delta from a
+200 Hz counter and clamps it to [0.2, 5.0]; its own demo recorder forces 1.0.
+The recovered integrator and landing damage depend on delta and frame count,
+so the step must stay fixed. See [engine.md](engine.md#the-fixed-step-verified)
+for the trace and comparison. Three steps correspond to 20 counter ticks;
+an accumulator represents this ratio without rounding each step to 6 or 7
+ticks. The game never learns the display's refresh rate.
 Consequences: gameplay is the same on every machine; the game is
 deterministic (same inputs, same game), so replays and regression tests
 against the original are possible.
@@ -152,45 +156,107 @@ itself**, with the original arithmetic, at the point where the original
 rendered (`REND_DrawFrame`/`REND_DrawFrameEx`, after the collision separation
 at `0x40bff8`); the renderer neither writes nor reads it. Everything else in
 the original render stage (composition of the other nodes, sphere cull,
-transform, projection, clipping, lighting, environment-map UVs) moves to the
-GPU renderer.
+transform, projection, clipping, object shading, environment-map UVs) moves to
+the GPU renderer. Original palette-state updates retain their fixed-step
+timing and shared RNG consumption; only their visual application moves with
+rendering (see [lighting.md](lighting.md)).
 
 **Widescreen.** The 3D view is Hor+: the original vertical FOV is kept and
 wider screens see more at the sides. Menus, HUD, text and video are laid out
 on a 4:3 canvas centred in the window. A "faithful 4:3" toggle pillarboxes
 the 3D view. The projection reference test checks the central 4:3 region.
 
-**Quads.** Glide draws triangles, so the faithful look depends on splitting
-each quad along the diagonal `GLIDE_DrawObjectFaces` used; that split order is
-part of the material specification (to be read from `DREAMSFX.EXE`).
+**Stored triangles.** The Glide hook submits three-corner face records; even
+four-sided shapes are already triangulated in the data. Preserve those
+triangles instead of choosing a new quad diagonal. The recovered face modes,
+samplers, palette cache, transparency, depth and fog are specified in
+[glide-renderer.md](glide-renderer.md).
 
 ## Architecture
 
+**Preserve the recovered source structure.** This is a faithful decompilation
+rebuild, with necessary adaptations, and functions should remain easy to compare
+side by side with the decompilation. Keep supported source groupings, function
+names, tables, shared globals and call order. The original filenames and directory
+tree are lost; [source-block analysis](re-setup.md#source-file-blocks-find_modulespy)
+provides evidence with both proven and candidate boundaries, not an exact tree.
+Do not infer a source file from a descriptive function prefix alone.
+
+The priorities, in order, are:
+
+1. Preserve recognizable functions, recovered source groupings, state and
+   execution order.
+2. Replace what needs replacing for portability, GPU rendering and the agreed
+   timing model.
+3. Document those changes so they can be traced back to the original.
+
+Globals, mixed responsibilities, awkward call chains and strange function
+boundaries can stay when they reflect the original. They help us compare the
+port beside the decompilation and catch mistakes. **ODShared can start as one
+tangled library shared by two executables.** Cleaner boundaries can emerge where
+the evidence supports them; they are not prerequisites for getting the game
+rebuilt.
+
+Start with one ODShared library and two applications. ODViewer reads and previews
+models, maps, props, animations, images, fonts, sound and video. It may initialize
+shared resources and link the whole engine, but does not run gameplay. ODRuntime
+runs the game and owns its optional gameplay debugging overlay. The initial
+structure below distinguishes reconstructed code from new supporting code;
+these directory names do not claim to reproduce Cryo's original paths.
+
 ```text
 opendreams/
-  platform/   SDL3: window, input, audio device, timers, paths
-  data/       VFS over the disc images (cue/bin, ISO 9660, audio tracks) or a pack; native loaders: DRD, DSN, DAN, 3DC, SPR/ALP/BF, FSB, INI
-  video/      HNM4/5/6 decoder
-  sim/        fixed-step game: entities, actors, AI, physics, camera, level, inventory, menus, dialogue, saves
-  render/     sokol_gfx: object hook, materials, sprites/text, video blit, post
-  audio/      mixer: SFX (FSB), voice (DRD), music (tracks)
-  app/        main loop, asset browser, game
-  tools/      pack writer, trace/compare tools
+  shared/              ODShared library
+    port/              Reconstructed source units, including game and engine code
+    platform/          SDL3/OS replacement implementations as needed
+    render/            New sokol GPU implementation and shaders
+    ui/                Shared Dear ImGui setup and SDL/sokol integration
+    support/           New support, including cue/bin and ISO 9660 access
+  apps/
+    runtime/           ODRuntime entry point and optional gameplay debugging UI
+    viewer/            ODViewer asset browser and preview controls
+  tests/               Function, reference and corpus comparisons
+  tools/               Pack writer and trace/compare tools, when needed
 ```
+
+The detailed draft and evidence review are in
+[001 — project initialization](specs/001-project-init/spec.md).
 
 Rules:
 
-- **The game never touches SDL or sokol.** `sim/` is its own build target
-  that cannot include `platform/` or `render/`; it is a library with a
-  `step(inputs)` function and readable state, and the app owns the loop.
+- **Adapt at the recovered call sites.** ODShared may depend on SDL and sokol.
+  Prefer narrow platform replacements, preserving original callers and state
+  where practical. There is no mandatory dependency-free `core` or `sim` target.
+  A function that mixes gameplay and platform work need not be split merely to
+  satisfy a new layer rule. Document necessary changes and their evidence.
+- **Keep game decisions independent of presentation timing.** Preserve the
+  fixed-step policy and known renderer feedback described above. Tests may run
+  selected paths headlessly with test services; headless execution does not
+  require removing all platform libraries from the link.
+- **Preview the same implementation.** ODViewer uses recovered loaders and
+  playback functions with their required setup. It does not host a game session
+  or duplicate gameplay to display an asset. Investigate gameplay-dependent
+  state through ODRuntime's overlay or focused tests.
+- **Restore the original development tools first.** Start ODRuntime debugging
+  with the surviving object HUD (`DBG_DrawObjectInfo`), collision wireframe
+  (`DBG_DrawCollisionMesh`) and free-camera mode. Keep recovered routines in
+  their source groupings, adapt text/line drawing to the GPU and verify their
+  activation paths. New runtime controls and diagnostics extend these tools.
+  The original free camera changes the game camera and may affect sound and
+  line-of-sight behaviour; preserve it as an explicit state-changing developer
+  mode. A later inspection-only camera would be a separate addition.
 - **Inputs are logical actions per player, resolved once per step** from
   bindings held as data (keys, gamepad). The original polls a key-state table
   each tick (`INPUT_PollKeyboard`); the platform layer fills that table from
   the bindings. Replays record the table per step.
 - **The original random generator, called only by ported code.** The game
   calls Watcom's `rand_` from 21 functions and never seeds it, so the sequence
-  is fixed from launch; the port keeps that generator and nothing outside the
-  game (renderer, audio, UI effects) may draw from it.
+  is fixed from launch. This includes **three draws per normal palette-lighting
+  update** (`REND_TickPaletteLighting`), despite their visual purpose. Preserve
+  these original calls and their order on the simulation clock; renderer-only
+  enhancements, audio and new UI effects cannot consume this stream. See
+  [lighting.md](lighting.md). GPU application of palette state does not move
+  the original RNG calls onto the display clock.
 - **Floating point: keep it simple.** The port uses the same float and double
   types as the original but does not emulate the x87; results differ from
   the original only in the last bits, which nobody can see. Two build rules
@@ -211,13 +277,13 @@ Rules:
 - **The VFS is case-insensitive** (DOS filenames on Linux, macOS and the web)
   and language-directory aware (`DATA\LANG\<language>\`), with captions
   loaded alongside voice.
-- **Settings are a versioned struct** persisted by `platform/` (user
+- **Settings are a versioned struct** persisted by the platform code (user
   directory on desktop, IndexedDB in the browser).
 - **Video is clocked by its audio.** The HNM decoder is also a mixer source;
   the frame shown is the one for the current audio sample position. Frames are
   held, not blended, on fast displays.
 - **Debug time controls come with the fixed step**: pause, single-step, and
-  rewind by replaying inputs from a snapshot, in `app/` from milestone 4.
+  rewind by replaying inputs from a snapshot, in ODRuntime from milestone 4.
 
 ## Data
 
@@ -226,10 +292,10 @@ the two `.cue`/`.bin` images. The VFS mounts both at once: the data tracks
 through an ISO 9660 reader, with the precedence between discs taken from the
 merge map in [disc-layout.md](disc-layout.md), and the audio tracks as raw
 PCM (11 + 13 tracks). There is no install step, no extracted folder and no
-"insert disc 2". Every format on the discs that the game needs is decoded
-([assets.md](assets.md), [file-formats.md](file-formats.md)), except the gap
-listed below. A plain folder can also be mounted, for development only; it
-is not a supported way to play.
+"insert disc 2". Format decoders and their remaining coverage limits are
+listed in [re-status.md](re-status.md), [assets.md](assets.md) and
+[file-formats.md](file-formats.md). A plain folder can also be mounted, for
+development only; it is not a supported way to play.
 
 **The pack is the only preprocessing, it exists for the browser, and it is
 parked until the desktop game plays.** The desktop build reads the images and
@@ -243,8 +309,8 @@ from the images, never shipped. Container, chunk boundaries and what happens
 to video are the parked decisions listed at the end.
 
 The current Python `extract`/`bake`/`pack` pipeline ([pipeline.md](pipeline.md))
-keeps serving the Babylon viewer until the runtime's browser build replaces
-it. New format knowledge lands in the Python decoders first (they are the
+keeps serving the Babylon viewer until ODViewer covers its inspection workflows
+and browser use. New format knowledge lands in the Python decoders first (they are the
 oracle) and in the C++ loaders second.
 
 ## Milestones
@@ -252,22 +318,27 @@ oracle) and in the C++ loaders second.
 Each milestone ends with something that runs on Windows, macOS and Linux
 and still compiles for the browser.
 
-1. **Skeleton.** CMake project, SDL3 window, sokol triangle, CI for
-   Windows/macOS/Linux plus an Emscripten compile check. Nothing from the
-   game yet.
-2. **Asset browser.** The owner's proposed first deliverable. Mount the two
-   disc images (cue/bin, ISO 9660, audio tracks) and browse them: models with
-   skeletons and animation playback at the original 30 frames per second,
-   props, level geometry and textures, sprites and fonts, sounds, music
-   tracks, voice with captions, videos. Every loader lands here, checked
-   against the Python decoders. This is where the renderer's material modes
-   are matched against the 3dfx build.
-3. **Level viewer with the real camera.** Levels with materials for all 98
-   scenes (needs the DSN gap below), the original camera (`CAM_CompCameraPos`),
-   the projection reference test.
-4. **First playable level.** Player movement from the original tables,
-   collision, physics, level exits, the HUD. Fixed-step loop with
-   interpolated rendering.
+1. **Foundation (spec 001).** CMake project, dependencies and framework wiring.
+   ODRuntime and ODViewer both run and display Hello World through shared SDL3,
+   sokol and Dear ImGui integration, with working input and presentation. Exercise
+   shader generation with a procedural background. CI for Windows/macOS/Linux
+   plus Emscripten compile checks for both applications. No game-data loading.
+2. **Asset browser, in stages.** **[Spec 002](specs/002-disc-navigation/spec.md)** mounts the two disc images and
+   builds ODViewer directory/file navigation, showing basic metadata only.
+   No asset previews or playback in 002. **Subsequent specs** add native format
+   loaders and previews: models, skeletons, animation at the original 30 frames
+   per second, props, level geometry/textures, sprites/fonts, sounds, music,
+   voice/captions and videos. Check each loader against Python and match the
+   renderer's material modes against the 3dfx build as previews arrive.
+3. **Level viewer and projection.** ODViewer previews levels with materials for
+   all 95 scenes (including the former collision-vote fallbacks), with the projection
+   reference test. Gameplay-dependent camera behaviour is exercised in
+   ODRuntime or focused tests, not a game session embedded in ODViewer.
+4. **First playable level.** ODRuntime with the original camera (`CAM_CompCameraPos`),
+   player movement from the original tables,
+   collision, physics, level exits, the HUD. Fixed-step loop at 30 Hz with
+   Δt = 1.0; the renderer draws the latest completed step. Optional motion
+   interpolation belongs to milestone 7.
 5. **Gameplay systems.** AI scheduler, NPC actions, combat, inventory and
    spells, menus, dialogue, saves, the boot flow with videos. Level by level
    against the project map ([level-map.md](level-map.md)).
@@ -280,31 +351,26 @@ and still compiles for the browser.
 
 ## Reverse-engineering work the runtime depends on
 
-Ordered by how early a milestone hits it.
+The current evidence and ordered backlog live in [re-status.md](re-status.md).
+The earlier blockers have narrowed substantially:
 
-1. **`.DSN` faces and materials for multi-arena scenes**: 90 of 95 scenes
-   decode geometry but not faces, materials or UVs
-   ([scene-geometry.md](scene-geometry.md)). Blocks milestone 3. The answer
-   is in the loader code of `WINDREAM.EXE` (`DSN_*` in the registry), not in
-   more heuristics.
-2. **Collision and physics**: only `PHYS_TickEntity` and
-   `PHYS_IntegrateMotion` are named; the collision model (tag 2 of the scene,
-   entity radii, floor finding) is not documented. Blocks milestone 4.
-3. **The fixed-step size**: the delta clamps and the landing-damage
-   dependence on delta, so the step (6 or 7 ticks of the 200 Hz counter, or
-   the clamped rate) is chosen inside the original's envelope.
-   Milestone 4.
-4. **Gameplay state machines**: `0x421717` (5 KB, requests animation states
-   and posts messages), the entity controller under `ENT_TickEntity`,
-   inventory and spell effects, triggers, damage. Milestone 5.
-5. **Lighting inputs**: what the original fed into per-vertex colours and the
-   `.3DM` shading tables ([assets.md](assets.md)). Milestone 2 for the look,
-   not blocking.
-6. **Save-game format** and the remaining `DREAMS.INI` semantics
-   ([game-content.md](game-content.md)). Milestone 5.
+- **Milestones 2–3:** all 95 scenes now use the original tag-1 render graph;
+  collision placement is diagnostic. Signed UVs and face types are preserved;
+  ARC's open boundaries are source topology. Implement the recovered
+  [Glide contract](glide-renderer.md) and [palette/light preparation](lighting.md),
+  then validate against original-game screenshots. Remaining narrow questions
+  include zero-density fog, some scene/video descriptors and type-2 light details.
+- **Milestone 4:** collision/physics, player controllers and camera behavior
+  are documented well enough to begin the port. The step is settled at
+  Δt = 1.0. Remaining arithmetic, flags and special cases must be traced as
+  the first playable slice is built and compared against the original.
+- **Milestones 5–6:** complete trigger/effect semantics and special actors,
+  then validate progression across 150 projects. Save layouts and the English
+  build's compiled-in text path are already traced in
+  [game-content.md](game-content.md); integration and round-trip checks remain.
 
-About 43% of the game's own code is named today. The rasterizer (the largest
-unnamed block) never needs to be.
+Named-function counts are evidence coverage, not a percentage of the game
+ported. The software rasterizer and obsolete OS plumbing are outside the port.
 
 ## What we take from OpenLara
 
@@ -353,14 +419,14 @@ file size instead of content.
 - Porting the software rasterizer or the DirectDraw/GDI presentation.
 - Running the original executables, patching them, or wrapping them.
 - New content, new mechanics, new levels.
-- A general-purpose engine or editor. The asset browser exists to exercise
-  the loaders and renderer, not as a product.
+- A general-purpose engine or editor. ODViewer is a maintained, separately
+  distributable asset browser; it does not host gameplay or author levels.
 - Shipping game data. The player supplies the discs.
 
 ## Open decisions
 
-- **Fixed step size**: 6 or 7 ticks of the 200 Hz counter, or the rate the
-  original's clamps enforce. Settled by the RE item above, before milestone 4.
+- **Fixed step size is settled:** 30 Hz, Δt = 1.0. Original demo playback
+  timing remains a validation question, not a choice of simulation rate.
 - **Parked until the web build (milestone 7), desktop first:**
   - **Pack format**: container, compression, chunk boundaries. Starting point
     on record: one chunk per original file as a relocatable image plus a

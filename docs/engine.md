@@ -111,6 +111,9 @@ and write pixels into it. **[verified]**
 
 ### 3dfx path — Glide 2 in `DREAMSFX.EXE` **[verified]**
 
+For the complete dispatch/state tables and corrected fog/alpha behavior, see
+[glide-renderer.md](glide-renderer.md).
+
 The LE import table is empty: nothing is statically linked. Glide comes from
 3dfx's DOS import library, `glimport.asm` in the
 [released Glide source](https://github.com/sezero/glide): 130 decorated names
@@ -168,8 +171,8 @@ object.
   is the light count (`+0xc8` holds the light indices); when it is 0,
   `SW_DrawObjectFaces` rewrites face types `0x16`/`0x19` to `0x18`. An earlier
   revision called `+0xc4` and `+0xd0` vertex arrays; the vertex array is at
-  `+0x80` (count `+0x7c`, `0x28` bytes each), and the `+0xd0` read in the
-  rasterizers is off a register whose structure is not identified.
+  `+0x80` (count `+0x7c`, `0x28` bytes each). Node `+0xd0` is the uniform
+  shade used when its light count is zero; see *Lighting inputs* below.
 - **Software:** `SW_DrawObjectFaces` sends each face to a per-type rasterizer
   that fills per-scanline edge lists (`0x66e6b8`, `0x66f6b8`, `0x6706b8`);
   `SW_FlushSpans` walks them scanline by scanline into the framebuffer;
@@ -265,8 +268,8 @@ slot:
 | background | `GLIDE_ClearToBackground` `0x67490` (`grBufferClear`) | `VID_RestoreBackground` `0x417fe7`: copy the saved background (w×h×2) into the framebuffer |
 | 3D faces | `GLIDE_DrawObjectFaces` `0x67568` | `SW_DrawObjectFaces` `0x473014` + `SW_FlushSpans` `0x4768cc` |
 | translucent faces | `GLIDE_DrawTranslucentFaces` `0x68128`, deferred after the scene: face types −7/−4/−3, decal texture, alpha 128, `SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA` | inside the software rasterizer (no separate pass) |
-| texture upload | `GLIDE_BindTexture` `0x672a8`, `GLIDE_TexUpload` `0x66ac8`, `GLIDE_TexAllocUpload` `0x66d58`, `GLIDE_TexUploadScene` `0x66f24` | none: the rasterizer reads textures from RAM |
-| fog, depth, clip | `GLIDE_SetFog` `0x671d0`, `GLIDE_SetDepthMode` `0x67500`, `GLIDE_SetClipWindow` `0x67204` | no counterpart at these call sites |
+| texture upload | `GLIDE_BindTexture` `0x672a8`, `GLIDE_UploadTexture` `0x66ac8`, `GLIDE_AllocTexture` `0x66d58`, `GLIDE_UploadAllTextures` `0x66f24` | none: the rasterizer reads textures from RAM |
+| fog, depth, clip | `GLIDE_SetFog` `0x671d0`, `GLIDE_SetDepthWrite` `0x67500`, `GLIDE_SetClipWindow` `0x67204` | no counterpart at these call sites |
 | text | `TEXT_PrintCentered` `0x4e20c`, `TEXT_GetWidth` `0x4ded4`, `TEXT_DrawGlyph` `0x4de34`, `TEXT_Print` `0x4e688` | `TEXT_PrintCentered` `0x425b4c`, `TEXT_GetWidth` `0x425838`, `TEXT_DrawGlyph` `0x4257a0`, `TEXT_Print` `0x426073` |
 | sprites, menu | `SPR_Draw` `0x595f4`, `MENU_Draw` `0x5bdb4` | `SPR_Draw` `0x4274b0`, `MENU_Draw` `0x435ea0` |
 
@@ -451,30 +454,30 @@ exactly as `README.TXT` §6 documents (also in-game F10 help). Camera views
 are `Alt+5..0`, not mouse-driven. See [boot-sequence.md](boot-sequence.md)
 for the frame pump that drives all of this.
 
-### Lighting inputs (2026-09-26, look only)
+### Lighting inputs (2026-09-26)
 
-- **Shading is palette-row selection, not colour modulation.** Every texture
-  bank (`.DAN` tag 2, `.3DM`, and the pages `DSN_Create3DM` (`0x417a07`) builds for levels)
-  carries 32 rows of the same 256-entry RGB565 palette at falling brightness;
-  the rasterizers pick row `31 − shade` (`0x46c8ec`: `local_34 = 0x1f − shade`).
-  **[verified]**
-- **Unlit nodes** (light count `+0xc4 == 0`) use one shade for every face,
-  node `+0xd0`, and `SW_DrawObjectFaces` (`0x473014`) turns the Gouraud block types
-  `0x16`/`0x19` into flat `0x18`. **[verified]**
-- **Lit nodes**: `REND_LightObject` (`0x47b7e0`) sums, for the lights listed at node `+0xc8`,
-  a shade per face (flat types; clamped at −31) or per corner at face
-  `+0x41..+0x43` from the corner normals (Gouraud `0x16`/`0x17`/`0x19`/`0x1a`).
-  **[verified]**
-- **Lights**: at most 100 records of 0x94 bytes at `0x672700` — `+0x00` type
-  (1 directional, 2 point), `+0x88`/`+0x8c` inner/outer radius, `+0x90`
-  intensity — added and removed by `0x477cb0`/`0x477d78` from gameplay code
-  (`0x42bcb9`, `0x42bfa9`), moved into view space each frame by `0x477ee0` and into
-  each node's space by `REND_TransformLights` (`0x47b3d0`). **[verified]**
-- **Level inputs**: the level record's light directions (`+0x18`, `+0x24`),
-  ambient RGB (`+0x30`) and day/night mode (`+0x138`, which sets biases
-  ±`0x40`/±`0x80` in `SCENE_LoadLevel` (`0x41f9db`)) are read at level load. That they build
-  the 32-row ramps of the level textures in `DSN_LoadTextures` (`0x417afd`) is the obvious
-  reading but **[unverified]**.
+The complete preparation path is in [lighting.md](lighting.md); the hardware
+submission contract is in [glide-renderer.md](glide-renderer.md).
+
+- Project `+0x18/+0x24` are signed **RGB base/variation**, not light directions.
+  `REND_TickPaletteLighting` (`0x42e5f2`) uses three original `rand_` draws per
+  update. Preserve this state and call order on the simulation clock.
+- `DSN_LoadTextures` (`0x417afd`) installs the source palette in row 15.
+  `REND_UpdatePaletteRows` (`0x42e8b1`) rebuilds rows using global RGB or a
+  bound actor's offsets; `REND_ApplyPaletteOffsets` (`0x4031c3`) saturates and
+  packs them. The full/rolling update paths use different row-step indices.
+- Software selects row `31-shade`; Glide binds a palette row and, for its
+  Gouraud types, also multiplies by iterated corner RGB. “Lighting is only
+  palette selection” is therefore specific to the software path.
+- `REND_AddLight` (`0x477cb0`) manages 100 records of 0x94 bytes. Type 1 is
+  position-only/radial; type 2 additionally has an orientation axis. The old
+  directional/point labels were unsupported. Inner/outer radius and intensity
+  are known; type-2 angular details and its creation path remain open.
+- Project mode `+0x138` uses exact 0/1 branches and also takes value 16 in
+  P0/P108. Its branch behavior is known; preserve the raw integer.
+- `ENT_AdaptActorColor` (`0x41c0a6`) attempts projected color adjustment, but
+  its pixel helper is a RET stub. It does not establish a new framebuffer
+  readback dependency. Its actor RGB results feed the bound palette path.
 
 ## Camera and projection **[verified]**
 
@@ -718,12 +721,14 @@ Shadows are blobs from `ombre.3dc`/`ombre2.3dc` (`ENT_InitShadows` (`0x43e55c`))
 above the floor Y and aligned to the floor triangle (`ENT_UpdateShadow` (`0x43e9aa`)).
 
 Open: what `+0x258` (1.0) and `+0x280` (1000.0) are for outside the swim/fly
-ramps; the hidden float in the pair radius; the line-of-sight segment test
-(`0x45f654`) used by AI and projectiles.
+ramps; the hidden float in the pair radius; the complete segment-intersection
+rules used by AI and projectiles. The registry now identifies
+`PHYS_NextSegmentTriangle` (`0x45f654`) as a resumable iterator over collision
+triangles whose bounds meet the segment; a name is not yet a full specification.
 
 ## The fixed step **[verified]**
 
-Traced 2026-09-26. Settles the step size left open in north-star.md.
+Traced 2026-09-26. This is the evidence for north-star.md's 30 Hz, Δt = 1.0 decision.
 
 ### How the original computes Δt
 

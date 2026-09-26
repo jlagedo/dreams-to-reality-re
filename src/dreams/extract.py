@@ -649,24 +649,12 @@ def extract_leveltex(root: Path, src: Source, force: bool) -> Iterator[Item]:
 
 
 def extract_tiles(root: Path, src: Source, force: bool) -> Iterator[Item]:
-    """.3DM -> three 128x128 PNGs. The images are NOT textures.
+    """Legacy .3DM byte-view experiment: three 128x128 RGB555 PNGs.
 
-    Each .3DM is exactly 28 + 3*0x8000 bytes and 128*128*2 == 0x8000, and the
-    RGB555 unused high bit is clear across whole blocks - which is why a hi-colour
-    texture was the obvious first guess. **Rendering them disproves it**: the
-    output is structured noise, not imagery. **[verified]**
-
-    What the numbers actually say (ESSAI.3DM): blocks 1 and 2 hold 15-bit values
-    (max 32124 / 32639, both < 0x8000), only 107 distinct byte values, and a
-    median consecutive delta of ~512 - a smooth ramp. Block 0 differs (full
-    16-bit range, 232 distinct bytes, long equal runs).
-
-    That is the shape of a **lookup table**, not a picture, and the four .3DM
-    names - ESSAI, GRILLE, OMBRE2, SPRITE - are all .3DC *material* names, with
-    OMBRE meaning shadow. Shading/lighting LUTs for the software rasteriser fit
-    the evidence far better. **[unverified]**
-
-    The PNGs are still written, cheaply, as visual evidence for the next person.
+    This interpretation is obsolete. A .3DM contains a 32-row RGB565 palette
+    ramp and a 256x256 indexed texture page, decoded by ``node.read_3dm``.
+    These diagnostic images preserve the old experiment and are not usable
+    texture exports. See docs/assets.md for the recovered layout.
     """
     data = src.path.read_bytes()
     if len(data) != 28 + 3 * 0x8000:
@@ -688,8 +676,8 @@ def extract_tiles(root: Path, src: Source, force: bool) -> Iterator[Item]:
         src.rel,
         written,
         "ok",
-        "rendered as 128x128 RGB555; output is noise, so NOT a texture - "
-        "measurements point to shading lookup tables [unverified]",
+        "legacy RGB555 byte views, not decoded textures; "
+        "use dreams.formats.node.read_3dm for the recovered palette/page layout",
     )
 
 
@@ -1025,7 +1013,7 @@ DESCRIPTIONS = {
     "textures": "HNM4 256x256 animated textures",
     "sprites": "Indexed .SPR records and HI320/HI480/HI640 bitmap-font glyphs",
     "icons": "ICONES.BF/SOUR.ALP sprite banks; PYRAM layer references are diagnostics",
-    "tiles": ".3DM blocks as 128x128 -- a byte diagnostic, NOT a texture, see note",
+    "tiles": "legacy .3DM RGB555 byte views; decoded texture banks use node.read_3dm",
     "leveltex": "Level textures from .DSN scenes: one 256x256 per object",
     "models": "Character and prop models (.DAN, .3DC) as glTF, with texture pages"
     " and textured previews",
@@ -1245,10 +1233,10 @@ def _readme(m: dict) -> str:
         "",
         "## Caveats",
         "",
-        "- `images/3dm-blocks/` are **not textures**. They are the right size for",
-        "  128x128 RGB555 and the unused high bit behaves, but rendering them gives",
-        "  noise. The value distributions look like shading lookup tables instead.",
-        "  The PNGs are kept as visual evidence, not as usable art.",
+        "- `images/3dm-blocks/` are legacy RGB555 byte views, not decoded art.",
+        "  `.3DM` files are texture banks: a 32-row RGB565 palette ramp and a",
+        "  256x256 indexed page. `dreams.formats.node.read_3dm` decodes them;",
+        "  these diagnostic PNGs retain the earlier, rejected interpretation.",
         "- OBJET indexed-sprite transparency still assumes palette index 0;",
         "  menu and font keying is confirmed.",
         "- HNM4 headers imply 24 fps; the decoder emits 15. Timing may be wrong.",

@@ -1,6 +1,6 @@
 """Copy what the docs say about each address into Ghidra plate comments.
 
-Every docs/*.md sentence, list item or table row that mentions an address in
+Every current docs/*.md sentence, list item or table row that mentions an address in
 the program (FUN_00xxxxxx, 0x4xxxxx, 004xxxxx) or a registered function name
 (re/names/<program>.tsv) becomes part of a [DOCS_SYNC] block on that address:
 
@@ -11,6 +11,9 @@ the program (FUN_00xxxxxx, 0x4xxxxx, 004xxxxx) or a registered function name
 
 ghidra_scripts/ApplyDocComments.java applies the file: it removes every
 existing [DOCS_SYNC] block first, so comments follow the docs as they change.
+The historical research-log.md is excluded. Within current guides, regions
+between ``<!-- docs-sync: off -->`` and ``<!-- docs-sync: on -->`` are excluded
+too, so rejected interpretations are not restored as live Ghidra evidence.
 
   uv run python tools/sync_doc_comments.py WINDREAM.EXE
 
@@ -33,13 +36,42 @@ OUT = ROOT / "out" / "ghidra" / "match"
 
 MAX_PER_ADDRESS = 8
 MAX_CHARS = 600
+HISTORY_DOCS = {"research-log.md"}
+
+
+def current_text(text: str) -> str:
+    """Keep current prose; explicit history markers do not act inside code fences."""
+    enabled = True
+    fence = None
+    lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        marker = re.match(r"^(`{3,}|~{3,})", stripped)
+        if marker:
+            token = marker.group(1)
+            if fence is None:
+                fence = token
+            elif token[0] == fence[0] and len(token) >= len(fence):
+                fence = None
+        elif fence is None and stripped in {
+            "<!-- docs-sync: off -->",
+            "<!-- docs-sync: on -->",
+        }:
+            enabled = stripped == "<!-- docs-sync: on -->"
+            lines.append("")  # do not join prose across an excluded region
+            continue
+        if enabled:
+            lines.append(line)
+    return "\n".join(lines)
 
 
 def units(text: str):
     """(section, unit) pairs: table rows, list items and sentences of paragraphs."""
     section = ""
     in_code = False
-    for block in re.split(r"\n\s*\n", text):
+    for block in re.split(r"\n\s*\n", current_text(text)):
+        if not block.strip():
+            continue
         lines = block.strip("\n").split("\n")
         for line in lines:
             if line.startswith("```"):
@@ -93,6 +125,8 @@ def main() -> None:
 
     found: dict[int, list[str]] = {}
     for doc in sorted(DOCS.glob("*.md")):
+        if doc.name in HISTORY_DOCS:
+            continue
         text = doc.read_text(encoding="utf-8")
         for section, unit in units(text):
             hits = set()

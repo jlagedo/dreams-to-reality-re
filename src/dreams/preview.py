@@ -114,6 +114,7 @@ def render_model(model, banks, target: str | Path, size: int = 260) -> Path:
     for slot, (ax, ay, az) in enumerate(VIEWS):
         depth = [1e30] * (size * size)
         for face in model.faces:
+            wrap = _node.glide_wrap(face.primitive_type)
             pts = [
                 (
                     (q[ax] - centre[ax]) / scale * size * 0.8 + size / 2,
@@ -149,7 +150,12 @@ def render_model(model, banks, target: str | Path, size: int = 260) -> Path:
                         palette, page = banks[which]
                         u = w0 * face.uvs[0][0] + w1 * face.uvs[1][0] + w2 * face.uvs[2][0]
                         v = w0 * face.uvs[0][1] + w1 * face.uvs[1][1] + w2 * face.uvs[2][1]
-                        texel = palette[page[(int(v * 256) & 255) * 256 + (int(u * 256) & 255)]]
+                        if wrap is False:
+                            tx = max(0, min(255, int(u * 256)))
+                            ty = max(0, min(255, int(v * 256)))
+                        else:
+                            tx, ty = math.floor(u * 256) & 255, math.floor(v * 256) & 255
+                        texel = palette[page[ty * 256 + tx]]
                     at = (y * width + slot * size + x) * 3
                     img[at : at + 3] = bytes(texel)
 

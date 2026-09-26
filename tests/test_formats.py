@@ -327,6 +327,30 @@ def test_face_block_must_point_at_its_own_records():
 
 
 @needs_discs
+@pytest.mark.parametrize(
+    ("filename", "primitive_type", "raw_coordinate"),
+    [("F37.DAN", 2, -4243196), ("H14.DAN", 2, 16842198), ("L14.DAN", 9, 131408616)],
+)
+def test_authored_uvs_keep_their_sign_range_and_primitive_type(
+    filename, primitive_type, raw_coordinate
+):
+    model_path = next(
+        (
+            d / "DATA/3DC" / filename
+            for d in (paths.disc(1), paths.disc(2))
+            if (d / "DATA/3DC" / filename).exists()
+        ),
+        None,
+    )
+    if model_path is None:
+        pytest.skip(f"{filename} not present")
+    model = node.read_model(model_path)
+    assert {f.primitive_type for f in model.faces} == {primitive_type}
+    coordinates = [c for f in model.faces for uv in f.uvs for c in uv]
+    assert any(c == pytest.approx(raw_coordinate / node.UV_SCALE) for c in coordinates)
+
+
+@needs_discs
 def test_exported_palette_row_loses_no_colour():
     """Row 0 of the light ramp is over-brightened, not the artwork.
 
@@ -448,18 +472,16 @@ def test_collision_mesh_omits_the_sky_but_places_the_rest():
 
 
 @needs_discs
-def test_a_node_baked_elsewhere_in_tag_2_keeps_the_fallback():
-    """A node that matches tag 2 only after a shift is rejected, not guessed.
-
-    `E12_ANGK` node 3 is a moving block: tag 2 holds its 17 vertices 408
-    units lower than the file's transform puts them.
-    """
+def test_collision_placement_cannot_replace_the_render_graph():
+    """E12_EAU's alternate collision vote must not discard its render faces."""
     from dreams.formats import mesh as meshmod
 
     angk = _scene("E12_ANGK")
     check = meshmod.check_nodes(angk)
     assert [(i, off) for i, _, _, _, off in check.displaced] == [(3, (0, -408, 0))]
-    assert meshmod.read_scene(angk)[1] == "tag2"
+    mesh, source = meshmod.read_scene(angk)
+    assert source == "nodes"
+    assert any(obj.name == "E12_EAU" and obj.uvs for obj in mesh.objects)
 
 
 @needs_discs
@@ -502,13 +524,13 @@ def test_every_face_vertex_pointer_lands_on_a_vertex_record():
 @needs_discs
 @pytest.mark.corpus
 def test_scene_route_counts():
-    """84 of 95 scenes export through the node, with names and UVs."""
+    """All 95 scenes export through the tag-1 render graph."""
     from dreams.formats import mesh as meshmod
 
     scenes = {p.stem: p for d in (paths.disc(1), paths.disc(2)) for p in d.rglob("*.DSN")}
     routes = [meshmod.read_scene(p)[1] for p in scenes.values()]
     assert len(routes) == 95
-    assert routes.count("nodes") == 84
+    assert routes.count("nodes") == 95
 
 
 def test_scene_palette_is_rgb565_full_range():

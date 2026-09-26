@@ -313,6 +313,25 @@ def test_lz_rejects_a_truncated_stream():
         lz.decompress(b"\xff\xff\xff\xff")  # all-literal control, no data
 
 
+def test_gltf_sampler_keeps_clamped_and_repeated_materials_distinct(tmp_path):
+    from dreams import gltf
+
+    doc = gltf.Scene(
+        name="sampling",
+        materials=[("clamped", "page.png"), ("repeated", "page.png")],
+        material_types={0: 2, 1: 9},
+    )
+    out = gltf.write(tmp_path / "sampling.gltf", doc)
+    data = json.loads(out.read_text())
+    for index, (kind, mode) in enumerate([(2, 33071), (9, 10497)]):
+        material = data["materials"][index]
+        assert material["extras"]["dreamsFaceType"] == kind
+        texture = data["textures"][material["pbrMetallicRoughness"]["baseColorTexture"]["index"]]
+        sampler = data["samplers"][texture["sampler"]]
+        assert sampler["wrapS"] == sampler["wrapT"] == mode
+        assert sampler["minFilter"] == sampler["magFilter"] == 9729
+
+
 def test_gltf_writer_emits_a_valid_document(tmp_path):
     from dreams import gltf
 

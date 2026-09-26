@@ -179,10 +179,16 @@ identity is still open. **[verified sequence; effect label unverified]**
 | `+0x78` | Target-distance parameter copied to actor `+0x118`. |
 | `+0x88` | Random-action threshold copied to actor `+0x194`. |
 
-This corrects the earlier `project.py` comment that treated `+0x6c` as a local
-`BOX` route index. Retail values such as 63, 113, and 128 exceed the 0–11 `BOX`
-slot range. The records do include `BOX` point geometry, but a direct actor-to-
-`BOX` route link has not been found. **[verified field mapping; unresolved use]**
+This corrects the earlier route-index interpretation of `+0x6c`. Retail values
+such as 63, 113, and 128 exceed the 0–11 `BOX` slot range. The parser retains
+the legacy accessor `route_index`; its value is the turn step.
+
+Later caller tracing identifies `AI_FindPatrolBox` (`0x41304c`) as selecting
+the first active type-0 box containing the actor in XZ, starting at actor
+`+0x198`. `AI_ChooseMoveTarget` (`0x4121aa`), `AI_FindNearestPathPoint`
+(`0x4126eb`) and `AI_FollowLeaderPath` (`0x412812`) use path state at `+0x20c`.
+These registry findings narrow the navigation question; complete path
+assignment and progression across the project corpus still need validation.
 
 ## Action state to animation clip
 
@@ -456,8 +462,11 @@ uv run python -c 'import sys; from dreams.formats.project import read; print([(p
   visible effect asset or damage/collision routine gives it its gameplay name?
 - The IBI clip is functionally the attack/launch pose; its authored pose label
   is still absent from the retail clip directory.
-- What are the human-readable labels for player movement slots 25, 41, and 42?
-- What is the runtime meaning of `OBJET +0x6c`, and which project `BOX` records
-  define NPC navigation or patrol paths?
+- What distinguishes falling slots 25, 41 and 42 beyond their verified shared
+  falling behavior? The authored clip labels are absent.
+- How do all actor path assignments and patrol transitions use the project's
+  `BOX` records? `OBJET +0x6c` is settled as the turn step; it is not routing.
+- What is the complete trigger condition/action matrix, and how do spell/item
+  codes map to their English names and effect implementations?
 - Which actor mode/status bit meanings can be named from additional retail
   data and call-site tracing?

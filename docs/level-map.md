@@ -1,12 +1,14 @@
 # Level map — projects to scenes
 
-The complete mapping from the game's 150 **projects** to the 98 `.DSN` **scene**
+The complete mapping from the game's 150 **projects** to the 95 unique `.DSN` **scene**
 files. **[verified]** — recovered by parsing the 150 project records in
 `DREAMS.DAT` and joining them to the 150 `[PROJECT]` entries in `DREAMS.INI`.
 
 A "project" is the engine's unit of progression (the thing the autosave records);
 a scene is the geometry it loads. They are **not** one-to-one — scenes are reused
-heavily, which is why 150 projects fit into 98 files.
+heavily, which is why 150 projects fit into 95 files. Recounted 2026-09-26:
+the project references, table below and unique filenames on the configured
+discs agree; the earlier total of 98 was stale.
 
 ## How the join works
 
@@ -105,10 +107,10 @@ from cut or renamed scenes, not pointers.
 
 ## Filename grammar
 
-**[verified]** 97 of 98 scene names match `[A-Z][0-9]{2}[A-Z0-9_]{0,5}.DSN`. The
+**[verified]** 94 of 95 scene names match `[A-Z][0-9]{2}[A-Z0-9_]{0,5}.DSN`. The
 lone exception is `END.DSN`.
 
-Prefixes observed: `E` (27), `F` (28), `H` (10), `L` (19), `M` (11), `O` (1),
+Prefixes observed: `E` (27), `F` (28), `H` (8), `L` (18), `M` (11), `O` (1),
 `Y` (1), plus `END`.
 
 **[verified]** The two digits are an internal scene ID, **not** the project

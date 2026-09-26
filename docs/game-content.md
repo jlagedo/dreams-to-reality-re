@@ -35,8 +35,9 @@ English release could not find a `DREAMS.INI` even if the loader ran, and the ta
   a game", "Save the game in progress...", ..., "Error on disk / Disk full".
 - **`[DIALOG]`**'s one entry is "Again" (`0x4a1584`), the French "Encore".
 
-The French placeholders below are therefore what a French build shows, not
-what an English player saw.
+The French placeholders below describe the shipped override file. They do not
+establish what a French executable displays; the examined English executable
+uses its compiled-in text.
 
 ## The file is full of placeholder text
 
@@ -44,8 +45,8 @@ what an English player saw.
 commentaires`) and four sections: `[OBJECT]`, `[PROJECT]`, `[DIALOG]`,
 `[SYSTEM]`. Records are separated by `[NEW]`.
 
-Critically, **most of the item descriptions are developer placeholders, not
-shipped text**:
+Most item descriptions in this file are **developer placeholders**; they are
+not the English text displayed by the examined executable:
 
 | Item | "Description" |
 |---|---|
@@ -94,7 +95,7 @@ flags for ability versus object icons.
 ## Levels — 150 "projects"
 
 `[PROJECT]` enumerates `Project0` through `Project149`, each with a French
-descriptive name. Only 98 `.DSN` scene files exist across both discs, so projects
+descriptive name. There are 95 unique `.DSN` scene filenames across both discs, so projects
 reuse scenes — and several entries are explicitly marked `Doublon` (duplicate).
 
 Seven entries have **no name at all**, just a raw filename — unfinished content

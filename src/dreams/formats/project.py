@@ -118,7 +118,7 @@ class Objet:
 @dataclass
 class Box:
     name: str
-    kind: int  #: Raw type code; its gameplay meaning and relation to NPC routing are open.
+    kind: int  #: BOX +0xF0; traced kinds 0..9 are listed in docs/file-formats.md.
     points: list[Vec]
 
 
@@ -143,11 +143,11 @@ class Project:
     anim_video2: str = ""
     anim_material2: str = ""
     ambient_rgb: Vec = (128, 128, 128)
-    dir_light1: Vec = (0, 0, 0)
-    dir_light2: Vec = (0, 0, 0)
-    fog: tuple[int, int, int, int] = (0, 0, 0, 0)
-    sky_rgb: tuple[int, int, int, int] = (0, 0, 0, 0)
-    lighting_mode: int = 0  #: 0=Day, 1=Night
+    dir_light1: Vec = (0, 0, 0)  #: Legacy name for +0x18 palette RGB base.
+    dir_light2: Vec = (0, 0, 0)  #: Legacy name for +0x24 signed RGB variation.
+    fog: tuple[int, int, int, int] = (0, 0, 0, 0)  #: Legacy +0xE0 palette-effect fields.
+    sky_rgb: tuple[int, int, int, int] = (0, 0, 0, 0)  #: Legacy +0xF0 target RGB and duration.
+    lighting_mode: int = 0  #: Raw +0x138: exact 0/1 branches; 16 also occurs.
     camera_fov: int = 64  #: +0xA4, legacy name: the player's turn step, not a FOV
     cd_track: int = 0  #: Redbook audio track number
     links: list[Link] = field(default_factory=list)

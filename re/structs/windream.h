@@ -4,6 +4,8 @@
  * ghidra_scripts/ImportStructs.java. Unknown spans stay byte arrays on purpose.
  * Field comments note evidence and unresolved semantics; do not promote a
  * candidate field name to a confirmed meaning without a new code/data trace.
+ * Consolidated 2026-09-26 from docs/engine.md, ai-animation-runtime.md and
+ * file-formats.md; docs/re-status.md indexes the evidence and remaining gaps.
  */
 #ifndef DREAMS_WINDREAM_STRUCTS_H
 #define DREAMS_WINDREAM_STRUCTS_H
@@ -17,27 +19,35 @@ typedef signed int     dreams_i32;
 typedef float          dreams_f32;
 typedef double         dreams_f64;
 
-/* Zero-run decoded DREAMS.DAT record, exactly 0x2200 bytes. */
+/* Header of the zero-run decoded DREAMS.DAT record: 0x200 bytes. */
 typedef struct DREAMS_ProjectHeader {
     char project_name[16];                 /* +0x000 */
     dreams_u8 unknown_010[8];               /* +0x010 */
-    dreams_i32 light1_direction[3];         /* +0x018 */
-    dreams_i32 light2_direction[3];         /* +0x024 */
+    dreams_i32 palette_base_rgb[3];         /* +0x018 REND_TickPaletteLighting, signed channel biases */
+    dreams_i32 palette_variation_rgb[3];    /* +0x024 random channel variation, not a spatial direction */
     dreams_i32 ambient_rgb[3];              /* +0x030 */
     /* Six 16-byte slots; their video/material roles overlap in old notes. */
     char scene_asset_name_slots[6][16];     /* +0x03c .. +0x09b */
-    dreams_i32 camera_projection_mode;      /* +0x09c */
-    dreams_i32 camera_near_clip;            /* +0x0a0 */
-    dreams_i32 camera_fov_degrees;          /* +0x0a4 */
+    dreams_i32 player_movement_mode;        /* +0x09c ENT_LoadObject -> actor +0x34, with selector remapping */
+    dreams_i32 player_movement_scale;       /* +0x0a0 converted to float at actor +0x104 */
+    dreams_i32 player_turn_step;            /* +0x0a4 -> actor +0x108; camera FOV is separately fixed at 76.36 degrees */
     dreams_u8 unknown_0a8[12];              /* +0x0a8 */
     dreams_i32 player_spawn_xyz[3];         /* +0x0b4 */
-    dreams_u8 unknown_0c0[32];              /* +0x0c0 */
-    dreams_i32 fog_parameters[4];           /* +0x0e0 */
-    dreams_i32 clear_color[4];              /* +0x0f0 */
+    dreams_i32 actor_palette_scale;        /* +0x0c0 default 8 */
+    dreams_i32 scene_palette_scale;        /* +0x0c4 default 2 */
+    dreams_i32 actor_effect_lights;        /* +0x0c8 enables actor +0xab bit 8 */
+    dreams_i32 x0cc;                       /* +0x0cc far-plane override AND player effect-light outer radius */
+    dreams_i32 ai_schedule_selector;       /* +0x0d0 */
+    dreams_i32 water_height;               /* +0x0d4 */
+    dreams_i32 swim_movement_scale;        /* +0x0d8 */
+    dreams_i32 fly_movement_scale;         /* +0x0dc */
+    dreams_i32 palette_effect_e0[4];       /* +0x0e0 additional channel bias/range inputs */
+    dreams_i32 palette_target_rgb[3];      /* +0x0f0 */
+    dreams_i32 palette_transition_time;    /* +0x0fc */
     dreams_u8 unknown_100[12];              /* +0x100 */
     dreams_i32 player_spawn_heading;        /* +0x10c */
     dreams_u8 unknown_110[40];              /* +0x110 */
-    dreams_i32 lighting_mode;               /* +0x138 */
+    dreams_i32 lighting_mode;               /* +0x138 exact 0/1 branches; 16 occurs, preserve raw */
     dreams_u8 unknown_13c[0xbc];            /* +0x13c */
     dreams_i32 redbook_track;               /* +0x1f8 */
     dreams_u8 unknown_1fc[4];               /* +0x1fc */
@@ -46,7 +56,8 @@ typedef struct DREAMS_ProjectHeader {
 typedef struct DREAMS_LinkRecord {
     char name[12];                          /* +0x00 */
     char destination_project[12];           /* +0x0c */
-    dreams_u8 unknown_018[12];              /* +0x18 */
+    dreams_u8 flags;                        /* +0x18 SCENE_CheckExits: enabled, enemy/partner/item/trigger/input conditions */
+    dreams_u8 unknown_019[11];              /* +0x19 */
     dreams_i32 volume_min_xyz[3];            /* +0x24 */
     dreams_i32 volume_max_xyz[3];            /* +0x30 */
     dreams_u8 unknown_03c[0x44];             /* +0x3c */
@@ -65,9 +76,9 @@ typedef struct DREAMS_ObjetRecord {
     dreams_i32 heading_12bit;                /* +0x5c */
     dreams_u8 unknown_060[4];                /* +0x60 */
     dreams_i32 behavior_selector;            /* +0x64 */
-    dreams_u32 movement_parameter_raw;       /* +0x68; runtime use is model-dependent */
-    dreams_u32 parameter_6c_unresolved;      /* +0x6c; not confirmed as a BOX route index */
-    dreams_u32 behavior_parameter_70;        /* +0x70; selector-5 launch magnitude input */
+    dreams_i32 movement_scale;               /* +0x68 -> actor +0x104 as float */
+    dreams_i32 turn_step;                    /* +0x6c -> actor +0x108, read by ANIM_RequestState */
+    dreams_i32 actor_collision_radius;       /* +0x70 -> actor +0x10c; also used for attack placement offsets */
     dreams_u8 animation_and_state[0x28];     /* +0x74 .. +0x9b */
     dreams_u8 unknown_09c[0x24];             /* +0x9c .. +0xbf */
 } DREAMS_ObjetRecord;
@@ -78,7 +89,7 @@ typedef struct DREAMS_BoxRecord {
     dreams_i32 points_xyz[16][3];            /* +0x24 */
     dreams_i32 point_count;                  /* +0xe4 */
     dreams_u8 unknown_0e8[8];                /* +0xe8 */
-    dreams_i32 path_kind;                    /* +0xf0: 0 ground, 1 aerial */
+    dreams_i32 path_kind;                    /* +0xf0: 0 patrol, 1 flight; 2..9 pickup/prop/spawn/re-entry/air/trigger/hazard uses, see docs/file-formats.md */
     dreams_u8 unknown_0f4[12];               /* +0xf4 */
 } DREAMS_BoxRecord;
 
@@ -111,8 +122,8 @@ typedef struct CryoSceneNodeHeader {
     dreams_u32 next_sibling_reference;        /* +0x2c */
     dreams_i32 local_translation_xyz[3];      /* +0x30 */
     dreams_i32 local_rotation_q15[3][3];      /* +0x3c */
-    dreams_i32 exported_world_translation[3];/* +0x60; zero in shipped exports */
-    dreams_i32 exported_world_rotation[3][3]; /* +0x6c; copy of local matrix on disk */
+    dreams_i32 exported_view_translation[3]; /* +0x60; camera-space at runtime, zero in shipped exports */
+    dreams_i32 exported_view_rotation[3][3];  /* +0x6c; copy of local matrix on disk */
     dreams_u32 vertex_count;                  /* +0x90 */
     dreams_u32 vertex_array_reference;         /* +0x94 */
     dreams_u32 unknown_098;                    /* +0x98 */
@@ -175,7 +186,7 @@ typedef struct MDL_Face {
     dreams_i32 plane_d;        /* +0x30 n . v0 >> 15; back-facing when eye_dot - plane_d < 0 */
     MDL_UV *uv[3];             /* +0x34 */
     dreams_u8 shade;           /* +0x40 light level, used when the node has lights */
-    dreams_u8 unknown_41[3];
+    dreams_u8 corner_shade[3]; /* +0x41 Gouraud corner shades written by REND_LightObject */
 } MDL_Face;
 
 /* Primitive block; node +0xa4 heads a list of them (edges: +0xa8). */
@@ -200,7 +211,7 @@ typedef struct MDL_Node {
     struct MDL_Node *sibling;  /* +0x18 */
     dreams_i32 local_xyz[3];   /* +0x1c */
     dreams_i32 local_rot[3][3];/* +0x28 Q15 */
-    dreams_i32 view_xyz[3];    /* +0x4c composed each frame by REND_DrawObject */
+    dreams_i32 view_xyz[3];    /* +0x4c camera-space; root value read one tick late by sound/LOS, retained in the port's simulation */
     dreams_i32 view_rot[3][3]; /* +0x58 */
     dreams_u32 vertex_count;   /* +0x7c */
     MDL_Vertex *vertices;      /* +0x80 */
@@ -270,6 +281,30 @@ typedef struct PHYS_ForceField {
     dreams_u8 unknown_59[7];
 } PHYS_ForceField;
 
+/* Lighting records; see docs/lighting.md. The original type-2 name is unknown. */
+typedef struct REND_Light {
+    dreams_i32 type;                       /* +0x00 0 unused, 1 position/radial, 2 additionally oriented */
+    dreams_i32 position[3];                /* +0x04 */
+    dreams_i32 orientation[3][3];          /* +0x10 Q15 */
+    dreams_i32 view_position[3];           /* +0x34 */
+    dreams_i32 view_orientation[3][3];     /* +0x40 */
+    dreams_i32 node_vector[3];             /* +0x64 */
+    dreams_i32 node_axis[3];               /* +0x70 type 2 */
+    dreams_u8 unknown_7c[12];              /* +0x7c */
+    dreams_i32 inner_radius;               /* +0x88 */
+    dreams_i32 outer_radius;               /* +0x8c */
+    dreams_i32 intensity;                  /* +0x90 stored modulo 32 */
+} REND_Light;
+
+/* 64 material palette records at 0x615ad8; no serialized game-data format. */
+typedef struct REND_PaletteMaterial {
+    dreams_u8 unknown_00[8];               /* +0x00 */
+    char name[16];                        /* +0x08 */
+    dreams_u32 flags;                     /* +0x18 2 active, 0x10 actor-bound */
+    struct RuntimeActorObserved *actor;   /* +0x1c */
+    dreams_u32 source_bgr0[256];          /* +0x20 source palette expanded from row 15 */
+} REND_PaletteMaterial;
+
 typedef struct DAN_TrackHeader {
     dreams_u32 unknown_00[5];                 /* +0x00 */
     dreams_u32 duration_frames;                /* +0x14 */
@@ -309,13 +344,15 @@ typedef struct RuntimeActorObserved {
     dreams_u8 unknown_000[0x1c];              /* +0x000 */
     dreams_u32 unknown_01c;                   /* +0x01c; no confirmed maximum-vitality meaning */
     dreams_u8 unknown_020[0x14];              /* +0x020 */
-    dreams_i32 behavior_class;                 /* +0x034 */
+    dreams_i32 movement_mode;                  /* +0x034 1 ground, 2 swimming, 3 flying after loader remapping */
     dreams_f32 vitality_current;               /* +0x038 */
     dreams_f32 magic_current;                  /* +0x03c */
     dreams_f32 oxygen_current;                 /* +0x040 */
     dreams_u8 unknown_044[12];                 /* +0x044 */
     dreams_f32 hud_state_or_blink;             /* +0x050 */
-    dreams_u8 unknown_054[0x54];               /* +0x054 */
+    dreams_u8 unknown_054[0x44];               /* +0x054 includes the model-name prefix at +0x8c */
+    dreams_i32 palette_rgb_offset[3];         /* +0x098 read through actor-bound material slots */
+    dreams_u32 palette_fallback_color;        /* +0x0a4 legacy projected-color path */
     dreams_u8 flags_a8;                        /* +0x0a8 */
     dreams_u8 flags_a9;                        /* +0x0a9 */
     dreams_u8 flags_aa;                        /* +0x0aa */
@@ -325,13 +362,13 @@ typedef struct RuntimeActorObserved {
     dreams_u8 flags_ae;                        /* +0x0ae */
     dreams_u8 flags_af;                        /* +0x0af */
     dreams_u8 unknown_0b0[0x54];               /* +0x0b0 */
-    dreams_u32 movement_parameter_104;         /* +0x104 */
-    dreams_u32 unknown_108;                    /* +0x108 */
-    dreams_i32 launch_magnitude_10c;            /* +0x10c */
+    dreams_f32 movement_scale;                /* +0x104 player/OBJET movement scale */
+    dreams_i32 turn_step;                      /* +0x108 ANIM_RequestState */
+    dreams_i32 collision_radius;               /* +0x10c PHYS_AttachActorCollider; also attack placement offset */
     dreams_u8 unknown_110[8];                  /* +0x110 */
     dreams_i32 target_distance_parameter_118;   /* +0x118 */
-    dreams_u8 unknown_11c[12];                 /* +0x11c */
-    dreams_u8 previous_root_position_128[12];  /* +0x128 */
+    dreams_i32 root_position[3];               /* +0x11c newly evaluated animation root */
+    dreams_i32 previous_root_position[3];      /* +0x128 subtracted from root_position for motion */
     dreams_u8 unknown_134[0x24];               /* +0x134 */
     dreams_i32 model_family_158;                /* +0x158 */
     dreams_i32 current_action_15c;              /* +0x15c */

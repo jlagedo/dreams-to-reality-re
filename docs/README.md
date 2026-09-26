@@ -8,13 +8,19 @@ docs do.
 | Doc | Contents |
 |---|---|
 | [north-star.md](north-star.md) | **OpenDreams, the engine we are building**: goal, decisions (C++17, SDL3, sokol_gfx, native loaders), the original game code ported as a fixed-step loop with a free GPU renderer, milestones, the RE work it depends on |
+| [Spec 001 — project initialization](specs/001-project-init/spec.md) | C/C++ foundation, build/dependencies and two runnable Hello World applications through SDL3, sokol and Dear ImGui |
+| [Spec 002 — disc navigation](specs/002-disc-navigation/spec.md) | Draft for opening the original cue/bin images and navigating each disc's files and track metadata; no asset previews or playback |
+| [re-status.md](re-status.md) | **Current RE status and priorities**: recovered behavior, checked coverage, remaining gaps, field corrections and validation commands |
+| [glide-renderer.md](glide-renderer.md) | **Faithful GPU contract**: complete face dispatch, clamp/wrap, deferred alpha, depth, texture uploads, palette cache and fog |
+| [lighting.md](lighting.md) | **Palette and object lighting**: project RGB fields, row generation, actor binding, shared RNG, light records and remaining limits |
+| [scene-placement.md](scene-placement.md) | **All 95 render graphs**, eleven former collision fallbacks, signed UVs and ARC's source topology |
 | [re-setup.md](re-setup.md) | **Ghidra setup**, repo layout for RE, suggested order of attack; LE loader for the DOS builds, Glide typing, cross-build function matcher; **function naming**: registry, checked facts, doc comments in Ghidra |
 | [engine.md](engine.md) | Engine architecture, toolchain, the four binaries, subsystem layout; renderer backends, **Glide ↔ DirectDraw/GDI map**, input and joystick paths |
 | [toolchain.md](toolchain.md) | **Watcom C/C++ 10.6** pinned down; reference material; ~290 runtime symbols recovered per DOS binary |
 | [cryolib.md](cryolib.md) | `CRYO.DLL` = CryoLib: 165 exports incl. a working **HNM6 decoder** |
 | [game-content.md](game-content.md) | 150 levels, 30 inventory items, save system, from `DREAMS.INI` |
 | [boot-sequence.md](boot-sequence.md) | **Boot flow decompiled** — intro → generic → menu → new game → head video → first map, with videos and menus named |
-| [level-map.md](level-map.md) | **Complete project → scene map** — all 150 projects to 98 `.DSN` files |
+| [level-map.md](level-map.md) | **Complete project → scene map** — all 150 projects to 95 unique `.DSN` files |
 | [dsn-loader.md](dsn-loader.md) | **`.DSN` loader decompiled** — header reader, and how `__watcall` was fixed |
 | [scene-geometry.md](scene-geometry.md) | **`.DSN` to glTF** — vertex pool, face records, the stale-pointer problem, how to check a decode |
 | [models.md](models.md) | **`.DAN` character and prop models** — the scene-graph node, skeletons, bridging faces, texture pages |
@@ -44,6 +50,12 @@ it rests on, checked by `tools/check_names.py`. Pages that carry the
 ## Evidence tags
 
 Claims carry one of three tags. Respect them — do not promote a tag without new evidence.
+
+For current conclusions, start at [re-status.md](re-status.md) and follow its
+subsystem references. Dated log entries and sections explicitly marked
+historical preserve previous readings; they are not current specifications.
+Decoding data, naming functions and validating a running port are separate
+levels of evidence.
 
 - **[verified]** — observed directly in the files/binaries on this machine, with the
   observation reproducible from the commands recorded in the doc.

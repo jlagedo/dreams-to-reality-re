@@ -97,7 +97,7 @@ with the same function, so it always lists exactly what the folder holds.
 | Key | Contents |
 |---|---|
 | `projects` | `[{index, id, name, scene}]`; `name` is `DREAMS.INI`'s label |
-| `scenes` | `{stem: {textured}}` — `textured` is false for the 37 scenes still decoded from tag 2 |
+| `scenes` | `{stem: {textured}}` — all 95 current scene decodes use tag 1; old extracts may retain earlier collision fallbacks and need re-extraction |
 | `models` | `{id: {textured, animation?}}`; `animation` is the rig's catalog entry |
 | `audio`, `video` | file lists per group |
 | `boot` | `intro`, `warp`, `elder` videos, `menuMusic` (track 13), `startProject` (0) — named by `WINDREAM.EXE`, [boot-sequence.md](boot-sequence.md) |
@@ -127,12 +127,27 @@ with the same function, so it always lists exactly what the folder holds.
 ```
 
 - **Named** (verified): header spawn `+0xB4`, heading `+0x10C`, ambient
-  `+0x30`, lights `+0x18`/`+0x24`, fog `+0xE0`, sky `+0xF0`, FOV `+0xA4`, CD
+  `+0x30`, CD
   track `+0x1F8`, AI schedule `+0xD0`; object asset, position `+0x40`,
   heading `+0x5C`, flags `+0x34`; link destination and volume.
-- **By offset** (open): header `+0x138` (documented as day/night 0/1; P0
-  holds 16); object `+0x3C`, `+0x64`, `+0x68`, `+0x6C`, `+0x70`, `+0x78`,
-  `+0x88`; box `+0xF0`; advent `+0x14`, `+0x1C`, `+0x20`, `+0x24`.
+- **Legacy `fov` key:** stores header `+0xA4`, now established as the player's
+  **turn step**, not an angle. The Python accessor is still `camera_fov`, and
+  the viewer's debug panel still labels this legacy value as degrees. The
+  original camera's horizontal FOV is separately fixed at 76.36 degrees.
+  This describes the existing serialized contract, not the native engine's schema.
+- **Other legacy keys:** `light1`/`light2` contain palette RGB base/variation
+  at `+0x18/+0x24`, not directions; `fog` contains the palette-effect fields
+  at `+0xE0`, and `sky` contains target RGB plus duration at `+0xF0`.
+  The Glide fog inputs are separately at `+0x1c0..+0x1cc`. See [lighting.md](lighting.md).
+- **By offset:** these keys preserve the record bytes, not necessarily an
+  unknown meaning. Object `+0x64` is a movement selector, `+0x68` a movement
+  scale, `+0x6C` the turn step, `+0x70` the actor collision radius, `+0x78`
+  target distance and `+0x88` a random-action threshold. `BOX +0xF0` is its
+  kind. Advent `+0x14` selects an object; `+0x1C` is a one-based dialogue ID
+  for opcode `0x40`. Complete opcode semantics remain open. Header `+0x138`
+  takes values 0, 1 and 16; its exact branches are now traced, while mode 16's
+  author intent remains unknown.
+  See [file-formats.md](file-formats.md) and [re-status.md](re-status.md).
 - **`videos`** are the names the engine reads at `+0x3C` and `+0x5C` as C
   strings, with the baked file. **`headerStrings`** is every printable run in
   `+0x3C..+0x9C`, keyed by its offset — see the findings below.

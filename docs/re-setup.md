@@ -368,10 +368,13 @@ covers it.
 
 ### Doc text in Ghidra: `sync_doc_comments.py`
 
-Every docs sentence, list item or table row that mentions an address or a
+Every current docs sentence, list item or table row that mentions an address or a
 registered name is copied to that address as a `[DOCS_SYNC]` plate comment.
 `ApplyDocComments.java` first removes every old block, so the comments follow
-the docs:
+the docs. The historical `research-log.md` is excluded. In a current guide,
+wrap rejected or historical material in `<!-- docs-sync: off -->` and
+`<!-- docs-sync: on -->` (or leave it off through EOF) to keep it out of live
+comments while retaining it for research history:
 
 ```powershell
 uv run python tools/sync_doc_comments.py WINDREAM.EXE
