@@ -1,0 +1,169 @@
+#include "platform/graphics_backend.h"
+
+#include <d3d11.h>
+#include <dxgi1_2.h>
+
+#include <cstdio>
+#include <new>
+
+namespace od {
+namespace {
+
+struct D3DState {
+    ID3D11Device* device = nullptr;
+    ID3D11DeviceContext* context = nullptr;
+    IDXGISwapChain1* swapchain = nullptr;
+    ID3D11RenderTargetView* render_view = nullptr;
+    int width = 0;
+    int height = 0;
+};
+
+void set_hr_error(std::string& error, const char* operation, HRESULT hr) {
+    char code[24]{};
+    std::snprintf(code, sizeof(code), "0x%08lX", static_cast<unsigned long>(hr));
+    error = std::string(operation) + " failed (HRESULT " + code + ")";
+}
+
+bool create_render_view(D3DState& state, std::string& error) {
+    ID3D11Texture2D* back_buffer = nullptr;
+    HRESULT hr = state.swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D),
+                                            reinterpret_cast<void**>(&back_buffer));
+    if (FAILED(hr)) {
+        set_hr_error(error, "DXGI back-buffer acquisition", hr);
+        return false;
+    }
+    hr = state.device->CreateRenderTargetView(back_buffer, nullptr, &state.render_view);
+    back_buffer->Release();
+    if (FAILED(hr)) {
+        set_hr_error(error, "D3D11 render-target creation", hr);
+        return false;
+    }
+    return true;
+}
+
+} // namespace
+
+SDL_WindowFlags GraphicsBackend::window_flags() { return static_cast<SDL_WindowFlags>(0); }
+
+bool GraphicsBackend::init(SDL_Window* window, std::string& error) {
+    auto* state = new (std::nothrow) D3DState();
+    if (!state) {
+        error = "out of memory while creating D3D11 state";
+        return false;
+    }
+    state_ = state;
+    const HWND hwnd = static_cast<HWND>(SDL_GetPointerProperty(
+        SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
+    if (!hwnd) {
+        error = "SDL did not expose a Win32 window handle";
+        return false;
+    }
+    if (!SDL_GetWindowSizeInPixels(window, &state->width, &state->height)) {
+        error = std::string("SDL drawable-size query failed: ") + SDL_GetError();
+        return false;
+    }
+    if (state->width < 1) state->width = 1;
+    if (state->height < 1) state->height = 1;
+
+    const D3D_FEATURE_LEVEL requested[] = {D3D_FEATURE_LEVEL_11_0};
+    D3D_FEATURE_LEVEL actual{};
+    HRESULT hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
+                                   D3D11_CREATE_DEVICE_BGRA_SUPPORT, requested, 1,
+                                   D3D11_SDK_VERSION, &state->device, &actual, &state->context);
+    if (FAILED(hr)) {
+        set_hr_error(error, "D3D11 device creation", hr);
+        return false;
+    }
+
+    IDXGIFactory2* factory = nullptr;
+    hr = CreateDXGIFactory1(__uuidof(IDXGIFactory2), reinterpret_cast<void**>(&factory));
+    if (FAILED(hr)) {
+        set_hr_error(error, "DXGI factory creation", hr);
+        return false;
+    }
+    DXGI_SWAP_CHAIN_DESC1 desc{};
+    desc.Width = static_cast<UINT>(state->width);
+    desc.Height = static_cast<UINT>(state->height);
+    desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    desc.BufferCount = 2;
+    desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    desc.Scaling = DXGI_SCALING_STRETCH;
+    desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+    hr = factory->CreateSwapChainForHwnd(state->device, hwnd, &desc, nullptr,
+                                         nullptr, &state->swapchain);
+    factory->Release();
+    if (FAILED(hr)) {
+        set_hr_error(error, "DXGI swapchain creation", hr);
+        return false;
+    }
+    return create_render_view(*state, error);
+}
+
+sg_environment GraphicsBackend::environment() const {
+    const auto* state = static_cast<const D3DState*>(state_);
+    sg_environment env{};
+    env.defaults.color_format = SG_PIXELFORMAT_BGRA8;
+    env.defaults.depth_format = SG_PIXELFORMAT_NONE;
+    env.defaults.sample_count = 1;
+    env.d3d11.device = state->device;
+    env.d3d11.device_context = state->context;
+    return env;
+}
+
+FrameState GraphicsBackend::acquire(SDL_Window* window, sg_swapchain& out, std::string& error) {
+    auto* state = static_cast<D3DState*>(state_);
+    int width = 0;
+    int height = 0;
+    if (!SDL_GetWindowSizeInPixels(window, &width, &height)) {
+        error = std::string("SDL drawable-size query failed: ") + SDL_GetError();
+        return FrameState::failed;
+    }
+    if (width == 0 || height == 0) return FrameState::skipped;
+    if (width != state->width || height != state->height) {
+        state->context->OMSetRenderTargets(0, nullptr, nullptr);
+        state->render_view->Release();
+        state->render_view = nullptr;
+        const HRESULT hr = state->swapchain->ResizeBuffers(0, static_cast<UINT>(width),
+                                                           static_cast<UINT>(height),
+                                                           DXGI_FORMAT_UNKNOWN, 0);
+        if (FAILED(hr)) {
+            set_hr_error(error, "DXGI swapchain resize", hr);
+            return FrameState::failed;
+        }
+        state->width = width;
+        state->height = height;
+        if (!create_render_view(*state, error)) return FrameState::failed;
+    }
+    out.width = state->width;
+    out.height = state->height;
+    out.color_format = SG_PIXELFORMAT_BGRA8;
+    out.depth_format = SG_PIXELFORMAT_NONE;
+    out.sample_count = 1;
+    out.d3d11.render_view = state->render_view;
+    return FrameState::ready;
+}
+
+bool GraphicsBackend::present(std::string& error) {
+    auto* state = static_cast<D3DState*>(state_);
+    const HRESULT hr = state->swapchain->Present(1, 0);
+    if (FAILED(hr)) {
+        set_hr_error(error, "DXGI presentation", hr);
+        return false;
+    }
+    return true;
+}
+
+void GraphicsBackend::shutdown() {
+    auto* state = static_cast<D3DState*>(state_);
+    if (!state) return;
+    if (state->render_view) state->render_view->Release();
+    if (state->swapchain) state->swapchain->Release();
+    if (state->context) state->context->Release();
+    if (state->device) state->device->Release();
+    delete state;
+    state_ = nullptr;
+}
+
+} // namespace od

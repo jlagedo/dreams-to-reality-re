@@ -1,0 +1,80 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 28, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "win-msvc-x64-debug",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "CMAKE_C_COMPILER": "cl", "CMAKE_CXX_COMPILER": "cl" }
+    },
+    {
+      "name": "win-msvc-x64-relwithdebinfo",
+      "inherits": "win-msvc-x64-debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    },
+    {
+      "name": "macos-clang-arm64-debug",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "13.0",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_OBJCXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "macos-clang-arm64-relwithdebinfo",
+      "inherits": "macos-clang-arm64-debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    },
+    {
+      "name": "linux-gcc-x64-debug",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "CMAKE_C_COMPILER": "gcc", "CMAKE_CXX_COMPILER": "g++" }
+    },
+    {
+      "name": "linux-gcc-x64-relwithdebinfo",
+      "inherits": "linux-gcc-x64-debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    },
+    {
+      "name": "web-debug",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "web-relwithdebinfo",
+      "inherits": "web-debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "win-msvc-x64-debug", "configurePreset": "win-msvc-x64-debug" },
+    { "name": "win-msvc-x64-relwithdebinfo", "configurePreset": "win-msvc-x64-relwithdebinfo" },
+    { "name": "macos-clang-arm64-debug", "configurePreset": "macos-clang-arm64-debug" },
+    { "name": "macos-clang-arm64-relwithdebinfo", "configurePreset": "macos-clang-arm64-relwithdebinfo" },
+    { "name": "linux-gcc-x64-debug", "configurePreset": "linux-gcc-x64-debug" },
+    { "name": "linux-gcc-x64-relwithdebinfo", "configurePreset": "linux-gcc-x64-relwithdebinfo" },
+    { "name": "web-debug", "configurePreset": "web-debug" },
+    { "name": "web-relwithdebinfo", "configurePreset": "web-relwithdebinfo" }
+  ],
+  "testPresets": [
+    { "name": "win-msvc-x64-debug", "configurePreset": "win-msvc-x64-debug" },
+    { "name": "linux-gcc-x64-debug", "configurePreset": "linux-gcc-x64-debug" }
+  ]
+}
