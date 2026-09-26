@@ -692,6 +692,88 @@ Open: what `+0x258` (1.0) and `+0x280` (1000.0) are for outside the swim/fly
 ramps; the hidden float in the pair radius; the line-of-sight segment test
 (`0x45f654`) used by AI and projectiles.
 
+## The fixed step **[verified]**
+
+Traced 2026-09-26. Settles the step size left open in north-star.md.
+
+### How the original computes Δt
+
+The master frame handler (`0x416d45`, installed by `GAME_InitSubsystems` (`0x415f00`); not a
+defined function in the Ghidra project, read by address range) runs one frame
+as: `DEMO_RecordFrame` (`0x40d833`) or `DEMO_PlayFrame` (`0x40e4ed`), `GAME_Tick` (`0x4240ba`), UI, then the **delta for the next
+frame** (`0x4170a6`–`0x4172a2`):
+
+```
+ticks = counter(0x6309e0) − last            200 Hz counter (SYS_UpdateTimer (0x440890)), MGM message 0x11
+fps   = max(200 / ticks, 1)
+Δt    = 30 / fps                            = 0.15 · ticks, in 30 Hz frames
+Δt    = clamp(Δt, 0.2, 5.0)                 150 fps .. 6 fps
+if 0x4a4758 == 1:  Δt = 2.0                 never set: dead
+if demo mode 0x49d34a == 0 (recording):  Δt = 1.0
+```
+
+A frame with no elapsed tick gives Δt = 0.2. `CTRL_Dispatcher` (`0x40e75c`) carries a second
+copy **without** the 0.2–5.0 clamp, but it only runs in the boot, menu and
+caption loops (`0x40eb4f`), not in gameplay. Δt is `0x5e5388` everywhere.
+
+### What Δt feeds, and what it does not
+
+Scaled by Δt: animation frame advance (`+0x178` speed), the physics force
+factor `k = Δt/3`, shot and gauge timers, look-key rates, the swim/fly ramps.
+
+**Not** scaled: the position step (`pos += round(v)` per frame), the
+per-frame damping (0.99/0.9/0.7), the camera easing (½, ¼ per frame), the
+collision sweep. So the simulation is a per-frame integrator whose
+accelerations are multiplied by Δt: after `N` frames of free fall
+`v ≈ N·Δt·g/3` and `y ≈ N²·Δt·g/6`, i.e. with `T = N·Δt` in 30 Hz frames,
+`y ≈ T²·g/(6·Δt)`. **Effective gravity scales as 1/Δt**; the game only
+behaves as tuned at one Δt.
+
+### Damage that depends on Δt
+
+The player controller (`0x421717`, item 6) reads last frame's vertical
+velocity (`0x49da90`) and the collision impact `+0x288`
+(`min(127, |push|·127 / radius)`, `PHYS_MoveWalker` (`0x40c42c`)):
+
+| Condition | Speed used | Damage (cumulative) |
+|---|---|---|
+| walker, impact > 1 | `s = v_y / Δt` | s > 60: 5; > 100: +10; > 120: +15; > 180: +40; > 250: +100 |
+| flying, impact > 1 | raw `v_y` (not divided) | v_y > 100: 2 |
+| flying, impact > 64 | — | 1 |
+
+Damage goes through `ENT_TakeDamage` (`0x443853`) / `ENT_TakeDamageQuiet` (`0x443948`) (health `+0x38` −= amount;
+death at 0). Dividing by Δt does not make the walker case step-independent,
+because `v_y` itself grows with a step-dependent gravity. Simulating a fall
+from rest with the recovered integrator:
+
+| Fall height | Δt 0.2 | 0.5 | 0.9 | **1.0** | 1.05 | 2.0 |
+|---|---|---|---|---|---|---|
+| 1,000 | 30 | 15 | 5 | **5** | 5 | 0 |
+| 3,000 | 70 | 30 | 30 | **15** | 15 | 5 |
+| 5,000 | 170 | 70 | 30 | **30** | 30 | 15 |
+
+(`tests/test_fixed_step.py`; integer rounding and damping are not the
+cause, the missing Δt on the step is.) This is the landing-damage
+bug north-star.md mentions: fast machines, tiny deltas, lethal short falls.
+
+### The answer: Δt = 1.0, three steps per 20 ticks
+
+- The engine's own **demo recorder forces Δt = 1.0** (`0x49d34a == 0`), so
+  1.0 is the step the developers made deterministic. The 30 Hz base of the
+  animation clock (animation-timing.md) is the same unit.
+- A 30 Hz step is 20/3 counter ticks. It does not need to be a whole number:
+  accumulate 200 Hz ticks and run one step each time the accumulator passes
+  6⅔ (three steps per 20 ticks), every step with **Δt = 1.0 exactly**.
+- If whole ticks are required, **7 ticks (Δt 1.05, 28.6 steps/s)** is closer
+  than 6 (Δt 0.9, 33.3 steps/s): gravity differs by −5% against +11%, and
+  over falls of 200 to 8,000 units 7 ticks changes the damage at 1 height in
+  40, 6 ticks at 8 (0.9 already doubles it at 3,000).
+- Rates outside the clamp envelope do not arise: 1.0 is inside [0.2, 5.0].
+
+Open: the Δt players actually saw in 1997 (a 15–20 fps software renderer
+gives 1.5–2.0, which the table shows is gentler); whether demo playback
+(`0x49d34a == 1`) also ran at 1.0 through another path.
+
 ## Subsystem naming
 
 Recovered symbol fragments suggest a `<MODULE>_<Verb><Type>` convention:

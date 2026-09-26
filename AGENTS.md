@@ -166,7 +166,7 @@ binaries, so recovered and descriptive names read alike.
     `DDAT_` (DREAMS.DAT);
   - behaviour and maths: `AI_` (squad AI), `PHYS_`, `MATH_` (fixed-point
     vector, matrix and quaternion helpers), `HNM5_`;
-  - `DBG_` for debug code;
+  - `DBG_` for debug code; `DEMO_` for input recording and replay;
   - DOS build: `GLIDE_`, `KBD_`, `TIMER_`, `DPMI_`.
 - **Globals** are `g_camelCase` (`g_frameBuffer`, `g_videoWidth`); API
   objects keep the API's name (`g_DirectDraw`).

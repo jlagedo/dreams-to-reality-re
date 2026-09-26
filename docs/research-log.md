@@ -1153,6 +1153,28 @@ The collision model is complete enough to reimplement; details in
 - 59 functions named with blind review (`PHYS_*`, plus `ENT_InitShadows` (`0x43e55c`)
   and `ENT_UpdateShadow` (`0x43e9aa`): the shadow blobs are `ombre.3dc`). `0x45cd60` stays unnamed.
 
+## 2026-09-26 — the fixed step: Δt = 1.0
+
+Settles north-star's open decision (the answer lives in
+[engine.md](engine.md), *The fixed step*; north-star.md is not edited).
+
+- **Δt** = `30 · ticks / 200` of the 200 Hz counter, FPS floored at 1, clamped
+  to **[0.2, 5.0]**, computed after `GAME_Tick` for the next frame by the
+  master frame handler `0x416d45`. A `2.0` override is dead code (its flag is
+  never written). `CTRL_Dispatcher` (`0x40e75c`)'s unclamped copy runs only in the boot and
+  menu loops.
+- **Demo mode** `0x49d34a`: 0 records the player's input words and state each
+  frame (6,144 frames, repeats counted), 1 plays them back, 2 is normal play.
+  **Recording forces Δt = 1.0.**
+- **The physics is not Δt-consistent**: forces are scaled by Δt but the
+  position steps by `v` per frame, so effective gravity scales as 1/Δt.
+  Landing damage divides the fall speed by Δt but still changes with it: a
+  5,000-unit fall deals 170 at Δt 0.2, 30 at 1.0 and 15 at 2.0
+  (`tests/test_fixed_step.py`). That is the landing-damage bug.
+- **Decision**: step at 30 Hz with Δt = 1.0 exactly (three steps per 20
+  ticks), the recorder's value. If whole ticks are required, 7 (Δt 1.05)
+  rather than 6 (Δt 0.9).
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)
