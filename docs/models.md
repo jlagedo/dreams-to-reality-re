@@ -523,8 +523,8 @@ Headless Ghidra decompilation revealed the exact runtime evaluation routines:
      $$T_{world} = ((R_{parent} \times T_{child}) \gg 15) + T_{parent}$$
    - Matrix multiply implemented in `MATH_MulMat3` (`0x45b86c`).
 
-4. **Vertex Projection (`REND_ProjectVertices` (`0x478dac`))**:
-   - Rigidly transforms the node's flagged vertices by the node matrix (there is no skinning or deformation), then projects them to screen:
+4. **Vertex transform and projection**:
+   - `REND_TransformClipVertices` (`0x478c2c`) rigidly transforms every vertex of the node by the node matrix (there is no skinning or deformation) into camera space, and `REND_ProjectVertices` (`0x47b228`) projects the vertices flagged `0x40` to screen (`K/z`, x, y, outcodes). `REND_ProjectSharedVertices` (`0x478dac`) does both steps for the parent's vertices flagged `0x80`, the ones bridging children borrow, using the parent's matrix.
      $$V_{world} = ((R_{world} \times V_{local}) \gg 15) + T_{world}$$
 
 ### Duncan (`XH_`) Motion Action Mapping [inferred]

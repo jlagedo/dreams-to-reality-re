@@ -7,6 +7,7 @@ docs do.
 
 | Doc | Contents |
 |---|---|
+| [north-star.md](north-star.md) | **OpenDreams, the engine we are building**: goal, decisions (C++17, SDL3, sokol_gfx, native loaders), the original game code ported as a fixed-step loop with a free GPU renderer, milestones, the RE work it depends on |
 | [re-setup.md](re-setup.md) | **Ghidra setup**, repo layout for RE, suggested order of attack; LE loader for the DOS builds, Glide typing, cross-build function matcher; **function naming**: registry, checked facts, doc comments in Ghidra |
 | [engine.md](engine.md) | Engine architecture, toolchain, the four binaries, subsystem layout; renderer backends, **Glide ↔ DirectDraw/GDI map**, input and joystick paths |
 | [toolchain.md](toolchain.md) | **Watcom C/C++ 10.6** pinned down; reference material; ~290 runtime symbols recovered per DOS binary |

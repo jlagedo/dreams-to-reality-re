@@ -164,8 +164,12 @@ object.
 
 - `REND_DrawObject` calls `(*hook)(object)` unless object flag `+0x0d & 0x10`
   is set. Every hook walks the object's face list at `+0xa4` and switches on
-  the face type (`0x16`, `0x17`, `0x1c`, … and negative codes), reading
-  `+0xc4` and `+0xd0`.
+  the face type (`0x16`, `0x17`, `0x1c`, … and negative codes). Node `+0xc4`
+  is the light count (`+0xc8` holds the light indices); when it is 0,
+  `SW_DrawObjectFaces` rewrites face types `0x16`/`0x19` to `0x18`. An earlier
+  revision called `+0xc4` and `+0xd0` vertex arrays; the vertex array is at
+  `+0x80` (count `+0x7c`, `0x28` bytes each), and the `+0xd0` read in the
+  rasterizers is off a register whose structure is not identified.
 - **Software:** `SW_DrawObjectFaces` sends each face to a per-type rasterizer
   that fills per-scanline edge lists (`0x66e6b8`, `0x66f6b8`, `0x6706b8`);
   `SW_FlushSpans` walks them scanline by scanline into the framebuffer;
@@ -196,6 +200,51 @@ object.
   `REND_DrawFrameEx` takes an object handle and, in `WINDREAM.EXE`, resolves
   it through `0x455358` before the common frame path; the 3dfx build's extra
   call to `0x6f634` is not yet traced.
+
+### What the game reads from the renderer **[verified]**
+
+Traced 2026-09-26 (static; `out/scratch/sim-reads-projection.md` has the
+full table of outputs and readers). The render stage in `WINDREAM.EXE`
+writes, per node: composed camera-space rotation (`+0x58..+0x78`) and
+translation (`+0x4c..+0x54`) in `REND_DrawObject` (`0x47e498`); cull bits in
+`+0x0c` (`0x478980`); per-vertex camera-space xyz (`+0x10`), screen x/y
+(`+0x1c`/`+0x20`), `K/z` (`+0x24`) and outcode flags (`+0x00`) in
+`REND_TransformClipVertices` (`0x478c2c`), `REND_ProjectVertices`
+(`0x47b228`, the main projection of `0x40`-flagged vertices) and
+`REND_ProjectSharedVertices` (`0x478dac`, the parent's `0x80`-flagged shared
+vertices used by bridging children); clipped polygons, lighting and
+environment-map UVs.
+
+Nothing outside the render path reads the vertex data, the cull bits, the
+clipped polygons, the lighting, or the dead third branch's triangle buffers
+(`0x6808e4`/`0x6808e8`). The per-node box records built after the scene walk
+(`0x460de0`) are read only by box-collision routines (`0x4616ac`–`0x464188`)
+that nothing calls.
+
+**One render output is read by the game: node `+0x4c`, the object's position
+composed down to the camera root, i.e. in camera space.** Readers:
+
+| Reader | Called from | Use |
+|---|---|---|
+| `0x4477d9` | `DSOUND_PlaySound` (`0x446654`) via `0x447390` | distance to the camera sets the volume, camera-space x the pan |
+| `0x4145c3` | `AI_TickCombat` | line of sight: converts back to world space with the current camera (`0x457c3c`), tests the segment against collision planes |
+| `0x444b04` | `ENT_TickAttackObject` | same line-of-sight check |
+
+Both line-of-sight checks run in `GAME_Tick` before this tick's render, so
+they see the previous frame's value after `CAM_CompCameraPos` has moved the
+camera; their reconstructed world position drifts while the camera moves.
+Only the entity's root node is involved. The original renders from
+`0x423f60` after the collision separation `0x40bff8`, so a reimplementation
+must compute this value at `REND_DrawFrame`/`REND_DrawFrameEx` time.
+
+`CAM_CompCameraPos` works in world space and uses no renderer output. Which
+objects are hidden is a game decision (`+0x0c` bits 1 and 4), not the frustum
+cull. The only other world-to-screen code reachable from the tick is an
+ambient-tint sampler (`0x41c0a6`) whose pixel reader `0x4020a8` is a bare
+`RET` in this build, and the debug collision wireframe (`0x45f2a0`). Open:
+whether the portrait render (`0x43eb67`, a second camera at `0x62b9a4`) can
+re-parent an entity; and whether the pan call in `0x4477d9` overwrites the
+volume, since both use the `SetVolume` slot (`+0x3c`). **[unverified]**
 
 ### Presentation and 2D — Glide mapped onto DirectDraw/GDI **[verified]**
 

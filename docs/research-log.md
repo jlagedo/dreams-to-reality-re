@@ -2,6 +2,23 @@
 
 ## Corrections
 
+### What the game reads back from the renderer (2026-09-26)
+
+Traced for the runtime's renderer cut ([north-star.md](north-star.md)): no
+game code reads screen coordinates, clip or cull flags, lighting or the dead
+third branch's triangle buffers. One render output is read, the object's
+camera-space position at node `+0x4c` written by `REND_DrawObject`, by
+positional sound and by the two line-of-sight checks in `AI_TickCombat` and
+`ENT_TickAttackObject`, one tick late. Details in [engine.md](engine.md),
+"What the game reads from the renderer". Corrections that came with it:
+
+- **`0x478dac` only handles shared vertices.** It transforms and projects the
+  parent's `0x80`-flagged vertices for bridging children; renamed
+  `REND_ProjectSharedVertices`. The main projection of `0x40`-flagged vertices
+  is `0x47b228`, now `REND_ProjectVertices`.
+- **Node `+0xc4` is the light count**, not a vertex array; the vertex array is
+  at `+0x80`.
+
 ### Every documented function checked a second time, and named
 
 Each `WINDREAM.EXE` function the docs cite now has a validated name. There are
