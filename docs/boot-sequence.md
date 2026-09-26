@@ -164,6 +164,54 @@ same pair at `0x3c2c8`/`0x3c658`. Messages identified during this trace:
 | `0x27`/`0x28`/`0x29` | install / query / restore per-frame handler (used to wrap the intro video handler `0x4339cf` around the standing one) |
 | `0x2f` | (video subsystem internal) |
 
+The complete command set of `MGM_SendMessage` (`0x43a306`), from its switch (2026-09-26,
+**[verified]**; any other command is a fatal error). Most commands set or
+clear a bit in the subsystem flag word `0x626f80` and return a value in
+`0x4a2f88`:
+
+| Cmd | Effect | `0x626f80` |
+|---:|---|---|
+| 4 / 5 | keyboard input on / off (on needs an input device, `0x626f70`) | bit 1 |
+| 6, 9 | read an entry of the two-device table at `0x630864` (`0x440e39`, `0x440e97`) | |
+| 7 / 8 | POV joystick on / off (`JOY_EnablePov`/`JOY_DisablePov`) | `0x800` |
+| 10 / 11 | joystick on / off (`JOY_Enable`/`JOY_Disable`) | `0x1000` |
+| 12 | timer rates (`SYS_SetTimerRates`; the game passes 200 and 15 Hz) | |
+| 13 | `0x424ba2` | |
+| 14 / 15 | flag on / off (role open) | 4 |
+| 16 | flag on (role open) | 8 |
+| `0x11` | update the timer, return the 200 Hz counter | |
+| `0x12` | sound on: load `data\sound\fsb.dat` (`FSB_Load`) | `0x100` |
+| `0x13` | sound off (when on): `DSOUND_Shutdown` (`0x4464d4`) | |
+| `0x14` / `0x15` | flag on / off (role open) | `0x10` |
+| `0x16` | set video mode (w, h); `VID_SetResolution` retries until it succeeds | |
+| `0x17` | open a video file, remember its kind | clears `0x20`/`0x40` |
+| `0x18` | start the opened video | `0x20` (kind 1) or `0x40` (kind 2) |
+| `0x19` | stop video and sound | clears `0x20`/`0x40` |
+| `0x1c` / `0x1d` | CD audio open / close (MCI `cdaudio`; `CD_OpenAudio` (`0x4042f1`) / `CD_CloseAudio` (`0x404368`)) | `0x200` |
+| `0x1e` / `0x1f` | music on / stop; the music is the Red Book audio, and `0x1f` reaches the CD stop (`0x4045a5`) | `0x400` |
+| `0x20` / `0x21` | CD tray open / close (`CD_OpenDoor` (`0x4043c2`) / `CD_CloseDoor` (`0x40441a`)) | |
+| `0x22` / `0x23` | CD audio pause / resume (`CD_PauseAudio` (`0x4045fa`) / `CD_ResumeAudio` (`0x40464f`)) | |
+| `0x25` | returns `0x404822`'s value (hidden in the decompilation) | |
+| `0x26` | install the master frame handler | |
+| `0x27` | install a per-frame handler (`0x626f74`) | |
+| `0x28` / `0x29` / `0x2a` | return input-device presence, the handler, the flag word | |
+
+**Input events** (queue `0x5e54b4`, posted by `INPUT_PostEvents` (`0x42493b`) each frame,
+consumed by `CTRL_Dispatcher` (`0x40e75c`) in the boot, menu and caption loops as
+`event − 0x33`):
+
+| Event | Meaning |
+|---:|---|
+| `0x33` | key press (virtual-key code) |
+| `0x34` | joystick axes |
+| `0x35` / `0x36` | button 1 down / up |
+| `0x37` / `0x38` | button 2 down / up |
+| `0x39` | POV joystick: axes and five buttons |
+| `0x3a` | joystick: axes and buttons |
+| `0x3b` | **15 Hz tick**: the second timer (period 1000/15 ms) elapsed; at most one per frame |
+| `0x3d` | `QueryPerformanceCounter` value |
+| `0x3e`, `0x3f` | menu-internal (`0x3f` plays `data\hnm\generic.hnm`) |
+
 ## Function map (boot path)
 
 | Address | Role |

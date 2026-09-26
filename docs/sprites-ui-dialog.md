@@ -349,6 +349,41 @@ capacity for 256 descriptors, and a trailing count of 1. The engine's
 `SPR_LoadPortrait` (`0x427020`) copies the palette and first descriptor into a runtime sprite;
 `SPR_DrawPortrait` (`0x427432`) draws it at `(16/sx,64/sy)`.
 
+### Caption timing **[verified]** (2026-09-26)
+
+`MENJ_PlayVoiceCaptions` (`0x436ab6`) takes over the frame loop until the entry ends (it pumps
+`MGM_DispatchMessages` (`0x43a64c`) itself, with `CTRL_Init` (`0x40eb4f`) installing the input callback):
+
+- **Clock.** A counter that advances once per input event `0x3b`, the
+  **15 Hz** tick of the second timer (`SYS_SetTimerRates` (`0x424b4f`) 200/15;
+  `SYS_UpdateTimer` (`0x440890`) resets the period's start to "now", and `INPUT_PostEvents` (`0x42493b`) posts
+  at most one tick per frame, so slow frames lose ticks).
+- **Units.** A line's raw time is in **centiseconds**; `DRD_LoadEntry` (`0x410928`)'s
+  `× 15/100` turns it into 15 Hz ticks. Line *i* appears when the clock reaches
+  the sum of the durations of lines 0..*i*−1 (line 0 at 0); the entry ends at
+  the total.
+- **Display.** Four lines at a time (rows `90/sy + (i mod 4)·20/sy`, x
+  `150/sx`); a new line fades in from level 20 (hidden), halving each tick
+  to 1. The screen under the captions and portrait is restored from a copy
+  each tick.
+- **Keys.** Esc or Ctrl skips. At the end the player can press Space or Alt
+  to replay the voice from the first line; Esc, Ctrl or 50 ticks (3.3 s)
+  closes it.
+
+### The HUD message queue **[verified]** (2026-09-26)
+
+`MENJ_Dispatcher` (`0x435896`), run from `UI_DrawHud` (`0x434596`), drains the game's UI queue
+(`0x626f2c`, 12-byte messages):
+
+| Msg | Posted by | Effect |
+|---:|---|---|
+| `0x40` | `SCENE_TickTriggers` (`0x429061`) | dialogue entry: `DRD_SelectEntry` (`0x410cd6`), then the caption loop above |
+| `0x41` | `ENT_AddInventoryItem` (`0x42a182`) | show the picked-up object's icon; a usable object (type 1) also goes into the first free hotkey slot and flashes for 15 ticks |
+| `0x42` | player controllers, `SCENE_CheckExits` (`0x420b60`) | show the nearby object's or exit's icon, and flag whether the pending target matches one of eight 0x510-byte records at `0x5e3008` (role open) |
+| `0x43` | player controllers | hide it |
+| `0x44` | keys 1/2/3 | highlight that slot |
+| `0x45` | failed item use (not enough magic) | clear the slot highlight |
+
 Captions are left-aligned. `MENJ_PlayVoiceCaptions` (`0x436ab6`) places timed text at
 `(150/sx, 90/sy)`, with 20/sy vertical spacing for successive rows. Each
 tag-3 record is already one display line; `TEXT_PrintFaded` (`0x425f07`) advances glyphs but

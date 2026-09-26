@@ -1218,6 +1218,21 @@ ground controller (`ENT_TickPlayerGround` (`0x421717`), traced with item 5).
   selects. **Inventory**: 32 named slots with counts per actor; level exits
   test it by name prefix.
 
+## 2026-09-26 — message layers, HUD queue and caption timing
+
+- **`MGM_SendMessage` (`0x43a306`)**: the full command set (4-`0x2a`) is tabled in
+  [boot-sequence.md](boot-sequence.md): input devices, timers, sound, video,
+  Red Book CD audio through MCI (`CD_OpenAudio` (`0x4042f1`), `CD_PauseAudio` (`0x4045fa`), tray control) and
+  the frame-handler hooks, with the subsystem flag word `0x626f80`. The input
+  events `0x33`-`0x3f` are tabled too; `0x3b` is the 15 Hz tick.
+- **HUD queue** (`MENJ_Dispatcher` (`0x435896`)): `0x40` dialogue, `0x41` picked-up icon and
+  hotkey auto-assign, `0x42`/`0x43` nearby hint, `0x44`/`0x45` slot highlight
+  ([sprites-ui-dialog.md](sprites-ui-dialog.md)).
+- **Caption timing**: DRD line times are centiseconds, converted to 15 Hz
+  ticks; lines appear at cumulative times, four at a time, fading in over
+  about five ticks; Esc/Ctrl skip, Space/Alt replay, and the box closes after
+  50 ticks. The clock drops ticks when frames are slower than 66 ms.
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)
