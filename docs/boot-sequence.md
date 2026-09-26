@@ -18,7 +18,7 @@ entry 0x465538 (Watcom startup)
             ├─ 0x415f00  init systems  (master frame handler, sound, CD audio)
             └─ loop:
                  ├─ 0x436481  BOOT_Run: intro → generic → menu → new-game video
-                 └─ frame loop → master handler 0x416d45
+                 └─ frame loop → master handler 0x416d45  GAME_TickFrame
                       └─ dispatcher 0x417078 → 0x4240ba  GAME_Tick
                            └─ 0x41f9db  SCENE_LoadLevel (loads the map)
 ```
@@ -229,7 +229,7 @@ consumed by `CTRL_Dispatcher` (`0x40e75c`) in the boot, menu and caption loops a
 | `0x43a64c` | `MGM_DispatchMessages` — frame pump: Windows messages, event queues, standing handler call |
 | `0x43a0e2` (region) | `menu.tga` loader helper |
 | `UI_InitIcons` (`0x4341eb`) | UI/icon init (`icones.bf`, icon-name bindings) |
-| `0x416d45` | master per-frame handler (installed at init) |
+| `GAME_TickFrame` (`0x416d45`) | master per-frame handler (installed at init): input events, demo record/play, `GAME_Tick`, HUD, key help (`UI_DrawKeyHelp` `0x416096`), video frames (`VID_DecodeFrame` `0x408816`), next frame's Δt |
 | `0x417078` | in-handler state dispatcher; always calls `GAME_Tick` (`0x4240ba`) |
 | `0x4240ba` | `GAME_Tick` — per-frame gameplay tick (entity ticks, AI scheduler, scene exits, pause, level-load kick); the 15 s in-engine transition and the Project0 head video are two of its states |
 | `0x41f9db` | `SCENE_LoadLevel` — level load when the pending-load flag is set: `CD_PrepareLevel`, DSN textures, lights/fog, OBJET entity spawns |

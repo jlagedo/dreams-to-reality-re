@@ -1267,6 +1267,29 @@ ground controller (`ENT_TickPlayerGround` (`0x421717`), traced with item 5).
   How the level record's ambient and day/night values reach the level
   texture ramps is left open (look-only item).
 
+## 2026-09-26 — Watcom functions defined; frame handler, video player, dead INI loader
+
+- `CreateWatcomFunctions.java apply` run on `WINDREAM.EXE` and `GDIDREAM.EXE`
+  (identical results): functions 1,414 → 1,885 (feature dump 1,297 → 1,765);
+  instructions outside functions 88,671 → 17,702 bytes. All 491 registry names
+  still passed `check_names.py` afterwards. Backup of the project before the
+  pass: `out/backup/ghidra-before-cwf`.
+- **[verified]** `0x433cfa` (`TEXT_LoadLanguageIni`) is dead code: `jmp 0x4341e2`
+  at `0x433d27` skips the whole DREAMS.INI parser; no branch from outside enters
+  it. This strengthens *The English build never reads this file* in
+  [game-content.md](game-content.md): the loader never runs, whatever the language.
+- **[verified]** The video opener `0x4085dc` sets the kind at `0x49d1c0` from the
+  file magic: `HNM4`/`HNS4` → 1, `UBB2`/`UBS2` → 2, `HNM6`/`HNS6` → 4, with bit 8
+  for the sound (`HNS`/`UBS`) variants. `VID_DecodeFrame` (`0x408816`) dispatches
+  on it to `VID_DecodeHnm4Frame` (`0x408939`), `VID_DecodeHnm5Frame` (`0x408b4e`)
+  and `VID_DecodeHnm6Frame` (`0x408df2`); each posts message `0x3f` after the last frame.
+- Named with blind review: `GAME_TickFrame` (`0x416d45`, AGREE), `UI_DrawKeyHelp`
+  (`0x416096`, AGREE), `TEXT_DrawString` (`0x44d5c7`, AGREE), `MGM_IsVideoPlaying`
+  (`0x43a13a`, PARTIAL: flag-word bits `0x20`/`0x40`), `VID_DecodeFrame` and the
+  three readers (AGREE), `TEXT_LoadLanguageIni` (`0x433cfa`, AGREE from the raw
+  disassembly). Not yet named: the opener `0x4085dc`, close `0x40887b`,
+  `0x42da77` (any of 64 `0x420`-byte records at `0x615af0` flagged).
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)

@@ -724,8 +724,8 @@ Traced 2026-09-26. Settles the step size left open in north-star.md.
 
 ### How the original computes Δt
 
-The master frame handler (`0x416d45`, installed by `GAME_InitSubsystems` (`0x415f00`); not a
-defined function in the Ghidra project, read by address range) runs one frame
+The master frame handler (`0x416d45`, installed by `GAME_InitSubsystems` (`0x415f00`); named `GAME_TickFrame`, a defined function since
+`CreateWatcomFunctions.java`) runs one frame
 as: `DEMO_RecordFrame` (`0x40d833`) or `DEMO_PlayFrame` (`0x40e4ed`), `GAME_Tick` (`0x4240ba`), UI, then the **delta for the next
 frame** (`0x4170a6`–`0x4172a2`):
 

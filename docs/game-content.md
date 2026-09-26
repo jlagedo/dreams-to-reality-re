@@ -11,8 +11,11 @@ an English-labelled release.
 
 ## The English build never reads this file **[verified]** (2026-09-26)
 
-The loader (code at `0x433d2c`, inside `0x433cfa`, called from `UI_InitIcons`;
-Ghidra has not disassembled the body, read with capstone) opens
+The loader `TEXT_LoadLanguageIni` (`0x433cfa`, called from `UI_InitIcons`) is
+**dead code**: an unconditional `jmp` at `0x433d27` goes straight to its epilogue
+(`0x4341e2`), and nothing outside the body branches into it (checked over every
+`call`/`jmp` in the code block). The skipped body (`0x433d2c`–`0x4341df`, read
+with capstone) would open
 `sprintf("%s\%s\%s", "data\lang", language, "dreams.ini")` in text mode
 and parses it line by line: `#` comments, blank lines, `[` section headers
 compared with `[NEW]`, `[OBJECT]`, `[DIALOG]`, `[PROJECT]`, `[SYSTEM]`,
@@ -20,7 +23,7 @@ compared with `[NEW]`, `[OBJECT]`, `[DIALOG]`, `[PROJECT]`, `[SYSTEM]`,
 (`0x4a2f65`) is initialised to **`ENGLISH`** and nothing writes it; the same
 string sits in `DREAMS.EXE` and `DREAMSFX.EXE`. The discs carry only
 `DATA\LANG\FRANCAIS`, and `SETUP.INI` copies nothing from `DATA\LANG`. So the
-English release never finds a `DREAMS.INI`, and the tables keep their
+English release could not find a `DREAMS.INI` even if the loader ran, and the tables keep their
 **compiled-in English text**:
 
 - **Items** at `0x49e022`: 30 records of three 33-byte lines (name, two
