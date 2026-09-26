@@ -124,6 +124,114 @@ typedef struct CryoSceneNodeHeader {
     dreams_u8 unknown_0d8[0x18];               /* +0xd8 */
 } CryoSceneNodeHeader;
 
+/* ---- Scene-graph node at run time (docs/scene-geometry.md, "The engine's view").
+ * The runtime node starts 0x14 bytes into CryoSceneNodeHeader: runtime +X is
+ * file +X+0x14. Every pointer is relocated by MDL_RelocNode (0x455d6c). */
+
+/* 40-byte vertex; node +0x80, count +0x7c. */
+typedef struct MDL_Vertex {
+    dreams_u32 flags;          /* +0x00 outcodes: 0x10 behind near, 0x20 past far, 0x40 to project, 0x80 shared with children */
+    dreams_i32 local_xyz[3];   /* +0x04 node space, integer units */
+    dreams_f32 camera_xyz[3];  /* +0x10 written by REND_TransformClipVertices */
+    dreams_i32 screen_x;       /* +0x1c */
+    dreams_i32 screen_y;       /* +0x20 */
+    dreams_f32 inv_z;          /* +0x24 K/z, the perspective factor the rasterizers read */
+} MDL_Vertex;
+
+/* 16-byte normal; vertex normals at node +0x90 (count +0x8c), face normals at +0x98 (count +0x94). */
+typedef struct MDL_Normal {
+    dreams_i32 xyz_q15[3];     /* +0x00 unit vector, 32768 = 1.0 */
+    dreams_i32 eye_dot;        /* +0x0c n . eye, written each frame by 0x478f80; 0 on disk */
+} MDL_Normal;
+
+/* 8-byte texture coordinate: texels in 16.16 on the 256x256 page. */
+typedef struct MDL_UV {
+    dreams_i32 u;
+    dreams_i32 v;
+} MDL_UV;
+
+/* 100-byte shared edge: rasterizer scratch, set up by the first face that
+ * draws it and reused by its neighbour. Only +0x04 is read before written. */
+typedef struct MDL_Edge {
+    dreams_u8 unknown_00[4];
+    dreams_u32 setup;          /* +0x04 0 = not yet set up this frame */
+    dreams_u8 scratch_08[0x5c];
+} MDL_Edge;
+
+/* 68-byte face record, an element of MDL_FaceBlock.records. */
+typedef struct MDL_Face {
+    dreams_u32 flags;          /* +0x00 1 culled, 2 skip, 8 normal recomputed from the vertices */
+    struct MDL_Face *next;     /* +0x04 visible-list link; 0 ends the list */
+    MDL_Vertex *v0;            /* +0x08 */
+    MDL_Normal *n0;            /* +0x0c corner normal */
+    MDL_Edge *e0;              /* +0x10 */
+    MDL_Vertex *v1;            /* +0x14 */
+    MDL_Normal *n1;            /* +0x18 */
+    MDL_Edge *e1;              /* +0x1c */
+    MDL_Vertex *v2;            /* +0x20 */
+    MDL_Normal *n2;            /* +0x24 */
+    MDL_Edge *e2;              /* +0x28 */
+    MDL_Normal *plane;         /* +0x2c face normal */
+    dreams_i32 plane_d;        /* +0x30 n . v0 >> 15; back-facing when eye_dot - plane_d < 0 */
+    MDL_UV *uv[3];             /* +0x34 */
+    dreams_u8 shade;           /* +0x40 light level, used when the node has lights */
+    dreams_u8 unknown_41[3];
+} MDL_Face;
+
+/* Primitive block; node +0xa4 heads a list of them (edges: +0xa8). */
+typedef struct MDL_FaceBlock {
+    struct MDL_FaceBlock *next;/* +0x00 */
+    dreams_i32 type;           /* +0x04 rasterizer selector; 3 = perspective-textured (all levels) */
+    void *material;            /* +0x08 texture-page slot, or the colour word for flat types (0x4554e0) */
+    char name[16];             /* +0x0c equals a material name */
+    dreams_u32 count;          /* +0x1c */
+    MDL_Face *records;         /* +0x20 */
+    MDL_Face *visible;         /* +0x24 list head, reset to records each frame (0x47b0bc) */
+    dreams_u8 unknown_28[4];
+    dreams_u32 stride;         /* +0x2c 68 (0x38 for types -2, 1, 4, 0x11, 0x1b) */
+    void *owner;               /* +0x30 relocated; points at the node's edge block */
+} MDL_FaceBlock;
+
+typedef struct MDL_Node {
+    dreams_u8 unknown_00[0x0c];
+    dreams_u32 flags;          /* +0x0c cull bits (0x478980): 8 outside, 0x20 inside, 0x40 crosses near/far; +0x0d: 8 env-map, 0x10 skip the face hook */
+    struct MDL_Node *parent;   /* +0x10 */
+    struct MDL_Node *child;    /* +0x14 */
+    struct MDL_Node *sibling;  /* +0x18 */
+    dreams_i32 local_xyz[3];   /* +0x1c */
+    dreams_i32 local_rot[3][3];/* +0x28 Q15 */
+    dreams_i32 view_xyz[3];    /* +0x4c composed each frame by REND_DrawObject */
+    dreams_i32 view_rot[3][3]; /* +0x58 */
+    dreams_u32 vertex_count;   /* +0x7c */
+    MDL_Vertex *vertices;      /* +0x80 */
+    dreams_u32 unknown_84;
+    MDL_Vertex *vertices_end;  /* +0x88 */
+    dreams_u32 vnormal_count;  /* +0x8c */
+    MDL_Normal *vnormals;      /* +0x90 */
+    dreams_u32 fnormal_count;  /* +0x94 */
+    MDL_Normal *fnormals;      /* +0x98 */
+    dreams_u32 unknown_9c;
+    void *unknown_a0;          /* +0xa0 relocated when non-zero */
+    MDL_FaceBlock *faces;      /* +0xa4 */
+    MDL_FaceBlock *edges;      /* +0xa8 edge block: count +0x08, records +0x0c, stride 100 at +0x10 */
+    dreams_u32 unknown_ac;
+    dreams_i32 radius;         /* +0xb0 bounding sphere */
+    dreams_i32 centre[3];      /* +0xb4 */
+    dreams_u32 vertex_stride;  /* +0xc0 40 */
+    dreams_u32 light_count;    /* +0xc4 */
+    dreams_u8 lights[8];       /* +0xc8 indices into the 0x94-byte light table at 0x672700 */
+    dreams_u32 shade;          /* +0xd0 used as the face shade when light_count is 0 */
+} MDL_Node;
+
+/* .3DI collision mesh (resource type 5), relocated by 0x455fb4 from resource +0x14. */
+typedef struct COLL_Triangle {
+    dreams_u32 v[3];           /* +0x00 pointers to 12-byte points */
+    dreams_u32 normal;         /* +0x0c pointer */
+    dreams_u8 unknown_10[0x34];
+    dreams_u32 link;           /* +0x44 pointer, relocated */
+    dreams_u8 unknown_48[0x18];
+} COLL_Triangle;
+
 typedef struct DAN_TrackHeader {
     dreams_u32 unknown_00[5];                 /* +0x00 */
     dreams_u32 duration_frames;                /* +0x14 */

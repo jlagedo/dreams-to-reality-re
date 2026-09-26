@@ -1056,6 +1056,38 @@ Three typing passes, all reproducible from `re-setup.md`:
   `#pragma aux`) and types 98 / 35 runtime functions, including `REGS` for
   `int386`.
 
+## 2026-09-26 — level faces resolved: tag 2 is collision, 84 of 95 scenes textured
+
+Traced the draw path from `REND_DrawObject` (`0x47e498`) through `SW_DrawObjectFaces` (`0x473014`) and the load
+path through `RES_Relocate` (`0x456368`) and `MDL_LoadMaterials` (`0x456038`). A face's vertex pointer is
+relocated once and then read as a 40-byte vertex record; no index or lookup
+exists. All 472,299 face vertex pointers in the 95 scenes land exactly on a
+vertex record of a found node, so the node decode is what the engine draws.
+
+- **Tag 2 is the collision mesh** (`.3DI`, resource type 5, relocated by
+  `MDL_RelocCollision` (`0x455fb4`) over 96-byte triangles). It leaves out skies, video
+  surfaces, roofs and water, which is why the old gate (every node vertex in
+  tag 2) failed on correct decodes, and it bakes a few moving blocks in
+  another pose. The new per-node gate (`mesh.check_nodes`) rejects only
+  displaced nodes. **58 → 84 of 95 scenes** export with names and UVs; the 11
+  that keep the fallback each contain a displaced node.
+- **Face record fully typed** from the code that reads it: `+0x04` next,
+  `+0x0c/+0x18/+0x24` corner normals (the "parallel" class), `+0x10/+0x1c/+0x28`
+  rasterizer edge scratch, `+0x2c` face normal, `+0x30` plane distance
+  (`n·v0 >> 15`, 99.8%), `+0x40` shade. Layouts in `re/structs/windream.h`.
+- **Corrections.** The "arena directory" is the node table that
+  `RES_RelocOffsetTable` (`0x455eb4`) relocates; the "parallel" references are normals; the
+  "edge" references are not topology but per-frame rasterizer caches.
+  Materials bind by block name (`MDL_BindFaceMaterials` (`0x4554e0`)). Every level
+  block is type 3, the perspective-correct textured rasterizer.
+- Named with blind review: `REND_CullObjectSphere` (`0x478980`), `REND_ComputeNormalDots` (`0x478f80`),
+  `REND_CullFaces` (`0x47b0bc`), `REND_ClipFaceNear` (`0x479320`), `REND_TransformLights` (`0x47b3d0`),
+  `REND_ComputeEnvMapUVs` (`0x47e094`), `MDL_RelocCollision` (`0x455fb4`), `MDL_BindTreeMaterials` (`0x455ed8`),
+  `MDL_BindFaceMaterials` (`0x4554e0`). The identical relocators `0x455f44`/`0x455f7c`
+  (resource types 4 and 6) stay unnamed; the `SW_*` rasterizers were left alone.
+
+Details: [scene-geometry.md](scene-geometry.md), *The engine's view*.
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)

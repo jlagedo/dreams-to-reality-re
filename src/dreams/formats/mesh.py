@@ -552,6 +552,108 @@ def verify_nodes(path: str | Path, tol: int = NODE_TOLERANCE) -> float:
     return hit / len(set(m.vertices))
 
 
+#: Tag 2 was written by the exporter from its own float transforms, so a node
+#: placed by composing the file's Q15 transforms can sit up to 3 units from it
+#: (``L10_TORT``, ``E14_CERV``). Four absorbs that and nothing larger.
+NODE_CHECK_TOLERANCE = 4
+
+#: Vertices per node sampled when voting for an offset.
+_VOTE_SAMPLE = 40
+
+
+@dataclass
+class NodeCheck:
+    """How one scene's nodes agree with tag 2. See :func:`check_nodes`."""
+
+    anchored: int = 0  #: nodes with tag 2 vertices at their composed position
+    unanchored: int = 0  #: nodes with nothing in tag 2 at any offset
+    #: ``(node index, in place, at best offset, distinct vertices, offset)``
+    displaced: list[tuple[int, int, int, int, tuple[int, int, int]]] = field(default_factory=list)
+
+    @property
+    def passes(self) -> bool:
+        return self.anchored > 0 and not self.displaced
+
+
+def check_nodes(path: str | Path, tol: int = NODE_CHECK_TOLERANCE) -> NodeCheck:
+    """Check each scene-graph node's placement against tag 2.
+
+    **Tag 2 is the collision mesh, not the rendered one.** The engine loads it
+    as resource type 5 (``.3DI``), relocated by ``WINDREAM.EXE`` ``0x455fb4``
+    with its own 96-byte triangles. It renders only tag 1's face lists: node
+    ``+0xa4``, walked by ``SW_DrawObjectFaces``. The collision mesh leaves out
+    whatever the player cannot touch: sky (``E15_CIE*``, ``F31CIEL``), video
+    surfaces (``*HNM*``), roofs and water. So a correct level decode can have
+    whole objects missing from tag 2, which is why :func:`verify_nodes` below
+    99% did not mean a wrong decode.
+
+    What tag 2 can still disprove is **placement**. For each node:
+
+    ``anchored``
+        some of its vertices are in tag 2 where the composed transform puts
+        them, and no other offset explains more of them;
+    ``unanchored``
+        none are in tag 2, at any offset: non-collidable, placement unchecked;
+    ``displaced``
+        a single non-zero offset puts at least half its vertices on tag 2 and
+        more than stay in place. Either the transform is wrong or tag 2 baked
+        the node in another pose: the moving blocks of ``E12_ANGK`` sit 127
+        and 408 units off.
+
+    A scene passes when no node is displaced and at least one is anchored.
+    Face topology needs no check: every face vertex pointer in all 95 scenes
+    (472,299) lands exactly on a 40-byte vertex record of a found node, so the
+    faces are what the engine's relocation makes them.
+    """
+    from dreams.formats import node as _node
+
+    p = Path(path)
+    tag1 = lz.decompress(next(r.payload for r in scene.read_records(p) if r.tag == 1))
+    nodes = _node.find_nodes(tag1)
+    world = _node.world_vertices(tag1, nodes)
+    truth = sorted(set(read_tri_mesh(p).vertices))
+    cell = 2 * tol
+    grid: dict[tuple[int, int, int], list[tuple[int, int, int]]] = {}
+    for v in truth:
+        grid.setdefault(tuple(c // cell for c in v), []).append(v)
+
+    def near(c) -> bool:
+        b = tuple(x // cell for x in c)
+        return any(
+            max(abs(v[0] - c[0]), abs(v[1] - c[1]), abs(v[2] - c[2])) <= tol
+            for dx in (-1, 0, 1)
+            for dy in (-1, 0, 1)
+            for dz in (-1, 0, 1)
+            for v in grid.get((b[0] + dx, b[1] + dy, b[2] + dz), ())
+        )
+
+    out = NodeCheck()
+    for i, nd in enumerate(nodes):
+        pts = sorted(set(world[nd.base]))
+        in_place = sum(near(v) for v in pts)
+        if in_place == len(pts):
+            out.anchored += 1
+            continue
+        votes: dict[tuple[int, int, int], int] = {}
+        for v in pts[:: max(1, len(pts) // _VOTE_SAMPLE)]:
+            for t in truth:
+                d = (t[0] - v[0], t[1] - v[1], t[2] - v[2])
+                if max(abs(d[0]), abs(d[1]), abs(d[2])) > tol:
+                    votes[d] = votes.get(d, 0) + 1
+        best, best_at = 0, (0, 0, 0)
+        for d in sorted(votes, key=votes.__getitem__, reverse=True)[:3]:
+            n = sum(near((v[0] + d[0], v[1] + d[1], v[2] + d[2])) for v in pts)
+            if n > best:
+                best, best_at = n, d
+        if best > in_place and best >= max(4, len(pts) // 2):
+            out.displaced.append((i, in_place, best, len(pts), best_at))
+        elif in_place == 0 and best <= max(3, len(pts) // 4):
+            out.unanchored += 1
+        else:
+            out.anchored += 1
+    return out
+
+
 def read_scene(path: str | Path) -> tuple[Mesh, str]:
     """Decode a ``.DSN`` by the best available route. Returns ``(mesh, source)``.
 
@@ -562,8 +664,9 @@ def read_scene(path: str | Path) -> tuple[Mesh, str]:
 
     ``nodes``
         The scene-graph node, taken when :func:`verify_nodes` agrees with tag
-        2 to within a unit or two. The only route that keeps per-object names
-        and UVs, so the only one that can produce a **textured** level.
+        2 to within a unit or two, or when :func:`check_nodes` finds no node
+        displaced against it. The only route that keeps per-object names and
+        UVs, so the only one that can produce a **textured** level.
     ``tag1``
         The reference-mapped decode, taken when every face it makes is also a
         tag 2 triangle. Exact, and rare.
@@ -573,7 +676,7 @@ def read_scene(path: str | Path) -> tuple[Mesh, str]:
     """
     p = Path(path)
     try:
-        if verify_nodes(p) >= 0.99:
+        if verify_nodes(p) >= 0.99 or check_nodes(p).passes:
             return read_node_mesh(p), "nodes"
     except (ValueError, struct.error, StopIteration, KeyError):
         pass

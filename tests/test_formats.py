@@ -420,6 +420,97 @@ def test_node_level_score_needs_a_rounding_tolerance():
     assert meshmod.verify_nodes(angkor, tol=32) == 1.0
 
 
+def _scene(name: str):
+    for d in (paths.disc(1), paths.disc(2)):
+        p = d / "DATA" / "3DC" / f"{name}.DSN"
+        if p.exists():
+            return p
+    pytest.skip(f"{name}.DSN not present")
+
+
+@needs_discs
+def test_collision_mesh_omits_the_sky_but_places_the_rest():
+    """Tag 2 is the collision mesh, so a level's sky is not in it.
+
+    `E19_GARD` is one node. Its four `E19_CIE*` sky objects have no vertex in
+    tag 2, which held the whole scene at 77% under the old score, yet the
+    node itself is anchored and the scene exports with its names and UVs.
+    """
+    from dreams.formats import mesh as meshmod
+
+    gard = _scene("E19_GARD")
+    assert meshmod.verify_nodes(gard) < 0.99
+    check = meshmod.check_nodes(gard)
+    assert check.passes and not check.displaced
+    m, source = meshmod.read_scene(gard)
+    assert source == "nodes"
+    assert {"E19_CIE1", "E19_SOL1"} <= {o.name for o in m.objects}
+
+
+@needs_discs
+def test_a_node_baked_elsewhere_in_tag_2_keeps_the_fallback():
+    """A node that matches tag 2 only after a shift is rejected, not guessed.
+
+    `E12_ANGK` node 3 is a moving block: tag 2 holds its 17 vertices 408
+    units lower than the file's transform puts them.
+    """
+    from dreams.formats import mesh as meshmod
+
+    angk = _scene("E12_ANGK")
+    check = meshmod.check_nodes(angk)
+    assert [(i, off) for i, _, _, _, off in check.displaced] == [(3, (0, -408, 0))]
+    assert meshmod.read_scene(angk)[1] == "tag2"
+
+
+@needs_discs
+@pytest.mark.corpus
+def test_every_face_vertex_pointer_lands_on_a_vertex_record():
+    """The node decode is pointer-exact in every scene.
+
+    `MDL_RelocPrimitives` adds one delta to each face's vertex pointers, so a
+    pointer must land on the first byte of a 40-byte vertex record inside some
+    node's array. 472,299 pointers across 95 scenes all do.
+    """
+    from dreams.formats import lz
+
+    scenes = sorted({p for d in (paths.disc(1), paths.disc(2)) for p in d.rglob("*.DSN")})
+    total = 0
+    for p in scenes:
+        tag1 = lz.decompress(next(r.payload for r in scene.read_records(p) if r.tag == 1))
+        nodes = node.find_nodes(tag1)
+        delta = node.address_delta(nodes)
+        spans = sorted((nd.base, nd.base + node.STRIDE * nd.count) for nd in nodes)
+        for off in range(0, len(tag1) - 48, 4):
+            if struct.unpack_from("<I", tag1, off + node.FACE_STRIDE_AT)[0] != node.FACE_RECORD:
+                continue
+            n = struct.unpack_from("<I", tag1, off + node.FACE_COUNT_AT)[0]
+            first = struct.unpack_from("<I", tag1, off + node.FACE_FIRST_AT)[0]
+            if not 0 < n < 20_000 or first + delta != off + node.FACE_ORIGIN:
+                continue
+            for f in range(n):
+                rec = off + node.FACE_ORIGIN + node.FACE_RECORD * f
+                if rec + node.FACE_RECORD > len(tag1):
+                    break
+                for k in (0x08, 0x14, 0x20):
+                    ref = struct.unpack_from("<I", tag1, rec + k)[0]
+                    lo = next((lo for lo, hi in spans if lo <= ref < hi), None)
+                    assert lo is not None and (ref - lo) % node.STRIDE == 0, (p.name, rec)
+                    total += 1
+    assert total > 400_000
+
+
+@needs_discs
+@pytest.mark.corpus
+def test_scene_route_counts():
+    """84 of 95 scenes export through the node, with names and UVs."""
+    from dreams.formats import mesh as meshmod
+
+    scenes = {p.stem: p for d in (paths.disc(1), paths.disc(2)) for p in d.rglob("*.DSN")}
+    routes = [meshmod.read_scene(p)[1] for p in scenes.values()]
+    assert len(routes) == 95
+    assert routes.count("nodes") == 84
+
+
 def test_scene_palette_is_rgb565_full_range():
     """Pin the field layout and the expansion for `.DSN` tag-3 palettes.
 

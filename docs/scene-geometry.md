@@ -8,6 +8,103 @@ here is **[verified]** on this machine unless marked otherwise.
 `uv run dreams mesh` lists every scene; `--gltf DIR` exports; `--preview DIR`
 writes a three-view PNG.
 
+## The engine's view (2026-09-26) — read this first
+
+**[verified]** in `WINDREAM.EXE` and against all 95 scenes. It supersedes the
+reference-mapping sections further down, which are kept as the record of how
+the answer was reached.
+
+**Tag 1 is the renderable scene graph; tag 2 is the collision mesh.** The
+engine loads tag 1 as `.3DC`, resource type 1, and tag 2 as `.3DI`,
+resource type 5 (`RES_ReadFile` (`0x41c666`) routes both to the DSN readers; `RES_Relocate`
+(`0x456368`) relocates type 5 with `MDL_RelocCollision` (`0x455fb4`), which walks
+96-byte triangles and relocates their `+0x00/+0x04/+0x08` vertex pointers, the
+`+0x0c` normal pointer and a pointer at `+0x44`). Rendering never reads tag 2.
+The per-object hook `SW_DrawObjectFaces` (`0x473014`) walks node `+0xa4`, a list of
+face blocks built from tag 1 alone.
+
+So a face's vertex pointer becomes a position like this:
+
+```
+MDL_RelocPrimitives (0x455700)   face.v0 += delta           (load, once)
+REND_DrawObject (0x47e498)       node.view = parent.view * node.local
+REND_TransformClipVertices       v.camera = node.view * v.local_xyz
+  (0x478c2c)                     + outcodes (near 0x10, far 0x20)
+REND_CullFaces (0x47b0bc)        back-face and outcode test per face
+REND_ProjectVertices (0x47b228)  v.screen_x/y, v.inv_z for 0x40-flagged
+rasterizer                       reads face.v0->screen_x/y/inv_z, face.uv[i]
+```
+
+There is no index anywhere. Every face vertex pointer in all 95 scenes —
+**472,299** of them — lands exactly on the first byte of a 40-byte vertex
+record inside a node's own array, so `dreams.formats.node` resolves faces by
+pointer and gets exactly what the engine gets.
+
+### The records, from the code that reads them
+
+Layouts are typed in [`re/structs/windream.h`](../re/structs/windream.h)
+(`MDL_Node`, `MDL_FaceBlock`, `MDL_Face`, `MDL_Vertex`, `MDL_Normal`, `MDL_UV`,
+`MDL_Edge`, `COLL_Triangle`). Runtime node offsets are file offsets minus
+`0x14`.
+
+**68-byte face** (`MDL_Face`). The word classes found by congruence below are:
+
+| Offset | Field | Evidence |
+|---|---|---|
+| `+0x00` | flags: 1 culled, 2 skipped, 8 recompute the normal | `REND_CullFaces` (`0x47b0bc`), rasterizers |
+| `+0x04` | next face in the block's visible list | the "self-pointer stepping by 68"; `REND_CullFaces` walks it |
+| `+0x08/+0x14/+0x20` | vertex pointers (40-byte `MDL_Vertex`) | rasterizers read screen x/y at `+0x1c/+0x20`, `K/z` at `+0x24` |
+| `+0x0c/+0x18/+0x24` | corner normals (16-byte `MDL_Normal`) — the "parallel" class | all 472,299 land on the node's vertex-normal array; only 39% share the vertex's slot (per-corner smoothing) |
+| `+0x10/+0x1c/+0x28` | shared edges (100-byte `MDL_Edge`) | rasterizer scratch: set up by the first face that draws the edge |
+| `+0x2c` | face normal | lands on the node's face-normal array in every face |
+| `+0x30` | plane distance `n·v0 >> 15` | holds within 2 units in 99.8% of faces; the back-face test is `eye_dot − d < 0` |
+| `+0x34/+0x38/+0x3c` | UV pointers (8-byte, 16.16 texels) | the rasterizers multiply them by `K/z` (perspective) or not (affine) |
+| `+0x40` | shade byte | read when the node has lights (`+0xc4 != 0`), else node `+0xd0` |
+
+**Node arrays.** Runtime `+0x7c/+0x80` vertices (40 B), `+0x8c/+0x90`
+vertex normals (16 B, unit Q15), `+0x94/+0x98` face normals (16 B),
+`+0xa4` face blocks, `+0xa8` the edge block (count, records, stride 100),
+`+0xb0` bounding-sphere radius, `+0xc4` light count, `+0xc8` light indices.
+
+**The "arena directory" is the node table.** `tag1 + 0x14` is a count and
+`+0x18` a list of offsets that `RES_RelocOffsetTable` (`0x455eb4`) turns into node pointers;
+the "descriptor" fields `+0x90/+0x94/+0x9c` are the node's own vertex count,
+array and end. An arena is a node.
+
+**Materials bind by name.** `MDL_LoadMaterials` (`0x456038`) reads the 44-byte entries
+after the node table into a 60-byte cache (refcount, resource handle, texture
+page at resource `+0x8014`, then the entry). `MDL_BindTreeMaterials` (`0x455ed8`) walks the node
+tree and `MDL_BindFaceMaterials` (`0x4554e0`) stores, in each face block's `+0x08`, the slot
+whose material name equals the block name, or the material's colour word for
+flat-colour block types. So `Face.group` choosing the texture is what the
+engine does.
+
+**Face block types.** `SW_DrawObjectFaces` dispatches on block `+0x04`.
+Every block in every level is type **3**, the perspective-correct textured
+rasterizer (`0x46fe20`: `u·K/z`). Types `0x14`/`0x15` also compute a texture
+gradient bucket 0-6; negative types are the ones the 3dfx build defers to its
+translucent pass.
+
+### Coverage — 84 of 95
+
+Tag 2 omits what cannot be collided with: skies (`E15_CIE*`, `E19_CIE*`,
+`F31CIEL`), video surfaces (`*HNM*`), roofs, water. So "every node vertex is in
+tag 2" was the wrong gate. `mesh.check_nodes` asks the question tag 2 can still
+answer — is each node where the file says? — per node:
+
+- **anchored**: some vertices sit in tag 2 at the composed position (±4, the
+  exporter's own float rounding reaches 3), and no other offset explains more;
+- **unanchored**: nothing in tag 2 at any offset (non-collidable, unchecked);
+- **displaced**: one non-zero offset puts at least half the node on tag 2.
+
+A scene takes the node route when no node is displaced. **84 of 95** now do
+(58 before), with names and UVs. The 11 that keep the tag 2 fallback each have
+a displaced node: moving blocks baked into tag 2 in another pose (`E12_ANGK`
+node 3, 408 units down; `E11_ANGK`, `F33BATMO` 284-286 up), the ride scene
+`E15_RIDE` (every node 7-88 units up), and small repeated shapes the vote
+cannot tell apart (`E04ARAI2`, `E99ARAI2`, `F15SOUFF`). Which pose a runtime
+should draw a mover in belongs to the entity code, not the decoder.
+
 ## The pipeline
 
 ```
@@ -156,7 +253,7 @@ when a scene has a single arena. That is exactly the set of scenes that verify.
 `REND_DrawObject` (`0x47e498`) calls, submits the face records, so they **are** rendered; tag 2's triangle array with its normals, edge
 half-spaces and bounding boxes is the separate collision or spatial structure.
 
-## Coverage — 5 of 95, and why
+## Coverage — 5 of 95, and why (historical: the reference-mapping route)
 
 The gate is **proof, not a heuristic**: a tag 1 decode is accepted only when
 *every* face it produces is also a triangle in tag 2, which is known-correct
