@@ -1290,6 +1290,48 @@ ground controller (`ENT_TickPlayerGround` (`0x421717`), traced with item 5).
   disassembly). Not yet named: the opener `0x4085dc`, close `0x40887b`,
   `0x42da77` (any of 64 `0x420`-byte records at `0x615af0` flagged).
 
+## 2026-09-26 — caller sweep: 152 names for functions called by named code
+
+- Candidates: the 264 unnamed functions (feature dump after `CreateWatcomFunctions.java`)
+  called by at least one named, non-runtime function, in 9 address-ordered batches.
+  Each batch had a docs-aware analysis and a blind review (docs comments and
+  registry names stripped); adjudication as before. 152 named (AGREE or
+  PARTIAL); left unnamed: runtime, empty stubs, conflicts (`0x44554b` GDI mode
+  vs hit test, `0x43b23e`/`0x43b2e4` MEM stack vs MGM queue, `0x4610e8`,
+  `0x42407f`), and pairs where both sources were low (`0x442028`, `0x4420a3`,
+  `0x41c62a`, `0x455f44`/`0x455f7c`, the three `SPR_Draw` variants
+  `0x427624`/`0x4276e1`/`0x42779c`, `0x481564`/`0x48160c`, `0x43b6ff` particles).
+- Video: `VID_Open` (`0x4085dc`), `VID_Close` (`0x40887b`), `VID_IsFrameDue`
+  (`0x40910a`: frames 13 ticks of 200 Hz apart, about 15 fps), `VID_FillStream`.
+- Weapons: three, not two. Sword (`epee.3dc`, right hand, `+0xae` 8/0x10/0x20),
+  bow (`Arc.3dc`, left hand, `+0xae` 0x40/0x80, `+0xaf` 1), gun (`Gun.3dc`,
+  `+0xb0` 1/2/4/8, second object shown by `ENT_ShowGunFlash`). A drawn weapon
+  drains magic `+0x3c` by Δt and is sheathed at magic ≤ 10 or on Esc
+  (`ENT_TickSword`/`ENT_TickBow`/`ENT_TickGun`). Code-read, not played.
+- BOX path kinds (`+0xf0`) beyond the documented 0/1, from their readers:
+  2 mana pickups (`SCENE_InitManaPickups`, `mana.3dc`), 3 X01SOL props
+  (`SCENE_InitSolProps`), 4 random respawn points (`ENT_PlaceAtRandomPathPoint`),
+  5 re-entry points (`SCENE_RestoreLevelState`), 6 air points adding to oxygen
+  `+0x40` within 200 units (`SCENE_ApplyAirZones`), 7 kept-populated spawn points
+  (`ENT_RepopulateSpawnPoints`), 8 trigger zone and 9 health-drain zone
+  (`ENT_ApplyZoneHazards`, cap 120). Not yet checked against the corpus.
+- Visited-level state (the save's world block): `SCENE_SaveLevelState`
+  (`0x41aec0`) stores, per level name, the 32 actors' position, health,
+  magic and heading in 0x28-byte entries of a 0x510-byte record (8 in a ring
+  at `0x5e3008`); `SCENE_RestoreLevelState` (`0x41b208`) restores them on
+  return and keeps dead actors removed.
+- Resource arena: `RES_InitArena` (`0x4568a4`) builds resource 0, the "Camera";
+  `RES_AllocHandle`, `RES_Duplicate`, `RES_GetData`; per-frame scratch
+  `RES_AllocScratch` (`0x455218`, "Heap overflow"). Node helpers `MDL_GetNode`,
+  `MDL_HideNode`/`MDL_ShowNode` (node `+0xc` bit 1), `MDL_AttachNode`,
+  `MDL_GetFirstChild`/`MDL_GetNextSibling`.
+- Corrections: engine.md's "portrait render" `0x43eb67` is the shadow
+  render-to-texture (`ENT_RenderShadowTexture`, only caller `ENT_UpdateShadow`);
+  the box-collision table allocator `0x464188` is called by `GAME_Init`.
+- Open (medium, from the analysis): `ENT_SpawnOrbEffect` (`0x42c583`) tests
+  slot 0's flag in both loops, so only orb 0 is checked; `MATH_BuildOrientMatrix`'s
+  note may swap the trig tables (`0x665ff0` reads as cosine in `MATH_EulerToMat3`).
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)

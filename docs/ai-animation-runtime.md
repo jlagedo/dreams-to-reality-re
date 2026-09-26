@@ -257,8 +257,9 @@ Insert turns the arrows into look keys. The same words are what the demo
 recorder stores.
 
 **Per frame** (`ENT_TickPlayerControl` (`0x423767`), from `GAME_Tick` (`0x4240ba`)): the player scans for enemies
-within 800 units (1,500 or 2,500 with the two weapon kinds tested by
-`0x441160`/`0x441726`/`0x441cb2`); an enemy in range sets the **combat
+within 800 units (1,500 or 2,500 with a drawn weapon; there are three
+weapons, tested by `ENT_IsSwordDrawn` (`0x441160`), `ENT_IsBowDrawn` (`0x441726`) and
+`ENT_IsGunDrawn` (`0x441cb2`)); an enemy in range sets the **combat
 stance** `+0xac & 0x20` for at least 60 Δt units. It then runs one
 controller by movement mode `+0x34`: ground (1) `ENT_TickPlayerGround` (`0x421717`), swimming (2)
 `ENT_TickPlayerSwimming` (`0x422af2`), flying (3) `ENT_TickPlayerFlying` (`0x422cd7`).

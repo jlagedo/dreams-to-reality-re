@@ -218,8 +218,10 @@ environment-map UVs.
 Nothing outside the render path reads the vertex data, the cull bits, the
 clipped polygons, the lighting, or the dead third branch's triangle buffers
 (`0x6808e4`/`0x6808e8`). The per-node box records built after the scene walk
-(`0x460de0`) are read only by box-collision routines (`0x4616ac`–`0x464188`)
-that nothing calls.
+(`0x460de0`, called per node by the tree walk `0x4610e8` from `REND_DrawFrame`)
+are read only by box-collision routines (`0x4616ac`–`0x464188`) that nothing
+calls, except `PHYS_InitBoxPairs` (`0x464188`), which `GAME_Init` calls to
+allocate their tables (2026-09-26 caller sweep).
 
 **One render output is read by the game: node `+0x4c`, the object's position
 composed down to the camera root, i.e. in camera space.** Readers:
@@ -242,7 +244,8 @@ objects are hidden is a game decision (`+0x0c` bits 1 and 4), not the frustum
 cull. The only other world-to-screen code reachable from the tick is an
 ambient-tint sampler (`0x41c0a6`) whose pixel reader `0x4020a8` is a bare
 `RET` in this build, and the debug collision wireframe (`0x45f2a0`). Open:
-whether the portrait render (`0x43eb67`, a second camera at `0x62b9a4`) can
+whether the shadow render (`ENT_RenderShadowTexture` `0x43eb67`, a second camera at
+`0x62b9a4`; called only by `ENT_UpdateShadow`, so not a portrait render) can
 re-parent an entity; and whether the pan call in `0x4477d9` overwrites the
 volume, since both use the `SetVolume` slot (`+0x3c`). **[unverified]**
 
@@ -497,7 +500,7 @@ all with blind review). Enough to rebuild the original camera.
   **Far plane `0xfffff`** unless the level record's `+0xcc` is non-zero
   (`REND_SetFarPlane` (`0x456ccc`)); the setters' own default is 65,000.
   `REND_UpdateFrustum` (`0x456cd4`) derives the four side planes from K and the viewport.
-- The portrait render (`0x43eb67`) uses `REND_SetViewportFocal` (`0x456a58`) instead: an explicit
+- The shadow render `ENT_RenderShadowTexture` (`0x43eb67`) uses `REND_SetViewportFocal` (`0x456a58`) instead: an explicit
   focal length scaled by `w/640`.
 
 ### The camera is node 0, driven by messages
