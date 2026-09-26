@@ -42,6 +42,10 @@ bool Shell::init(const ShellOptions& options) {
         shutdown();
         return false;
     }
+    if (!GraphicsBackend::configure_window(error_)) {
+        shutdown();
+        return false;
+    }
     const SDL_WindowFlags flags = static_cast<SDL_WindowFlags>(
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | GraphicsBackend::window_flags());
     impl_->window = SDL_CreateWindow(options.title, 1024, 640, flags);

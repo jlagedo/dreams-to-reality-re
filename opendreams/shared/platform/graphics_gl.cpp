@@ -14,14 +14,7 @@ struct GLState {
 
 SDL_WindowFlags GraphicsBackend::window_flags() { return SDL_WINDOW_OPENGL; }
 
-bool GraphicsBackend::init(SDL_Window* window, std::string& error) {
-    auto* state = new (std::nothrow) GLState();
-    if (!state) {
-        error = "out of memory while creating OpenGL state";
-        return false;
-    }
-    state_ = state;
-    state->window = window;
+bool GraphicsBackend::configure_window(std::string& error) {
 #ifdef __EMSCRIPTEN__
     const int profile = SDL_GL_CONTEXT_PROFILE_ES;
     const int major = 3;
@@ -39,6 +32,17 @@ bool GraphicsBackend::init(SDL_Window* window, std::string& error) {
         error = std::string("SDL OpenGL attribute setup failed: ") + SDL_GetError();
         return false;
     }
+    return true;
+}
+
+bool GraphicsBackend::init(SDL_Window* window, std::string& error) {
+    auto* state = new (std::nothrow) GLState();
+    if (!state) {
+        error = "out of memory while creating OpenGL state";
+        return false;
+    }
+    state_ = state;
+    state->window = window;
     state->context = SDL_GL_CreateContext(window);
     if (!state->context) {
         error = std::string("SDL OpenGL context creation failed: ") + SDL_GetError();

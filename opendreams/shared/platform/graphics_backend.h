@@ -12,6 +12,7 @@ enum class FrameState { ready, skipped, failed };
 class GraphicsBackend {
 public:
     static SDL_WindowFlags window_flags();
+    static bool configure_window(std::string& error);
     bool init(SDL_Window* window, std::string& error);
     sg_environment environment() const;
     FrameState acquire(SDL_Window* window, sg_swapchain& swapchain, std::string& error);

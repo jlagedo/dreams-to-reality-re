@@ -45,6 +45,8 @@ bool create_render_view(D3DState& state, std::string& error) {
 
 SDL_WindowFlags GraphicsBackend::window_flags() { return static_cast<SDL_WindowFlags>(0); }
 
+bool GraphicsBackend::configure_window(std::string&) { return true; }
+
 bool GraphicsBackend::init(SDL_Window* window, std::string& error) {
     auto* state = new (std::nothrow) D3DState();
     if (!state) {

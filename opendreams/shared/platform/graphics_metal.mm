@@ -21,6 +21,8 @@ struct MetalState {
 
 SDL_WindowFlags GraphicsBackend::window_flags() { return SDL_WINDOW_METAL; }
 
+bool GraphicsBackend::configure_window(std::string&) { return true; }
+
 bool GraphicsBackend::init(SDL_Window* window, std::string& error) {
     auto* state = new (std::nothrow) MetalState();
     if (!state) {
