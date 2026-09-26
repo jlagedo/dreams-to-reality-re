@@ -14,10 +14,10 @@ Addresses below are virtual addresses with image base `0x400000`.
 | Location | Observed behavior |
 |---|---|
 | `00415fd8`–`00415fe7` | Calls dispatcher command `0x0c` with `EDX=200`, `EBX=15`. |
-| `0043a306`, command `0x0c` | Calls `00424b4f`, which forwards to timer initialization `00440802`. |
+| `0043a306` (`MGM_SendMessage`), command `0x0c` | Calls `00424b4f`, which forwards to timer initialization `00440802`. |
 | `00440802` | Reads `timeGetTime`; stores `1000/200 = 5 ms` as the main counter period at `006309e8`. The other timer has a separate period. |
 | `00440890` | Adds `floor(elapsed_ms/5)` to counter `006309e0` when at least one period elapsed. |
-| `0043a306`, command `0x11` | Updates the timer and returns `006309e0`. |
+| `0043a306` (`MGM_SendMessage`), command `0x11` | Updates the timer and returns `006309e0`. |
 | `004170a6`–`004170d7` | Reads that counter and subtracts the previous value to obtain elapsed ticks. |
 | `00417171`–`0041717a` | Calculates `200 / elapsed_ticks`, an estimated render FPS. The double at `004c41c4` is `200.0`. |
 | `004171b2`–`004171be` | Calculates `30 / estimated_fps` into `005e5388`. The double at `004c41cc` is `30.0`. |

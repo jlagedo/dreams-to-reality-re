@@ -1,17 +1,54 @@
 #program	DREAMSFX.EXE
 #sha256	9b95f25f00b46387ba292e2060b395c55170fcd10d7e3b5cf5e965fecf5027d3
 #imagebase	0
+FUNC	26834	Scene_LoadGeometryAndMaterials	undefined Scene_LoadGeometryAndMaterials(void)	Name matched from WINDREAM.EXE 0041c666 (strings, 1.00; tools/match_functions.py).
+FUNC	27964	Scene_LoadEntityAssets	undefined Scene_LoadEntityAssets(void)	Name matched from WINDREAM.EXE 0041da7d (strings, 1.00; tools/match_functions.py).
+FUNC	27d50	Entity_InstantiateFromObjet	undefined Entity_InstantiateFromObjet(void)	Name matched from WINDREAM.EXE 0041deb8 (strings, 1.00; tools/match_functions.py).
+FUNC	2935c	Scene_SpawnProjectEntities	undefined Scene_SpawnProjectEntities(void)	Name matched from WINDREAM.EXE 0041f9db (caller, 0.73; tools/match_functions.py).
+FUNC	2d620	Transition_Tick	undefined Transition_Tick(void)	Name matched from WINDREAM.EXE 004240ba (string, 0.58; tools/match_functions.py).
+FUNC	3c2c8	MGM_SendMessage	undefined MGM_SendMessage(void)	Raises "unknown message type in MGM_SendMessage".
+FUNC	3c658	MGM_DispatchMessages	undefined MGM_DispatchMessages(void)	Raises "unknown message type in MGM_DispatchMessages".
+FUNC	3d45c	CAM_CompCameraPos	undefined CAM_CompCameraPos(void)	Raises "unknown event in CAM_CompCameraPos".
+FUNC	4de34	Text_DrawGlyph	undefined Text_DrawGlyph(void)	Draws one character and advances x.
+FUNC	4ded4	Text_Width	undefined Text_Width(void)	Pixel width of a string in a font.
+FUNC	4e20c	Text_PrintCentered	undefined Text_PrintCentered(void)	Twin of WINDREAM Text_PrintCentered without the internal lock (callers lock with Glide_LockBackBuffer).
+FUNC	4e688	Text_Print	undefined Text_Print(void)	Twin of WINDREAM Text_Print (0x426073).
+FUNC	51374	DSN_LoadHeader	undefined DSN_LoadHeader(void)	Name matched from WINDREAM.EXE 004175bc (strings, 1.00; tools/match_functions.py).
+FUNC	515c0	DSN_LoadTag1_MaterialsAndFaces	undefined DSN_LoadTag1_MaterialsAndFaces(void)	Name matched from WINDREAM.EXE 004177f5 (slot, 0.46; tools/match_functions.py).
+FUNC	51654	DSN_LoadTag2_VertexPool	undefined DSN_LoadTag2_VertexPool(void)	Name matched from WINDREAM.EXE 004178fe (slot, 0.46; tools/match_functions.py).
+FUNC	517a8	DSN_LoadTag3And4_Textures	undefined DSN_LoadTag3And4_Textures(void)	Name matched from WINDREAM.EXE 00417afd (strings, 1.00; tools/match_functions.py).
+FUNC	595f4	Sprite_Draw	undefined Sprite_Draw(void)	Twin of WINDREAM Sprite_Draw (0x4274b0).
+FUNC	5b930	MENJ_Dispatcher	undefined MENJ_Dispatcher(void)	Raises "unknown message type in MENJ_Dispatcher".
+FUNC	5bdb4	MainMenu_Draw	undefined MainMenu_Draw(void)	Four menu items, selected one highlighted, then the NEW GAME/... label.
+FUNC	5be94	MainMenu_Tick	undefined MainMenu_Tick(void)	Name matched from WINDREAM.EXE 00435fae (caller, 0.65; tools/match_functions.py).
+FUNC	65180	CTRL_Dispatcher	undefined CTRL_Dispatcher(void)	Raises "unknown message type in CTRL_Dispatcher" (reference at 0x65364).
+FUNC	66ac8	Glide_TexUpload	undefined Glide_TexUpload(void)	grTexDownloadMipMapLevel (called by Glide_BindTexture).
+FUNC	66d58	Glide_TexAllocUpload	undefined Glide_TexAllocUpload(void)	grTexTextureMemRequired, grTexMaxAddress, grTexDownloadMipMapLevel.
+FUNC	66f24	Glide_TexUploadScene	undefined Glide_TexUploadScene(void)	grTexDownloadMipMapLevel; only caller is the scene spawner.
 FUNC	670f0	Glide_Open	undefined Glide_Open(void)	
+FUNC	671d0	Glide_SetFog	undefined Glide_SetFog(void)	grFogMode, grFogColorValue, guFogGenerateExp, grFogTable.
+FUNC	67204	Glide_SetClipWindow	undefined Glide_SetClipWindow(void)	grClipWindow.
+FUNC	672a8	Glide_BindTexture	undefined Glide_BindTexture(void)	grTexSource, grChromakeyValue, grTexDownloadTable; uploads through Glide_TexUpload.
 FUNC	67474	Glide_Close	undefined Glide_Close(void)	
 FUNC	67490	Glide_ClearToBackground	undefined Glide_ClearToBackground(void)	
 FUNC	674ac	Glide_Clear	undefined Glide_Clear(void)	
 FUNC	674c0	Glide_Swap	undefined Glide_Swap(void)	
-FUNC	67568	Glide_DrawPolygon	undefined Glide_DrawPolygon(void)	
+FUNC	67500	Glide_SetDepthMode	undefined Glide_SetDepthMode(void)	grDepthBufferMode/Function/Mask, then grBufferClear.
+FUNC	67568	Glide_DrawObjectFaces	undefined Glide_DrawObjectFaces(void)	
+FUNC	68028	Glide_LockBackBuffer	undefined Glide_LockBackBuffer(void)	grLfbLock(WRITE_ONLY, BACKBUFFER, 565, UPPER_LEFT).
+FUNC	6805c	Glide_UnlockBackBuffer	undefined Glide_UnlockBackBuffer(void)	grLfbUnlock(WRITE_ONLY, BACKBUFFER).
+FUNC	68128	Glide_DrawTranslucentFaces	undefined Glide_DrawTranslucentFaces(void)	Deferred pass after the scene: face types -7/-4/-3, decal texture, alpha 128, SRC_ALPHA/ONE_MINUS_SRC_ALPHA.
 FUNC	68390	Kbd_InstallHandler	undefined Kbd_InstallHandler(void)	
 FUNC	683fe	Kbd_RestoreHandler	undefined Kbd_RestoreHandler(void)	
+FUNC	737e8	Render_Frame	undefined Render_Frame(void)	
+FUNC	738d0	Render_FrameEx	undefined Render_FrameEx(void)	
 FUNC	73ae8	_entry	undefined _entry(void)	
+FUNC	81258	SW_DrawObjectFaces	undefined SW_DrawObjectFaces(void)	
+FUNC	813fc	SW_ObjectHook2	undefined SW_ObjectHook2(void)	
 FUNC	86210	Timer_InstallHandler	undefined Timer_InstallHandler(void)	
 FUNC	862f8	Timer_RestoreHandler	undefined Timer_RestoreHandler(void)	
+FUNC	96178	Render_DrawObject	undefined Render_DrawObject(void)	
+FUNC	96a20	Render_AltObjectHook	undefined Render_AltObjectHook(void)	
 FUNC	9afe5	DPMI_SetRealModeVector	undefined DPMI_SetRealModeVector(void)	
 FUNC	9b323	AIL_CallDriver	undefined AIL_CallDriver(void)	
 FUNC	ac894	__loadme	void __loadme(void)	
@@ -150,6 +187,37 @@ FUNC	b8c02	guTexMemQueryAvail	FxU32 guTexMemQueryAvail(GrChipID_t tmu)	Glide 2 i
 FUNC	b8c07	guTexMemReset	void guTexMemReset(void)	Glide 2 import thunk for _GUTEXMEMRESET@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
 FUNC	b8c0c	guTexSource	void guTexSource(GrMipMapId_t id)	Glide 2 import thunk for _GUTEXSOURCE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
 FUNC	b8c11	ConvertAndDownloadRle	void ConvertAndDownloadRle(GrChipID_t tmu, FxU32 startAddress, GrLOD_t thisLod, GrLOD_t largeLod, GrAspectRatio_t aspectRatio, GrTextureFormat_t format, FxU32 evenOdd, FxU8 * bm_data, long bm_h, FxU32 u0, FxU32 v0, FxU32 width, FxU32 height, FxU32 dest_width, FxU32 dest_height, FxU16 * tlut)	Glide 2 import thunk for _CONVERTANDDOWNLOADRLE@64 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	26834	plate	Name matched from WINDREAM.EXE 0041c666 (strings, 1.00; tools/match_functions.py).
+CMT	27964	plate	Name matched from WINDREAM.EXE 0041da7d (strings, 1.00; tools/match_functions.py).
+CMT	27d50	plate	Name matched from WINDREAM.EXE 0041deb8 (strings, 1.00; tools/match_functions.py).
+CMT	2935c	plate	Name matched from WINDREAM.EXE 0041f9db (caller, 0.73; tools/match_functions.py).
+CMT	2d620	plate	Name matched from WINDREAM.EXE 004240ba (string, 0.58; tools/match_functions.py).
+CMT	3c2c8	plate	Raises "unknown message type in MGM_SendMessage".
+CMT	3c658	plate	Raises "unknown message type in MGM_DispatchMessages".
+CMT	3d45c	plate	Raises "unknown event in CAM_CompCameraPos".
+CMT	4de34	plate	Draws one character and advances x.
+CMT	4ded4	plate	Pixel width of a string in a font.
+CMT	4e20c	plate	Twin of WINDREAM Text_PrintCentered without the internal lock (callers lock with Glide_LockBackBuffer).
+CMT	4e688	plate	Twin of WINDREAM Text_Print (0x426073).
+CMT	51374	plate	Name matched from WINDREAM.EXE 004175bc (strings, 1.00; tools/match_functions.py).
+CMT	515c0	plate	Name matched from WINDREAM.EXE 004177f5 (slot, 0.46; tools/match_functions.py).
+CMT	51654	plate	Name matched from WINDREAM.EXE 004178fe (slot, 0.46; tools/match_functions.py).
+CMT	517a8	plate	Name matched from WINDREAM.EXE 00417afd (strings, 1.00; tools/match_functions.py).
+CMT	595f4	plate	Twin of WINDREAM Sprite_Draw (0x4274b0).
+CMT	5b930	plate	Raises "unknown message type in MENJ_Dispatcher".
+CMT	5bdb4	plate	Four menu items, selected one highlighted, then the NEW GAME/... label.
+CMT	5be94	plate	Name matched from WINDREAM.EXE 00435fae (caller, 0.65; tools/match_functions.py).
+CMT	65180	plate	Raises "unknown message type in CTRL_Dispatcher" (reference at 0x65364).
+CMT	66ac8	plate	grTexDownloadMipMapLevel (called by Glide_BindTexture).
+CMT	66d58	plate	grTexTextureMemRequired, grTexMaxAddress, grTexDownloadMipMapLevel.
+CMT	66f24	plate	grTexDownloadMipMapLevel; only caller is the scene spawner.
+CMT	671d0	plate	grFogMode, grFogColorValue, guFogGenerateExp, grFogTable.
+CMT	67204	plate	grClipWindow.
+CMT	672a8	plate	grTexSource, grChromakeyValue, grTexDownloadTable; uploads through Glide_TexUpload.
+CMT	67500	plate	grDepthBufferMode/Function/Mask, then grBufferClear.
+CMT	68028	plate	grLfbLock(WRITE_ONLY, BACKBUFFER, 565, UPPER_LEFT).
+CMT	6805c	plate	grLfbUnlock(WRITE_ONLY, BACKBUFFER).
+CMT	68128	plate	Deferred pass after the scene: face types -7/-4/-3, decal texture, alpha 128, SRC_ALPHA/ONE_MINUS_SRC_ALPHA.
 CMT	b07bb	plate	Library Function - Single Match\n __fdivp_sti_st\n\nLibrary: Visual Studio
 CMT	b0840	plate	Library Function - Single Match\n __adj_fdiv_m64\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, Visual Studio 2003 Debug, Visual Studio 2003 Release
 CMT	b898c	plate	Glide 2 import thunk for _GRAADRAWLINE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.

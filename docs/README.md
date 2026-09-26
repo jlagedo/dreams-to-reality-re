@@ -7,8 +7,8 @@ docs do.
 
 | Doc | Contents |
 |---|---|
-| [re-setup.md](re-setup.md) | **Ghidra setup**, repo layout for RE, suggested order of attack |
-| [engine.md](engine.md) | Engine architecture, toolchain, the four binaries, subsystem layout, Windows video API |
+| [re-setup.md](re-setup.md) | **Ghidra setup**, repo layout for RE, suggested order of attack; LE loader for the DOS builds, Glide typing, cross-build function matcher |
+| [engine.md](engine.md) | Engine architecture, toolchain, the four binaries, subsystem layout; renderer backends, **Glide ↔ DirectDraw/GDI map**, input and joystick paths |
 | [toolchain.md](toolchain.md) | **Watcom C/C++ 10.6** pinned down; reference material; ~290 runtime symbols recovered per DOS binary |
 | [cryolib.md](cryolib.md) | `CRYO.DLL` = CryoLib: 165 exports incl. a working **HNM6 decoder** |
 | [game-content.md](game-content.md) | 150 levels, 30 inventory items, save system, from `DREAMS.INI` |
@@ -29,7 +29,7 @@ docs do.
 | [hnm-video.md](hnm-video.md) | HNM inventory **and how to decode it** — all 113 videos decode |
 | [hnm6-spec.md](hnm6-spec.md) | Full HNM6 container + codec specification (MultimediaWiki, mirrored) |
 | [disc-layout.md](disc-layout.md) | Both discs inventoried, install manifest, disc-check mechanism, merge map |
-| [running.md](running.md) | How to actually run the game, ranked by difficulty |
+| [running.md](running.md) | How to actually run the game, ranked by difficulty; **3dfx build verified** under DOSBox Staging; controllers |
 | [pipeline.md](pipeline.md) | **Extract → bake → pack**: the data root the web app reads, its JSON, releases for static hosting |
 | [research-log.md](research-log.md) | Findings log, corrections, dead ends, open questions |
 

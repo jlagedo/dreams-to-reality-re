@@ -13,8 +13,9 @@ the menu assets. `ICONES.BF` is a `UBIK` container, not an image sheet itself.
 Its members are sprite banks with a shared `TABLE` descriptor layout. Disc 1
 ships `MAGIE.ALP`, `ANIM.ALP`, `PYRAM.ALP`, `TOUCHES.SPR`, and `INTERF.ALP`;
 disc 2 adds `TITRES.SPR`. The executable's five-file bank list names only the
-first five. The boot menu draws its four labels through `FUN_00426073`, so it
-does not use `TITRES.SPR` for those labels; no other runtime use has been found.
+first five. The boot menu draws its four labels through `Text_Print`
+(`0x426073`), so it does not use `TITRES.SPR` for those labels; no other
+runtime use has been found.
 
 Names also live in the executable. `FUN_00427217` searches a 72-name table at
 `0x49DB12` and returns a `(bank, slot)` pair from `0x49DD9A`; bank filenames
@@ -265,8 +266,8 @@ runtime source of the short Save label remains unresolved. `DREAMS.INI`
 supplies additional localized system strings and inventory descriptions.
 
 The save/load browser and boot Options screen remain separate controllers.
-Another cyclic UI-message handler, `FUN_00435896`, consumes 12-byte events;
-event `0x40` selects the voice/caption entry described below. The per-frame
+Another cyclic UI-message handler, `MENJ_Dispatcher` (`0x435896`, named by
+its own error string), consumes 12-byte events; event `0x40` selects the voice/caption entry described below. The per-frame
 task table is built by `FUN_004288C6`, called during scene setup. It copies
 `LINKADVENT +0x1C` into task `+0x10`; for opcode `0x40`, that field is the
 one-based dialogue entry ID. When its proximity/interaction conditions pass,
@@ -319,7 +320,7 @@ The runtime presentation path is:
 
 ```text
 UI event 0x40, payload = dialogue entry index
-  -> FUN_00435896
+  -> FUN_00435896 (MENJ_Dispatcher)
   -> FUN_00410CD6 / FUN_00410928: load the entry's WAVE and text blocks
   -> FUN_00410D19 / FUN_00446E01: submit the voice bytes to the sound buffer
   -> FUN_00436AB6: display timed lines through FUN_00425F07

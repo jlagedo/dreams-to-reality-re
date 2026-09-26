@@ -128,11 +128,15 @@ field is non-empty.
    `F84.DAN`, four `F07BLEU.DAN`, `CH0.DAN`, `MINE.DAN` and the rest of the
    disc-1 level set (44 `.DSN` lines, see [level-map.md](level-map.md)).
 
-## Event dispatcher (`0x4a306` → table `CTRL_Dispatcher`)
+## Message dispatcher (`0x43a306`, `MGM_SendMessage`)
 
-Screens and subsystems talk through a numbered-event dispatcher at `0x4a306`
-(the *unknown message type in CTRL_Dispatcher* error string belongs to it).
-Events identified during this trace:
+Screens and subsystems talk through a numbered-message dispatcher at
+`0x43a306`. Its own error string names it: *unknown message type in
+MGM_SendMessage* **[verified]**. An earlier revision of this page called it
+`CTRL_Dispatcher` (and gave `0x4a306`); that string belongs to a different
+function at `0x40e75c`, referenced at `0x40ea42`. `0x43a64c`, the frame pump
+below, is `MGM_DispatchMessages` by the same evidence. The 3dfx build has the
+same pair at `0x3c2c8`/`0x3c658`. Messages identified during this trace:
 
 | Event | Meaning |
 |---:|---|
@@ -161,7 +165,7 @@ Events identified during this trace:
 | `0x435c2b` | load + place menu corner-marker sprites |
 | `0x435fae` | `MainMenu_Tick` — input, item cycling, confirm dispatch, save/options submenus |
 | `0x4363c8` | idle-timeout tick (3×40) |
-| `0x43a64c` | frame pump — Windows messages, event queues, standing handler call |
+| `0x43a64c` | `MGM_DispatchMessages` — frame pump: Windows messages, event queues, standing handler call |
 | `0x43a0e2` (region) | `menu.tga` loader helper |
 | `0x4341eb` | UI/icon init (`icones.bf`, icon-name bindings) |
 | `0x416d45` | master per-frame handler (installed at init) |
@@ -169,7 +173,7 @@ Events identified during this trace:
 | `0x4240ba` | `Transition_Tick` — 15 s in-engine transition, Project0 head video, map load kick |
 | `0x41f9db` | `Scene_SpawnProjectEntities` — map + entity load |
 | `0x427d64` | CD-swap / loading screen |
-| `0x43a306` | event dispatcher (`CTRL_Dispatcher`) |
+| `0x43a306` | `MGM_SendMessage` — message dispatcher (not `CTRL_Dispatcher`, which is `0x40e75c`) |
 
 ## Reproducing
 

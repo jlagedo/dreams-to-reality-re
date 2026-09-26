@@ -70,6 +70,10 @@ MD5: `WINDREAM.EXE` = `68BC8D526C57A2EBDC083E88325D4E64`,
 `WINDREAM.EXE` and `GDIDREAM.EXE` are **the same program**: identical byte size,
 identical import table, different hash. Both link DirectDraw *and* the GDI path.
 The two binaries differ only in which backend they default to. **[verified]**
+Byte-for-byte they differ in 10 bytes, and only one is code: the immediate in
+`MOV dword ptr [0x633b18], imm` at file offset `0x4543c`, inside `Video_Init`
+(`0x446019`), is 0 (DirectDraw) in `WINDREAM.EXE` and 1 (GDI) in
+`GDIDREAM.EXE`. The other nine are timestamps.
 
 `DOS4GW.EXE` (265,396 B) is the Rational Systems DOS extender both LE builds
 load. `GETKEY.EXE` (4,469 B) is a trivial keypress-to-errorlevel helper used by
@@ -123,14 +127,14 @@ of the 130 functions, almost all from a thin backend at `0x670f0`–`0x68400`:
   GR_COLORFORMAT_ARGB, GR_ORIGIN_UPPER_LEFT, 2, 1)` (double buffer plus one aux
   buffer for depth), then `grTexFilterMode(GR_TMU0, BILINEAR, BILINEAR)` and
   `grGammaCorrectionValue(0.8)`. The 640x480 lock is this call.
-- **`Glide_DrawPolygon`** (`0x67568`) fills three `GrVertex` and calls
-  `grDrawTriangle`, or `guDrawTriangleWithClip` when clipping is needed. Its
-  modes: `guColorCombineFunction(GR_COLORCOMBINE_DECAL_TEXTURE)` with
-  `grChromakeyMode(ENABLE)` for key-colour transparency; texture ×
+- **`Glide_DrawObjectFaces`** (`0x67568`) is the object hook (see *Renderer
+  backends*). It walks the object's face list, fills three `GrVertex` per
+  triangle and calls `grDrawTriangle`, or `guDrawTriangleWithClip` when
+  clipping is needed. Its modes: `guColorCombineFunction(GR_COLORCOMBINE_DECAL_TEXTURE)`
+  with `grChromakeyMode(ENABLE)` for key-colour transparency; texture ×
   iterated RGB (`grColorCombine(SCALE_OTHER, LOCAL, ITERATED, TEXTURE)`, i.e.
   Gouraud-lit textures); flat constant colour (`grColorCombine(LOCAL, ZERO,
-  CONSTANT, CONSTANT)`); texture clamp toggled per polygon
-  (`grTexClampMode`).
+  CONSTANT, CONSTANT)`); texture clamp toggled per face (`grTexClampMode`).
 - `Glide_Clear`, `Glide_ClearToBackground` (`grBufferClear`), `Glide_Swap`
   (`grBufferSwap`) and `Glide_Close` (`grGlideShutdown`).
 
@@ -140,6 +144,89 @@ upload), `grDepthBufferMode`/`grDepthBufferFunction`/`grDepthMask`,
 `grFogColorValue`, `grLfbLock`/`grLfbUnlock` (direct framebuffer writes) and
 `grClipWindow`. Glide's constants are `#define`s, so the decompiler prints
 them as numbers; the names above are from `glide.h`/`sst1vid.h`.
+
+### Renderer backends — a link-time choice with one hook **[verified]**
+
+There is no runtime switch between Glide, DirectDraw and software. Each
+executable links one output path; the shared scene code reaches it through a
+single **object hook**, a global function pointer called once per visible
+object.
+
+| | `DREAMSFX.EXE` | `WINDREAM.EXE` |
+|---|---|---|
+| per-object caller | `Render_DrawObject` `0x96178` | `Render_DrawObject` `0x47e498` |
+| object hook / second hook | `0x105004` / `0x105008` | `0x4ac8cc` / `0x4ac8d0` |
+| hook during a frame | `Glide_DrawObjectFaces`, second hook `NULL` | `SW_DrawObjectFaces` `0x473014`, `SW_ObjectHook2` `0x4731b8` |
+| after the scene | direct `Glide_Swap` etc. | `(*0x4aa708)()`: `SW_FlushSpans` `0x4768cc` or `SW_FlushSpansAlt` `0x476dec`, chosen by `SW_SelectFlush` `0x4592e0` from a caller argument |
+| frame functions | `Render_Frame` `0x737e8`, `Render_FrameEx` `0x738d0` | `Render_Frame` `0x459320`, `Render_FrameEx` `0x4593a4` |
+
+- `Render_DrawObject` calls `(*hook)(object)` unless object flag `+0x0d & 0x10`
+  is set. Every hook walks the object's face list at `+0xa4` and switches on
+  the face type (`0x16`, `0x17`, `0x1c`, … and negative codes), reading
+  `+0xc4` and `+0xd0`.
+- **Software:** `SW_DrawObjectFaces` sends each face to a per-type rasterizer
+  that fills per-scanline edge lists (`0x66e6b8`, `0x66f6b8`, `0x6706b8`);
+  `SW_FlushSpans` walks them scanline by scanline into the framebuffer. What
+  selects the alternate flush is not yet known.
+- **Glide:** the frame function points the hook at `Glide_DrawObjectFaces`
+  and clears the second hook; the Voodoo rasterizes. Clear, swap, open and
+  close are direct calls, not dispatched. `DREAMSFX.EXE` still carries the
+  software hooks: the hook's initialised value is `SW_DrawObjectFaces`
+  (`0x81258`), overwritten every frame.
+- **DirectDraw is not a peer of Glide.** It only supplies and presents the
+  surface the software rasterizer writes; the GDI path (default in
+  `GDIDREAM.EXE`, present in both Windows binaries) does the same with a DIB
+  section. Neither Windows binary contains Glide code. DirectDraw versus GDI
+  *is* a runtime switch, on flag `0x633b18`; see *Presentation and 2D* below.
+- **Dead third branch, both builds.** The frame functions test a byte flag
+  (`0x10501c` / `0x4ac8c8`); when set, the hook would be `Render_AltObjectHook`
+  (`0x96a20` / `0x478800`). Nothing writes either flag and both initialise to
+  0, which is why the decompiler drops the branch as unreachable. Its purpose
+  is unknown.
+- The build pairs above were first made by hand; `tools/match_functions.py`
+  (see `re-setup.md`) recovers five of the six independently, including
+  `Render_Frame`/`Render_FrameEx` by call-slot alignment. `Render_AltObjectHook`
+  is only ever stored as a pointer, so the call graph cannot reach it. How
+  `Render_Frame` and `Render_FrameEx` differ, beyond the latter's extra
+  arguments and a call to `0x6f634` in the 3dfx build, is not yet traced.
+
+### Presentation and 2D — Glide mapped onto DirectDraw/GDI **[verified]**
+
+Every Glide call site in `DREAMSFX.EXE` sits in a small backend
+(`0x66ac8`–`0x68400`). Pairing its callers with their `WINDREAM.EXE` twins and
+aligning the two call sequences shows what the Windows build does in the same
+slot:
+
+| Role | `DREAMSFX.EXE` (Glide) | `WINDREAM.EXE` (DirectDraw/GDI) |
+|---|---|---|
+| init | `Glide_Open` `0x670f0`: 640x480, 60 Hz, 2 colour + 1 aux buffer, bilinear, gamma 0.8 | `Video_Init` `0x446019`: 640x480, mode flag `0x633b18`; `DDraw_CreateSurfaces` `0x4455ad` or `GDI_CreateDIB` `0x445c84` |
+| shutdown | `Glide_Close` `0x67474` | `Video_ReleaseSurfaces` `0x4453ec` |
+| present | `Glide_Swap` `0x674c0` (`grBufferSwap`) | `Video_Swap` `0x4158e2`: toggle buffer index, `Video_Present` `0x44549b` → `DDraw_Present` `0x445a57` (Lock back surface, copy the software frame by pitch, Unlock, `Flip`; `Restore` on `DDERR_SURFACELOST`) or `GDI_Present` `0x4458bb` (`StretchBlt`, `SRCCOPY`) |
+| framebuffer access | `Glide_LockBackBuffer` `0x68028` (`grLfbLock` write-only, back buffer, 565), `Glide_UnlockBackBuffer` `0x6805c`, around the call | `Video_Lock` `0x445bf2` (`IDirectDrawSurface::Lock`, `DDLOCK_WAIT \| DDLOCK_WRITEONLY`), `Video_Unlock` `0x445c3f`, inside the drawing routine; both no-ops in GDI mode |
+| background | `Glide_ClearToBackground` `0x67490` (`grBufferClear`) | `Video_RestoreBackground` `0x417fe7`: copy the saved background (w×h×2) into the framebuffer |
+| 3D faces | `Glide_DrawObjectFaces` `0x67568` | `SW_DrawObjectFaces` `0x473014` + `SW_FlushSpans` `0x4768cc` |
+| translucent faces | `Glide_DrawTranslucentFaces` `0x68128`, deferred after the scene: face types −7/−4/−3, decal texture, alpha 128, `SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA` | inside the software rasterizer (no separate pass) |
+| texture upload | `Glide_BindTexture` `0x672a8`, `Glide_TexUpload` `0x66ac8`, `Glide_TexAllocUpload` `0x66d58`, `Glide_TexUploadScene` `0x66f24` | none: the rasterizer reads textures from RAM |
+| fog, depth, clip | `Glide_SetFog` `0x671d0`, `Glide_SetDepthMode` `0x67500`, `Glide_SetClipWindow` `0x67204` | no counterpart at these call sites |
+| text | `Text_PrintCentered` `0x4e20c`, `Text_Width` `0x4ded4`, `Text_DrawGlyph` `0x4de34`, `Text_Print` `0x4e688` | `Text_PrintCentered` `0x425b4c`, `Text_Width` `0x425838`, `Text_DrawGlyph` `0x4257a0`, `Text_Print` `0x426073` |
+| sprites, menu | `Sprite_Draw` `0x595f4`, `MainMenu_Draw` `0x5bdb4` | `Sprite_Draw` `0x4274b0`, `MainMenu_Draw` `0x435ea0` |
+
+- 2D (text, sprites, menus, the CD-swap screen) is drawn by the CPU with the
+  same text and sprite code in both builds. On Glide it writes the Voodoo's
+  back buffer through `grLfbLock`.
+- The Windows build always renders into its own RAM frame (`0x5e549c`) and
+  copies it out at present time; DirectDraw is a blit target with `Flip`, not
+  a drawing API. `Video_Lock` does not keep the pointer `Lock` returns (the
+  `DDSURFACEDESC` is a local), so around 2D drawing it only synchronises with
+  the surface.
+- `DDraw_Present` indexes the `IDirectDrawSurface` vtable: `+0x2c` `Flip`,
+  `+0x64` `Lock`, `+0x6c` `Restore`, `+0x80` `Unlock`.
+
+The same pairing turned up five real function names in error strings
+(*unknown message type in X*): `MGM_SendMessage`, `MGM_DispatchMessages`,
+`CTRL_Dispatcher`, `MENJ_Dispatcher`, `CAM_CompCameraPos`, identical in both
+builds. Two unrelated functions both report *in DAN_Load3DC* (`0x40fff7`,
+`0x41020f`), so that name is left unassigned.
 
 ### Windows video API — DirectDraw only
 
@@ -234,7 +321,7 @@ Only the Windows builds read a joystick; the DOS builds have no joystick code
 2. **`J` / `K`.** The key handler `0x415aa7` maps VK `0x4a` (`J`) to dispatcher
    command 10, input mode 3 (`0x40ec46`) and the on-screen string `Joystick`;
    VK `0x4b` (`K`) to command 4, mode 0 and `Keyboard`.
-3. **Enable flags.** In the dispatcher `0x43a306`, commands 7/8 set/clear
+3. **Enable flags.** In the dispatcher `0x43a306` (`MGM_SendMessage`), commands 7/8 set/clear
    `0x5e54bb` (via `0x424c5f`/`0x424c87`) and commands 10/11 set/clear
    `0x5e54ba` (`0x424caf`/`0x424cd7`). Both enables are gated on `0x626f70`,
    set during startup detection.

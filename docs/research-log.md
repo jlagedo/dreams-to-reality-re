@@ -920,8 +920,33 @@ analysis artefacts (no-return `__loadme`, stubs auto-made thunks of it, an
 off-by-one from the non-`_GR` last name) had to be undone first. Result: the
 game calls 35 Glide functions from a small backend. `Glide_Open` fixes
 640x480 at 60 Hz, double-buffered with depth, bilinear filtering, gamma 0.8.
-`Glide_DrawPolygon` uses decal + chroma-key, texture × Gouraud and flat
+`Glide_DrawObjectFaces` uses decal + chroma-key, texture × Gouraud and flat
 constant-colour modes. Details in [engine.md](engine.md), procedure in
+[re-setup.md](re-setup.md).
+
+The Glide layer is not a runtime backend selector. Both builds render through
+one per-object hook called by `Render_DrawObject`; the Windows build fills it
+with the software face rasterizer plus a scanline flush, the 3dfx build with
+`Glide_DrawObjectFaces`. DirectDraw only presents the software framebuffer. A
+third hook guarded by a never-written flag is dead in both builds
+(*Renderer backends* in engine.md).
+
+## 2026-09-25 — Glide call sites mapped onto the Windows build
+
+A cross-build matcher (`ExportFunctionFeatures.java` + `tools/match_functions.py`)
+pairs 599 functions between `DREAMSFX.EXE` and `WINDREAM.EXE`. Aligning each
+Glide caller's call sequence with its Windows twin named the Windows
+presentation layer: `Video_Swap` → `Video_Present` → `DDraw_Present` (Lock,
+copy the RAM frame, Unlock, `Flip`) or `GDI_Present` (`StretchBlt`), with
+`Video_Lock`/`Video_Unlock` in the slots of `grLfbLock`/`grLfbUnlock`.
+DirectDraw versus GDI is one flag, `0x633b18`, set in `Video_Init`; it is the
+only code byte that differs between `WINDREAM.EXE` and `GDIDREAM.EXE`.
+
+The 3dfx build defers faces of types −7/−4/−3 to a translucent pass at
+alpha 128 (`Glide_DrawTranslucentFaces`). Error strings supplied five real
+names, and one correction: `0x43a306` is `MGM_SendMessage`, not
+`CTRL_Dispatcher` (`0x40e75c`), as boot-sequence.md had it. Mapping table in
+[engine.md](engine.md), *Presentation and 2D*; matcher in
 [re-setup.md](re-setup.md).
 
 ## Sources

@@ -16,7 +16,7 @@
 | `docs/re-setup.md` | Ghidra setup and workflow |
 | `re/symbols/*.tsv` | Saved Ghidra symbols and comments |
 | `ghidra_scripts/` | Java scripts for Ghidra |
-| `tools/` | Ghidra import and checkpoint PowerShell scripts |
+| `tools/` | Ghidra import and checkpoint PowerShell scripts; `lx-loader-watcom.cspec` for the DOS-build LE loader; `match_functions.py` cross-build function matcher |
 | `ghidra/` | Local Ghidra project (gitignored) |
 | `out/` | Default toolkit output (gitignored) |
 
@@ -114,6 +114,17 @@ Read-only headless decompilation from the repository root:
 & (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') ghidra dreams -process WINDREAM.EXE -noanalysis -readOnly -scriptPath ghidra_scripts -postScript Decompile.java 004175bc
 ```
 
-`tools/ghidra-import.ps1` accepts `-Ghidra`, `-Project`, `-Disc1`, and
-`-Disc2`; `tools/re-checkpoint.ps1` accepts `-SkipExport` when the Ghidra GUI
-has the project open. See `docs/re-setup.md` for the full command reference.
+Headless scripts that take arguments go through a `.bat` launcher that splits
+on `=`, so `Rename.java` uses `address:name` (or `@file`):
+
+```powershell
+& (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') ghidra dreams -process WINDREAM.EXE -noanalysis -scriptPath ghidra_scripts -postScript Rename.java 0043a306:MGM_SendMessage
+uv run python tools/match_functions.py DREAMSFX.EXE WINDREAM.EXE --renames
+```
+
+`tools/ghidra-import.ps1` accepts `-Ghidra`, `-Project`, `-Disc1`, `-Disc2`
+and `-Binaries` (only the listed files are re-imported); `tools/re-checkpoint.ps1`
+accepts `-SkipExport` when the Ghidra GUI has the project open and `-Programs`
+(default includes `DREAMSFX.EXE`). `DREAMSFX.EXE` needs the LE loader and
+`ApplyGlideImports.java`; the matcher needs `ExportFunctionFeatures.java` run on
+both programs first. See `docs/re-setup.md` for the full command reference.

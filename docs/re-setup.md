@@ -64,6 +64,14 @@ Ghidra does not ship; see [LE loader for the DOS builds](#le-loader-for-the-dos-
 builds to answer DOS-specific questions (hardware access, the 3dfx path) and
 as a cross-check; `WINDREAM.EXE` stays the main target.
 
+**For rendering, read `DREAMSFX.EXE`.** Its Glide calls are typed
+(`ApplyGlideImports.java`), so render state reads as named Glide API calls,
+where the Windows build does the same work in anonymous software-rasterizer
+code. Carry names between the builds with the matcher
+([Matching functions across builds](#matching-functions-across-builds)); the
+Glide-to-DirectDraw/GDI map is in [engine.md](engine.md), *Presentation and
+2D*.
+
 `CRYO.DLL` is a **debug build with 165 named exports**. It is a different
 codebase from the game (see [cryolib.md](cryolib.md)), but it is the best
 available guide to Cryo's naming and structure conventions.
@@ -133,9 +141,14 @@ above. Upstream's `__watcall` has a fixed `extrapop`, no `ST0` float return and
 no `EBX` clobber. The replacement uses the prototype from
 `tools/watcall-cspec.patch`, so the DOS and Windows builds decompile under the
 same contract. It is the loader's default prototype, so `ApplyWatcall.java` is
-not needed for the calling convention. The bespoke-register runtime helpers are
-still wrong until a DOS equivalent of `sigs/windream.csv` exists. The file also
-adds a `__stdcall` model for the Glide stubs.
+not needed for the calling convention. The file also adds a `__stdcall` model
+for the Glide stubs.
+
+The bespoke-register runtime helpers still decompile wrong. The Watcom library
+match already exists (`sigs/dreamsfx.csv`, 282 functions; see
+[toolchain.md](toolchain.md)), but it records file offsets only. The loaded
+program can now map them (`Memory.locateAddressesForFileOffset`); that step and
+applying the names are not done yet.
 
 LE addresses are the loader's object bases (code at `0x20000` in
 `DREAMSFX.EXE`), not file offsets.
@@ -176,6 +189,48 @@ run:
 `guMovie*`, `guMp*`) are not declared in the final `sst1` headers and keep their
 decorated names. `ImportSymbols.java` restores names only, so re-run this
 script on a fresh project.
+
+### Matching functions across builds
+
+The executables are one Watcom engine compiled for different targets, so most
+functions have a twin in each build at another address. Identical code is rare
+(the Windows build adds a `__CHK` stack probe, `0x454feb`, to nearly every
+function, and register allocation differs), but constants, strings, instruction
+shape and the call graph survive.
+
+```powershell
+$env:DREAMS_REPO = (Get-Location).Path
+$h = Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat'
+foreach ($p in 'DREAMSFX.EXE','WINDREAM.EXE') {
+  & $h ghidra dreams -process $p -noanalysis -readOnly `
+    -scriptPath ghidra_scripts -postScript ExportFunctionFeatures.java
+}
+uv run python tools/match_functions.py DREAMSFX.EXE WINDREAM.EXE --renames
+& $h ghidra dreams -process DREAMSFX.EXE -noanalysis -scriptPath ghidra_scripts `
+  -postScript Rename.java "@$PWD\out\ghidra\match\renames-DREAMSFX.EXE.tsv"
+```
+
+- `ExportFunctionFeatures.java` writes `out/ghidra/features/<program>.json`:
+  masked instructions, constants below `0x10000`, string literals and call
+  order per function.
+- `match_functions.py` seeds on unique identical code, identical string sets
+  and single-owner strings, then propagates through callers, callees and
+  **call-slot alignment**: an unmatched call between the same matched
+  neighbours in both call sequences. It writes
+  `out/ghidra/match/<a>--<b>.tsv` with a score and a callee agreement ratio
+  per pair.
+- `--renames` proposes names only for confident pairs (score ≥ 0.60, or at
+  least two agreeing callees at ≥ 75 %), never overwrites a name, reports
+  conflicts, and never carries platform-layer names (`Glide_`, `DDraw_`,
+  `GDI_`, `Video_`, `Kbd_`, `Timer_`, `DPMI_`, `AIL_`, `Joy_`, `Input_`).
+  `Rename.java @file` applies them and adds the match evidence to each plate
+  comment.
+
+First run, `DREAMSFX.EXE` against `WINDREAM.EXE`: 599 pairs of 1,450/1,272
+functions; 5 of the 6 hand-matched renderer pairs recovered without names;
+10 names carried to the 3dfx build. Calibration: on known pairs, constant
+multisets agree at Jaccard 1.00 where exact code never matches, and mnemonic
+bigrams at 0.4–0.87. Treat low-score `slot` pairs as leads, not facts.
 
 ### `ApplyWatcall.java` — run this on any fresh project
 

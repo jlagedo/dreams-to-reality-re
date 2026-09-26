@@ -609,7 +609,7 @@ bank filenames live at `0x49dacc` (stride 13). The mapping is reproduced in
 | `PYRAM.ALP` | 64×84 ×9 + strips, 2-byte indexed + blend | the pyramid spell-selector UI — `pyrambo/vi/ma/ox` variants, `pyrcurs` cursor, `exprbor`/`exprlev` 64×4 strips, `replay`/`record` |
 | `TOUCHES.SPR` | 24×24 ×11, 8bpp | key/joypad caps — `joy_up/dn/lf/rt/k1/k2/k3/sel/swi/bt0/bt1` (the F10 controls screen) |
 | `INTERF.ALP` | 64×64 ×8 + panels, 2-byte indexed + blend | menu corner markers `DnRg/DnLf/UpLf/UpRg` + `…NA` inactive variants, `RubLf/RubRg` ribbons, `Desc1–4` panels |
-| `TITRES.SPR` (disc 2) | ~128×42 ×12, 8bpp | the four title images in three render states (gold, red-highlight, third variant); **not in the engine's 5-file load list and not used for boot-menu labels** (drawn by font routine `FUN_00426073`); no other runtime use found |
+| `TITRES.SPR` (disc 2) | ~128×42 ×12, 8bpp | the four title images in three render states (gold, red-highlight, third variant); **not in the engine's 5-file load list and not used for boot-menu labels** (drawn by font routine `Text_Print`, `0x426073`); no other runtime use found |
 | `SOUR.ALP` (`DATA\OBJET`) | 16×24 ×2, 2-byte indexed + blend | the mouse cursor, two frames |
 
 Rendered contact sheets confirmed the decode visually: TITRES shows the four
