@@ -2,6 +2,22 @@
 
 ## Corrections
 
+### The level record has no camera fields at `+0x9c`-`+0xa4` (2026-09-26)
+
+`+0x9c`, `+0xa0` and `+0xa4` were documented as camera projection mode, near
+clip and FOV. `ENT_LoadObject` copies them into the player actor: movement
+mode (`+0x34`), movement scale (`+0x104`) and turn step (`+0x108`, read by
+`ANIM_RequestState`). The FOV is a constant 76.36°, the near plane 140.
+Details in [engine.md](engine.md), *Camera and projection*.
+
+### `.DSN` tag 2 is the collision mesh, and the "arena directory" is the node table (2026-09-26)
+
+Tag 2 is `.3DI`, resource type 5, which the renderer never reads; it omits
+skies, video surfaces and water, so it cannot be the gate for render geometry.
+The "arena directory" at tag 1 `+0x14` is the node table, the "parallel"
+face references are normals, and the "edge" references are rasterizer
+scratch. Details in [scene-geometry.md](scene-geometry.md).
+
 ### What the game reads back from the renderer (2026-09-26)
 
 Traced for the runtime's renderer cut ([north-star.md](north-star.md)): no
@@ -1087,6 +1103,31 @@ vertex record of a found node, so the node decode is what the engine draws.
   (resource types 4 and 6) stay unnamed; the `SW_*` rasterizers were left alone.
 
 Details: [scene-geometry.md](scene-geometry.md), *The engine's view*.
+
+## 2026-09-26 — the camera and the projection
+
+`CAM_CompCameraPos` (`0x4099d2`) is a message-driven state machine over scene-graph node 0.
+Messages `0x2b`-`0x31` select follow, fixed shot, tracking shot, entity pair,
+ride-along, overhead and free camera; timed shots return to follow on their
+own. The follow camera reads one of six view presets (Alt + number keys),
+places target and eye on the actor's heading (or heading and pitch when
+swimming or flying), eases them by ½ and ¼ of the gap **per frame**, clamps
+the eye height, raises it when collision squeezes it in, and rolls with the
+actor's bank while flying. Full model in [engine.md](engine.md), *Camera and
+projection*.
+
+**Corrections.** The projection is a constant **76.36° horizontal FOV**
+(K = 407.44 at 640 wide), near 140, far `0xfffff`. The level-record fields
+documented as "camera projection mode / near clip / FOV" (`+0x9c/+0xa0/+0xa4`)
+are the player's movement mode, movement scale and **turn step**; `+0xa4`
+values of 63-65 were never an angle. The same turn step explains OBJET
+`+0x6c` → actor `+0x108`, open until now. The bake still writes the field as
+`fov`; the web app should use 76.36° instead.
+
+Named with blind review: 25 `CAM_*` functions, the viewport/projection setters
+(`REND_SetScreenSize` (`0x4569cc`), `REND_SetViewportFov` (`0x456b94`), `REND_SetViewportFocal` (`0x456a58`), `REND_SetNearPlane` (`0x456cc4`),
+`REND_SetFarPlane` (`0x456ccc`), `REND_UpdateFrustum` (`0x456cd4`)), `VID_SetResolution` (`0x41592c`), `MDL_SetNodeRotation` (`0x457a38`) and four
+`MATH_*` helpers.
 
 ## Sources
 

@@ -174,7 +174,7 @@ identity is still open. **[verified sequence; effect label unverified]**
 | `+0x34` | Flag word. Its low bits control active/character behavior; it is not an entity-kind enum. |
 | `+0x64` | Copied to actor `+0x34` as a behavior/class selector. Values 5 and 6 are remapped to runtime classes 1 and 3, with extra flags. |
 | `+0x68` | Copied as a movement scale to actor `+0x104`. |
-| `+0x6c` | Copied to actor `+0x108`. The meaning is not settled and it is not a direct index into the project's 12 `BOX` records. |
+| `+0x6c` | Copied to actor `+0x108`, the **turn step**: `ANIM_RequestState` (`0x405118`) turns by it (default `0x30` of 4096 per turn, ¾ of it unless flying). Not a `BOX` index. **[verified]** 2026-09-26 |
 | `+0x70` | Copied to actor `+0x10c`; used as the facing-offset magnitude for attack effects by `ENT_PlaceAtFacingOffset` (`0x442786`). |
 | `+0x78` | Target-distance parameter copied to actor `+0x118`. |
 | `+0x88` | Random-action threshold copied to actor `+0x194`. |

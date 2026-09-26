@@ -96,7 +96,7 @@ class Objet:
     flags: int = 1  #: 16-bit flag +0x34 (bit 0=active, bit 1=character, bit 8=dormant)
     behavior_type: int = 0  #: +0x64 runtime behavior/class selector; exact labels are open.
     speed: float = 16.0  #: +0x68 movement scale copied to actor +0x104 (default 16.0).
-    route_index: int = 0  #: Legacy name for +0x6C; copied to actor +0x108, not proven a BOX index.
+    route_index: int = 0  #: Legacy name for +0x6C: the turn step copied to actor +0x108.
     health: int = 0  #: Legacy name for +0x70; actor +0x10C scales attack-effect launch velocity.
     radius: int = 0  #: +0x3C bounding / collision radius
 
@@ -148,7 +148,7 @@ class Project:
     fog: tuple[int, int, int, int] = (0, 0, 0, 0)
     sky_rgb: tuple[int, int, int, int] = (0, 0, 0, 0)
     lighting_mode: int = 0  #: 0=Day, 1=Night
-    camera_fov: int = 64  #: Field of view in degrees
+    camera_fov: int = 64  #: +0xA4, legacy name: the player's turn step, not a FOV
     cd_track: int = 0  #: Redbook audio track number
     links: list[Link] = field(default_factory=list)
     objets: list[Objet] = field(default_factory=list)

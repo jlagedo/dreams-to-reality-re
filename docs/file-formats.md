@@ -774,9 +774,9 @@ Decompiled from `SCENE_LoadLevel` (`0x41f9db`) and `ENT_InstantiateFromObjet` (`
 - `+0x05C` `char[32]`: Secondary animated video filename (e.g. `M01DRA.HNM` in Project 12).
 - `+0x06C` `char[32]`: Target scene material name receiving primary video texture (e.g. `F02_EAUP`).
 - `+0x08C` `char[32]`: Target scene material name receiving secondary video texture (e.g. `M01DRA`).
-- `+0x09C` `i32`: Camera projection mode.
-- `+0x0A0` `i32`: Camera near clip plane distance / height.
-- `+0x0A4` `i32`: Camera Field of View in degrees (typically 63–65°).
+- `+0x09C` `i32`: Player movement mode, copied to actor `+0x34` by `ENT_LoadObject` (`0x41d624`) when non-zero (4 → 3, 5 → 1 flying, 6 → 3 flying). **Not** a camera projection mode. **[verified]**
+- `+0x0A0` `i32`: Player movement scale, copied as a float to actor `+0x104` (the animation step scale `ANIM_TickBlend` (`0x405f1f`) and `ANIM_TickClip` (`0x4068be`) multiply by). **Not** a near clip. **[verified]**
+- `+0x0A4` `i32`: Player turn step, copied to actor `+0x108`; `ANIM_RequestState` (`0x405118`) turns by it (default `0x30` of 4096 per turn, ¾ of it unless flying). Values 63–65 were read as a field of view; the real FOV is a constant 76.36° (engine.md, *Camera and projection*). **[verified]**
 - `+0x0B4` `i32[3]`: Player canonical spawn coordinates `(x, y, z)` in scene units (negative Y is up).
 - `+0x0E0` `i32[4]`: Depth fog parameters: start distance, end distance, density, fog color.
 - `+0x0F0` `i32[4]`: Clear color / Sky color RGB components.

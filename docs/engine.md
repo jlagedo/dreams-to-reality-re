@@ -448,6 +448,123 @@ exactly as `README.TXT` §6 documents (also in-game F10 help). Camera views
 are `Alt+5..0`, not mouse-driven. See [boot-sequence.md](boot-sequence.md)
 for the frame pump that drives all of this.
 
+## Camera and projection **[verified]**
+
+Traced 2026-09-26 in `WINDREAM.EXE` (names in `re/names/WINDREAM.EXE.tsv`,
+all with blind review). Enough to rebuild the original camera.
+
+### Projection
+
+- **FOV is a constant, 76.36° horizontal** (float `0x4298b852`), passed by
+  every caller of `REND_SetViewportFov` (`0x456b94`): `SCENE_InitLevel` (`0x41f42e`), `VID_SetResolution` (`0x41592c`),
+  the icon renderer `0x40fd54`. The level record's `+0xa4` is **not** the
+  FOV (see *Corrections* in [research-log.md](research-log.md)).
+- Focal length in pixels: `K = 0.5 + (w/2) / tan(fov/2)` (the code uses
+  π = 3.14159 and `fov·π/360`). At 640 wide K = 407.44; vertical focal is
+  `K · aspect`, aspect = `h·4 / (w·3)` (`REND_SetScreenSize` (`0x4569cc`)), so 1.0 on 4:3 and the
+  vertical FOV is 61.0°.
+- Screen centre `(x + w/2, y + h/2)`. Projection is `sx = cx + K·x/z`,
+  `sy = cy + K·aspect·y/z` with `K/z` kept per vertex (`MDL_Vertex +0x24`).
+- **Letterbox**: when `0x49d9f8` is set the 3D viewport is `h·3/4` tall at
+  `y = h/8`, same FOV.
+- **Near plane 140** (`REND_SetNearPlane` (`0x456cc4`)`(0x8c)`, twice, at level start and on
+  resolution change; the viewport setters first reset it to 128).
+  **Far plane `0xfffff`** unless the level record's `+0xcc` is non-zero
+  (`REND_SetFarPlane` (`0x456ccc`)); the setters' own default is 65,000.
+  `REND_UpdateFrustum` (`0x456cd4`) derives the four side planes from K and the viewport.
+- The portrait render (`0x43eb67`) uses `REND_SetViewportFocal` (`0x456a58`) instead: an explicit
+  focal length scaled by `w/640`.
+
+### The camera is node 0, driven by messages
+
+`CAM_CompCameraPos` (`0x4099d2`) runs **once per frame** from `GAME_Tick` (`0x4240ba`) (and once at level
+start). It first drains the camera message ring at `0x52c850` (12-byte
+entries: type byte, payload at `+4`), posted through `CAM_PostMessage` (`0x409998`) by
+triggers, entity code and the level start. Otherwise it updates the current
+mode (`0x52c874`). Every mode ends by writing **scene-graph node 0**:
+position with `MDL_SetNodePosition` (`0x457aa0`), rotation with `MDL_SetNodeRotation` (`0x457a38`).
+
+| Msg | Mode | Starts / updates | Payload | Behaviour |
+|---|---|---|---|---|
+| `0x2b` | 0 follow | `CAM_StartFollow` (`0x409d27`) / `CAM_TickFollow` (`0x409d6c`) | actor | chase camera (below); a snapped update on entry |
+| `0x2c` | 2 fixed | `CAM_StartFixed` (`0x40af10`) / `CAM_TickFixed` (`0x40af8e`) | eye xyz, target xyz, duration | static shot |
+| `0x2d` | 3 track | `CAM_StartTrack` (`0x40afc0`) / `CAM_TickTrack` (`0x40b045`) | eye xyz, entity, duration | fixed eye; target eases to the entity by ½ of the gap per frame |
+| `0x2e` | 4 pair | `CAM_StartEntityPair` (`0x40b0ef`) / `CAM_TickEntityPair` (`0x40b156`) | entity A, entity B, duration | eye on A, target on B |
+| `0x2f` | 5 ride | `CAM_StartRideLook` (`0x40b1b9`) / `CAM_TickRideLook` (`0x40b225`) | entity, target xyz, duration | eye carried by the entity, looking at a point |
+| `0x30` | 6 overhead | `CAM_ToggleOverhead` (`0x40b274`) / `CAM_TickOverhead` (`0x40b2c7`) | actor | toggle; eye at actor + (10, −1500, 10) looking down, rolled by heading + ¼ turn |
+| `0x31` | 7 free | `CAM_ToggleFree` (`0x40b386`) / `CAM_TickFree` (`0x40b429`) | actor | toggle; debug fly-camera from actor − 300 x, keys turn and move it, ×½ ×¼ ×2 ×4 modifiers |
+
+Timed modes count a float `+0x30` down by the frame delta `0x5e5388`
+(`CAM_TickTimer` (`0x40aea2`)) and post `0x2b` when it goes negative. Camera states live at
+`0x52c61c` (follow), `0x52c6a4`, `0x52c6e8`, `0x52c72c`, `0x52c770`,
+`0x52c7b4`, `0x52c7f8`: `+0` eye, `+0xc` target, `+0x1c` actor or entity,
+`+0x28/+0x2c` follow distances, `+0x30` timer.
+
+### Follow mode (mode 0)
+
+Parameters come from **six view presets** (`CAM_LoadPreset` (`0x40b729`), table `0x49d1f8`,
+32 bytes each), chosen with Alt + number keys in `GAME_HandleHotkeys` (`0x415aa7`)
+("Camera", "Camera 1".."Camera 5"). Units are scene units; Y is down.
+
+| Preset | lead min/max | eye dist min/max | eye height lo/hi | eye ease | fixed yaw |
+|---|---|---|---|---|---|
+| 0 (default) | 1024 / 1024 | 528 / 528 | −80 / −80 | 4 | no |
+| 1 | 1024 / 1024 | 336 / 336 | −32 / −32 | 4 | no |
+| 2 | 1024 / 1024 | 528 / 528 | −80 / −80 | 4 | no |
+| 3 | 336 / 336 | 768 / 768 | −448 / −448 | 4 | no |
+| 4 | 226 / 226 | 968 / 968 | −800 / −800 | 4 | no |
+| 5 | 336 / 336 | 768 / 768 | −248 / −248 | 4 | yes |
+
+Preset 0 takes non-zero per-level overrides from the level record:
+`+0x120/+0x124` lead, `+0x128/+0x12c` eye distance, `+0x130/+0x134` eye height,
+`+0x1d8` eye ease.
+
+Each frame (`CAM_UpdateFollowPos` (`0x40a866`)):
+
+1. **Distances.** eye distance `D = (min+max)/2`, lead `L = (min+max)/2`.
+2. **Mode.** Actor mode `+0x34` = 1 (ground) uses `CAM_ComputeChasePos` (`0x409de2`); modes 2/3
+   (swim/fly) use `CAM_ComputeOrbitPos` (`0x40a4a5`) with D and L + 100 and the eye 30 higher. Ground
+   actors in flying state (`+0xac & 0x20`), action `0x2e`, or actions
+   `0x19/0x29/0x2a` with `+0x278 & 1` also orbit, with +300 (+150 when flying)
+   and the eye 50 (40) higher.
+3. **Chase (ground).** Yaw = `(0x1000 − heading) · 2π/4096`, heading actor
+   `+0x5c`; the eye sits at yaw + π (behind), the target ahead. Target =
+   actor + L along the heading; eye = actor + D behind, at the preset height.
+   Preset 5 forces yaw 0 (world-aligned).
+4. **Easing, per frame.** target += (goal − target) / 2 (`0x49d1f4`);
+   eye.x,z += gap / 4 and eye.y += gap / 8 (divisor `0x49d1f0` = preset
+   ease; 2 or 1 when squeezed, below). Then the eye height is clamped to
+   `[target.y + hi, target.y + lo]` unless look input is active.
+5. **Dead zone.** A move whose squared length is under 20 (`0x49d1ec`) is
+   dropped, for both eye and target.
+6. **Look keys.** While held (`CAM_EnableLookInput` (`0x40b6a8`), per frame), two angles change by
+   `3° · Δt`: a yaw offset clamped to ±45°, and a pitch clamped to
+   [−88.5°, +45°] that also moves the eye vertically. Released, both reset to 0.
+7. **Close range** (`CAM_ApplyCloseRange` (`0x409ba0`)). If the horizontal eye-to-actor
+   distance `d` is below `D` for a ground actor: L scales by `d/D`, eye
+   easing becomes 2 below `0.7·D` and 1 below `0.5·D`, `d` is floored at
+   `0.2·D`, and eye.y = actor.y + lo − 1.2·(D − d) (80 higher when flying).
+8. **Collision** (`CAM_CollideEye` (`0x40d5e4`), when `0x52c84c` is set by `CAM_EnableCollision` (`0x40b6d3`)): a
+   sphere (radius `0x49d2dc`) swept from the previous eye; if the push-out is
+   below √`0x49d2e4` the eye is moved out.
+9. **Orbit (swim/fly).** As the chase but on a sphere using the actor's pitch
+   `+0x6c`; pitch in (80°, 90°] snaps to 80°, (90°, 100°) to 100°, and the
+   same around 270°, so the camera never looks straight up or down.
+
+**Orientation** (`CAM_ApplyLookAt` (`0x40ab4b`)): direction = normalise(target − eye), then
+`MATH_BuildOrientMatrix` (`0x45b2d0`)`(dir, 0xfff − roll)`. Roll is 0 except: swimming
+(actor mode 2) adds a sway from two phases advancing 0.02 and 0.05 rad per
+Δt; flying eases roll toward the actor's bank `+0x64` by ¼ per frame, at
+`bank · rate / 0x118` (rate 256, halved when `+0xad & 0x20`).
+
+**Timing.** Everything above runs once per rendered frame; the easing
+fractions are per frame, not per physics tick, so the original camera's lag
+depends on frame rate. Δt is `0x5e5388` (see *The fixed step*).
+
+Open: the exact float expressions hidden behind `__CHP` in the orbit mode;
+the free camera's key map; which triggers post `0x2c`-`0x2f` and with what
+payloads (they come from the level scripts, `SCENE_TickTriggers` (`0x429061`) and entity code).
+
 ## Subsystem naming
 
 Recovered symbol fragments suggest a `<MODULE>_<Verb><Type>` convention:
