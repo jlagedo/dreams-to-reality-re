@@ -1201,6 +1201,23 @@ combat stance, not flying (`+0xad & 0x20`); the camera section and one
 registry note said flying and are fixed. OBJET `+0x70` → actor `+0x10c` is also
 the walker's collision radius.
 
+## 2026-09-26 — entity update, action events, spells and inventory
+
+Details in [ai-animation-runtime.md](ai-animation-runtime.md), *Entity update,
+action events, spells and inventory*. The 5 KB `0x421717` is the player's
+ground controller (`ENT_TickPlayerGround` (`0x421717`), traced with item 5).
+
+- `ENT_TickAll` (`0x407089`) ticks 16 transient objects, the platform owner, then 32 actors.
+  `ENT_TickEntity` (`0x407b51`) integrates the angles and **halves the yaw rate every
+  frame**, runs the action events, commits the requested action, plays action
+  sounds, advances the clip and turns the head toward the target (±45°).
+- **Action events**: each attack or cast action spawns its hit object and a
+  sound when its clip passes ½, ⅗ or ⅔ (table in the doc). Esc requests
+  action `0x18`, whose event opens the game menu.
+- **Spells**: 21 item codes with magic costs 0–60 and the casting action each
+  selects. **Inventory**: 32 named slots with counts per actor; level exits
+  test it by name prefix.
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)

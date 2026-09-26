@@ -327,6 +327,85 @@ movement/collision path; see [animation timing](animation-timing.md),
 [root movement and blending](animation-root-blending.md), and the
 [animation subsystem](animation-subsystem.md). **[verified]**
 
+## Entity update, action events, spells and inventory **[verified]**
+
+Traced 2026-09-26.
+
+### Update order
+
+`ENT_TickAll` (`0x407089`), once per frame from `GAME_Tick` (`0x4240ba`): the 16 transient objects at
+`0x630db8` (free objects `+0xa9 & 8`; attack objects `+0xaa & 1` move and test
+hits through `ENT_MoveAttackObject` (`0x442e0d`)/`ENT_TickAttackObject` (`0x444b8f`)); the platform owner and
+`PHYS_UpdatePlatforms` (`0x43e115`); then the 32 actors at `0x4fb7a8` (0x2d0 bytes each) with
+`+0xa9 & 4`, through `ENT_TickEntity` (`0x407b51`). Removed actors (`+0xab & 4`) go to
+`0x41ec38`.
+
+`ENT_TickEntity` (`0x407b51`), per actor:
+
+1. swimming update; heading, bank and pitch += their rates (`+0x60/+0x68/+0x70`),
+   then the yaw rate **halves** and the others lose ¼ each frame, and rates below
+   a Δt-scaled floor snap to 0; walkers' pitch follows the floor slope
+   (`ENT_TiltToSlope` (`0x4079f3`)); bank and pitch relax toward level (1/16 per frame while
+   walking, ¼ otherwise);
+2. the **action events** below;
+3. `ANIM_ApplyPendingState` (`0x4058d5`) (commit the requested action), action sounds, then
+   `ANIM_TickClip` (`0x4068be`) (or `ANIM_TickBlend` (`0x405f1f`)/`ANIM_TickSeamlessSwitch` (`0x4062ad`) during a
+   transition, which call `PHYS_TickEntity` (`0x43d83e`)), and head tracking (`ENT_TrackTarget` (`0x4071bb`): the
+   head node turns toward the current target, clamped to ±45°). A new action's
+   clip starts at frame 1 (`ANIM_StartClip` (`0x4067a2`)).
+
+### Action events
+
+When the current clip passes a fixed fraction of its frames, the action
+spawns its hit object (`ENT_SpawnAttackObject` (`0x442944`)) with a sound id:
+
+| Action | When | Sound | Extra |
+|---|---|---|---|
+| `0x10`–`0x12` (attack chain) | ½ (or the actor's `+0x58` time) | `0x16` | |
+| `0x13` | its own time | 8 | |
+| `0x14`–`0x16`, `0x17` | its own time | `0x16` | |
+| `0x36`–`0x38` (weapon) | ½ | `0x15` | |
+| `0x39` (aim, alive) | its own time | 0 | |
+| `0x3a`, `0x23` | its own time | 5 | |
+| `0x1c`/`0x1d` (cast) | ⅗ | `0x13` | effect `0x42c583(2, actor, 0, 50)` |
+| `0x1e`/`0x1f` (cast) | ⅔ | `0x12` | same effect |
+| `0x20`/`0x21` (cast) | ⅔ | `0x13` | same effect |
+| `0x18` after Esc | its own time | — | opens the game menu (`MENU_RunGameMenu` (`0x4337c0`)) |
+
+Movement sounds play on entering: take-off 8 (`0x17`), 2/3 (`0xe`), jumps
+9/10/11 (3), walks 4/`0x2c`/`0x2d` (`0xf`), fire 5 (0), swim stroke 6 (1).
+
+### Spells and items
+
+Keys 1, 2, 3 put an item code in slot `+0xe4`, `+0xdc`, `+0xec` (pressing
+one clears the other two and posts UI message `0x44` 0/1/2). Releasing the key
+uses the item if magic `+0x3c` covers its cost (`ENT_GetMagicAfterCost` (`0x442431`); else message
+`0x45`), and the code picks the casting action:
+
+| Code | Cost | Action | | Code | Cost | Action |
+|---|---:|---|---|---|---:|---|
+| `1` | 20 | `0x20` | | `0x10004` | 60 | `0x20` |
+| `2` | 20 | — | | `0x10001`, `0x10003` | 10 | — |
+| `4` | 10 | — | | `0x100001` | 50 | `0x1e` (`0x1c` from key 2) |
+| `5` | 40 | — | | `0x100002` | 40 | `0x1e` |
+| `7` | 60 | — | | `0x100003` | 30 | `0x21` |
+| `0x10` | 0 | — | | `0x1000002` | 50 | `0x1f` |
+| `0x11` | 20 | `0x1c` (`0x20` from key 2) | | `0x1000004` | 30 | `0x1c` |
+| `0x12` | 1 | `0x1c` | | `0x1000005` | 50 | — |
+| `0x13` | — | `0x1c` | | `0x1000009` | 15 | `0x1f` |
+| `0x14` | 2 | — | | `0x1000010` | 50 | `0x1c` |
+| `0x100` | 1 | — | | | | |
+
+"—" in the action column: no casting animation from this controller.
+
+The item names behind the codes are in the spell and object tables of
+`DREAMS.INI` (game-content.md); matching codes to names is open.
+
+**Inventory** (`ENT_AddInventoryItem` (`0x42a182`), `ENT_HasInventoryItem` (`0x42a3a3`), `ENT_ResetInventory` (`0x42a448`)): the actor's `+0x30` points to
+a 32-slot inventory of 16-byte object names (`+0x04`) with counts (`+0x314`);
+picking an object up adds or counts it and posts UI message `0x41`. Level
+exits test for a required object by name prefix.
+
 ## Firing animation: IBI sequence and remaining effect identity
 
 The AI firing/attack path now has concrete stages:
