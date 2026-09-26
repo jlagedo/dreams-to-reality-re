@@ -165,7 +165,8 @@ binaries, so recovered and descriptive names read alike.
   - data and files: `RES_`, `STRM_`, `LZ_`, `RLE_`, `VFS_`, `FILE_`, `CD_`,
     `DDAT_` (DREAMS.DAT);
   - behaviour and maths: `AI_` (squad AI), `PHYS_`, `MATH_` (fixed-point
-    vector, matrix and quaternion helpers), `HNM5_`;
+    vector, matrix and quaternion helpers), `HNM5_`, `PART_` (the level's
+    mana-mote particles);
   - `DBG_` for debug code; `DEMO_` for input recording and replay;
   - DOS build: `GLIDE_`, `KBD_`, `TIMER_`, `DPMI_`.
 - **Globals** are `g_camelCase` (`g_frameBuffer`, `g_videoWidth`); API

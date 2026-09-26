@@ -1328,9 +1328,60 @@ ground controller (`ENT_TickPlayerGround` (`0x421717`), traced with item 5).
 - Corrections: engine.md's "portrait render" `0x43eb67` is the shadow
   render-to-texture (`ENT_RenderShadowTexture`, only caller `ENT_UpdateShadow`);
   the box-collision table allocator `0x464188` is called by `GAME_Init`.
-- Open (medium, from the analysis): `ENT_SpawnOrbEffect` (`0x42c583`) tests
-  slot 0's flag in both loops, so only orb 0 is checked; `MATH_BuildOrientMatrix`'s
-  note may swap the trig tables (`0x665ff0` reads as cosine in `MATH_EulerToMat3`).
+- Verified from disassembly (see the next entry): the `ENT_SpawnOrbEffect` bug
+  and the trig-table order.
+
+## 2026-09-26 — verification of the sweep's conflicts and open items
+
+Four agents re-read the disputed functions from raw disassembly (capstone) and
+disc data; each verdict became the second source for its name.
+
+- Conflicts settled **[verified]**: `0x44554b` is `GDI_SetMode` (`VID_SetMode`
+  `0x4454d1` branches on `0x633b18` to it or `DDRAW_SetMode`; `0x445c84` is
+  `GDI_CreateDIB`), not a hit test. `0x43b23e`/`0x43b2e4` are
+  `MGM_CreateQueue`/`MGM_DestroyQueue` (header {base, write, read, end, count,
+  capacity}, 12-byte slots, the layout `MGM_PostMessage` uses), not the MEM stack
+  (`MEM_CreateStack` `0x43b026` is a 0xc-byte {base, cur, size}). `0x4610e8` is
+  `PHYS_UpdateNodeBoxes`: its French "hierarchy problem" printf is a never-taken
+  default. `0x42407f` is `GAME_ShowMessage`: a timed notice ("Pause", "Camera 1",
+  "Manual Fight", "True Shadow") drawn by `0x423ff5`.
+- Sprite variants **[verified]**: `SPR_BlitSprite`'s darken is the ECX argument
+  (`0x49d111`, each RGB565 channel halved), flag `0x10` is per-pixel coverage, flag 8
+  coverage divided by a caller factor (`0x49d10e`). Hence `SPR_DrawIndexed`
+  (`0x42756a`), `SPR_DrawIndexedDark` (`0x427624`), `SPR_DrawFaded` (`0x4276e1`),
+  `SPR_DrawDark` (`0x42779c`).
+- HNM6 block names are width x height **[verified]** from the offset tables
+  (`0x4b4620` {0, 0x1400}, `0x4b4618` {0, 8}): `HNM6_DecodeIntraBlock8x4`
+  (`0x481564`), `HNM6_DecodeIntraBlock4x8` (`0x48160c`); the existing 4x2/2x4 names agree.
+- Relocators: `RES_Relocate` calls `0x455f44` for resource type 4 and `0x455f7c`
+  for type 6; on the discs every type-4 clip has 20-byte linear keys and every
+  type-6 clip 60-byte spline keys, hence `ANIM_RelocLinearTracks` /
+  `ANIM_RelocSplineTracks` (byte-identical bodies). See models.md for the offset base.
+- Particles (new prefix `PART_`) **[verified from code, not seen in play]**: the
+  level's mana motes. Level `+0x1e0` enables them (31 of 150 disc-1 records);
+  `+0x148`..`+0x1d4` hold the spawn box, velocity range, life, behaviour
+  (`+0x190`: 1 gravity, 2 + attractors, 3 + floor bounce), gravity and magic per
+  mote. Four attractors at `0x4a2fc4`, attractor 0 the player (`GAME_Tick`); motes
+  within 100 units of the player add magic (and oxygen x4 when swimming) and blink
+  out. The spawn box can follow an OBJET with flag `0x4000` (BA0, MI0, F50).
+  Named: `PART_InitLevel`, `PART_SetEmitterActor`, `PART_SetAttractor`, `PART_CreatePool`,
+  and after a blind review of the verifier's helpers `PART_ResetPool` (`0x43bd03`),
+  `PART_LoadLevelParams` (`0x43b398`), `PART_HideAll` (`0x43b69f`, which sets the
+  hidden flag only on the first record: original bug). Also `PHYS_UpdateBoxBounds`
+  (`0x460de0`), `GAME_DrawMessage` (`0x423ff5`), `HNM6_DecodeInterBlock8x4`/`4x8`
+  (`0x4807f0`/`0x480aa4`). Still unnamed: `0x456414` (relocate a copy), `0x43c1b0`.
+- Free objects: `ENT_TickFreeObject` (`0x442028`) and `ENT_TickObjectLifetime`
+  (`0x4420a3`, -1.0 per frame on `+0x38`, not scaled by Δt). Their only spawner
+  (`0x441f31`) has no callers, so the path is probably dead in WINDREAM.
+- `ENT_SpawnOrbEffect` (`0x42c583`) **[verified]** original bug: the slot pointer
+  lives at `[ebp-4]`; the duplicate check (`0x42c5de`) and the second-actor fill
+  (`0x42c792`) advance only the counter, so both test slot 0 only. All 8 callers
+  pass no second actor, so the visible effect is that an actor whose orb sits in
+  slot 1 can get a second orb. Also `0x42c62f`/`0x42c713` store `0xffffffef` into
+  the flags instead of clearing bit 0x10.
+- Trig tables **[verified]**: filled by `0x45b040` (`fsincos`, x32768, step
+  2π/4096): `0x665ff0` = cosine, `0x669ff0` = sine; the `MATH_BuildOrientMatrix`
+  registry note had them swapped (fixed).
 
 ## Sources
 

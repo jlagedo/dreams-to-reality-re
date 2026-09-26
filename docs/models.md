@@ -464,6 +464,14 @@ Each track record contains a 40-byte header followed immediately by $K$ uniform 
 +0x28             first keyframe starts here; there is no separate rest quaternion
 ```
 
+The engine's view of the same record starts at `+0x14` (the directory offsets are
+relative to the clip's `+0x14`): `+0` duration, `+4` key count, `+8` translation
+key count, `+0xc` key array, `+0x10` translation array. `ANIM_EvalTrackLinear`
+reads `[rec+0xc]`/`[rec+0x10]`, and `ANIM_RelocLinearTracks` (`0x455f44`, resource
+type 4, 20-byte keys) / `ANIM_RelocSplineTracks` (`0x455f7c`, type 6, 60-byte keys)
+rebase exactly those two pointers **[verified]** (2026-09-26: 863 type-4 and 185
+type-6 clips on the discs).
+
 Each keyframe $k \in [0, K-1]$ is located at exact byte offset `trk_off + 40 + k * stride`:
 - **20-byte keyframes (`stride == 20`)**:
   - `+0x00` `u32`: keyframe timestamp / frame index
