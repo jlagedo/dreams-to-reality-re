@@ -52,7 +52,8 @@ machine instead of inside DOSBox.
 
 Everything that decides *what happens* is ported function by function from
 the decompiled `WINDREAM.EXE`, keeping the original's structure, names
-(the registry in `re/names/`), data layouts, constants, fixed-point maths,
+(the registry in `re/names/`), data layouts, constants, its maths as written
+(Q15 fixed point for transforms, floats and doubles for time and animation),
 rounding and order of operations: the game tick (`GAME_Tick`), entity and
 actor updates, the AI scheduler and its transition lists, the action-to-clip
 tables, player movement, physics integration and collision, level exits,
@@ -190,6 +191,12 @@ Rules:
   calls Watcom's `rand_` from 21 functions and never seeds it, so the sequence
   is fixed from launch; the port keeps that generator and nothing outside the
   game (renderer, audio, UI effects) may draw from it.
+- **Floating point: keep it simple.** The port uses the same float and double
+  types as the original but does not emulate the x87; results differ from
+  the original only in the last bits, which nobody can see. Two build rules
+  keep the port's own replays identical on every target: no fast-math and no
+  multiply-add fusion (`-ffp-contract=off`), and one `sin`/`cos` of our own
+  instead of each platform's.
 - **Clock discipline.** After a load, a stall or a video, accumulated time is
   dropped rather than caught up; catch-up is capped at a few steps. Dialogue
   and captions follow game time; the mixer follows the game.
@@ -333,8 +340,10 @@ file size instead of content.
   traces in [animation-timing.md](animation-timing.md) and
   [animation-root-blending.md](animation-root-blending.md).
 - **Behaviour**: recorded input sequences replayed in the fixed-step
-  simulation must reproduce recorded positions; where a DOSBox trace of the
-  original exists, the same sequence is compared against it.
+  simulation must reproduce recorded positions; where a trace of the
+  original exists, the same sequence is compared against it within a small
+  tolerance (a unit or two in position, the same animation state), not bit
+  for bit.
 - **Look**: screenshots of `DREAMSFX.EXE` under DOSBox
   ([running.md](running.md)) next to the runtime at 640x480 with the
   faithful settings.
