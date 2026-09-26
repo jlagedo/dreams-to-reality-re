@@ -1233,6 +1233,26 @@ ground controller (`ENT_TickPlayerGround` (`0x421717`), traced with item 5).
   about five ticks; Esc/Ctrl skip, Space/Alt replay, and the box closes after
   50 ticks. The clock drops ticks when frames are slower than 66 ms.
 
+## 2026-09-26 — saves, and the English build never reads DREAMS.INI
+
+- **Save format** traced end to end ([game-content.md](game-content.md)):
+  `game.dat` is a 340-byte ten-slot index (names, protected status, recency,
+  file number); `game<n>.dat` holds a 0x2880-byte world block, the level,
+  health, magic, the inventory and the hotkey icons; `game<n>.ico` is a 64x64
+  thumbnail. Loading re-reads the level record from `DREAMS.DAT`. The files on
+  disc 2 and `REPLAY.BIN` predate the retail layouts (`REPLAY.BIN` is a
+  3-frame demo recording in 104-byte records).
+- **DREAMS.INI is a French override that the English build never loads.** The
+  loader builds `data\lang\<language>\dreams.ini` with the language fixed to
+  `ENGLISH` (no code writes it), and only `FRANCAIS` ships. The English text
+  is compiled in: 30 items at `0x49e022` (0-13 spells, 14-29 objects) with
+  real descriptions, the system strings at `0x4a102c`, and "Again". The
+  placeholder descriptions documented from the French file were never seen by
+  English players.
+- Named with blind review: `GAME_SaveIndex` (`0x40f202`), `GAME_LoadIndex` (`0x40f3aa`), `GAME_SaveGame` (`0x40f542`), `GAME_LoadGame` (`0x40f94a`),
+  `GAME_SaveThumbnail` (`0x40fd54`), `GAME_SortSaveIndex` (`0x40ef1f`). The INI loader (`0x433cfa`) is not named: Ghidra
+  has not disassembled its body, so there is no decompilation to review.
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)

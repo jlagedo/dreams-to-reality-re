@@ -9,6 +9,32 @@ The companion `INIT.TXT` says only: *"Placer le fichier DREAMS.INI dans
 DATA\LANG\FRANCAIS\"*. `FRANCAIS` is the **only** language directory present, in
 an English-labelled release.
 
+## The English build never reads this file **[verified]** (2026-09-26)
+
+The loader (code at `0x433d2c`, inside `0x433cfa`, called from `UI_InitIcons`;
+Ghidra has not disassembled the body, read with capstone) opens
+`sprintf("%s\%s\%s", "data\lang", language, "dreams.ini")` in text mode
+and parses it line by line: `#` comments, blank lines, `[` section headers
+compared with `[NEW]`, `[OBJECT]`, `[DIALOG]`, `[PROJECT]`, `[SYSTEM]`,
+`[END]`, and text lines appended to the current record. The `language` pointer
+(`0x4a2f65`) is initialised to **`ENGLISH`** and nothing writes it; the same
+string sits in `DREAMS.EXE` and `DREAMSFX.EXE`. The discs carry only
+`DATA\LANG\FRANCAIS`, and `SETUP.INI` copies nothing from `DATA\LANG`. So the
+English release never finds a `DREAMS.INI`, and the tables keep their
+**compiled-in English text**:
+
+- **Items** at `0x49e022`: 30 records of three 33-byte lines (name, two
+  description lines), types at `0x49dfda` (1 = spell, items 0-13; 2 = object,
+  14-29). The English descriptions are real text ("Fire ball: Creation of an
+  energy ball aimed against enemies"; "Healing: Exchange of manna for life"),
+  and item 28 is "Pyramid", where the French file has a perfume bottle.
+- **System strings** at `0x4a102c`, 0x63 bytes each: "Reload and play again
+  a game", "Save the game in progress...", ..., "Error on disk / Disk full".
+- **`[DIALOG]`**'s one entry is "Again" (`0x4a1584`), the French "Encore".
+
+The French placeholders below are therefore what a French build shows, not
+what an English player saw.
+
 ## The file is full of placeholder text
 
 `DREAMS.INI` has a documented syntax header (`# demarre une ligne de
@@ -167,15 +193,42 @@ strings include the matching "protected slot cannot be saved here" error.
 | `GAME0.DAT` | 10,364 | Entirely zero-filled |
 | `GAME0.ICO` | 8,192 | Icon |
 
-`GAME.DAT` holding the name of `Project0` and nothing else reads as a **save-slot
-index** — one fixed-size record per slot, storing the level name to display in
-the load menu. `GAME0.DAT` is an empty slot-0 save (10,364 bytes of state), and
-`GAME0.ICO` is presumably its thumbnail. `SETUP.INI` creates `DATA\GAME` during
-install, so this is where saves land. **[unverified]** interpretation.
+### Save format **[verified]** (2026-09-26)
 
-`DATA\REPLAY.BIN` (316 bytes) is copied by even the minimum install. It is an
-array of little-endian u32s beginning `3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-0x0B7E, 0, 0, ...` — plausibly attract-mode/demo replay input. **[unverified]**
+Traced from `GAME_SaveIndex` (`0x40f202`) / `GAME_LoadIndex` (`0x40f3aa`) and `GAME_SaveGame` (`0x40f542`) /
+`GAME_LoadGame` (`0x40f94a`), all under the install root:
+
+```
+data\game\game.dat        slot index, 340 bytes
+  +0x000  char[10][22]    slot names (the level shown in the menu)
+  +0x0dc  i32[10]         status: non-zero = protected (MENU_InitSaveSlotSelect skips it when saving)
+  +0x104  i32[10]         recency 1..n, 0 = empty (GAME_SortSaveIndex (0x40ef1f) sorts and renumbers)
+  +0x12c  i32[10]         file number n of game<n>.dat, -1 = none
+
+data\game\game<n>.dat     one save, 11,388 bytes
+  +0x0000  0x2880 bytes   world-state block 0x5e2b08..0x5e5387
+  +0x2880  i32            0x49da84 (index into eight 0x510-byte records at 0x5e3008)
+  +0x2884  char[32]       current level name ("Project<n>")
+  +0x28a4  f32            player health (+0x38)
+  +0x28a8  f32            player magic (+0x3c)
+  +0x28ac  0x3b8 bytes    inventory (owner pointer, 32 names, counts, 50.0 per slot, flags)
+  +0x2c64  i32[3], i32[3] hotkey slot icons (x, y)
+
+data\game\game<n>.ico     64x64 RGB 2-byte thumbnail, 0x2000 bytes (GAME_SaveThumbnail (0x40fd54))
+```
+
+Loading reads the same fields, then **re-reads the level record from
+`DREAMS.DAT` by name** (`DDAT_LoadRecord` (`0x449bf9`)) into the working copy, reattaches the
+inventory to the player, restores the hotkey icons and sets the pending-load
+flag with a 15-frame fade. At most ten slots, file numbers 0-9.
+
+The shipped files predate this layout: `GAME.DAT` is 300 bytes (the names
+and two of the three arrays; slot 0 "Ile d'Angkor" has recency 1) and
+`GAME0.DAT` 10,364 bytes, 4 short of the world block alone.
+`DATA\REPLAY.BIN` (316 bytes) is a **demo recording** (`DEMO_SaveReplay` (`0x40edaf`) format: a
+frame count, then records) of 3 frames in an older 104-byte record, where the
+current recorder writes 112: 11 input words (all 2, released), player state,
+position. **[verified]**
 
 ## Level file naming
 
