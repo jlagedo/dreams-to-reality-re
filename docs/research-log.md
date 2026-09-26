@@ -2,6 +2,41 @@
 
 ## Corrections
 
+### Every documented function checked a second time, and named
+
+Each `WINDREAM.EXE` function the docs cite now has a validated name. There are
+253 in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv). The same
+names are in `GDIDREAM.EXE`, where the bytes are identical, and 89 go to
+`DREAMSFX.EXE` twins. In `DREAMSFX.EXE` the 54 Miles Sound System wrappers are
+also named from their own trace strings (`AIL_call_driver(0x%X,...)`). Method: the doc claim was compared with a blind review of
+the decompilation (doc comments stripped, earlier names hidden), then
+adjudicated. The facts under each name are machine-checked by
+`tools/check_names.py`. The tally was 124 agree, 26 partial, 10 conflict, 13
+decided by the review alone and 1 left unnamed. Details are in
+[re-setup.md](re-setup.md). Doc claims that turned out wrong:
+- **`0x48646d` is not a game `main`.** It is Watcom's `__NTMain`, and
+  `0x41745e` is **`WinMain`** (previously `Game_Run`).
+- **`TRANS_Tick` was the whole game tick.** `0x4240ba` runs entity ticks, squad
+  AI, scene exits, pause and the level-load kick every frame; the 15 s
+  transition and the head video are two of its states. It is now **`GAME_Tick`**.
+- **The level loader.** `0x41f9db` (`Scene_SpawnProjectEntities`) is the whole
+  level loader, now **`SCENE_LoadLevel`**. The "new-game setup" at `0x41f699`
+  was a fragment Ghidra had split off `0x41f42e`. It is merged back as
+  **`SCENE_InitLevel`**, which runs on every level load.
+- **Two DirectDraw names were one function off.** `0x4454d1` is the DDraw/GDI
+  dispatcher (`VID_SetMode`), and `DDRAW_SetMode` belongs to `0x4455ad`.
+- **The font loader is general.** `0x425254` loads any sprite set
+  (`SPR_LoadSet`); fonts are one use.
+- **`.3DM` in DSN mode is built, not read.** `0x417a07` makes it in memory
+  (`DSN_Create3DM`).
+- **The "options screen" at `0x4314ec`** only maps the resolution to an index.
+- **The transformation.** `0x42d0ae` hands control to an alternate actor with
+  the player's current vitality and magic; it does not reset them to 100/20.
+- **`0x478dac` is not skinning.** It is a rigid transform plus projection.
+- **Three runtime functions shared the name `fprintf_`.** A signature collision
+  named all three; `0x45941d` is `sprintf_` and `0x477c35` is `fscanf_`.
+- **`0x460d82`**, "still unidentified", is `exit_`.
+
 ### Source files leave a layout, not names
 
 The binaries keep no file names, but Watcom's layout rules, read from the
@@ -108,7 +143,7 @@ compressed stream were the format.
   carry two corners; `BOX` is separate typed geometry.
 
 Decompressed, every record is exactly `0x2200` bytes of fixed slots, 150 of
-150. The engine's decoder is `FUN_00448e25`.
+150. The engine's decoder is `RLE_UnpackZeros` (`0x448e25`).
 
 ### "15,000 units up" was 15,000 units out
 
@@ -239,7 +274,7 @@ they are not re-asserted.
 | The 64 tag-4 planes are tiles of an atlas | **wrong** | Each is a 32x32 **subsample** of one 256x256 texture, taken every 8th pixel at its own offset, and the loader interleaves all 64. Fill size starts at 8x8 and refines to 1x1 — progressive loading off a CD-ROM. |
 | Edge sanity or degenerate-triangle rate can gate a mesh decode | **wrong** | Four scenes that render as debris score under 6% slivers, pass edge sanity, and have unremarkable bounding boxes. `L14_PETI` is a twisted ribbon at 0.8% slivers. Geometry can be locally plausible and globally wrong; render it instead. |
 | The `u32` at tag 2 + 0x14 is not needed to gate a scene | **wrong** | Dropping it admitted four more single-run scenes, every one of which renders as debris. When the run is shorter than the pool, unreferenced entries make rank slip past the true index. All three conditions are required. |
-| The `.DSN` body starts at `24 + 31B`, after an 8-byte scene block | **wrong** | It starts at **`16 + 31B` == `9 + A`**. `FUN_004175bc` reads the 11-byte and 20-byte tables back to back with no gap. There is no 8-byte block — those bytes are the body's own `01` + `u32` opening, the same as `.DAN`. Every body-parsing attempt before this began 8 bytes late. |
+| The `.DSN` body starts at `24 + 31B`, after an 8-byte scene block | **wrong** | It starts at **`16 + 31B` == `9 + A`**. `DSN_LoadHeader` (`0x4175bc`) reads the 11-byte and 20-byte tables back to back with no gap. There is no 8-byte block — those bytes are the body's own `01` + `u32` opening, the same as `.DAN`. Every body-parsing attempt before this began 8 bytes late. |
 | `FUN_00454feb` gets the stream context; `FUN_00460d5f` refills from file | **wrong** | They are Watcom runtime: **`__CHK`** (stack probe) and **`printf_`**. Matched against the stock 10.6 libraries. The `CryoStream` struct built on that assumption is now marked unverified. |
 | The `.DSN` body is one opaque compressed blob | **imprecise** | It is a **byte-oriented record stream**: a constant 7-byte preamble with its own `u16` version (180/181, 95/95 files), literal ASCII names surviving inside it (37/95 carry `DEFAULT` in the first 64 body bytes), a skewed byte histogram (`0x00` 6.6%) and markers `e0 fd 09` / `e0 fc 19` recurring roughly once per 170 bytes. |
 | `GAME.DAT` / `GAME0.DAT` are zero-filled | **wrong** | `GAME.DAT` has `01` at `0x104`; `GAME0.DAT` has `Project0` at `0x2484` plus a structured tail. |
@@ -422,7 +457,7 @@ since resolved — see Corrections above and [scene-geometry.md](scene-geometry.
 
 ### 1. Unpack the `.DSN` body
 
-**Located and decompiled: `FUN_004175bc`.** It is the *header* reader, not the
+**Located and decompiled: `DSN_LoadHeader` (`0x4175bc`).** It is the *header* reader, not the
 unpacker — it validates `DSNF`, reads the `u32` at offset 5 (confirming our
 hand-derived layout from the binary's own code), the `u8` flag and the `u16`
 count, memcpy's two blocks and returns. Reads go through a **peek/commit ring
@@ -536,13 +571,13 @@ Things that make future work easier:
   authored with the character facing $+X$, ponytail pointing backwards along
   $-X$, and wingspan outstretched along $\pm Z$. Aligning with $+Z$ forward in
   glTF / Babylon.js requires a $+90^\circ$ vertical rotation.
-- **The engine's developer debug HUD in `WINDREAM.EXE` (`FUN_00416606`) reveals the exact runtime object struct fields:**
+- **The engine's developer debug HUD in `WINDREAM.EXE` (`DBG_DrawObjectInfo` (`0x416606`)) reveals the exact runtime object struct fields:**
   Direct string labels from the developers: `Project Name`, `Object Name`,
   `Object Pos` $(x, y, z)$, `Object Speed`, `Object PHY Speed`, `Object Flags`,
   `Object Angle` (pitch, yaw, roll, heading), `Object 3D Col` (collision state),
   `Object Anim 0` & `Object Anim 1` (dual animation track blending), `Nombre d'objet`,
   `dernier objet`.
-- **Runtime entity instantiation (`FUN_0041deb8`) and project loader (`FUN_0041f9db`) decoded:**
+- **Runtime entity instantiation (`ENT_InstantiateFromObjet` (`0x41deb8`)) and project loader (`SCENE_LoadLevel` (`0x41f9db`)) decoded:**
   - `Project` header: directional lights at `+0x18`/`+0x24`, ambient RGB at `+0x30`,
     animated video textures at `+0x3C`/`+0x5C`, target materials at `+0x6C`/`+0x8C`,
     camera FOV at `+0xA4`, canonical player spawn `(x, y, z)` at `+0xB4`, fog
@@ -553,24 +588,24 @@ Things that make future work easier:
     at `+0x68`. The old labels “entity type” and “patrol route box index” for `+0x34` and
     `+0x6C` were not established. `+0x6C` is copied to actor `+0x108`; its role is open, and
     its retail values exceed the 12 local `BOX` slots. `+0x70` is copied to actor `+0x10C`,
-    which `FUN_00442786` uses as attack-effect launch magnitude.
+    which `ENT_PlaceAtFacingOffset` (`0x442786`) uses as attack-effect launch magnitude.
   - `.DSN` 20-byte records at `16 + 11*B`: word 0 allocation flag (`0x004741A0` vs `0x0`),
     word 1 relocated pointer, word 2 constant 3, word 3 compass normal (`0x202` North,
     `0x246` East, `0x286` West), word 4 surface friction/sound category.
 - **`.DAN` Tag 3 skeletal animation decoded [verified]:**
-  The `.3DA` entries in Directory 2 index sequential Tag 3 chunks decompressed by `FUN_004105eb`
+  The `.3DA` entries in Directory 2 index sequential Tag 3 chunks decompressed by `DAN_Load3DA` (`0x4105eb`)
   via Cryo's LZ codec. Track $i$ corresponds to slot $i$ of the model's explicit directory,
   **not** the geometry scanner's node $i$ (see the later harness correction below). Each track
   specifies duration, rotation count $K$, translation count, and Q15 keyframe rotations.
   The keyframe stride is 20 or 60 bytes and is determined from its start/end offsets.
-  Composed hierarchically in `WINDREAM.EXE` (`FUN_0047e498`). Plain SLERP is the viewer's
+  Composed hierarchically in `WINDREAM.EXE` (`REND_DrawObject` (`0x47e498`)). Plain SLERP is the viewer's
   approximation; 60-byte keys use additional spline controls in the engine. Dual
   concurrent tracks (`Object Anim 0` / `Object Anim 1`) support motion blending. 780 clips extracted
   across 159 character and prop models to `E:\dreams-work\animations/`.
 - **Correction — Keyframe offsets in Tag 3 [verified]:**
   An initial decode hypothesis assumed Hermite spline tracks (stride 60) had asymmetric key 0 layout
   starting at `+40` and `+80`, which inadvertently read tangent vectors instead of primary quaternions.
-  Decompilation of `FUN_00459808` in `WINDREAM.EXE` revealed that each track has a 40-byte header
+  Decompilation of `ANIM_EvalTrackLinear` (`0x459808`) in `WINDREAM.EXE` revealed that each track has a 40-byte header
   followed by uniformly spaced keyframes: every key $k \in [0, K-1]$ begins at exact offset
   `trk_off + 40 + k * stride` (where `stride` is 20 or 60). Word 0 is frame timestamp; words 1..4 are
   the unit quaternion `[qx, qy, qz, qw]` in Q15 ($32768 = 1.0$); words 7..10 and 11..14 are Hermite
@@ -583,9 +618,9 @@ Things that make future work easier:
   `XH_` now yields 27 tracks for 27 model nodes; its corrected pose no longer has the severe
   head/arm distortion seen in the earlier viewer.
 - **Animation names are numeric runtime IDs, not action labels:**
-  All 780 embedded `.3DA` names follow an `AN###` pattern. `FUN_00404d98` parses
-  that suffix with `FUN_004551b5` and fills the corresponding runtime slot;
-  `FUN_00455278` retrieves slots by number. The executable has “Run”/“Walk”/
+  All 780 embedded `.3DA` names follow an `AN###` pattern. `ANIM_LoadEntitySet` (`0x404d98`) parses
+  that suffix with `atoi_` (`0x4551b5`) and fills the corresponding runtime slot;
+  `ANIM_GetTrackEntry` (`0x455278`) retrieves slots by number. The executable has “Run”/“Walk”/
   “Jump” control text, but no discovered string table translates those actions
   into clip IDs. See `docs/models.md` for the lookup path.
 - **Correction — no rest quaternion in the 40-byte track header:**
@@ -593,11 +628,11 @@ Things that make future work easier:
   mixes that timestamp with three quaternion components. The parser now uses key 0 as its fallback
   rotation. This metadata correction does not change sampled poses for tracks with keys.
 - **Engine matrix and skinning evaluation in `WINDREAM.EXE` [verified]:**
-  - `FUN_0045bc28`: converts Q15 quaternion `[qx, qy, qz, qw]` to a $3 \times 3$ row-major rotation matrix.
-  - `FUN_0047e498`: forward kinematics down the scene graph:
+  - `MATH_QuatToMatrix` (`0x45bc28`): converts Q15 quaternion `[qx, qy, qz, qw]` to a $3 \times 3$ row-major rotation matrix.
+  - `REND_DrawObject` (`0x47e498`): forward kinematics down the scene graph:
     $$R_{world} = (R_{parent} \times R_{child}) \gg 15$$
     $$T_{world} = ((R_{parent} \times T_{child}) \gg 15) + T_{parent}$$
-  - `FUN_00478dac`: vertex skinning evaluating:
+  - `REND_ProjectVertices` (`0x478dac`): vertex skinning evaluating:
     $$V_{world} = ((R_{world} \times V_{local}) \gg 15) + T_{world}$$
   - Cyclic animation loops: for all action cycles, $t=0$ holds the identity rest pose $(0, 0, 0, 1.0)$,
     while frames $1 \dots \text{duration}$ form the seamless repeating motion loop where $Q(1) \equiv Q(\text{duration})$.
@@ -631,7 +666,7 @@ Details, repeatable commands, and residual cases are in
 
 ## 2026-09-23 — original animation clock recovered
 
-Followed `timeGetTime` through `00440802` / `00440890`, dispatcher command
+Followed `timeGetTime` through `SYS_InitTimer` (`00440802`) / `SYS_UpdateTimer` (`00440890`), dispatcher command
 `0x11`, and the main loop at `004170a6`. The timer initializes at 200 Hz
 (`00415fdd`); the main loop computes `200 / elapsed_ticks` and then
 `30 / measured_fps`. Actor frame `+0x170` advances by that delta times
@@ -652,17 +687,17 @@ See [animation-timing.md](animation-timing.md) for the complete trace and limits
 ## 2026-09-23 — translation curves and common animation blend path
 
 Recovered the translation Hermite basis at `004aa710` and left-outgoing /
-right-incoming tangent reads in `0045a03c`. The decoder now preserves 82,784
+right-incoming tangent reads in `ANIM_EvalTrackSpline` (`0045a03c`). The decoder now preserves 82,784
 translation keys across 780 clips; the shared player evaluates and blends them.
 The inspector can display full root travel or hold horizontal motion in place,
 mix two clips, and play clips once. The controller exposes loop-corrected root
 deltas without interpreting seeks or pose transitions as locomotion.
 
-`00405f1f` holds outgoing and incoming-start poses while weight `+0x164`
+`ANIM_TickBlend` (`00405f1f`) holds outgoing and incoming-start poses while weight `+0x164`
 advances by `48 * engineDelta`; the ordinary duration is `256/(48*30)` seconds.
-`00405db4` commits the incoming channel. This common transition mode now
+`ANIM_FinishBlend` (`00405db4`) commits the incoming channel. This common transition mode now
 replaces Duncan's guessed crossfade time. Root displacement flows through
-movement/collision code before `0043d83e` writes the resolved root position;
+movement/collision code before `PHYS_TickEntity` (`0043d83e`) writes the resolved root position;
 that original physics consumption is not yet integrated in the viewer.
 
 See [animation-root-blending.md](animation-root-blending.md) for offsets,
@@ -671,29 +706,29 @@ precision differences, runtime controls, and regression tests.
 ## 2026-09-24 — boot sequence decompiled, videos and menus named
 
 Followed the player-visible boot flow through `WINDREAM.EXE` end to end:
-`entry 00465538` → `main 0048646d` → `Game_Run 0041745e` →
-`BootScreen 00436481`. The observed sequence — intro movie, short animation,
+`entry 00465538` → `main 0048646d` → `WinMain 0041745e` →
+`BOOT_Run 00436481`. The observed sequence — intro movie, short animation,
 menu, new game, one more animation, first map — maps to: **`INTRO.HNM`**
-(2781 frames, skippable, event `0x17` on the dispatcher at `0043a306`), then
+(2781 frames, skippable, event `0x17` on the dispatcher at `MGM_SendMessage` (`0043a306`)), then
 **`GENERIC.HNM`** (101 frames — a light-speed tunnel; frames decoded and
 inspected), which runs as the animated background of the **2×2 main menu**
 whose label table sits at `0x4a2ed5`: `NEW GAME` / `LOAD A GAME` / `OPTIONS`
 / `QUIT`, drawn over `data\tga\menu.tga` with `icones.bf` icons and the
 `UpLf/UpRg/DnLf/DnRg` corner markers. The lowercase `Load`/`Options`/`Quit`
-strings belong to the separate in-game pause menu (`004337c0` → `00432b45`).
+strings belong to the separate in-game pause menu (`MENU_RunGameMenu` (`004337c0`) → `MENU_DrawGameMenu` (`00432b45`)).
 
 Two data corrections came out of it. First, the new-game project video is
 **data-driven** — each decompressed `DREAMS.DAT` project record names its
 video (in-memory at `+0x3c`), and Project 0's record names
 **`ETE_E~1.HNM`, a file that exists on neither disc**; the open fails and the
-play is skipped. What ships instead is hardcoded in `Transition_Tick
+play is skipped. What ships instead is hardcoded in `GAME_Tick
 004240ba`: a one-shot latch (`DAT_0049da28`) that plays
 **`data\hnm\tete_e~1.hnm`** — the bearded elder's 313-frame talking-head
-briefing — immediately before `Scene_SpawnProjectEntities 0041f9db` loads
+briefing — immediately before `SCENE_LoadLevel 0041f9db` loads
 the map through the `Please wait while loading ...` / CD-swap screen
-(`00427d64`, `LISTL%d.txt` manifests). Second, between menu confirm and the
+(`CD_PrepareLevel` (`00427d64`), `LISTL%d.txt` manifests). Second, between menu confirm and the
 briefing there is a rendered, non-video **15-second in-engine transition**
-(`_DAT_005e5480 = 15.0` armed on new game, counted down in `004240ba`).
+(`_DAT_005e5480 = 15.0` armed on new game, counted down in `GAME_Tick` (`004240ba`)).
 
 `LISTL0.TXT` is confirmed as the always-resident universe
 (`H03PAQUE.DSN` + `CH0/HOLO/XH_/MHE`), and `LISTL1.TXT` opens with
@@ -704,13 +739,13 @@ event table, and reproduction commands are in
 ## 2026-09-24 — menu sprites decoded: the `TABLE` family
 
 The `ICONES.BF` members — the actual menu sprites — are a third sprite family,
-decoded from loader `FUN_00426c46`: 512-byte RGB555 palette, pixel blobs, a
+decoded from loader `SPR_LoadIconBanks` (`0x426c46`): 512-byte RGB555 palette, pixel blobs, a
 `"TABLE"` marker, then 28-byte descriptors (width `+4`, height `+8`, absolute
 pixel offset `+0x18`). Pixel layout is per file, recovered from the offset
 stride: 8-bit palette indices (`TOUCHES.SPR`, `TITRES.SPR`) or two-byte
 `(palette index, opacity/blend)` texels (`MAGIE`/`ANIM`/`PYRAM`/`INTERF`
 `.ALP`, and `DATA\OBJET\SOUR.ALP`, the two-frame mouse cursor). The renderer
-`FUN_00401935` confirms the two-byte path uses byte 0 for palette lookup and
+`SPR_BlitSprite` (`0x401935`) confirms the two-byte path uses byte 0 for palette lookup and
 byte 1 as blend amount. Every member's pixel data ends exactly at its TABLE
 marker. Rendered contact sheets confirm the recognizable contents: golden
 `NEW GAME`/`LOAD A GAME`/`OPTIONS`/`QUIT` titles in three states (TITRES, disc
@@ -738,15 +773,15 @@ looping `GENERIC.HNM` video, not a TGA.
 The earlier RGB555/byte-swap reading was wrong. It reinterpreted each
 `(index, blend)` byte pair as a 16-bit color word; a blue-looking isolated
 screenshot match was not sufficient evidence. The executable resolves the
-ambiguity: `FUN_00426c46` binds the RGB555 palette and copies `w*h*2` source
-bytes unchanged, while `FUN_00401935` uses the first source byte to look up a
+ambiguity: `SPR_LoadIconBanks` (`0x426c46`) binds the RGB555 palette and copies `w*h*2` source
+bytes unchanged, while `SPR_BlitSprite` (`0x401935`) uses the first source byte to look up a
 palette word and the second as blend amount. Both paths skip index 0; the
 two-byte path skips coverage 0, copies values >=63 opaque, and blends values
-1–62. The earlier zero-divisor concern was a branch mix-up: `FUN_004274B0`
+1–62. The earlier zero-divisor concern was a branch mix-up: `SPR_Draw` (`0x4274b0`)
 sets source flag `0x10`, which selects the raw coverage branch at `0x401DAD`.
 The divide at `0x401EBF` is under a different flag (`DAT_0049D12A=1`).
-`FUN_00401524` uses `coverage>>1` as a 0–31 source weight and combines each
-channel as `((31-weight)*destination + weight*source)>>5`; `FUN_00424F7E`
+`SPR_BlendPixel` (`0x401524`) uses `coverage>>1` as a 0–31 source weight and combines each
+channel as `((31-weight)*destination + weight*source)>>5`; `SPR_InitMulTables` (`0x424f7e`)
 initializes the product lookup table for those multiplications. The preview
 maps this blend weight to 8-bit alpha; straight-alpha compositing cannot
 reproduce the game's exact per-channel sum (the weights total 31 before the
@@ -764,8 +799,8 @@ under `out/boot/icones/` were stale renders from the discarded byte-swapped
 RGB555 experiment. Regenerating these sheets through the current
 `menu_sprite_rgba` path gives the retail palette colors (for example, the fire
 icon is orange/red and the interface corners are blue/white). The retail proof
-remains the `FUN_00426c46` bank loader, `FUN_004274b0` draw wrapper (source flag
-`0x10`), and the indexed/coverage branch in `FUN_00401935`.
+remains the `SPR_LoadIconBanks` (`0x426c46`) bank loader, `SPR_Draw` (`0x4274b0`) draw wrapper (source flag
+`0x10`), and the indexed/coverage branch in `SPR_BlitSprite` (`0x401935`).
 
 The browser asset exporter had one remaining copy of the old interpretation:
 it converted each `INTERF.ALP` texel to a byte-swapped 16-bit color word. It now
@@ -775,17 +810,17 @@ same verified decoder as the research previews.
 
 ## 2026-09-24 — pause overlay inventory hub
 
-The gameplay overlay has four internal states in `FUN_004337C0` /
-`FUN_00432B45`: a 14-entry power/spell grid, a 16-entry object grid, a four-
-toggle settings page, and a return-to-play state. `FUN_004308F2` and
-`FUN_0042FB74` build the two grids by filtering the 72-name sprite table with
+The gameplay overlay has four internal states in `MENU_RunGameMenu` (`0x4337c0`) /
+`MENU_DrawGameMenu` (`0x432b45`): a 14-entry power/spell grid, a 16-entry object grid, a four-
+toggle settings page, and a return-to-play state. `MENU_BuildSpellList` (`0x4308f2`) and
+`MENU_BuildObjectList` (`0x42fb74`) build the two grids by filtering the 72-name sprite table with
 the category bytes at `0x49DFDA`; the first 30 name-table IDs follow the
 `DREAMS.INI [OBJECT]` enumeration, but resolve to non-linear MAGIE pixel slots.
-`FUN_00430E46` binds the four interface corner markers, description panels,
-and ribbons; `FUN_004318D0` handles input and `FUN_00432B45` draws the chosen
+`MENU_InitGameMenu` (`0x430e46`) binds the four interface corner markers, description panels,
+and ribbons; `MENU_HandleGameMenuInput` (`0x4318d0`) handles input and `MENU_DrawGameMenu` (`0x432b45`) draws the chosen
 page. State 2's nested selection maps index 0 to load, 1 to save, 2 to
-Options, and 3 to setting the game-exit flag. `FUN_00437AA2(0)` selects a load
-slot; mode 1 filters for unprotected/writeable slots. `FUN_00430A45` confirms
+Options, and 3 to setting the game-exit flag. `MENU_InitSaveSlotSelect(0)` (`0x437aa2`) selects a load
+slot; mode 1 filters for unprotected/writeable slots. `MENU_DrawOptionsPage` (`0x430a45`) confirms
 four settings: real/2D shadow, manual/automatic fighting, volume max/min, and
 cinemascope/full screen. The static English `Save` label is not tied to its
 rendered string source yet. Full path:
@@ -794,10 +829,10 @@ rendered string source yet. Full path:
 ## 2026-09-24 — HI fonts are indexed 256-glyph sheets
 
 The font notes had read only the first 32 palette bytes and eight trailing
-records. The retail loader `FUN_00425254` reads a 512-byte palette, a
+records. The retail loader `SPR_LoadSet` (`0x425254`) reads a 512-byte palette, a
 `0x1c00`-byte table of 256 records, and the trailing count `0x100`. `HI*`
-glyph offsets step by exactly `width*height` bytes, and `FUN_00403BCD`
-renders their bytes as palette indices with index 0 transparent. `FUN_00425C61`
+glyph offsets step by exactly `width*height` bytes, and `TEXT_BlitGlyphFaded` (`0x403bcd`)
+renders their bytes as palette indices with index 0 transparent. `TEXT_LoadFont` (`0x425c61`)
 precomputes each horizontal advance as `width - s32(descriptor[+0x0c])`, with
 space assigned the `0` glyph's advance. The new decoder renders all glyphs
 except the malformed-looking `%` descriptor in HI320 (code 37); the same
@@ -808,33 +843,33 @@ ASCII glyphs in all three sizes.
 
 The PYRAM bank's second texel byte is not always opacity. Its shipping
 `pyrambo` sprite (slot 0) contains `0xfd`/`0xfe`/`0xff` markers; `exprbor`
-(slot 5) contains `0xfe`/`0xff`. `FUN_00427859` runs a dedicated
-`FUN_0040368B` compositor, which substitutes pixels from linked descriptors
+(slot 5) contains `0xfe`/`0xff`. `UI_UpdatePyramidGauge` (`0x427859`) runs a dedicated
+`UI_DrawPyramidGauge` (`0x40368b`) compositor, which substitutes pixels from linked descriptors
 for those codes; `0xfd` may also choose a state-dependent fill. The PNG sheet
 renderer now marks these bytes with diagnostic colors instead of presenting
 them as literal opaque colors. The field producer is now traced: BSS at
-`0x5DFB8C` is an 84×64 byte plane. `FUN_00403B60` writes a 16-word PRNG row at
+`0x5DFB8C` is an 84×64 byte plane. `UI_TickGaugeFire` (`0x403b60`) writes a 16-word PRNG row at
 `+0x14C0` (row 83), masks those words with `0xAFAFAFAF`, then sets each byte
 in rows 1–82 and columns 1–62 to the average of itself, its next horizontal
 byte, and two bytes in the next row (`+0x3f`, `+0x40`), walking upward from
 the seed row. The PRNG state is initialized in the executable to `0xFE9A735C`.
-`FUN_004184D3` runs eight passes after the DirectDraw unlock call; EAX carries
+`UI_PrimeGaugeFire` (`0x4184d3`) runs eight passes after the DirectDraw unlock call; EAX carries
 that call's HRESULT into the first pass, so the normal successful path starts
-from zero. `FUN_00434596` updates the field during UI drawing; it calls the
-smoother after `FUN_004344AE` leaves the screen-height quotient in EAX (1 at
+from zero. `UI_DrawHud` (`0x434596`) updates the field during UI drawing; it calls the
+smoother after `UI_ComputeHudScale` (`0x4344ae`) leaves the screen-height quotient in EAX (1 at
 400/480 lines).
 
-`FUN_00427859` updates the `pyrafvi`/`pyrafma` descriptors, and
-`FUN_00427AE9` copies two 84×32 horizontal windows from the field into byte 1
+`UI_UpdatePyramidGauge` (`0x427859`) updates the `pyrafvi`/`pyrafma` descriptors, and
+`UI_CopyFireToGauge` (`0x427ae9`) copies two 84×32 horizontal windows from the field into byte 1
 (opacity) of their 64×84 sprite texels. The windows begin 15 bytes apart.
 Those dynamic opacity masks are consumed by the PYRAM layer compositor; the
 field is generated at runtime, not loaded from a texture asset. The final
 composite still depends on animation and state because `0xfd`/`0xfe`/`0xff`
-are commands resolved by `FUN_0040368B`.
+are commands resolved by `UI_DrawPyramidGauge` (`0x40368b`).
 
 ## 2026-09-25 — HUD anchors and dialogue portraits
 
-`FUN_00434596` anchors the 64×84 pyramid at `(20/sx, (H-90)/sy)` and the active
+`UI_DrawHud` (`0x434596`) anchors the 64×84 pyramid at `(20/sx, (H-90)/sy)` and the active
 40×40 MAGIE icon at `((W-230)/sx, (H-50)/sy)`. The 320×240 path uses logical
 640×400 with 2× downscaling; 640×480 uses logical 640×480 at 1:1. The HUD
 compositor clips linked layers by row; `pyrafvi`/`pyrafma` are procedural
@@ -845,27 +880,27 @@ center line of the flat pyramid art. Spell IDs 0–13 instead form a column-majo
 
 The in-game spell page is opened by mapped action flag `0x006308e1`; the binary
 does not pin that action to one physical keyboard key or joystick button.
-`FUN_004288C6` copies each `LINKADVENT +0x1C` into runtime task `+0x10`;
-`FUN_00429061` emits UI event `0x40` with that value minus one as the
+`SCENE_InitTriggers` (`0x4288c6`) copies each `LINKADVENT +0x1C` into runtime task `+0x10`;
+`SCENE_TickTriggers` (`0x429061`) emits UI event `0x40` with that value minus one as the
 zero-based dialogue index. Of 80 records whose condition opcode is `0x40`, 73
 carry a nonzero entry ID (1–174). This is the story-speech source, not
-`OBJET +0x70`. `FUN_00420B60` handles a separate LINKADVENT path: it queues
+`OBJET +0x70`. `SCENE_CheckExits` (`0x420b60`) handles a separate LINKADVENT path: it queues
 event `0x42` with a target name and starts configured cutscene video. Player HUD values are read from runtime actor
-`+0x38` (vitality), `+0x3c` (magic), and `+0x40` (oxygen). `FUN_0042D0AE`
+`+0x38` (vitality), `+0x3c` (magic), and `+0x40` (oxygen). `ENT_BeginTransform` (`0x42d0ae`)
 initializes current vitality at `+0x38` to 100 and current magic at `+0x3c` to
 20; no separate maximum-vitality field is confirmed, and `+0x1c` remains
 unknown. The fallback globals start at 100 vitality, 20 magic, and 0 oxygen.
-Underwater, `FUN_00423399` drains actor
-`+0x40` by `scene[+0x118] * frameDelta * 0.01`; `FUN_004231F0` refills it to
-100 in the safe water band, while `FUN_00423399` caps it at 100. Actor `+0x50` is a separate state/blink value
+Underwater, `ENT_TickPlayerStatus` (`0x423399`) drains actor
+`+0x40` by `scene[+0x118] * frameDelta * 0.01`; `ENT_UpdateSwimming` (`0x4231f0`) refills it to
+100 in the safe water band, while `ENT_TickPlayerStatus` (`0x423399`) caps it at 100. Actor `+0x50` is a separate state/blink value
 bounded at 200. The XP strips have no identified draw or live variable.
 
 The previous 575-line DIALOG.DRD count was low. Summing all entry line counts
 and parsing their records yields 589 timed text lines. Tag-4 sizes include the
 5-byte header; the 169 blocks decode as one 2-byte indexed portrait image with
 a 512-byte palette, 256-descriptor capacity, and trailing count 1.
-`FUN_00427020` repacks the first
-descriptor and `FUN_00427432` draws the portrait at `(16/sx,64/sy)`. Captions
+`SPR_LoadPortrait` (`0x427020`) repacks the first
+descriptor and `SPR_DrawPortrait` (`0x427432`) draws the portrait at `(16/sx,64/sy)`. Captions
 start at `(150/sx,90/sy)` with 20/sy row spacing; the renderer does no box
 wrap and draws no dark backing rectangle. The Save action's associated static
 description begins at `0x004a108f` (`Save the game`); the executable contains
@@ -874,41 +909,41 @@ list and has no runtime references found.
 
 ## 2026-09-24 — retail AI scheduler and action-to-clip path
 
-Decompiled the AI pass called by the frame tick: `FUN_00415109` walks separate
+Decompiled the AI pass called by the frame tick: `AI_TickSquads` (`0x415109`) walks separate
 actor lists for mode transitions, linked-member updates, per-actor decisions,
-target refresh, and status aggregation. `FUN_0041208f` selects one of three
+target refresh, and status aggregation. `AI_ApplySquadOrderTable` (`0x41208f`) selects one of three
 executable transition lists using the project header dword `+0xD0`; the retail
 `DREAMS.DAT` uses selectors 0 and 1. The selector-1 list contains five
-`(current mode, required status bits, next mode)` rows. `FUN_004115a1` groups
+`(current mode, required status bits, next mode)` rows. `AI_BuildSquads` (`0x4115a1`) groups
 eligible project actors into controllers of up to three members;
-`FUN_00410f03` appends member pointers and stores the back-pointer. Controllers
+`AI_AddSquadMember` (`0x410f03`) appends member pointers and stores the back-pointer. Controllers
 carry mode/previous-mode/flags/target at `+0x1B4/+0x1BC/+0x1B0/+0x1D0`.
 
-`FUN_004131a4` builds target candidates and `FUN_00414d61` selects from them.
-`FUN_00414646` applies distance, facing, and random gates and queues states
+`AI_ScanNearbyActors` (`0x4131a4`) builds target candidates and `AI_UpdateMemberStatus` (`0x414d61`) selects from them.
+`AI_TickCombat` (`0x414646`) applies distance, facing, and random gates and queues states
 `0x10`, `0x14`, `0x12`, or `0x16`; on its collision/timer branches it also queues
-`0x39` or `0x1C`. These requests go through `FUN_00405118` into actor `+0x160`.
+`0x39` or `0x1C`. These requests go through `ANIM_RequestState` (`0x405118`) into actor `+0x160`.
 Project54 `OBJET1` (`IBI.DAN`, behavior selector 5) is a specific ranged-action
 match: flags `0x1247` give byte `+0x35 = 0x12`, whose `0x10` bit maps to actor
-`+0xAE & 2`, the `FUN_00414646` attack gate. Its parameters are `+0x78 = 6250`,
+`+0xAE & 2`, the `AI_TickCombat` (`0x414646`) attack gate. Its parameters are `+0x78 = 6250`,
 `+0x88 = 20`, and `+0x70 = 585`. Its four attack states resolve to `IBIAN016`
 (82 frames); state `0x39` resolves to `IBIAN057`.
 
-At the attack-state frame threshold, `FUN_00407b51` calls `FUN_00442944`, which
+At the attack-state frame threshold, `ENT_TickEntity` (`0x407b51`) calls `ENT_SpawnAttackObject` (`0x442944`), which
 allocates a transient effect actor. The selector-5 flag makes this class `0x14`;
-`FUN_00442786` launches it from the actor's oriented position using the `+0x70`
-value, and `FUN_00442e0d` advances its position by velocity. `FUN_00444b8f`
-checks effect collision; class `0x14` calls `FUN_004440aa`, which calls
-`FUN_00443619` to reduce target health and queue hit/death states. This is the
+`ENT_PlaceAtFacingOffset` (`0x442786`) launches it from the actor's oriented position using the `+0x70`
+value, and `ENT_MoveAttackObject` (`0x442e0d`) advances its position by velocity. `ENT_TickAttackObject` (`0x444b8f`)
+checks effect collision; class `0x14` calls `ENT_ApplyAttackHit` (`0x4440aa`), which calls
+`ENT_ApplyDamage` (`0x443619`) to reduce target health and queue hit/death states. This is the
 retail firing sequence recovered so far. The exact effect asset name remains
 open.
 
 The same trace recovered the 16 × 64 model-family action table at
-`0x004F7728`. `FUN_00404D98` parses each `AN###` suffix into its family slot;
-missing slots copy the nearest earlier available clip. `FUN_004058D5` resolves
+`0x004F7728`. `ANIM_LoadEntitySet` (`0x404d98`) parses each `AN###` suffix into its family slot;
+missing slots copy the nearest earlier available clip. `ANIM_ApplyPendingState` (`0x4058d5`) resolves
 the current/requested numeric state through that table. For class-1 player
 movement it selects slots 0, 41, 25, or 42 from actor `+0x240` divided by frame
-delta, at thresholds 1, 20, and 45. `FUN_0043d360` updates
+delta, at thresholds 1, 20, and 45. `PHYS_IntegrateMotion` (`0x43d360`) updates
 `+0x238/+0x240/+0x248` as a velocity vector; the action labels still need
 pose-by-pose confirmation.
 
@@ -932,11 +967,11 @@ from source for Ghidra 12.1.3 with our `__watcall` prototype
 (`tools/lx-loader-watcom.cspec`), put `DREAMSFX.EXE` into the project. A scan
 of every `IN`/`OUT`/`INT` found no game-port `0x201` access and no BIOS
 `INT 15h AH=84h`: **the DOS builds have no joystick code**. Real-mode `INT 66h`
-is the Miles (AIL 3) driver call, `AIL_CallDriver`; an initial DIGPAK guess,
+is the Miles (AIL 3) driver call, `AIL_API_call_driver` (`0x9b323`); an initial DIGPAK guess,
 based on the `.DIG` extensions and `SETSOUND.EXE`, was wrong.
 
-In `WINDREAM.EXE` the joystick path is real: `J` (`0x415aa7`) issues dispatcher
-command 10, which enables the `0x440d3d` poll (X/Y relative to the position
+In `WINDREAM.EXE` the joystick path is real: `J` (`GAME_HandleHotkeys` (`0x415aa7`)) issues dispatcher
+command 10, which enables the `JOY_Poll` (`0x440d3d`) poll (X/Y relative to the position
 at startup, plus buttons) and posts event `0x3a`. Open: what enables the
 `0x39`/POV path, and which consumer turns `0x3a` into movement. Details in
 [engine.md](engine.md).
@@ -949,16 +984,16 @@ stubs resolved against `glide2x.ovl` on first use. `ApplyGlideImports.java`
 parses the Voodoo Graphics (`sst1`) headers and types all stubs; three
 analysis artefacts (no-return `__loadme`, stubs auto-made thunks of it, an
 off-by-one from the non-`_GR` last name) had to be undone first. Result: the
-game calls 35 Glide functions from a small backend. `Glide_Open` fixes
+game calls 35 Glide functions from a small backend. `GLIDE_Open` fixes
 640x480 at 60 Hz, double-buffered with depth, bilinear filtering, gamma 0.8.
-`Glide_DrawObjectFaces` uses decal + chroma-key, texture × Gouraud and flat
+`GLIDE_DrawObjectFaces` uses decal + chroma-key, texture × Gouraud and flat
 constant-colour modes. Details in [engine.md](engine.md), procedure in
 [re-setup.md](re-setup.md).
 
 The Glide layer is not a runtime backend selector. Both builds render through
-one per-object hook called by `Render_DrawObject`; the Windows build fills it
+one per-object hook called by `REND_DrawObject`; the Windows build fills it
 with the software face rasterizer plus a scanline flush, the 3dfx build with
-`Glide_DrawObjectFaces`. DirectDraw only presents the software framebuffer. A
+`GLIDE_DrawObjectFaces`. DirectDraw only presents the software framebuffer. A
 third hook guarded by a never-written flag is dead in both builds
 (*Renderer backends* in engine.md).
 
@@ -967,14 +1002,14 @@ third hook guarded by a never-written flag is dead in both builds
 A cross-build matcher (`ExportFunctionFeatures.java` + `tools/match_functions.py`)
 pairs 599 functions between `DREAMSFX.EXE` and `WINDREAM.EXE`. Aligning each
 Glide caller's call sequence with its Windows twin named the Windows
-presentation layer: `Video_Swap` → `Video_Present` → `DDraw_Present` (Lock,
+presentation layer: `VID_Swap` → `VID_Present` → `DDRAW_Present` (Lock,
 copy the RAM frame, Unlock, `Flip`) or `GDI_Present` (`StretchBlt`), with
-`Video_Lock`/`Video_Unlock` in the slots of `grLfbLock`/`grLfbUnlock`.
-DirectDraw versus GDI is one flag, `0x633b18`, set in `Video_Init`; it is the
+`VID_Lock`/`VID_Unlock` in the slots of `grLfbLock`/`grLfbUnlock`.
+DirectDraw versus GDI is one flag, `0x633b18`, set in `VID_Init`; it is the
 only code byte that differs between `WINDREAM.EXE` and `GDIDREAM.EXE`.
 
 The 3dfx build defers faces of types −7/−4/−3 to a translucent pass at
-alpha 128 (`Glide_DrawTranslucentFaces`). Error strings supplied five real
+alpha 128 (`GLIDE_DrawTranslucentFaces`). Error strings supplied five real
 names, and one correction: `0x43a306` is `MGM_SendMessage`, not
 `CTRL_Dispatcher` (`0x40e75c`), as boot-sequence.md had it. Mapping table in
 [engine.md](engine.md), *Presentation and 2D*; matcher in

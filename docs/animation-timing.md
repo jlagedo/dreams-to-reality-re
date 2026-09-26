@@ -1,5 +1,7 @@
 # Original animation timing [verified static trace]
 
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
 The Windows engine's nominal base is **30 animation frames per second**.
 It is an executable clock scale, not a field in `.DAN` or a per-clip key count.
 The viewer's earlier 10 fps was a placeholder. At the recovered base, 1x is
@@ -13,10 +15,10 @@ Addresses below are virtual addresses with image base `0x400000`.
 
 | Location | Observed behavior |
 |---|---|
-| `00415fd8`–`00415fe7` | Calls dispatcher command `0x0c` with `EDX=200`, `EBX=15`. |
-| `0043a306` (`MGM_SendMessage`), command `0x0c` | Calls `00424b4f`, which forwards to timer initialization `00440802`. |
-| `00440802` | Reads `timeGetTime`; stores `1000/200 = 5 ms` as the main counter period at `006309e8`. The other timer has a separate period. |
-| `00440890` | Adds `floor(elapsed_ms/5)` to counter `006309e0` when at least one period elapsed. |
+| `00415fd8`–`00415fe7` (in `GAME_InitSubsystems`, `00415f00`) | Calls dispatcher command `0x0c` with `EDX=200`, `EBX=15`. |
+| `0043a306` (`MGM_SendMessage`), command `0x0c` | Calls `SYS_SetTimerRates` (`00424b4f`), which forwards to timer initialization `SYS_InitTimer` (`00440802`). |
+| `SYS_InitTimer` (`00440802`) | Reads `timeGetTime`; stores `1000/200 = 5 ms` as the main counter period at `006309e8`. The other timer has a separate period. |
+| `SYS_UpdateTimer` (`00440890`) | Adds `floor(elapsed_ms/5)` to counter `006309e0` when at least one period elapsed. |
 | `0043a306` (`MGM_SendMessage`), command `0x11` | Updates the timer and returns `006309e0`. |
 | `004170a6`–`004170d7` | Reads that counter and subtracts the previous value to obtain elapsed ticks. |
 | `00417171`–`0041717a` | Calculates `200 / elapsed_ticks`, an estimated render FPS. The double at `004c41c4` is `200.0`. |
@@ -36,18 +38,22 @@ constants at `004c398c` and `004c3994`.
 
 ## Actor and state modifiers
 
-`004058d5` selects or transitions animation actions and writes float **1.0**
+`ANIM_ApplyPendingState` (`004058d5`) selects or transitions animation actions and writes float **1.0**
 to actor `+0x178` at `00405afa`, `00405b6f`, and `00405d8a`. It initializes
-the new frame counter at 1.0. The constructor (`0041cb77`) initially puts
+the new frame counter at 1.0. The constructor (`ENT_InitDefaults` (`0041cb77`)) initially puts
 1.5 in the speed field, but the action transition replaces it; that constructor
 value does not establish a universal 45 fps rate. Duncan's initialization
-at `0041f699` selects action 0 and invokes this transition path.
+in the level start-up routine `SCENE_InitLevel` (`0041f42e`), run on every level
+load, selects action 0 and invokes this transition path.
 
-The pose update routines `00405f1f`, `004062ad`, and `004068be` can modify
-the effective delta:
+`ENT_TickEntity` (`00407b51`) runs one of three per-tick animation routines: the
+cross-fade step `ANIM_TickBlend` (`00405f1f`); `ANIM_TickSeamlessSwitch`
+(`004062ad`), the same-pair switch path that poses, feeds root motion to velocity
+and finishes the blend at once; or the normal clip tick `ANIM_TickClip`
+(`004068be`). These routines can modify the effective delta:
 
 - While actor timer `+0xf0` is active, multiply by actor `+0xf4`.
-- Actor `+0x44`, when nonzero, can multiply playback speed. In `004068be`
+- Actor `+0x44`, when nonzero, can multiply playback speed. In `ANIM_TickClip` (`004068be`)
   this multiplier is gated for action IDs 0–8 unless flag `+0xad & 8` is set.
 - Stop/hold paths set `+0x178` to zero.
 - There is no evidence in this trace for the viewer's previous hard-coded
@@ -69,7 +75,7 @@ not emulate the Windows timer's polling loss, minimum delta, or mode overrides.
 The trace establishes the normal clock scale; it is not a stopwatch comparison
 against a running original game, nor verification of the DOS executable.
 
-The executable also imports `QueryPerformanceCounter`: `0042493b` sends that
+The executable also imports `QueryPerformanceCounter`: `INPUT_PostEvents` (`0042493b`) sends that
 counter via event `0x3d`. This corrects the earlier documentation claim that
 `timeGetTime` was its only clock. The animation delta path traced above uses
 dispatcher `0x11` and the `timeGetTime`-based counter.

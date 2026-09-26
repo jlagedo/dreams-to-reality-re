@@ -7,7 +7,7 @@ docs do.
 
 | Doc | Contents |
 |---|---|
-| [re-setup.md](re-setup.md) | **Ghidra setup**, repo layout for RE, suggested order of attack; LE loader for the DOS builds, Glide typing, cross-build function matcher |
+| [re-setup.md](re-setup.md) | **Ghidra setup**, repo layout for RE, suggested order of attack; LE loader for the DOS builds, Glide typing, cross-build function matcher; **function naming**: registry, checked facts, doc comments in Ghidra |
 | [engine.md](engine.md) | Engine architecture, toolchain, the four binaries, subsystem layout; renderer backends, **Glide ↔ DirectDraw/GDI map**, input and joystick paths |
 | [toolchain.md](toolchain.md) | **Watcom C/C++ 10.6** pinned down; reference material; ~290 runtime symbols recovered per DOS binary |
 | [cryolib.md](cryolib.md) | `CRYO.DLL` = CryoLib: 165 exports incl. a working **HNM6 decoder** |
@@ -32,6 +32,13 @@ docs do.
 | [running.md](running.md) | How to actually run the game, ranked by difficulty; **3dfx build verified** under DOSBox Staging; controllers |
 | [pipeline.md](pipeline.md) | **Extract → bake → pack**: the data root the web app reads, its JSON, releases for static hosting |
 | [research-log.md](research-log.md) | Findings log, corrections, dead ends, open questions |
+
+## Function names
+
+Functions are named `MODULE_VerbObject` (convention in `../AGENTS.md`). Every
+name is recorded in `../re/names/<program>.tsv` with its sources and the facts
+it rests on, checked by `tools/check_names.py`. Pages that carry the
+*Function names verified* note cite only names from that registry.
 
 ## Evidence tags
 

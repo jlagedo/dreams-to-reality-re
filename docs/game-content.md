@@ -1,5 +1,7 @@
 # Game content
 
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
 Derived from `DATA\LANG\FRANCAIS\DREAMS.INI`, the game's text resource file.
 **[verified]** — this is a plain-text file shipped on both discs.
 
@@ -148,8 +150,10 @@ Erreur sur le disque / Disque plein     disk full
 ```
 
 The **"protected slot"** concept is confirmed in the retail save menu:
-`FUN_00437AA2(1)` searches only slots whose status field at `0x5DAB98 + 4*i`
-is zero, while load mode (`FUN_00437AA2(0)`) considers all slots. The resource
+`MENU_InitSaveSlotSelect` (`0x437aa2`) picks the default slot, and in save mode
+(argument `1`) it takes the most recent slot whose status field at
+`0x5DAB98 + 4*i` is zero, while load mode (argument `0`) takes the most recent
+of all slots. The resource
 strings include the matching "protected slot cannot be saved here" error.
 
 ## Save files

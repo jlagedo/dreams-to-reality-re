@@ -15,9 +15,10 @@
 | `docs/README.md` | Research documentation index |
 | `docs/re-setup.md` | Ghidra setup and workflow |
 | `re/symbols/*.tsv` | Saved Ghidra symbols and comments |
+| `re/names/*.tsv` | Function-name registry: each name's kind, sources and machine-checked facts (`tools/check_names.py`) |
 | `re/structs/` | C layouts and typed-global lists for Ghidra (`windream.h`, `directx.h`, `windream-globals.tsv`) |
 | `ghidra_scripts/` | Java scripts for Ghidra |
-| `tools/` | Ghidra import and checkpoint PowerShell scripts; `lx-loader-watcom.cspec` for the DOS-build LE loader; `match_functions.py` cross-build function matcher; `match_identical.py` byte-identical code shared between binaries (CryoLib in the game); `find_modules.py` source-file blocks |
+| `tools/` | Ghidra import and checkpoint PowerShell scripts; `lx-loader-watcom.cspec` for the DOS-build LE loader; `match_functions.py` cross-build function matcher; `match_identical.py` byte-identical code shared between binaries (CryoLib in the game); `find_modules.py` source-file blocks; `check_names.py` checks and applies the name registry; `sync_doc_comments.py` copies doc text into Ghidra comments |
 | `ghidra/` | Local Ghidra project (gitignored) |
 | `out/` | Default toolkit output (gitignored) |
 
@@ -124,7 +125,64 @@ on `=`, so `Rename.java` uses `address:name` (or `@file`):
 uv run python tools/match_functions.py DREAMSFX.EXE WINDREAM.EXE --renames
 uv run --with capstone python tools/match_identical.py CRYO.DLL WINDREAM.EXE --insn
 uv run python tools/find_modules.py WINDREAM.EXE --cross DREAMSFX.EXE
+uv run python tools/check_names.py WINDREAM.EXE --renames --twin GDIDREAM.EXE
+uv run python tools/check_names.py DREAMSFX.EXE --renames
+uv run python tools/sync_doc_comments.py WINDREAM.EXE
 ```
+
+`Rename.java @out\ghidra\match\names-<program>.tsv` applies checked names;
+`ApplyDocComments.java @out\ghidra\match\docsync-<program>.tsv` replaces the
+`[DOCS_SYNC]` comments; `MergeFragments.java parent:fragment` folds a function
+Ghidra split off at a jump target back into its parent.
+
+### Naming convention
+
+Names follow Cryo's own style, taken from the names that survive in the
+binaries, so recovered and descriptive names read alike.
+
+- **Recovered names stay verbatim**:
+  - error-string names: `MGM_SendMessage`, `MGM_DispatchMessages`,
+    `CTRL_Dispatcher`, `MENJ_Dispatcher`, `CAM_CompCameraPos`, `DAN_Load3DC`;
+  - CryoLib `GL_*`;
+  - Miles `AIL_*`;
+  - the Watcom runtime (trailing underscore: `memcpy_`, `read_`).
+- **Descriptive names** are `MODULE_VerbObject`:
+  - MODULE is 2-6 uppercase letters;
+  - the rest is PascalCase, verb first (`Load`, `Open`, `Read`, `Init`,
+    `Find`, `Draw`, `Tick`);
+  - examples: `DRD_LoadEntry`, `RES_Load`, `CD_FindDrive`.
+- **File-format modules take the format's name**: `DSN_`, `DAN_`, `DRD_`,
+  `BF_`, `FSB_`, `HNM6_`.
+- **Reuse a recovered prefix** (`DAN_`, `MGM_`, `CAM_`, `CTRL_`, `MENJ_`) only
+  where the code is clearly the same module. A shared prefix claims a shared
+  source file.
+- **Fixed prefixes.** Add new ones here rather than inventing variants:
+  - core, video and sound: `GAME_`, `SYS_`, `MEM_`, `VID_`, `DDRAW_`, `GDI_`,
+    `DSOUND_`, `REND_`, `SW_`;
+  - input: `INPUT_`, `JOY_`;
+  - text and UI: `TEXT_`, `SPR_`, `ICON_`, `UI_`, `MENU_`, `BOOT_`, `TRANS_`;
+  - world: `SCENE_`, `ENT_`, `MDL_`, `ANIM_`;
+  - data and files: `RES_`, `STRM_`, `LZ_`, `RLE_`, `VFS_`, `FILE_`, `CD_`,
+    `DDAT_` (DREAMS.DAT);
+  - behaviour and maths: `AI_` (squad AI), `PHYS_`, `MATH_` (fixed-point
+    vector, matrix and quaternion helpers), `HNM5_`;
+  - `DBG_` for debug code;
+  - DOS build: `GLIDE_`, `KBD_`, `TIMER_`, `DPMI_`.
+- **Globals** are `g_camelCase` (`g_frameBuffer`, `g_videoWidth`); API
+  objects keep the API's name (`g_DirectDraw`).
+- **Avoid Ghidra's auto-label prefixes**: `FUN_`, `DAT_`, `LAB_`, `PTR_`,
+  `s_`.
+- **Provenance goes in the plate comment**: `Name recovered: <source>` or
+  `Descriptive name`, plus the evidence.
+- **Every name goes in the registry** `re/names/<program>.tsv`, with its kind,
+  sources and facts; `tools/check_names.py` checks the facts against the binary
+  and writes the rename file. Nothing is renamed in Ghidra by hand.
+- **A name needs two independent sources.** Either of:
+  - the docs or earlier analysis, plus a blind review of the decompilation
+    with the docs comments stripped;
+  - a byte-identical match (`match_identical.py`).
+- Names go to `WINDREAM.EXE` and to `GDIDREAM.EXE` (same bytes at the same
+  addresses; check before copying).
 
 `tools/ghidra-import.ps1` accepts `-Ghidra`, `-Project`, `-Disc1`, `-Disc2`
 and `-Binaries` (only the listed files are re-imported); `tools/re-checkpoint.ps1`

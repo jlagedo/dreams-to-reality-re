@@ -1,5 +1,7 @@
 # Translation curves, root movement, and blending
 
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
 The shared player now samples translation channels as well as rotation, blends
 both between clips, exposes root motion deltas, and implements the timing and
 held-pose behavior of the engine's common transition path. This is a floating
@@ -21,7 +23,7 @@ spline rotation records (60 bytes) accompany 48-byte translation records.
 | `+0x18` | Incoming XYZ tangent, spline records only |
 | `+0x24` | Outgoing XYZ tangent, spline records only |
 
-The spline evaluator `0045a03c`, specifically `0045a2ae` and `0045a2b5`, reads
+The spline evaluator `ANIM_EvalTrackSpline` (`0045a03c`), specifically `0045a2ae` and `0045a2b5`, reads
 the left key's outgoing tangent and the right key's incoming tangent. Matrix
 `004aa710` is the cubic Hermite basis:
 
@@ -50,11 +52,11 @@ position `(-5, -182, 0)`. The inspector displays this as a converted offset of
 
 ## Root displacement and physics [verified flow; integration pending]
 
-`004062ad` and `004068be` save the previous root position at actor `+0x128`,
-read the newly evaluated position into `+0x11c` via `00457a04`, and subtract
-them using `0045b98c`. The result is transformed by actor orientation and
-movement modifiers. The movement/collision path at `0043d83e` subsequently
-writes the resolved actor position back through `00457aa0`.
+`ANIM_TickSeamlessSwitch` (`004062ad`) and `ANIM_TickClip` (`004068be`) save the previous root position at actor `+0x128`,
+read the newly evaluated position into `+0x11c` via `MDL_GetNodePosition` (`00457a04`), and subtract
+them using `MATH_SubVec3` (`0045b98c`). The result is transformed by actor orientation and
+movement modifiers. The movement/collision path at `PHYS_TickEntity` (`0043d83e`) subsequently
+writes the resolved actor position back through `MDL_SetNodePosition` (`00457aa0`).
 
 That separation matters: applying the animated root offset to the mesh and
 also moving its parent by the same amount would double the displacement.
@@ -77,17 +79,17 @@ movement objects or alternate roots need separate gameplay mapping.
 
 ## Original blend path [verified common case]
 
-`004599ec` handles two linear clip channels; `0045aa00` handles two spline-layout
+`ANIM_EvalTrackBlendLinear` (`004599ec`) handles two linear clip channels; `ANIM_EvalTrackBlendSpline` (`0045aa00`) handles two spline-layout
 channels. They sample two rotation/position poses, use quaternion interpolation
 for rotation and a weighted sum for position. The blend range is 0–256.
 The two-clip spline-layout routine uses linear interpolation of the primary
 keys inside its channels; it is not identical to the single-clip SQUAD evaluator.
 
-In `00405f1f`, the incoming frame at actor `+0x174` is set to 1 on each transition
+In `ANIM_TickBlend` (`00405f1f`), the incoming frame at actor `+0x174` is set to 1 on each transition
 update; the outgoing frame at `+0x170` is held. Weight `+0x164` increases by
 effective engine delta times float **48.0**, at address `004c33e4`.
 At normal speed this gives `256/(48*30) = 0.177777... seconds`.
-`00405db4` commits the incoming clip/frame at completion. Clip flags can force
+`ANIM_FinishBlend` (`00405db4`) commits the incoming clip/frame at completion. Clip flags can force
 immediate completion; their full action mapping remains unrecovered.
 
 The shared controller's `engineTransition` option holds the outgoing pose and

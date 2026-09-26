@@ -1,5 +1,7 @@
 # HNM video in this game
 
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
 Format specification lives in [hnm6-spec.md](hnm6-spec.md). This doc records what
 is actually *on these discs*, and how to decode it.
 

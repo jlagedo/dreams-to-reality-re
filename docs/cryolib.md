@@ -1,5 +1,7 @@
 # CryoLib (`CRYO.DLL`)
 
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
 **This resolves the project's highest-priority open question, and it resolves it
 better than expected: a working HNM6 decoder ships on disc 2.**
 
@@ -127,12 +129,12 @@ relocation offsets, and call targets that pair up consistently. Their data
 operands point to byte-identical tables, with two exceptions, both explained:
 - The jump tables of `HNM6_DecodeCoefficients`: all 348 entries land at the
   same offset inside the paired function.
-- The dispatch table of `0x4818a0`: it points to the game's block-copy
+- The dispatch table of `HNM6_DecodeIntraBlock4x2` (`0x4818a0`): it points to the game's block-copy
   handlers, which are rebuilt for the wider row (`[esi+0x400]` →
   `[esi+0x500]`).
 
 The game calls
-them: its frame routine `FUN_004268ac` runs `HNM6_DecompressFrame`, then copies
+them: its frame routine `VID_BlitHnm6Frame` (`0x4268ac`) runs `HNM6_DecompressFrame`, then copies
 the 640×304×2 (`0x5F000`) frame into `g_frameBuffer`. Two more functions match
 instruction for instruction, but one `cmp bl,al` is encoded `3A D8` in the game
 and `38 C3` in the DLL. So the game did **not** copy the DLL's binary. It
@@ -151,25 +153,31 @@ and encoding choices differ, while the instructions agree.
 | `0x47eecc` `HNM6_UnpackNibbles` | `0x1002b0d8` | byte-identical | descriptive |
 | `0x47ef83` `HNM6_DecodeCoefficients` | `0x1002b18f` | byte-identical | descriptive |
 | `0x47fa94` `HNM6_DecodeMacroblock` | `0x1002bb68` | byte-identical | descriptive |
-| `0x4818a0` (unnamed) | `0x10032b30` | byte-identical | role not established |
+| `0x4818a0` `HNM6_DecodeIntraBlock4x2` | `0x10032b30` | byte-identical | descriptive: intra 4×2 sub-block decoder, called from `0x4816b4` |
 | `0x47fb20` `HNM6_IDCT8x8` | `0x1002bbae` | instruction-identical | descriptive |
-| `0x481978` (unnamed) | `0x10032c08` | instruction-identical | role not established |
+| `0x481978` `HNM6_DecodeIntraBlock2x4` | `0x10032c08` | instruction-identical | descriptive: intra 2×4 sub-block decoder, called from `0x4816b4` |
 
 Only the two `Init_All` names are CryoLib's own. The others describe what the
 code does and are marked that way in each plate comment. The export
 `_GL_HNM6_Decompression_Warp@8` ends in a one-byte stub in this build.
 
 **What the game changed.** Ten more routines are the same source with
-different constants. These have comments but no new names:
+different constants. Their names are descriptive, like those above:
 - The frame loops and block copies step `0x500` bytes per row with a
   `0x130` (304) row limit, where CryoLib uses `0x400` and `0x198`. That is the
-  640×304 16-bit cutscene frame (`0x4802c4`, `0x4813d4`, `0x480fd4`,
-  `0x481138`, `0x4812b8`, `0x481448`, `0x480d70`).
-- The block-to-RGB routine `0x47f814` has its row step changed and its copy
-  loop rewritten without FPU moves.
+  640×304 16-bit cutscene frame. The routines are the two frame block loops,
+  `HNM6_DecodeInterFrame` (`0x4802c4`) and `HNM6_DecodeIntraFrame`
+  (`0x4813d4`); the inter block decoders `HNM6_DecodeInterBlock4x4`
+  (`0x480d70`), `HNM6_DecodeInterBlock4x2` (`0x480fd4`),
+  `HNM6_DecodeInterBlock2x4` (`0x481138`) and the 2×2 leaf
+  `HNM6_DecodeInterBlock2x2` (`0x4812b8`); and the intra 8×8 block decoder
+  `HNM6_DecodeIntraBlock8x8` (`0x481448`).
+- The 8×8 YUV-to-RGB16 store `HNM6_StoreBlockRGB16` (`0x47f814`) has its row
+  step changed and its copy loop rewritten without FPU moves.
 - CryoLib keeps two identical copies of each top-level loop; the game has one
   of each.
-- The **HNM5 (UBB) decoder** is CryoLib's too. `0x44e9b0` and `0x1002276c`,
+- The **HNM5 (UBB) decoder** is CryoLib's too. The game's `IV` chunk decoder
+  `HNM5_DecodeFrame640` (`0x44e9b0`) and `0x1002276c`,
   the 640-wide branch of `GL_dcpt_one_frame_ubb`, both have 7,428
   instructions. 906 differ, in operand order and in reading their arguments
   from globals instead of the stack.

@@ -1,5 +1,7 @@
 # Animation interpolation and loop boundaries
 
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
 The original engine interpolates animation keys. The first shared viewer
 runtime used SLERP everywhere and did not export the quaternion spline
 controls. Its inspector also looped through frame zero. These were viewer
@@ -24,7 +26,7 @@ the original gameplay action's looping/one-shot behavior.
 
 ## Quaternion splines [verified structure, floating-point implementation]
 
-`WINDREAM.EXE:0045a03c` evaluates 60-byte rotation keys. The instruction
+`ANIM_EvalTrackSpline` (`WINDREAM.EXE:0045a03c`) evaluates 60-byte rotation keys. The instruction
 sequence at `0045a16a`–`0045a1e0` establishes this structure:
 
 ```text
@@ -42,7 +44,7 @@ hemisphere flip used by the viewer's ordinary shortest-path SLERP; the spline
 path therefore preserves authored quaternion signs. Crossfades still use
 shortest-path interpolation.
 
-The easing function at `00459ec0` is piecewise quadratic/linear. With
+The easing function at `ANIM_ApplyEase` (`00459ec0`) is piecewise quadratic/linear. With
 `start = right.field_18`, `end = left.field_14`, normalize both by their sum
 if it exceeds one, then set `k = 1/(2-start-end)`:
 

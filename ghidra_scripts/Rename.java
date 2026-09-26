@@ -3,13 +3,15 @@
  * Usage (headless, without -readOnly so the change is saved):
  *   analyzeHeadless <proj> <name> -process WINDREAM.EXE -noanalysis \
  *       -scriptPath <repo>\ghidra_scripts -postScript Rename.java \
- *       0043a306:MGM_SendMessage 0042493b:Input_PostEvents
+ *       0043a306:MGM_SendMessage 0042493b:INPUT_PostEvents
  *   ... -postScript Rename.java @out\ghidra\match\renames-WINDREAM.EXE.tsv
  *
  * Each argument is <entry address in hex>:<new name>. Not "=": the .bat
  * launcher splits arguments on it. An argument @<file> reads tab-separated
  * lines <address> <name> [<comment>]; the comment is added to the function's
- * plate comment (tools/match_functions.py writes these). A missing function
+ * plate comment (tools/match_functions.py writes these). A comment starting
+ * with [NAME] (tools/check_names.py) replaces the previous [NAME] paragraph
+ * instead of adding another. A missing function
  * is created at the address; if that fails it is reported and skipped.
  * Run tools\re-checkpoint.ps1 afterwards to persist the names to re/symbols/.
  *
@@ -40,7 +42,20 @@ public class Rename extends GhidraScript {
         if (!old.equals(name)) {
             fn.setName(name, SourceType.USER_DEFINED);
         }
-        if (comment != null && !comment.isEmpty()) {
+        if (comment != null && comment.startsWith("[NAME]")) {
+            // tools/check_names.py owns the [NAME] paragraph: replace it.
+            String existing = fn.getComment();
+            StringBuilder kept = new StringBuilder();
+            if (existing != null) {
+                for (String para : existing.split("\n\n")) {
+                    if (!para.startsWith("[NAME]") && !para.isBlank()) {
+                        kept.append(kept.length() > 0 ? "\n\n" : "").append(para);
+                    }
+                }
+            }
+            fn.setComment(comment + (kept.length() > 0 ? "\n\n" + kept : ""));
+        }
+        else if (comment != null && !comment.isEmpty()) {
             String existing = fn.getComment();
             if (existing == null || existing.isEmpty()) {
                 fn.setComment(comment);

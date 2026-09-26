@@ -17,6 +17,9 @@
  *   strings referenced string literals
  *   calls  direct callee entries in call-site order
  *   icalls indirect call count
+ *   imports names of imported functions called (direct or through the IAT)
+ *   bigconsts scalar operands >= 0x10000 that are not addresses in the image
+ *   refs   data addresses read or written (not strings), for evidence checks
  *
  * @category Dreams
  */
@@ -120,6 +123,10 @@ public class ExportFunctionFeatures extends GhidraScript {
             JsonArray consts = new JsonArray();
             JsonArray strings = new JsonArray();
             JsonArray calls = new JsonArray();
+            JsonArray imports = new JsonArray();
+            JsonArray bigconsts = new JsonArray();
+            JsonArray refs = new JsonArray();
+            List<String> seenRefs = new ArrayList<>();
             List<String> seenStrings = new ArrayList<>();
             int icalls = 0;
             int ins = 0;
@@ -137,6 +144,9 @@ public class ExportFunctionFeatures extends GhidraScript {
                             if (v < ADDRESS_FLOOR) {
                                 consts.add(v);
                             }
+                            else if (!currentProgram.getMemory().contains(toAddr(v))) {
+                                bigconsts.add(v);
+                            }
                         }
                     }
                 }
@@ -147,7 +157,25 @@ public class ExportFunctionFeatures extends GhidraScript {
                         Function callee = getFunctionAt(r.getToAddress());
                         if (callee != null) {
                             calls.add(callee.getEntryPoint().toString());
+                            if (callee.isExternal()) {
+                                imports.add(callee.getName());
+                            }
                             direct = true;
+                        }
+                        else if (r.getToAddress().isExternalAddress()) {
+                            imports.add(getSymbolAt(r.getToAddress()).getName());
+                        }
+                    }
+                    else if (isCall && r.getReferenceType().isData()) {
+                        // CALL dword ptr [IAT]: the operand reads the import slot.
+                        ghidra.program.model.symbol.Symbol s = getSymbolAt(r.getToAddress());
+                        Data d = getDataAt(r.getToAddress());
+                        if (d != null && d.isPointer() && d.getValue() instanceof Address
+                                && ((Address) d.getValue()).isExternalAddress()) {
+                            imports.add(getSymbolAt((Address) d.getValue()).getName());
+                        }
+                        else if (s != null && s.isExternal()) {
+                            imports.add(s.getName());
                         }
                     }
                     else if (r.getReferenceType().isData() || r.getReferenceType().isRead()) {
@@ -155,6 +183,13 @@ public class ExportFunctionFeatures extends GhidraScript {
                         if (s != null && !seenStrings.contains(s)) {
                             seenStrings.add(s);
                             strings.add(s);
+                        }
+                        else if (s == null && r.getToAddress().isMemoryAddress()) {
+                            String a = r.getToAddress().toString();
+                            if (!seenRefs.contains(a)) {
+                                seenRefs.add(a);
+                                refs.add(a);
+                            }
                         }
                     }
                 }
@@ -169,6 +204,9 @@ public class ExportFunctionFeatures extends GhidraScript {
             o.add("strings", strings);
             o.add("calls", calls);
             o.addProperty("icalls", icalls);
+            o.add("imports", imports);
+            o.add("bigconsts", bigconsts);
+            o.add("refs", refs);
             out.add(o);
             count++;
         }

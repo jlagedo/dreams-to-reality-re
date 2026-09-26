@@ -1,6 +1,8 @@
 # The `.DSN` loader in `WINDREAM.EXE`
 
-Decompilation of `FUN_004175bc` and the stream helpers it uses. **[verified]** —
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
+Decompilation of `DSN_LoadHeader` (`0x4175bc`) and the stream helpers it uses. **[verified]** —
 all addresses are from `WINDREAM.EXE`, image base `0x400000`.
 
 ## Headline
@@ -15,11 +17,11 @@ _DAT_005df494 = *(undefined4 *)(iVar3 + 5);
 
 Two independent methods agreeing is as strong as this gets without source.
 
-## But `FUN_004175bc` is the header reader, not the unpacker
+## But `DSN_LoadHeader` (`0x4175bc`) is the header reader, not the unpacker
 
-It validates the tag, extracts three header fields into globals, memcpy's two
-blocks, sets a "loaded" flag and returns. There is no decompression loop in it.
-The packed body is consumed elsewhere — see [Next](#next).
+It opens the file (`STRM_Open` (`0x4152f2`)), validates the tag, extracts three
+header fields into globals, memcpy's two blocks, sets a "loaded" flag and returns. There is no decompression loop in it.
+The packed body is consumed elsewhere — see [The body unpackers](#the-body-unpackers-and-call-hierarchy-verified).
 
 ## The stream abstraction
 
@@ -34,14 +36,14 @@ they are stock C runtime, not Cryo stream code:
 | Function | Role | Source |
 |---|---|---|
 | `FUN_00454feb` | **`__CHK`** — Watcom stack-overflow probe | library match |
-| `FUN_004154db` | **peek(stream, n)** — ensure n bytes buffered | Cryo code |
-| `FUN_004155a2` | **commit(stream)** — advance past the last peek | Cryo code |
+| `STRM_Peek` (`0x4154db`) | **peek(stream, n)** — ensure n bytes buffered | Cryo code |
+| `STRM_Commit` (`0x4155a2`) | **commit(stream)** — advance past the last peek | Cryo code |
 | `FUN_0045c278` | **`memcpy_`** | library match |
 | `FUN_0045fd67` | **`strncmp_`** | library match |
 | `FUN_0045fd4e` | **`strlen_`** | library match |
 | `FUN_00460d12` | **`memmove_`** | library match |
 | `FUN_00460d5f` | **`printf_`** | library match |
-| `FUN_00460d82` | still unidentified | Cryo code |
+| `exit_` (`0x460d82`) | **`exit_`** — `STRM_Peek` calls it when even the slack area is too small | runtime, identified by behaviour |
 
 `FUN_00454feb` is the important correction. It is Watcom's stack probe, called
 at entry with the frame size in EAX — **not** a "get stream context" accessor.
@@ -52,7 +54,7 @@ offsets came from a decompilation made under the wrong calling convention.
 
 ### Stream context layout
 
-Recovered from the field offsets in `FUN_004154db` and `FUN_004155a2`:
+Recovered from the field offsets in `STRM_Peek` (`0x4154db`) and `STRM_Commit` (`0x4155a2`):
 
 ```c
 struct CryoStream {        // 0x2c+ bytes
@@ -73,17 +75,25 @@ That matters: a 1.8 MB scene is never fully resident.
 
 **[unverified]** — field names are inferred from use, not from symbols.
 
-## `FUN_004175bc` reconstructed
+The stream is built once, by `STRM_Create` (`0x415201`): `GAME_Init` (`0x4156bf`)
+calls it as `0x5df47c = STRM_Create(0x57800, 0x57800, 0x8000)`. The 0x2c-byte
+descriptor it allocates matches the struct `STRM_Open` uses (`+0x14` size,
+`+0x10` set equal to `+0x14`, cursors `+0x4`/`+0x8`/`+0xc` zeroed, `+0x20`
+alignment, `+0x24` open flag). `STRM_Open` closes the previous file, opens the
+new one with `_uopen_`, resets the positions and allocates twice the buffer size
+from the MEM stack at `0x5df484`.
+
+## `DSN_LoadHeader` (`0x4175bc`) reconstructed
 
 **Re-decompiled under `__watcall`.** The peek lengths were invisible before —
 they travel in EDX — and they are what pins the body offset:
 
 ```c
-int load_dsn_header(void)
+int DSN_LoadHeader(void)
 {
     __CHK(frame);                           // FUN_00454feb — stack probe
     /* ... open + path/string build ... */
-    if (!open(g_file, path)) return 0;      // FUN_004152f2
+    if (!open(g_file, path)) return 0;      // STRM_Open
 
     hdr = peek(g_file, 9);                  // magic + u8 + u32 size
     if (!hdr) return 0;
@@ -161,7 +171,7 @@ undefined4 * __fastcall FUN_0045c278(undefined4 param_1, undefined4 *param_2) {
 ```
 
 So `memcpy(EAX=dst, EDX=src, EBX=len)`. Likewise `peek()` takes its length in
-`EDX` — which is why `FUN_004154db()` appears to take no arguments while
+`EDX` — which is why `STRM_Peek` appears to take no arguments while
 comparing against `extraout_EDX` internally.
 
 ### Fixed — `tools/watcall-cspec.patch`
@@ -201,21 +211,21 @@ correct cspec and named runtime functions, only Cryo's own code stays anonymous.
 
 The body unpacking and asset consumption pipeline has been fully decompiled and identified:
 
-1. **`FUN_004177f5` (`DSN_LoadTag1_MaterialsAndFaces`)**:
-   Verifies tag `\x01`, reads the packed length $L$, seeks past chunk padding, calls `FUN_0049afd1()` to unpack the LZ stream into the arena directory, materials table, scene-graph nodes, and face records.
-2. **`FUN_004178fe` (`DSN_LoadTag2_VertexPool`)**:
-   Verifies tag `\x02`, reads length $L$, and unpacks the LZ stream via `FUN_0049afd1()` into the shared vertex pool at `+0x30`.
-3. **`FUN_00417afd` (`DSN_LoadTag3And4_Textures`)**:
-   Called progressively (32 iterations):
+1. **`DSN_LoadMaterialsAndFaces` (`0x4177f5`)**:
+   Verifies tag `\x01`, reads the packed length $L$, seeks past chunk padding, calls `LZ_Unpack` (`0x49afd1`), Cryo's LZ77 decompressor (hand-written asm, stack arguments), to unpack the LZ stream into the arena directory, materials table, scene-graph nodes, and face records.
+2. **`DSN_LoadVertexPool` (`0x4178fe`)**:
+   Verifies tag `\x02`, reads length $L$, and unpacks the LZ stream via `LZ_Unpack` into the shared vertex pool at `+0x30`.
+3. **`DSN_LoadTextures` (`0x417afd`)**:
+   Called progressively (32 iterations) by `SCENE_LoadLevel` (`0x41f9db`) and the per-frame `GAME_Tick` (`0x4240ba`), so the load is spread over frames:
    - On iteration 0: verifies tag `\x03` (palette), reading $B \times 1024$ bytes into per-object texture palettes at `offset + 0x3C00`.
-   - On iterations $0 \dots 31$: reads pairs of tag `\x04` records (64 progressive planes total), feeding them to `FUN_00417d78` to interleave into the $256 \times 256$ RGB surfaces.
-4. **`FUN_0041c666` (`Scene_LoadGeometryAndMaterials`)**:
-   The master chunk dispatcher. Inspects extensions and calls `FUN_004177f5` (`.3DC`), `FUN_004178fe` (`.3DI`), `FUN_00417a07` (`.3DM`), and `FUN_004105eb` (`.3DA`).
-5. **`FUN_0041da7d` (`Scene_LoadEntityAssets`)**:
-   Caller of `FUN_004175bc` (`load_dsn_header`). Dispatches model geometry loading, then invokes `FUN_00404d98` / `FUN_00405118` / `FUN_004058d5` for entity initialization if flag bit 1 is set.
-6. **`FUN_0041deb8` (`Entity_InstantiateFromObjet`)**:
+   - On iterations $0 \dots 31$: reads pairs of tag `\x04` records (64 progressive planes total), feeding them to `DSN_BlitTileToPage` (`0x417d78`) to interleave into the $256 \times 256$ RGB surfaces.
+4. **`RES_ReadFile` (`0x41c666`)**:
+   The file reader behind `RES_Load` (`0x456e24`). Routes by extension: `DSN_LoadMaterialsAndFaces` (`0x4177f5`) (`.3DC`), `DSN_LoadVertexPool` (`0x4178fe`) (`.3DI`), `DSN_Create3DM` (`0x417a07`) (`.3DM`) and `DAN_Load3DA` (`0x4105eb`) (`.3DA`); anything else is read as a raw body. In DSN mode `DSN_Create3DM` builds the `.3DM` texture in memory rather than reading a file: it copies the 20-byte header template from the DSN table, zeroes a 0x8000 palette block and a 0x10000 page, and `DSN_LoadTextures` fills it later.
+5. **`ENT_LoadModel` (`0x41da7d`)**:
+   Loads one actor's model (DSN, DAN, `.3DC`, `.3DI`, anim set) for `ENT_InstantiateFromObjet`; it is not a scene-wide loader. Caller of `DSN_LoadHeader` (`0x4175bc`). Dispatches model geometry loading, then invokes `ANIM_LoadEntitySet` (`0x404d98`) / `ANIM_RequestState` (`0x405118`) / `ANIM_ApplyPendingState` (`0x4058d5`) for entity initialization if flag bit 1 is set.
+6. **`ENT_InstantiateFromObjet` (`0x41deb8`)**:
    Converts an `OBJET` record from `DREAMS.DAT` into a live in-game entity struct.
-7. **`FUN_0041f9db` (`Scene_SpawnProjectEntities`)**:
-   The level scene spawner. Sets ambient lights, directional lights, fog, clear color, and loops through `OBJET1` .. `OBJET15` to spawn active entities.
-8. **`FUN_00416606` (`Debug_DrawObjectInfo`)**:
+7. **`SCENE_LoadLevel` (`0x41f9db`)**:
+   The level loader, run when the pending-load flag is set: `CD_PrepareLevel` (`0x427d64`) and the loading screen, DSN textures via `DSN_LoadTextures`, ambient and directional lights, fog, clear color, then a loop through `OBJET1` .. `OBJET15` to spawn active entities. Spawning is one part of the level load.
+8. **`DBG_DrawObjectInfo` (`0x416606`)**:
    The developer debug HUD overlay that renders entity fields with exact internal labels (`Object Pos`, `Object Speed`, `Object PHY Speed`, `Object Flags`, `Object Angle`, `Object 3D Col`, `Object Anim 0`, `Object Anim 1`, `Nombre d'objet`).

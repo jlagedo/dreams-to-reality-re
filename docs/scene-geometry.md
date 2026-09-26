@@ -1,5 +1,7 @@
 # Scene geometry — `.DSN` from container to glTF
 
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
 How a level goes from 1.8 MB of packed bytes to a mesh in Blender. Everything
 here is **[verified]** on this machine unless marked otherwise.
 
@@ -126,9 +128,9 @@ zero hits — so the information to undo that merge is not in the file.
 ### Why it is not in the file
 
 **[verified]** in `WINDREAM.EXE`: the engine never converts a reference to an
-index. It does **pointer relocation**. `FUN_00456e24` decodes a record into an
-arena and hands it to `FUN_00456368`, which walks the structure through
-`FUN_00455eb4` / `FUN_00455e48` / `FUN_00455d6c` down to `FUN_00455700`. That
+index. It does **pointer relocation**. `RES_Load` (`0x456e24`) decodes a record into an
+arena and hands it to `RES_Relocate` (`0x456368`), which walks the structure through
+`RES_RelocOffsetTable` (`0x455eb4`) / `MDL_RelocNodeTree` (`0x455e48`) / `MDL_RelocNode` (`0x455d6c`) down to `MDL_RelocPrimitives` (`0x455700`). That
 function strides the 68-byte records with an explicit `+= 0x44` and adds one
 relocation delta to every pointer field:
 
@@ -150,8 +152,8 @@ values (`32768` = 1.0) — per-vertex attributes, not positions. Positions live
 only in tag 2, and the two are parallel arrays that happen to coincide in order
 when a scene has a single arena. That is exactly the set of scenes that verify.
 
-`FUN_00473014` installs the render callback and walks the object list, so the
-face records **are** rendered; tag 2's triangle array with its normals, edge
+`SW_DrawObjectFaces` (`0x473014`), the default per-object face hook that
+`REND_DrawObject` (`0x47e498`) calls, submits the face records, so they **are** rendered; tag 2's triangle array with its normals, edge
 half-spaces and bounding boxes is the separate collision or spatial structure.
 
 ## Coverage — 5 of 95, and why

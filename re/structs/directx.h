@@ -39,7 +39,7 @@ typedef struct DDPIXELFORMAT {
     DWORD dwFlags;              /* DDPF_RGB 0x40 */
     DWORD dwFourCC;
     DWORD dwRGBBitCount;
-    DWORD dwRBitMask;           /* 0xf800 (565) or 0x7c00 (555) in DDraw_CreateSurfaces */
+    DWORD dwRBitMask;           /* 0xf800 (565) or 0x7c00 (555) in DDRAW_SetMode */
     DWORD dwGBitMask;
     DWORD dwBBitMask;
     DWORD dwRGBAlphaBitMask;

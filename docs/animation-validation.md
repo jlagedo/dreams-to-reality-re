@@ -1,5 +1,7 @@
 # Animation hypotheses and validation
 
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
 Run from the repository root:
 
 ```powershell
@@ -38,7 +40,7 @@ backward, and sideways bends so a broken scorer cannot simply accept all poses.
 Tag 1 has a node count at `+0x14` and a table at `+0x18`, with offsets to
 serialized node headers. Each node's original name is in the 12-byte field
 at header `+0x14` (runtime node `+0x00`). Its hierarchy starts at header
-`+0x24`. The animation evaluator at `WINDREAM.EXE:00459d60` walks the model
+`+0x24`. The animation evaluator `ANIM_ApplyModelLinear` (`WINDREAM.EXE:00459d60`) walks the model
 and clip slot tables together. Physical record order is not slot order.
 
 Examples from Duncan:
@@ -110,7 +112,7 @@ would conceal malformed data, so this check precedes plausibility testing.
   remain separate from the raw clip rate.
 - Track `+0x1c` is translation-key count. `+0x24` points to translations,
   which follow rotations. Both pointers are relative to payload `+0x14`.
-  Engine evaluators `00459808` and `0045a03c` use rotation/translation strides
+  Engine evaluators `ANIM_EvalTrackLinear` (`00459808`) and `ANIM_EvalTrackSpline` (`0045a03c`) use rotation/translation strides
   20/16 and 60/48 respectively. All 49 Duncan clips pass the harness's
   translation bounds and timestamps checks. Several other models have keys
   outside the declared duration; the strict harness reports those cases.

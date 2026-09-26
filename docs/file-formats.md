@@ -1,5 +1,7 @@
 # Asset file formats
 
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
 All magic numbers below were read directly off the discs. **[verified]**
 
 Cryo used a consistent four-character tag convention, which is strong evidence of
@@ -85,7 +87,7 @@ was a misreading.
 Worked example, `E01GROTT.DSN`: `B` = 26, `A` = 813, body at `0x336`.
 
 **[verified]** The offset comes from the loader, not from arithmetic.
-`FUN_004175bc` in `WINDREAM.EXE` peeks 9, then 5, then 2 bytes of header, then
+`DSN_LoadHeader` (`0x4175bc`) in `WINDREAM.EXE` peeks 9, then 5, then 2 bytes of header, then
 `B * 0xb` for the name table and `B * 0x14` for the records — **back to back,
 with no gap**. An earlier pass read the body as starting at `24 + 31B` and
 invented an 8-byte "scene-wide block" to account for the difference; there is no
@@ -145,7 +147,7 @@ u32  size          <- includes this 5-byte header
 ```
 
 Walking it reaches EOF **exactly** in 95/95 distinct scenes, zero slack. The
-grammar came from `FUN_00417afd` in `WINDREAM.EXE`, which checks the tag, takes
+grammar came from `DSN_LoadTextures` (`0x417afd`) in `WINDREAM.EXE`, which checks the tag, takes
 the `u32`, then hands each object `0x400` bytes of the payload. See
 [dsn-loader.md](dsn-loader.md).
 
@@ -258,7 +260,7 @@ Each Tag 3 chunk corresponds to a declared `.3DA` name in Directory 2 in sequent
 - **Header**: track count $N$ at `+0x14`, offsets for tracks $0 \dots N-1$ at `+0x18 + 4*i`. Tracks bind through the Tag 1 node directory, not geometry scan order. The first offset is a real track. `XH_` has 27 named nodes; `CH0` has 18, including zero-vertex `bassin01`. There is no established FPS field after the table: previously reported FPS values were root rotation-key counts.
 - **Track records**: 40-byte header: duration at `+0x14`, rotation count $K$ at `+0x18`, translation count at `+0x1C`, and rotation/translation pointers at `+0x20`/`+0x24`. Add `0x14` to these pointers to obtain payload offsets. The first rotation key begins at `+0x28`; there is no separate rest quaternion there.
 - **Keyframe layout**: each keyframe $k \in [0, K-1]$ is at `trk_off + 40 + k * stride` where `stride = (end_offset - start_offset) // K` (20 or 60 bytes). Word 0 is frame timestamp; words 1..4 are unit quaternion `[qx, qy, qz, qw]` in Q15 ($32768 = 1.0$). For stride 60, words 5..6 are curve fields, words 7..10 and 11..14 are candidate tangent quaternions. Verified across 15,084 tracks and 142,806 keyframes in 780 clips from 159 distinct models with 0 invalid strides or nonmonotonic timestamps.
-- **Engine evaluation**: evaluated at runtime via Slerp (`FUN_0045bf68`) or Hermite spline, converted to local $3 \times 3$ rotation matrix (`FUN_0045bc28`), and composed down the skeletal hierarchy (`FUN_0047e498` via `FUN_0045b86c`). All 780 clips across 159 models extracted to `E:\dreams-work\animations/`.
+- **Engine evaluation**: evaluated at runtime via Slerp (`MATH_QuatSlerp` (`0x45bf68`)) or Hermite spline, converted to local $3 \times 3$ rotation matrix (`MATH_QuatToMatrix` (`0x45bc28`)), and composed down the skeletal hierarchy (`REND_DrawObject` (`0x47e498`) via `MATH_MulMat3` (`0x45b86c`)). All 780 clips across 159 models extracted to `E:\dreams-work\animations/`.
 
 **[verified]** The payload is packed: entropy 7.338–7.819, only 0.65–3.42% zero
 bytes. `AR0.DAN` body begins `01 0A 2C 00 00 30 1C 63 B4 00 FD FF 01 BE FF FF`;
@@ -267,8 +269,10 @@ prefix past the first two bytes.
 
 **[verified] No `.DAN` references a `.3DC` by name.** Across all 191 files there
 are zero `F3DC` tags and zero `.3DC` filename strings, and no `.DAN` object label
-matches a `.3DC` object label. The `DAN_Load3DC` symbol is real, so the
-association must be made at runtime rather than stored in the asset.
+matches a `.3DC` object label. The `DAN_Load3DC` name is real — it appears in the
+error text of both `DAN_OpenArchive` (`0x40fff7`) and `DAN_Read3DC` (`0x41020f`),
+neither proven to be the function of that name — so the association must be made
+at runtime rather than stored in the asset.
 
 Content reuse is heavy: nine byte-identical `CAISSE` animations, eight identical
 `MCHAPO`, four identical `MCLEF`, plus aliases like `TABLEAU1`/`TABLO1` and
@@ -313,8 +317,10 @@ the target blocks do **not** decode as plain float32 or as simple u16/u32 indice
 Object labels are readable and French: `archer`, `fleche`, `sword`, `feu`, `pan`,
 `cube`, `tri`.
 
-Loaded by `DAN_Load3DC` (see [engine.md](engine.md)), which sits in the animation
-module — animation data references geometry.
+Loaded by the `DAN` (animation) module — animation data references geometry. Its
+error strings name `DAN_Load3DC` (see [engine.md](engine.md)); that text appears in
+both `DAN_OpenArchive` (`0x40fff7`) and `DAN_Read3DC` (`0x41020f`), and neither is
+proven to be the function of that name.
 
 ### `.3DM` — fixed three-block container
 
@@ -521,10 +527,13 @@ len-4  u32 0x100      glyph count
 
 Each descriptor is `u32[7]`: palette pointer `+0x00` (0 in file), width
 `+0x04`, height `+0x08`, three additional fields at `+0x0c/+0x10/+0x14`,
-and absolute bitmap offset `+0x18`. The runtime text loader indexes all 256
-records. `FUN_00425C61` computes per-character horizontal advance as
+and absolute bitmap offset `+0x18`. `TEXT_LoadFont` (`0x425c61`) loads each font
+through the general sprite-set loader `SPR_LoadSet` (`0x425254`), which indexes all 256
+records. `TEXT_LoadFont` computes per-character horizontal advance as
 `width - s32(field_0c)`; it assigns the space advance from the `'0'` record.
-`FUN_00403BCD` blits each nonzero glyph index through the palette.
+`TEXT_BlitGlyphFaded` (`0x403bcd`) blits each nonzero glyph index through the palette
+and blends the whole glyph with one alpha through `SPR_BlendPixel` (`0x401524`); it is
+reached from `TEXT_PrintFaded` (`0x425f07`) via `0x425e74`.
 
 The names identify display modes, not dimensions: `HI320`/`HI480`/`HI640`
 are the 320-, 480-, and 640-wide modes. One `HI320` descriptor, codepoint
@@ -540,8 +549,10 @@ character remains open.
 #### Menu `TABLE` bundles — `.ALP` and menu `.SPR` — **fully decoded**
 
 The `ICONES.BF` members (`MAGIE`/`ANIM`/`PYRAM`/`TOUCHES`/`INTERF`, plus
-disc 2's `TITRES.SPR`) and `DATA\OBJET\SOUR.ALP`. Loader `FUN_00426c46` in
-`WINDREAM.EXE`. **[verified]** across all members on both discs; every member's
+disc 2's `TITRES.SPR`) and `DATA\OBJET\SOUR.ALP`. Loaders in `WINDREAM.EXE`:
+`SPR_LoadIconBanks` (`0x426c46`) for the five `ICONES.BF` banks, and the general
+sprite-set loader `SPR_LoadSet` (`0x425254`) for `SOUR.ALP` (and the fonts).
+**[verified]** across all members on both discs; every member's
 pixel data ends exactly at its `TABLE` marker.
 
 ```
@@ -564,20 +575,20 @@ Pixel layout is **per file**, recovered from the offset stride: one byte per
 pixel is a palette index (`TOUCHES.SPR`, `TITRES.SPR`); two bytes per pixel
 are a **palette index followed by an opacity/blend value** (the `.ALP` banks
 and `SOUR.ALP`). These are not packed RGB555 pixels. The retail evidence is
-the loader `FUN_00426c46` plus its renderer `FUN_00401935`: the loader binds
+the loader `SPR_LoadIconBanks` (`0x426c46`) plus its renderer `SPR_BlitSprite` (`0x401935`): the loader binds
 the RGB555 palette to each descriptor and copies the two-byte texel stream
 unchanged; the two-byte draw path uses the first byte to select a palette word
 and the second as its blend amount. A zero index is skipped in both paths; in
 the two-byte path coverage 0 is skipped and values >=63 are written opaque.
 The engine always reads `w*h*2` bytes, which over-reads the one-byte files.
 
-For coverage 1–62, `FUN_00401524` uses `weight = coverage >> 1` and blends
+For coverage 1–62, `SPR_BlendPixel` (`0x401524`) uses `weight = coverage >> 1` and blends
 each packed channel as `((31-weight)*destination + weight*source) >> 5`.
-`FUN_00424F7E` initializes the multiply lookup table used by `FUN_004014D0`,
+`SPR_InitMulTables` (`0x424f7e`) fills two multiply lookup tables, 32×32 and 64×64; the 32×32 one is used by `SPR_BlendChannel` (`0x4014d0`),
 confirming the weight formula. The helper has separate RGB555 and RGB565
 channel-packing paths.
 
-The apparent zero-divisor concern was a branch mix-up. `FUN_004274B0` sets
+The apparent zero-divisor concern was a branch mix-up. `SPR_Draw` (`0x4274b0`) sets
 source flag `0x10`, which selects the raw two-byte coverage path at `0x401DAD`.
 The divide at `0x401EBF` is under a different flag (`DAT_0049D12A=1`) and is
 not selected by that menu wrapper.
@@ -593,7 +604,7 @@ bank's pixel stream.
 
 `PYRAM.ALP` has layer-reference markers in slots 0 and 5: coverage bytes
 `0xff` and `0xfe` substitute pixels from linked descriptors; `0xfd` selects
-another layer or a state-dependent fill. `FUN_0040368B` resolves them during
+another layer or a state-dependent fill. `UI_DrawPyramidGauge` (`0x40368b`) resolves them during
 the animated pyramid UI. Standalone extractor sheets use false colors for
 these commands because the final composite depends on live UI state.
 
@@ -609,7 +620,7 @@ bank filenames live at `0x49dacc` (stride 13). The mapping is reproduced in
 | `PYRAM.ALP` | 64×84 ×9 + strips, 2-byte indexed + blend | the pyramid spell-selector UI — `pyrambo/vi/ma/ox` variants, `pyrcurs` cursor, `exprbor`/`exprlev` 64×4 strips, `replay`/`record` |
 | `TOUCHES.SPR` | 24×24 ×11, 8bpp | key/joypad caps — `joy_up/dn/lf/rt/k1/k2/k3/sel/swi/bt0/bt1` (the F10 controls screen) |
 | `INTERF.ALP` | 64×64 ×8 + panels, 2-byte indexed + blend | menu corner markers `DnRg/DnLf/UpLf/UpRg` + `…NA` inactive variants, `RubLf/RubRg` ribbons, `Desc1–4` panels |
-| `TITRES.SPR` (disc 2) | ~128×42 ×12, 8bpp | the four title images in three render states (gold, red-highlight, third variant); **not in the engine's 5-file load list and not used for boot-menu labels** (drawn by font routine `Text_Print`, `0x426073`); no other runtime use found |
+| `TITRES.SPR` (disc 2) | ~128×42 ×12, 8bpp | the four title images in three render states (gold, red-highlight, third variant); **not in the engine's 5-file load list and not used for boot-menu labels** (drawn by font routine `TEXT_Print`, `0x426073`); no other runtime use found |
 | `SOUR.ALP` (`DATA\OBJET`) | 16×24 ×2, 2-byte indexed + blend | the mouse cursor, two frames |
 
 Rendered contact sheets confirmed the decode visually: TITRES shows the four
@@ -698,7 +709,10 @@ DATA\3DC\MHE.dan
 
 Note the inconsistent case (`.dan` vs `.DAN`) — another sign of an uncleaned
 build. `LISTL0.TXT` has 6 entries; `LISTL1.TXT` has ~200. Entries repeat, so the
-list is probably load-order rather than a set.
+list is probably load-order rather than a set. With hard-disk caching,
+`CD_PrepareLevel` (`0x427d64`) copies the files listed in `ListL<n>.txt` /
+`ListL0.txt` to `X:\CRYO\DREAMS\` behind "Please wait while loading ..."
+(`CD_CopyFileList` (`0x428356`)).
 
 ### `DREAMS.DAT` — the project bank
 
@@ -733,7 +747,7 @@ Joining these 150 records to `DREAMS.INI` gives the complete level map — see
 
 Each of the 150 records is **zero-run compressed**: a nonzero byte is literal,
 and `00 N` expands to `N` zero bytes. That is the engine's own loop,
-`FUN_00448e25` in `WINDREAM.EXE`, applied per record by `FUN_00449bf9`. Every
+`RLE_UnpackZeros` (`0x448e25`) in `WINDREAM.EXE`, applied per record by `DDAT_LoadRecord` (`0x449bf9`). Every
 record decompresses to exactly **`0x2200` bytes** - 150 of 150, which is the
 validation: a wrong codec does not land on a constant.
 
@@ -751,7 +765,7 @@ over the corpus: `LINK` 244 (239 naming a project), `OBJET` 711, `BOX` 420,
 [`dreams.formats.project`](../src/dreams/formats/project.py).
 
 ##### Project Header fields (0x200 bytes) **[verified]**
-Decompiled from `FUN_0041f9db` and `FUN_0041deb8` in `WINDREAM.EXE`:
+Decompiled from `SCENE_LoadLevel` (`0x41f9db`) and `ENT_InstantiateFromObjet` (`0x41deb8`) in `WINDREAM.EXE`:
 - `+0x000` `char[16]`: project identifier (e.g. `Project0\0`).
 - `+0x018` `i32[3]`: Directional light 1 orientation vector `(x, y, z)`.
 - `+0x024` `i32[3]`: Directional light 2 orientation vector `(x, y, z)`.
@@ -771,7 +785,7 @@ Decompiled from `FUN_0041f9db` and `FUN_0041deb8` in `WINDREAM.EXE`:
 - `+0x1F8` `i32`: Redbook CD audio track number (matches audio tracks 2..14).
 
 ##### `OBJET` fields (0xC0 bytes) **[verified]**
-Decompiled from `FUN_0041deb8` (entity instantiation) and `FUN_00416606` (the engine's developer debug HUD):
+Decompiled from `ENT_InstantiateFromObjet` (`0x41deb8`) (entity instantiation) and `DBG_DrawObjectInfo` (`0x416606`) (the engine's developer debug HUD):
 - `+0x00` `char[12]`: slot name (`OBJET0` .. `OBJET15`).
 - `+0x0C` `char[16]`: asset filename (`.DSN` scene for slot 0; `.DAN` character or `.3DC` prop for slots 1..15).
 - `+0x1C` `char[16]`: secondary instance identifier or label.
@@ -779,7 +793,7 @@ Decompiled from `FUN_0041deb8` (entity instantiation) and `FUN_00416606` (the en
   - bit 0 (`0x01`): active / spawn immediately on level entry.
   - bit 1 (`0x02`): dynamic character / creature entity (`XH_.DAN`, `F07BLEU.DAN`, `CH0.DAN`).
   - bit 8 (`0x0100`): dormant / disabled entity (kept inactive until triggered by adventure script).
-  - bit 14 (`0x4000`): triggers special AI initialization routine (`FUN_0043b8aa`).
+  - bit 14 (`0x4000`): `ENT_InstantiateFromObjet` calls `FUN_0043b8aa`, a 44-byte setter that stores the actor pointer in global `0x626fa4`; that global has no other known use yet.
 - `+0x3C` `i32`: bounding / collision radius (scaled by the engine if $> 256$ or $> 512$).
 - `+0x40` `i32[3]`: spawn position `(x, y, z)` in scene units (negative Y is up).
 - `+0x5C` `i32`: facing orientation / heading — a **12-bit fixed point angle** ($0 \dots 4095$ where $4096 = 360^\circ$ or $2\pi$).
@@ -797,7 +811,7 @@ Decompiled from `FUN_0041deb8` (entity instantiation) and `FUN_00416606` (the en
   `LINKADVENT +0x1C`. Player HUD vitality is read from runtime actor `+0x38`.
 - `+0x74` .. `+0x98`: animation playback state, secondary action timers, and sub-object visibility masks.
 
-The engine's debug HUD at `FUN_00416606` directly labels these fields:
+The engine's debug HUD at `DBG_DrawObjectInfo` (`0x416606`) directly labels these fields:
 `Project Name`, `Object Name`, `Object Pos`, `Object Speed`, `Object PHY Speed`,
 `Object Flags`, `Object Angle`, `Object 3D Col`, `Object Anim 0`, `Object Anim 1`,
 `Nombre d'objet`, `dernier objet`.

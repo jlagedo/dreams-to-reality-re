@@ -1,5 +1,7 @@
 # Character and prop models — `.DAN`
 
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
 **Solved.** 159/159 models on the discs decode to glTF: **1,886 parts, 41,614
 triangles, 131 collision proxies**, with texture pages. **[verified]**
 
@@ -62,7 +64,7 @@ were scanned at every offset and every delta in −32..+64, with zero hits.
 `base - 244` also found nothing. The sweep that worked returned `S = 220` with
 no spread at all — 549 hits at `+0x24`, 330 at `+0x28`, one single value.
 
-The `0x14` was pinned from the binary, not guessed: `FUN_00478c2c` reads the
+The `0x14` was pinned from the binary, not guessed: `REND_TransformClipVertices` (`0x478c2c`) reads the
 vertex count at node `+0x7c` and the array at node `+0x80` with stride `0x28`,
 which are exactly `+0x90` and `+0x94` of this header.
 
@@ -74,7 +76,7 @@ T_world = ((R_parent @ T_child) >> 15) + T_parent
 ```
 
 Order and rounding both come from `WINDREAM.EXE` — the multiply in
-`FUN_0045b86c` and the parent add in `FUN_0047e498`. The shift is `sar 0xf`:
+`MATH_MulMat3` (`0x45b86c`) and the parent add in `REND_DrawObject` (`0x47e498`). The shift is `sar 0xf`:
 sum the three products, then **one** arithmetic shift, with no `+0x4000` bias.
 Python's `>>` on ints floors, which is what `sar` does, so it transcribes
 directly.
@@ -149,7 +151,7 @@ whole game.
 a 1997 software rasteriser would carry. It is how the engine shaded a face
 without per-pixel lighting, and it is why nothing in the face record holds a
 colour. The row is chosen at **runtime**: `WINDREAM.EXE` selects `31 - shade`,
-the shade coming from lighting in `FUN_0047b7e0`. **[verified]**
+the shade coming from lighting in `REND_LightObject` (`0x47b7e0`). **[verified]**
 
 ### The packing is RGB565, and that is measured
 
@@ -233,7 +235,7 @@ MOV AL,byte ptr [EAX]
 ```
 
 `SAR 0x10` is the division by 65536, and the `OR` builds a 256-byte-pitch index
-into the `0x10000`-byte page allocated at `FUN_00417a07` — so `page[v*256 + u]`,
+into the `0x10000`-byte page allocated at `DSN_Create3DM` (`0x417a07`) — so `page[v*256 + u]`,
 exactly. **[verified]**
 
 **The proof is `CAISSE`, the crate.** Its texture carries the French words
@@ -402,18 +404,20 @@ The 780 clips from 159 distinct `.DAN` files have only source-style names such a
 embedded label such as “idle” or “walk” in the clip directory. The French
 `DATA/LANG/FRANCAIS/DREAMS.INI` resource names objects and projects, not clips.
 
-`WINDREAM.EXE` at `FUN_00404d98` reads the `.DAN` clip directory (or searches
+`WINDREAM.EXE` at `ANIM_LoadEntitySet` (`0x404d98`) reads the `.DAN` clip directory (or searches
 `an???.3da` files when there is no container), parses each numeric suffix via
-`FUN_004551b5`, and installs the loaded clip in that numbered runtime slot.
-`FUN_00455278` retrieves a track entry from a clip slot. Its helper
-`FUN_004553f8` splits a packed `(clip slot << 16) | track slot` value; that is a
+`atoi_` (`0x4551b5`), and installs the loaded clip in that numbered runtime slot.
+`ANIM_GetTrackEntry` (`0x455278`) retrieves a track entry from a clip slot: the
+slot table at `0x661ee0` holds clip records whose `+0x18` array holds the
+per-node tracks. Its helper
+`ANIM_GetTrackByHandle` (`0x4553f8`) splits a packed `(clip slot << 16) | track slot` value; that is a
 track lookup encoding. Gameplay action selectors at actor `+0x15c`/`+0x160`
 are separate direct 0..63 IDs, resolved through the model-family action table
 documented in [ai-animation-runtime.md](ai-animation-runtime.md). The executable
 contains control labels including “Run”, “Walk”, “Jump”, “Take-off”, and
 “Flight or Swim”, but no textual action-to-clip name lookup was found. The
 human-readable action labels below remain inferences.
-The engine's loader at `FUN_0040fff7` / `FUN_004105eb` decompresses each Tag 3 chunk via Cryo's LZ decompressor (`FUN_0049afd1`) into runtime skeletal animation tracks.
+The engine's loader at `DAN_OpenArchive` (`0x40fff7`) / `DAN_Load3DA` (`0x4105eb`) opens the DANF archive, finds each `.3DA` name in its 13-byte directory and decompresses the Tag 3 chunk via Cryo's LZ decompressor (`LZ_Unpack` (`0x49afd1`)) into runtime skeletal animation tracks.
 
 ### Tag 3 Stream Layout [verified]
 
@@ -477,7 +481,7 @@ The pointers at `+0x20` and `+0x24` are relative to decompressed payload
 `+0x14`. Translation records have timestamp plus XYZ at their start, with
 16-byte records accompanying 20-byte rotation keys, and 48-byte records
 accompanying 60-byte rotation keys. These pairings agree with evaluators
-`FUN_00459808` and `FUN_0045a03c`. The validation harness reads the translation
+`ANIM_EvalTrackLinear` (`0x459808`) and `ANIM_EvalTrackSpline` (`0x45a03c`). The validation harness reads the translation
 keys as independent evidence of track binding. The shared runtime now evaluates
 these position curves and blends them; see [animation-root-blending.md](animation-root-blending.md).
 
@@ -485,7 +489,7 @@ these position curves and blends them; see [animation-root-blending.md](animatio
 
 Headless Ghidra decompilation revealed the exact runtime evaluation routines:
 
-1. **Quaternion to Rotation Matrix (`FUN_0045bc28`)**:
+1. **Quaternion to Rotation Matrix (`MATH_QuatToMatrix` (`0x45bc28`))**:
    Takes a Q15 quaternion `param_1` and computes a $3 \times 3$ row-major fixed-point rotation matrix at `param_2`:
    ```c
    // Diagonal terms:
@@ -513,14 +517,14 @@ Headless Ghidra decompilation revealed the exact runtime evaluation routines:
    - `+0x7c`: vertex count
    - `+0x80`: vertex array pointer
 
-3. **Hierarchical Transform Composition (`FUN_0047e498`)**:
+3. **Hierarchical Transform Composition (`REND_DrawObject` (`0x47e498`))**:
    - Evaluates:
      $$R_{world} = (R_{parent} \times R_{child}) \gg 15$$
      $$T_{world} = ((R_{parent} \times T_{child}) \gg 15) + T_{parent}$$
-   - Matrix multiply implemented in `FUN_0045b86c`.
+   - Matrix multiply implemented in `MATH_MulMat3` (`0x45b86c`).
 
-4. **Vertex Deformations (`FUN_00478dac`)**:
-   - Deforms local vertex coordinates into world coordinates for rendering:
+4. **Vertex Projection (`REND_ProjectVertices` (`0x478dac`))**:
+   - Rigidly transforms the node's flagged vertices by the node matrix (there is no skinning or deformation), then projects them to screen:
      $$V_{world} = ((R_{world} \times V_{local}) \gg 15) + T_{world}$$
 
 ### Duncan (`XH_`) Motion Action Mapping [inferred]
@@ -545,11 +549,11 @@ For any playback time $t$ in frames:
    $$\text{Slerp}(Q_0, Q_1, \alpha) = \frac{\sin((1-\alpha)\theta)}{\sin\theta} Q_0 + \frac{\sin(\alpha\theta)}{\sin\theta} Q_1$$
    where $\cos\theta = Q_0 \cdot Q_1$.
 3. Convert interpolated quaternion $Q$ to a $3 \times 3$ rotation matrix $R_{\text{anim}}$.
-4. In `WINDREAM.EXE` (`FUN_0047e498` / `FUN_0047e700`), the local node rotation $R_{\text{local}}$ is replaced by $R_{\text{anim}}$, and world transforms are composed down the scene-graph hierarchy:
+4. In `WINDREAM.EXE` (`REND_DrawObject` (`0x47e498`), called for each node by the scene walk `REND_DrawScene` (`0x47e700`)), the local node rotation $R_{\text{local}}$ is replaced by $R_{\text{anim}}$, and world transforms are composed down the scene-graph hierarchy:
    $$R_{\text{world}} = (R_{\text{parent}} \cdot R_{\text{child}}) \gg 15$$
    $$T_{\text{world}} = ((R_{\text{parent}} \cdot T_{\text{child}}) \gg 15) + T_{\text{parent}}$$
 
-The original spline evaluator `FUN_0045a03c` additionally interpolates control
+The original spline evaluator `ANIM_EvalTrackSpline` (`0x45a03c`) additionally interpolates control
 quaternions and blends again (SQUAD), and evaluates translation curves. The
 viewer now implements the rotation spline and easing structure in floating
 point where controls are valid, with SLERP for absent/zero controls. See
@@ -558,7 +562,7 @@ missing controls, and the correction that excludes frame zero from loops.
 
 ### Dual Animation Tracks in In-Engine HUD [verified]
 
-`WINDREAM.EXE` at `0x00416606` (`Debug_DrawObjectInfo`) tracks two concurrent animation channels per entity:
+`WINDREAM.EXE` at `0x00416606` (`DBG_DrawObjectInfo`) tracks two concurrent animation channels per entity:
 - `Object Anim 0`: primary animation clip index and progress
 - `Object Anim 1`: secondary/blend animation clip index (used for combat, walking while aiming, transitions)
 

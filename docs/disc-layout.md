@@ -1,5 +1,7 @@
 # Disc layout
 
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
 ## Where the images live
 
 Nothing in this repo contains game data. On this machine:
@@ -184,6 +186,8 @@ The game locates itself by probing for small marker files in `DATA\`. **[verifie
 | `HD.ID` | present | present | disc 1: `toto\r\n` — disc 2: `01 00 00 00` |
 
 `WINDREAM.EXE` hardcodes the probe path `X:\CRYO\DREAMS\DATA\HD.ID`.
+`CD_FindDrive` (`0x427f11`) tries drives `Z` down to `C` for `X:\DATA\1CD.ID` /
+`2CD.ID` and stops with a fatal error if none has either.
 
 So: `1CD.ID` / `2CD.ID` identify which disc is mounted, `HD.ID` marks a hard-disk
 install, and `FULL.ID` marks a maxi install. The `kjk` and `toto` payloads are

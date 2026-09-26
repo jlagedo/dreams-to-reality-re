@@ -50,20 +50,22 @@ GENERIC_PREFIXES = ("FUN_", "caseD_", "switchD_", "LAB_", "thunk_")
 # Platform layers: a twin in the other build is a different mechanism, so
 # these names never transfer (docs/engine.md, Renderer backends).
 PLATFORM_PREFIXES = (
-    "Glide_",
+    "GLIDE_",
     "gr",
     "gu",
     "_",
-    "DDraw_",
-    "DSound_",
+    "DDRAW_",
+    "DSOUND_",
     "GDI_",
-    "Video_",
-    "Kbd_",
-    "Timer_",
+    "VID_",
+    "KBD_",
+    "TIMER_",
     "DPMI_",
     "AIL_",
-    "Joy_",
-    "Input_",
+    "JOY_",
+    "INPUT_",
+    "SYS_",
+    "WinMain",
 )
 # A proposal needs a strong score or call-graph agreement.
 RENAME_MIN_SCORE = 0.60

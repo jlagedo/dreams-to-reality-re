@@ -1,5 +1,7 @@
 # Models, textures, animation, sound
 
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
 Where the engine's actual content lives, how it is packed, and what is still
 unknown. All measurements taken directly from the discs. **[verified]** unless
 marked otherwise.
@@ -72,8 +74,8 @@ The size field sits at offset **4**, unlike `DSNF`/`DANF` which place it at
 offset 5. Each offset word packs a 24-bit offset field in its upper three
 bytes and a low byte of unknown purpose. The parser reconstructs absolute
 positions by detecting wraps of that 24-bit field; all 178 records then abut
-exactly through EOF. At runtime `FUN_00410928` reads one selected record,
-`FUN_00446e01` submits its WAVE data to the sound buffer, and the same entry's
+exactly through EOF. At runtime `DRD_LoadEntry` (`0x410928`) reads one selected record,
+`DSOUND_PlayVoice` (`0x446e01`) submits its WAVE data to the sound buffer, and the same entry's
 589 total text lines are drawn on the timed-caption path. See
 [`sprites-ui-dialog.md`](sprites-ui-dialog.md).
 

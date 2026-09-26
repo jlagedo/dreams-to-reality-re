@@ -1,5 +1,7 @@
 # Reverse-engineering setup
 
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `tools/check_names.py`.
+
 Ghidra, and how this repo is organised so the analysis survives in git without
 any game data going near it.
 
@@ -101,19 +103,20 @@ Run against `WINDREAM.EXE` (image base `0x400000`): **[verified]**
 
 | Tag | Literal | Referencing function | What it is |
 |---|---|---|---|
-| `DSNF` | `0x004c421e` | **`FUN_004175bc`** (2 xrefs) | **scene loader — top target** |
-| `DANF` | `0x004c39f1` | `FUN_0040fff7` | animation loader |
-| `DRDF` | `0x004c3a48` | `FUN_0041072c` | dialogue bank |
-| `UBIK` | `0x004c5511` | `FUN_0043ad40` | image bundle (`.BF`) |
+| `DSNF` | `0x004c421e` | **`DSN_LoadHeader` (`0x4175bc`)** (2 xrefs) | **scene loader — top target** |
+| `DANF` | `0x004c39f1` | `DAN_OpenArchive` (`0x40fff7`) | animation loader |
+| `DRDF` | `0x004c3a48` | `DRD_Open` (`0x41072c`) | dialogue bank |
+| `UBIK` | `0x004c5511` | `BF_Mount` (`0x43ad40`) | named-file archive (`.BF`) |
 | `F3DC` | `0x00456e0d` | none | inside a data blob, reached indirectly |
 | `HNM4`/`HNM6`/`HNS6`/`UBB2`/`UBS2` | `0x004086e0`–`0x004087a3` | none | **clustered in 0xc3 bytes — a signature table, not five compares** |
 
 `PAK0` has no literal at all, consistent with `.PAK` being parsed by whatever
 reads the embedded `F3DC` chunk rather than by its own loader.
 
-String anchors additionally implicate `FUN_0041c666` (4 xrefs), `FUN_00456038`,
-`FUN_00427f11`, `FUN_0041020f` and `FUN_00426143` — the file I/O and disc-check
-layer.
+String anchors additionally implicate `RES_ReadFile` (`0x41c666`) (4 xrefs), `MDL_LoadMaterials` (`0x456038`),
+`CD_FindDrive` (`0x427f11`), `DAN_Read3DC` (`0x41020f`) and `FSB_Load` (`0x426143`): the
+resource-file reader, the `.3DM` material loader, the CD drive search, the DAN
+chunk reader and the FSB bank loader.
 
 ### LE loader for the DOS builds
 
@@ -219,8 +222,9 @@ uv run python tools/match_functions.py DREAMSFX.EXE WINDREAM.EXE --renames
   per pair.
 - `--renames` proposes names only for confident pairs (score ≥ 0.60, or at
   least two agreeing callees at ≥ 75 %), never overwrites a name, reports
-  conflicts, and never carries platform-layer names (`Glide_`, `DDraw_`,
-  `GDI_`, `Video_`, `Kbd_`, `Timer_`, `DPMI_`, `AIL_`, `Joy_`, `Input_`).
+  conflicts, and never carries platform-layer names (`GLIDE_`, `DDRAW_`,
+  `DSOUND_`, `GDI_`, `VID_`, `KBD_`, `TIMER_`, `DPMI_`, `AIL_`, `JOY_`,
+  `INPUT_`, `SYS_`, `WinMain`).
   `Rename.java @file` applies them and adds the match evidence to each plate
   comment.
 
@@ -297,12 +301,83 @@ proof overrides it.
 single functions with no evidence either way, and 18 proven boundaries.
 - A block is one file or part of one. Adjacent blocks marked `candidate` may
   still be the same file.
-- Blocks agree with names given independently. For example, the `DDraw_*` and
-  `Video_Present` functions form one block, `MGM_SendMessage` sits with
-  `Input_Init`, and `MENJ_Dispatcher` with `MainMenu_*`.
+- Blocks agree with names given independently. For example, the `DDRAW_*` and
+  `VID_Present` functions form one block, `MGM_SendMessage` sits with
+  `INPUT_Init`, and `MENJ_Dispatcher` with `MENU_*`.
 
 The PE relocation table supplies the data references, so the tool handles
 only the Windows builds for now.
+
+### Naming functions: `re/names/`, `check_names.py`
+
+Names follow the convention in `AGENTS.md`. Each one is recorded in a registry,
+`re/names/<program>.tsv`, with the facts it rests on, and a script checks those
+facts against the binary before anything reaches Ghidra.
+
+A registry row holds the address, the name and its kind (`recovered`,
+`descriptive`, `runtime`, `cryolib`). It also names its sources and gives a
+one-line note. The facts are assertions on the feature dump, and each one
+would be false if the identification were wrong:
+
+| Fact | True when the function… |
+|---|---|
+| `str:<text>` | references a string containing `<text>` |
+| `imp:<Name>` | calls the import `<Name>` |
+| `call:<x>` / `caller:<x>` | calls, or is called by, `<x>` (an address or a name) |
+| `const:<hex>` | uses the scalar (any size) |
+| `ref:<hex>` | reads or writes the data address |
+| `size:<n>` | is `n` bytes long |
+
+```powershell
+# refresh the dump first (it now also records imports, large constants and data refs)
+& $h ghidra dreams -process WINDREAM.EXE -noanalysis -readOnly `
+  -scriptPath ghidra_scripts -postScript ExportFunctionFeatures.java
+uv run python tools/check_names.py WINDREAM.EXE --renames --twin GDIDREAM.EXE
+& $h ghidra dreams -process WINDREAM.EXE -noanalysis -scriptPath ghidra_scripts `
+  -postScript Rename.java "@out\ghidra\match\names-WINDREAM.EXE.tsv"
+& $h ghidra dreams -process GDIDREAM.EXE -noanalysis -scriptPath ghidra_scripts `
+  -postScript Rename.java "@out\ghidra\match\names-GDIDREAM.EXE.tsv"
+```
+
+- **Failed rows** are reported and left out of the rename file.
+- **Plate comments.** Each name gets a `[NAME]` paragraph: kind, note, sources
+  and facts. `Rename.java` replaces the previous `[NAME]` paragraph instead of
+  stacking copies.
+- **`--twin`** copies names only where the bytes are identical at the same
+  address.
+
+**Two sources per name.** The facts are the check, not the source. The
+sources come from these procedures:
+
+- **Doc claims.** The claims the docs make about each address are compared with
+  a *blind review*. The reviewer sees only the decompilation, with the
+  `[DOCS_SYNC]` comments stripped, and names the function in the standard,
+  with facts.
+- **Existing names.** Before re-review, the function's own name and those of
+  its neighbours under review are replaced by `FUN_<address>`.
+- **Adjudication.** A separate pass compares the review with the docs. The
+  outcome is AGREE, PARTIAL (one side more specific), CONFLICT (settled from
+  the code or data, or left unnamed) or DOCSILENT (the review alone; medium
+  confidence or better).
+- **Doc fixes.** Corrections go back into the docs.
+
+`ghidra_scripts/MergeFragments.java parent:fragment` folds a function that
+auto-analysis split off at a jump target back into its parent. Signs of a
+fragment: no callers, `unaff_EBP` locals, and a parent whose body already
+covers it.
+
+### Doc text in Ghidra: `sync_doc_comments.py`
+
+Every docs sentence, list item or table row that mentions an address or a
+registered name is copied to that address as a `[DOCS_SYNC]` plate comment.
+`ApplyDocComments.java` first removes every old block, so the comments follow
+the docs:
+
+```powershell
+uv run python tools/sync_doc_comments.py WINDREAM.EXE
+& $h ghidra dreams -process WINDREAM.EXE -noanalysis -scriptPath ghidra_scripts `
+  -postScript ApplyDocComments.java "@out\ghidra\match\docsync-WINDREAM.EXE.tsv"
+```
 
 ### `FixWatcomBss.java` — the Windows `.bss` is truncated
 
@@ -354,7 +429,7 @@ the Windows build uses; method order was generated from Wine's headers and
 checked identical to Microsoft's (Windows SDK 10.0.26100 `ddraw.h`/`dsound.h`),
 which themselves need `windows.h`/`objbase.h`/SAL and do not parse cleanly.
 Ghidra's bundled `windows_vs12_32.gdt` has no DirectX interfaces. After it,
-`DDraw_Present` reads `g_ddsBack->lpVtbl->Lock(g_ddsBack, NULL, &desc, 0,
+`DDRAW_Present` reads `g_ddsBack->lpVtbl->Lock(g_ddsBack, NULL, &desc, 0,
 NULL)` with a typed `DDSURFACEDESC`. Labels are not exported by
 `ExportSymbols.java`; the `.tsv` is the record, so re-run it on a fresh
 project (after `FixWatcomBss.java`).
@@ -512,7 +587,7 @@ a readable log of what was learned.
 
 1. ~~Run `FindFormatParsers.java` on `WINDREAM.EXE`.~~ **Done** — see the table
    above.
-2. ~~**Decompile `FUN_004175bc`.**~~ **Done** — it is the `.DSN` header reader,
+2. ~~**Decompile `DSN_LoadHeader` (`0x4175bc`).**~~ **Done** — it is the `.DSN` header reader,
    and the body is now fully decoded. See
    [scene-geometry.md](scene-geometry.md). Kept for context: 157 MB of packed
    level geometry and textures sits behind it, and it is the top open question in
