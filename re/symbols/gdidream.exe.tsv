@@ -1,7 +1,182 @@
 #program	GDIDREAM.EXE
 #sha256	b2f053bd26627eb618f034481fbeb49c2287bec834351787385a69d74db05001
 #imagebase	400000
-FUNC	65538	entry	undefined entry(void)	
+FUNC	99d2	CAM_CompCameraPos	undefined8 CAM_CompCameraPos(void)	
+FUNC	e75c	CTRL_Dispatcher	undefined CTRL_Dispatcher(void)	
+FUNC	158e2	Video_Swap	undefined Video_Swap(void)	
+FUNC	15aa7	Game_HandleHotkeys	undefined Game_HandleHotkeys(void)	
+FUNC	16606	Debug_DrawObjectInfo	undefined Debug_DrawObjectInfo(void)	
+FUNC	1745e	Game_Run	undefined4 Game_Run(void)	
+FUNC	175bc	DSN_LoadHeader	undefined8 DSN_LoadHeader(void)	
+FUNC	177f5	DSN_LoadTag1_MaterialsAndFaces	undefined4 DSN_LoadTag1_MaterialsAndFaces(void)	
+FUNC	178fe	DSN_LoadTag2_VertexPool	undefined4 DSN_LoadTag2_VertexPool(void)	
+FUNC	17afd	DSN_LoadTag3And4_Textures	undefined8 DSN_LoadTag3And4_Textures(void)	
+FUNC	17fe7	Video_RestoreBackground	undefined Video_RestoreBackground(void)	
+FUNC	1c666	Scene_LoadGeometryAndMaterials	int Scene_LoadGeometryAndMaterials(void)	
+FUNC	1da7d	Scene_LoadEntityAssets	undefined Scene_LoadEntityAssets(void)	
+FUNC	1deb8	Entity_InstantiateFromObjet	undefined8 Entity_InstantiateFromObjet(void)	
+FUNC	1f9db	Scene_SpawnProjectEntities	undefined Scene_SpawnProjectEntities(void)	
+FUNC	240ba	Transition_Tick	undefined8 Transition_Tick(void)	
+FUNC	2493b	Input_PostEvents	undefined Input_PostEvents(void)	
+FUNC	24c5f	Joy_EnablePov	undefined Joy_EnablePov(void)	
+FUNC	24c87	Joy_DisablePov	undefined Joy_DisablePov(void)	
+FUNC	24caf	Joy_Enable	undefined Joy_Enable(void)	
+FUNC	24cd7	Joy_Disable	undefined Joy_Disable(void)	
+FUNC	257a0	Text_DrawGlyph	undefined Text_DrawGlyph(void)	
+FUNC	25838	Text_Width	undefined8 Text_Width(int param_1, byte * param_2)	
+FUNC	25b4c	Text_PrintCentered	undefined Text_PrintCentered(int param_1, undefined4 param_2, int param_3, byte * param_4)	
+FUNC	26073	Text_Print	undefined Text_Print(int param_1, undefined4 param_2, int param_3, char param_4, byte * param_5)	
+FUNC	274b0	Sprite_Draw	undefined8 Sprite_Draw(void)	
+FUNC	35896	MENJ_Dispatcher	undefined MENJ_Dispatcher(void)	
+FUNC	35ea0	MainMenu_Draw	undefined MainMenu_Draw(void)	
+FUNC	35fae	MainMenu_Tick	undefined8 MainMenu_Tick(void)	
+FUNC	36481	BootScreen	undefined BootScreen(void)	
+FUNC	3a169	Input_Init	undefined1 Input_Init(void)	
+FUNC	3a306	MGM_SendMessage	uint MGM_SendMessage(void)	
+FUNC	3a64c	MGM_DispatchMessages	undefined8 MGM_DispatchMessages(void)	
+FUNC	3b31a	CTRL_PostEvent	undefined CTRL_PostEvent(void)	
+FUNC	40757	Input_PollKeyboard	undefined8 Input_PollKeyboard(void)	
+FUNC	4091d	Joy_InitPovDevices	undefined8 Joy_InitPovDevices(void)	
+FUNC	40ad3	Joy_PollPov	undefined4 Joy_PollPov(undefined2 * param_1)	
+FUNC	40bc2	Joy_InitDevices	undefined8 Joy_InitDevices(void)	
+FUNC	40d3d	Joy_Poll	undefined4 Joy_Poll(void)	
+FUNC	453ec	Video_ReleaseSurfaces	undefined Video_ReleaseSurfaces(void)	
+FUNC	4549b	Video_Present	undefined Video_Present(void)	
+FUNC	454d1	DDraw_SetMode	undefined4 DDraw_SetMode(void)	Called with g_videoWidth/g_videoHeight; failure reports "Can't set DirectDraw mode".
+FUNC	455ad	DDraw_CreateSurfaces	undefined4 DDraw_CreateSurfaces(void)	
+FUNC	458bb	GDI_Present	undefined GDI_Present(void)	
+FUNC	45955	DDraw_Init	undefined8 DDraw_Init(void)	DirectDrawCreate, QueryInterface IDirectDraw2, SetCooperativeLevel(EXCLUSIVE|FULLSCREEN), allocate g_frameBuffer, DDraw_SetMode.
+FUNC	45a57	DDraw_Present	undefined DDraw_Present(void)	
+FUNC	45bf2	Video_Lock	undefined Video_Lock(void)	
+FUNC	45c3f	Video_Unlock	undefined Video_Unlock(void)	
+FUNC	45c84	GDI_CreateDIB	bool GDI_CreateDIB(void)	
+FUNC	46019	Video_Init	undefined4 Video_Init(void)	
+FUNC	463e9	DSound_Init	undefined8 DSound_Init(void)	DirectSoundCreate, SetCooperativeLevel(PRIORITY), primary buffer, channel buffers.
+FUNC	46ebb	DSound_CreatePrimary	undefined8 DSound_CreatePrimary(void)	CreateSoundBuffer(primary), SetFormat 22050 Hz 16-bit stereo.
+FUNC	46f98	DSound_CreateChannels	undefined8 DSound_CreateChannels(void)	CreateSoundBuffer for the voice records (0x633b40), the 22 kHz stereo and the 11 kHz 8-bit channels.
+FUNC	54feb	__CHK	undefined4 __CHK(void)	Watcom 10.6 runtime: __CHK (module stkwnt, 16 bytes, full match; gdidream.csv).
+FUNC	54ffb	__STK	undefined4 __STK(int param_1)	Watcom 10.6 runtime: __STK (module stkwnt, 31 bytes, full match; gdidream.csv).
+FUNC	5502a	__GRO	undefined4 __GRO(int param_1)	Watcom 10.6 runtime: __GRO (module stkwnt, 32 bytes, full match; gdidream.csv).
+FUNC	5505e	strcpy_	char * strcpy_(char * __s1, char * __s2)	Watcom 10.6 runtime: strcpy_ (module strcpy, 31 bytes, full match; gdidream.csv).
+FUNC	5507d	strcat_	char * strcat_(char * __s1, char * __s2)	Watcom 10.6 runtime: strcat_ (module strcat, 51 bytes, full match; gdidream.csv).
+FUNC	55190	strncpy_	char * strncpy_(char * __s1, char * __s2, size_t __n)	Watcom 10.6 runtime: strncpy_ (module strncpy, 37 bytes, full match; gdidream.csv).
+FUNC	592e0	SW_SelectFlush	undefined SW_SelectFlush(void)	
+FUNC	59320	Render_Frame	undefined Render_Frame(undefined4 param_1)	
+FUNC	593a4	Render_FrameEx	undefined Render_FrameEx(undefined4 param_1, uint param_2)	
+FUNC	5941d	fprintf_	int fprintf_(FILE * __fp, char * __format, ...)	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; gdidream.csv).
+FUNC	5943e	__CHP	float10 __CHP(void)	Watcom 10.6 runtime: __CHP (module fchop, 29 bytes, full match; gdidream.csv).
+FUNC	5c19a	IF@DSIN	undefined IF@DSIN(void)	Watcom 10.6 runtime: IF@DSIN (module trig387, 53 bytes, full match; gdidream.csv).
+FUNC	5c1e7	IF@DTAN	undefined IF@DTAN(void)	Watcom 10.6 runtime: IF@DTAN (module trig387, 21 bytes, full match; gdidream.csv).
+FUNC	5c208	sqrt_	undefined sqrt_(uint param_1, undefined4 param_2, int param_3, uint param_4)	Watcom 10.6 runtime: sqrt_ (module sqrt387, 48 bytes, full match; gdidream.csv).
+FUNC	5c23a	__@DSQRT	undefined8 __@DSQRT(uint param_1, undefined4 param_2)	Watcom 10.6 runtime: __@DSQRT (module sqrt387, 53 bytes, full match; gdidream.csv).
+FUNC	5c278	memcpy_	void * memcpy_(void * __s1, void * __s2, size_t __n)	Watcom 10.6 runtime: memcpy_ (module memcpy, 37 bytes, full match; gdidream.csv).
+FUNC	5c420	_uopen_	undefined _uopen_(void * this, undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: _uopen_, open_ (module openwnt, 36 bytes, full match; gdidream.csv).
+FUNC	5c444	_bprintf_	int _bprintf_(char * __buf, uint __bufsize, char * __fmt, ...)	Watcom 10.6 runtime: _bprintf_ (module bprintf, 39 bytes, full match; gdidream.csv).
+FUNC	5cc8b	fprintf_	int fprintf_(FILE * __fp, char * __format, ...)	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; gdidream.csv).
+FUNC	5fc20	strcmp_	int strcmp_(char * __s1, char * __s2)	Watcom 10.6 runtime: strcmp_ (module cmp386, 161 bytes, full match; gdidream.csv).
+FUNC	5fcc1	memcmp_	int memcmp_(void * __s1, void * __s2, size_t __n)	Watcom 10.6 runtime: memcmp_ (module memcmp, 30 bytes, full match; gdidream.csv).
+FUNC	5fcdf	floor_	undefined8 floor_(undefined4 param_1, undefined4 param_2, undefined4 param_3, undefined4 param_4)	Watcom 10.6 runtime: floor_ (module floor, 60 bytes, full match; gdidream.csv).
+FUNC	5fd1b	ceil_	undefined4 ceil_(undefined4 param_1, undefined4 param_2, double param_3)	Watcom 10.6 runtime: ceil_ (module ceil, 27 bytes, full match; gdidream.csv).
+FUNC	5fd4e	strlen_	size_t strlen_(char * __s)	Watcom 10.6 runtime: strlen_ (module strlen, 25 bytes, full match; gdidream.csv).
+FUNC	5fd67	strncmp_	int strncmp_(char * __s1, char * __s2, size_t __n)	Watcom 10.6 runtime: strncmp_ (module strncmp, 41 bytes, full match; gdidream.csv).
+FUNC	5ffd5	fopen_	FILE * fopen_(char * __filename, char * __mode)	Watcom 10.6 runtime: fopen_ (module fopen, 132 bytes, full match; gdidream.csv).
+FUNC	600d0	fread_	size_t fread_(void * __ptr, size_t __size, size_t __n, FILE * __fp)	Watcom 10.6 runtime: fread_ (module fread, 192 bytes, core match; gdidream.csv).
+FUNC	603c2	fclose_	int fclose_(FILE * __fp)	Watcom 10.6 runtime: fclose_ (module fclose, 63 bytes, full match; gdidream.csv).
+FUNC	60401	__shutdown_stream_	undefined4 __shutdown_stream_(undefined4 param_1, int param_2)	Watcom 10.6 runtime: __shutdown_stream_ (module fclose, 33 bytes, full match; gdidream.csv).
+FUNC	607f2	IF@DATAN	undefined IF@DATAN(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: IF@DATAN (module atan387, 21 bytes, full match; gdidream.csv).
+FUNC	60807	IF@DATAN2	undefined IF@DATAN2(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: IF@DATAN2 (module atan387, 21 bytes, full match; gdidream.csv).
+FUNC	60828	atan2_	undefined atan2_(void)	Watcom 10.6 runtime: atan2_ (module atan387, 16 bytes, full match; gdidream.csv).
+FUNC	60842	rand_	int rand_(void)	Watcom 10.6 runtime: rand_ (module rand, 36 bytes, full match; gdidream.csv).
+FUNC	60866	srand_	void srand_(uint __seed)	Watcom 10.6 runtime: srand_ (module rand, 16 bytes, full match; gdidream.csv).
+FUNC	60d12	memmove_	void * memmove_(void * __s1, void * __s2, size_t __n)	Watcom 10.6 runtime: memmove_ (module memmove, 77 bytes, full match; gdidream.csv).
+FUNC	60d5f	printf_	int printf_(char * __format, ...)	Watcom 10.6 runtime: printf_ (module printf, 34 bytes, full match; gdidream.csv).
+FUNC	60dae	_exit_	void _exit_(int __status)	Watcom 10.6 runtime: _exit_ (module exit, 37 bytes, full match; gdidream.csv).
+FUNC	654d4	_uultoa_	char * _uultoa_(undefined4 param_1, char * param_2)	Watcom 10.6 runtime: _uultoa_, _uutoa_, ultoa_, utoa_ (module uitoa, 80 bytes, core match; gdidream.csv).
+FUNC	6551d	_itoa_	char * _itoa_(int __value, char * __buf, int __radix)	Watcom 10.6 runtime: _itoa_, _ltoa_ (module itoa, 27 bytes, full match; gdidream.csv).
+FUNC	65538	__DLLstart_	undefined __DLLstart_(void)	Watcom 10.6 runtime: __DLLstart_, _cstart_ (module cstrtwnt, 116 bytes, full match; gdidream.csv).
+FUNC	6659f	calloc_	void * calloc_(size_t __n, size_t __size)	Watcom 10.6 runtime: calloc_ (module calloc, 24 bytes, full match; gdidream.csv).
+FUNC	73014	SW_DrawObjectFaces	undefined SW_DrawObjectFaces(void)	
+FUNC	731b8	SW_ObjectHook2	undefined SW_ObjectHook2(void)	
+FUNC	768cc	SW_FlushSpans	undefined SW_FlushSpans(void)	
+FUNC	76dec	SW_FlushSpansAlt	undefined SW_FlushSpansAlt(void)	
+FUNC	77713	_heapwalk_	int _heapwalk_(_heapinfo * __entry)	Watcom 10.6 runtime: _heapwalk_ (module nheapwal, 36 bytes, full match; gdidream.csv).
+FUNC	777d7	strstr_	char * strstr_(char * __s1, char * __s2)	Watcom 10.6 runtime: strstr_ (module strstr, 190 bytes, full match; gdidream.csv).
+FUNC	778a8	vsprintf_	int vsprintf_(char * __s, char * __format, __va_list __arg)	Watcom 10.6 runtime: vsprintf_ (module vsprintf, 21 bytes, full match; gdidream.csv).
+FUNC	7796e	_dos_setdrive_	void _dos_setdrive_(uint __drivenum, uint * __drives)	Watcom 10.6 runtime: _dos_setdrive_ (module sdrvewnt, 50 bytes, core match; gdidream.csv).
+FUNC	77c35	fprintf_	int fprintf_(FILE * __fp, char * __format, ...)	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; gdidream.csv).
+FUNC	781a7	realloc_	void * realloc_(void * __ptr, size_t __size)	Watcom 10.6 runtime: realloc_ (module nrealloc, 122 bytes, full match; gdidream.csv).
+FUNC	78222	IF@POW	uint IF@POW(uint param_1, undefined4 param_2)	Watcom 10.6 runtime: IF@POW (module pow387, 192 bytes, full match; gdidream.csv).
+FUNC	78378	pow_	undefined pow_(uint param_1, undefined4 param_2)	Watcom 10.6 runtime: pow_ (module pow387, 16 bytes, full match; gdidream.csv).
+FUNC	78395	__exit_with_msg_	undefined __exit_with_msg_(void)	Watcom 10.6 runtime: __exit_with_msg_ (module xmsgwnt, 55 bytes, core match; gdidream.csv).
+FUNC	783ce	__fatal_runtime_error_	undefined __fatal_runtime_error_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __fatal_runtime_error_ (module xmsgwnt, 29 bytes, full match; gdidream.csv).
+FUNC	783eb	__threadid_	undefined __threadid_(void)	Watcom 10.6 runtime: __threadid_ (module mainwnt, 28 bytes, full match; gdidream.csv).
+FUNC	786d1	__set_errno_dos_	undefined8 __set_errno_dos_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __set_errno_dos_ (module dosret, 81 bytes, full match; gdidream.csv).
+FUNC	78786	__GetNTDirInfo_	undefined __GetNTDirInfo_(undefined4 param_1, undefined1 * param_2)	Watcom 10.6 runtime: __GetNTDirInfo_ (module ntdirinf, 59 bytes, full match; gdidream.csv).
+FUNC	78800	Render_AltObjectHook	undefined Render_AltObjectHook(void)	
+FUNC	7e498	Render_DrawObject	undefined Render_DrawObject(void)	
+FUNC	7e99c	__fptan_chk	undefined __fptan_chk(void)	Watcom 10.6 runtime: __fptan_chk (module chipt32, 177 bytes, full match; gdidream.csv).
+FUNC	7eaec	__init_8087_	undefined __init_8087_(void)	Watcom 10.6 runtime: __init_8087_ (module chk8087, 49 bytes, full match; gdidream.csv).
+FUNC	8521b	__NTAtMaxFiles_	undefined8 __NTAtMaxFiles_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __NTAtMaxFiles_ (module nthdl, 69 bytes, full match; gdidream.csv).
+FUNC	85260	__NTAddFileHandle_	undefined8 __NTAddFileHandle_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __NTAddFileHandle_ (module nthdl, 121 bytes, full match; gdidream.csv).
+FUNC	8537e	__NTRemoveFileHandle_	undefined __NTRemoveFileHandle_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __NTRemoveFileHandle_ (module nthdl, 44 bytes, full match; gdidream.csv).
+FUNC	8544e	__set_EINVAL_	undefined __set_EINVAL_(void)	Watcom 10.6 runtime: __set_EINVAL_ (module seterrno, 16 bytes, full match; gdidream.csv).
+FUNC	8546c	__GetNTCreateAttr_	undefined __GetNTCreateAttr_(void)	Watcom 10.6 runtime: __GetNTCreateAttr_ (module ntfio, 45 bytes, full match; gdidream.csv).
+FUNC	85499	__GetNTAccessAttr_	undefined __GetNTAccessAttr_(undefined4 param_1, undefined4 * param_2)	Watcom 10.6 runtime: __GetNTAccessAttr_ (module ntfio, 44 bytes, full match; gdidream.csv).
+FUNC	85723	fcloseall_	int fcloseall_(void)	Watcom 10.6 runtime: fcloseall_ (module ioexit, 93 bytes, full match; gdidream.csv).
+FUNC	85965	__flushall_	undefined8 __flushall_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __flushall_ (module flushall, 59 bytes, full match; gdidream.csv).
+FUNC	859a0	modf_	undefined4 modf_(undefined4 param_1, undefined4 param_2, double * param_3)	Watcom 10.6 runtime: modf_ (module modf387, 25 bytes, full match; gdidream.csv).
+FUNC	859c0	__STOSB	undefined __STOSB(uint param_1, uint param_2)	Watcom 10.6 runtime: __STOSB (module __stos, 55 bytes, full match; gdidream.csv).
+FUNC	859f7	__STOSD	undefined __STOSD(uint param_1, undefined4 param_2)	Watcom 10.6 runtime: __STOSD (module __stos, 108 bytes, full match; gdidream.csv).
+FUNC	85a7c	__allocfp_	undefined8 __allocfp_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __allocfp_ (module allocfp, 184 bytes, core match; gdidream.csv).
+FUNC	85b37	__freefp_	undefined __freefp_(void)	Watcom 10.6 runtime: __freefp_ (module allocfp, 57 bytes, full match; gdidream.csv).
+FUNC	85b70	__purgefp_	undefined __purgefp_(void)	Watcom 10.6 runtime: __purgefp_ (module allocfp, 30 bytes, full match; gdidream.csv).
+FUNC	85b8e	__chktty_	undefined __chktty_(undefined4 param_1)	Watcom 10.6 runtime: __chktty_ (module chktty, 49 bytes, full match; gdidream.csv).
+FUNC	85d9d	__filbuf_	undefined8 __filbuf_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __filbuf_ (module fgetc, 47 bytes, full match; gdidream.csv).
+FUNC	86390	__fpatan_wrap	undefined4 __fpatan_wrap(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __fpatan_wrap (module chipw32, 52 bytes, full match; gdidream.csv).
+FUNC	8646d	__NTMain	undefined __NTMain(void)	Watcom 10.6 runtime: __NTMain, __WinMain (module wmainwnt, 192 bytes, core match; gdidream.csv).
+FUNC	88871	_expand_	void * _expand_(void * __ptr, size_t __size)	Watcom 10.6 runtime: _expand_ (module nexpand, 58 bytes, core match; gdidream.csv).
+FUNC	88ae6	__@DEXP	longlong __@DEXP(uint param_1, undefined4 param_2)	Watcom 10.6 runtime: __@DEXP (module exp387, 96 bytes, full match; gdidream.csv).
+FUNC	88c6b	__fdiv_fpr	undefined __fdiv_fpr(void)	Watcom 10.6 runtime: __fdiv_fpr (module chipd32, 192 bytes, full match; gdidream.csv).
+FUNC	8912d	__fdiv_chk	undefined __fdiv_chk(void)	Watcom 10.6 runtime: __fdiv_chk (module chipd32, 19 bytes, full match; gdidream.csv).
+FUNC	89140	__fdiv_m32	undefined __fdiv_m32(void)	Watcom 10.6 runtime: __fdiv_m32 (module chipd32, 76 bytes, full match; gdidream.csv).
+FUNC	8918c	__fdiv_m64	undefined __fdiv_m64(void)	Watcom 10.6 runtime: __fdiv_m64 (module chipd32, 76 bytes, full match; gdidream.csv).
+FUNC	891d8	__fdiv_m32r	undefined __fdiv_m32r(void)	Watcom 10.6 runtime: __fdiv_m32r (module chipd32, 76 bytes, full match; gdidream.csv).
+FUNC	89224	__fdiv_m64r	undefined __fdiv_m64r(void)	Watcom 10.6 runtime: __fdiv_m64r (module chipd32, 76 bytes, full match; gdidream.csv).
+FUNC	89270	__EnterWVIDEO_	undefined4 __EnterWVIDEO_(undefined4 param_1, undefined2 param_2)	Watcom 10.6 runtime: __EnterWVIDEO_ (module enterdb, 38 bytes, full match; gdidream.csv).
+FUNC	8934f	__FiniAccessH_	undefined __FiniAccessH_(void)	Watcom 10.6 runtime: __FiniAccessH_ (module mthread, 28 bytes, full match; gdidream.csv).
+FUNC	89757	_strdup_	char * _strdup_(char * __string)	Watcom 10.6 runtime: _strdup_ (module strdup, 69 bytes, full match; gdidream.csv).
+FUNC	8982c	_ustrdup_	undefined8 _ustrdup_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: _ustrdup_ (module ustrdup, 39 bytes, full match; gdidream.csv).
+FUNC	89d26	__DoneExceptionHandler_	undefined __DoneExceptionHandler_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __DoneExceptionHandler_ (module signlwnt, 79 bytes, core match; gdidream.csv).
+FUNC	89dd2	__math2err_	undefined __math2err_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __math2err_ (module math2err, 192 bytes, full match; gdidream.csv).
+FUNC	89fcf	_Not_Enough_Memory_	undefined _Not_Enough_Memory_(undefined4 param_1)	Watcom 10.6 runtime: _Not_Enough_Memory_ (module nomem, 18 bytes, full match; gdidream.csv).
+FUNC	89fe2	__init_80x87	undefined __init_80x87(void)	Watcom 10.6 runtime: __init_80x87 (module ini87386, 39 bytes, full match; gdidream.csv).
+FUNC	8a066	getche_	int getche_(void)	Watcom 10.6 runtime: getche_ (module gtchewnt, 34 bytes, full match; gdidream.csv).
+FUNC	8a088	_heapenable_	int _heapenable_(int __enabled)	Watcom 10.6 runtime: _heapenable_ (module heapen, 33 bytes, full match; gdidream.csv).
+FUNC	8a164	_fullpath_	char * _fullpath_(char * __buf, char * __path, size_t __size)	Watcom 10.6 runtime: _fullpath_ (module fullpath, 132 bytes, core match; gdidream.csv).
+FUNC	8a280	__fpatan_chk	undefined8 __fpatan_chk(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __fpatan_chk (module chipa32, 192 bytes, full match; gdidream.csv).
+FUNC	978c0	_uultoa_	char * _uultoa_(undefined4 param_1, char * param_2)	Watcom 10.6 runtime: _uultoa_, _uutoa_, ultoa_, utoa_ (module uitoa, 80 bytes, core match; gdidream.csv).
+FUNC	97909	_itoa_	char * _itoa_(int __value, char * __buf, int __radix)	Watcom 10.6 runtime: _itoa_, _ltoa_ (module itoa, 27 bytes, full match; gdidream.csv).
+FUNC	979c6	__FDFS	uint __FDFS(undefined4 param_1, uint param_2)	Watcom 10.6 runtime: __FDFS (module fdfs386, 76 bytes, full match; gdidream.csv).
+FUNC	97b3b	__AddThreadData_	undefined4 __AddThreadData_(undefined4 param_1, int param_2)	Watcom 10.6 runtime: __AddThreadData_ (module trdlist, 97 bytes, full match; gdidream.csv).
+FUNC	97b9c	__RemoveThreadData_	undefined __RemoveThreadData_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __RemoveThreadData_ (module trdlist, 74 bytes, full match; gdidream.csv).
+FUNC	97d21	_ustrlen_	undefined8 _ustrlen_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: _ustrlen_ (module ustrlen, 19 bytes, full match; gdidream.csv).
+FUNC	980a8	__FDD	undefined __FDD(void)	Watcom 10.6 runtime: __FDD (module div386, 192 bytes, full match; gdidream.csv).
+FUNC	982b4	__FDA	undefined __FDA(void)	Watcom 10.6 runtime: __FDA (module fdmth386, 192 bytes, full match; gdidream.csv).
+FUNC	9846b	__FDM	undefined __FDM(void)	Watcom 10.6 runtime: __FDM (module fdmth386, 192 bytes, full match; gdidream.csv).
+FUNC	98608	__FDC	undefined __FDC(void)	Watcom 10.6 runtime: __FDC (module fdc386, 56 bytes, full match; gdidream.csv).
+FUNC	98646	__rterrmsg_	undefined __rterrmsg_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __rterrmsg_ (module _matherr, 72 bytes, full match; gdidream.csv).
+FUNC	9868e	_matherr_	float10 _matherr_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: _matherr_ (module _matherr, 47 bytes, full match; gdidream.csv).
+FUNC	9879b	_LDScale10x_	undefined _LDScale10x_(undefined4 param_1, uint param_2)	Watcom 10.6 runtime: _LDScale10x_ (module ldcvt, 90 bytes, full match; gdidream.csv).
+FUNC	993be	putch_	int putch_(int __c)	Watcom 10.6 runtime: putch_ (module putchwnt, 98 bytes, core match; gdidream.csv).
+FUNC	99c41	__RegisterThreadData_	undefined __RegisterThreadData_(void)	Watcom 10.6 runtime: __RegisterThreadData_ (module register, 63 bytes, full match; gdidream.csv).
+FUNC	99da6	__terminate_	undefined __terminate_(undefined4 param_1)	Watcom 10.6 runtime: __terminate_ (module abort, 18 bytes, full match; gdidream.csv).
+FUNC	99e21	_F8RetInf_	ulonglong _F8RetInf_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: _F8RetInf_ (module fstat386, 32 bytes, full match; gdidream.csv).
+FUNC	99e4d	F4OverFlow	undefined F4OverFlow(void)	Watcom 10.6 runtime: F4OverFlow (module fstat386, 28 bytes, full match; gdidream.csv).
+FUNC	99e6f	__get_std_stream_	longlong __get_std_stream_(undefined4 param_1, uint param_2)	Watcom 10.6 runtime: __get_std_stream_ (module iobaddr, 31 bytes, full match; gdidream.csv).
+FUNC	99f74	__ZBuf2LD	undefined __ZBuf2LD(undefined4 param_1, undefined8 * param_2)	Watcom 10.6 runtime: __ZBuf2LD (module bufld386, 163 bytes, full match; gdidream.csv).
+FUNC	9a1ee	__CEndThread_	undefined __CEndThread_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __CEndThread_ (module thredwnt, 42 bytes, core match; gdidream.csv).
+FUNC	9acfb	_mbvtop_	undefined _mbvtop_(undefined4 param_1, char * param_2)	Watcom 10.6 runtime: _mbvtop_ (module mbconv, 26 bytes, full match; gdidream.csv).
+FUNC	9ad15	_ustrchr_	undefined _ustrchr_(void)	Watcom 10.6 runtime: _ustrchr_ (module ustrchr, 22 bytes, full match; gdidream.csv).
 CMT	178	eol	AUTO
 CMT	1a0	eol	.idata
 CMT	1c8	eol	DGROUP
@@ -117,6 +292,21 @@ CMT	9c23c	eol	IMAGE_THUNK_DATA32
 CMT	9c240	eol	IMAGE_THUNK_DATA32
 CMT	9c248	eol	IMAGE_THUNK_DATA32
 CMT	9c250	eol	IMAGE_THUNK_DATA32
+CMT	a4528	eol	GDI path: memory DC selected with the DIB (GDI_Present StretchBlt source).
+CMT	a4534	eol	DirectDrawCreate out parameter (FUN_00445955).
+CMT	a4538	eol	QueryInterface from g_DirectDraw; "Can't go to Direct Draw 2".
+CMT	a453c	eol	IDirectDraw2::CreateSurface, caps PRIMARYSURFACE|FLIP|COMPLEX, 1 back buffer.
+CMT	a4540	eol	GetAttachedSurface(BACKBUFFER) of g_ddsPrimary; Lock/Unlock target.
+CMT	1e549c	eol	Software frame in RAM, 0x96000 bytes (640x480x2); copied out by DDraw_Present.
+CMT	233b18	eol	0 = DirectDraw, 1 = GDI; set in Video_Init (the WINDREAM/GDIDREAM byte).
+CMT	233b1c	eol	640, set in Video_Init.
+CMT	233b20	eol	480, set in Video_Init.
+CMT	233b24	eol	Game window; SetCooperativeLevel and GetDC target.
+CMT	233b28	eol	First field of a 0x18-byte channel record; 22050 Hz 16-bit stereo, 0x2b110 bytes (2 s).
+CMT	233b40	eol	First of up to 5 0x18-byte channel records; 11025 Hz 16-bit mono, CTRLFREQUENCY|PAN|VOLUME.
+CMT	233bb8	eol	First field of a 0x18-byte channel record; 11025 Hz 8-bit mono, 0x4b000 bytes.
+CMT	233be0	eol	DirectSoundCreate out parameter (FUN_004463e9); SetCooperativeLevel PRIORITY.
+CMT	233be8	eol	Primary buffer, SetFormat 22050 Hz 16-bit stereo.
 CMT	9c258	pre	1  CreateCompatibleDC  <<not bound>>
 CMT	9c25c	pre	2  CreateDIBSection  <<not bound>>
 CMT	9c260	pre	3  DeleteDC  <<not bound>>
@@ -226,6 +416,130 @@ CMT	9c408	pre	70  WriteConsoleA  <<not bound>>
 CMT	9c40c	pre	71  WriteFile  <<not bound>>
 CMT	9c414	pre	1  DirectSoundCreate  <<not bound>>
 CMT	9c41c	pre	1  DirectDrawCreate  <<not bound>>
+CMT	454d1	plate	Called with g_videoWidth/g_videoHeight; failure reports "Can't set DirectDraw mode".
+CMT	45955	plate	DirectDrawCreate, QueryInterface IDirectDraw2, SetCooperativeLevel(EXCLUSIVE|FULLSCREEN), allocate g_frameBuffer, DDraw_SetMode.
+CMT	463e9	plate	DirectSoundCreate, SetCooperativeLevel(PRIORITY), primary buffer, channel buffers.
+CMT	46ebb	plate	CreateSoundBuffer(primary), SetFormat 22050 Hz 16-bit stereo.
+CMT	46f98	plate	CreateSoundBuffer for the voice records (0x633b40), the 22 kHz stereo and the 11 kHz 8-bit channels.
+CMT	54feb	plate	Watcom 10.6 runtime: __CHK (module stkwnt, 16 bytes, full match; gdidream.csv).
+CMT	54ffb	plate	Watcom 10.6 runtime: __STK (module stkwnt, 31 bytes, full match; gdidream.csv).
+CMT	5502a	plate	Watcom 10.6 runtime: __GRO (module stkwnt, 32 bytes, full match; gdidream.csv).
+CMT	5505e	plate	Watcom 10.6 runtime: strcpy_ (module strcpy, 31 bytes, full match; gdidream.csv).
+CMT	5507d	plate	Watcom 10.6 runtime: strcat_ (module strcat, 51 bytes, full match; gdidream.csv).
+CMT	55190	plate	Watcom 10.6 runtime: strncpy_ (module strncpy, 37 bytes, full match; gdidream.csv).
+CMT	5941d	plate	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; gdidream.csv).
+CMT	5943e	plate	Watcom 10.6 runtime: __CHP (module fchop, 29 bytes, full match; gdidream.csv).
+CMT	5c19a	plate	Watcom 10.6 runtime: IF@DSIN (module trig387, 53 bytes, full match; gdidream.csv).
+CMT	5c1e7	plate	Watcom 10.6 runtime: IF@DTAN (module trig387, 21 bytes, full match; gdidream.csv).
+CMT	5c208	plate	Watcom 10.6 runtime: sqrt_ (module sqrt387, 48 bytes, full match; gdidream.csv).
+CMT	5c23a	plate	Watcom 10.6 runtime: __@DSQRT (module sqrt387, 53 bytes, full match; gdidream.csv).
+CMT	5c278	plate	Watcom 10.6 runtime: memcpy_ (module memcpy, 37 bytes, full match; gdidream.csv).
+CMT	5c420	plate	Watcom 10.6 runtime: _uopen_, open_ (module openwnt, 36 bytes, full match; gdidream.csv).
+CMT	5c444	plate	Watcom 10.6 runtime: _bprintf_ (module bprintf, 39 bytes, full match; gdidream.csv).
+CMT	5cc8b	plate	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; gdidream.csv).
+CMT	5fc20	plate	Watcom 10.6 runtime: strcmp_ (module cmp386, 161 bytes, full match; gdidream.csv).
+CMT	5fcc1	plate	Watcom 10.6 runtime: memcmp_ (module memcmp, 30 bytes, full match; gdidream.csv).
+CMT	5fcdf	plate	Watcom 10.6 runtime: floor_ (module floor, 60 bytes, full match; gdidream.csv).
+CMT	5fd1b	plate	Watcom 10.6 runtime: ceil_ (module ceil, 27 bytes, full match; gdidream.csv).
+CMT	5fd4e	plate	Watcom 10.6 runtime: strlen_ (module strlen, 25 bytes, full match; gdidream.csv).
+CMT	5fd67	plate	Watcom 10.6 runtime: strncmp_ (module strncmp, 41 bytes, full match; gdidream.csv).
+CMT	5ffd5	plate	Watcom 10.6 runtime: fopen_ (module fopen, 132 bytes, full match; gdidream.csv).
+CMT	600d0	plate	Watcom 10.6 runtime: fread_ (module fread, 192 bytes, core match; gdidream.csv).
+CMT	603c2	plate	Watcom 10.6 runtime: fclose_ (module fclose, 63 bytes, full match; gdidream.csv).
+CMT	60401	plate	Watcom 10.6 runtime: __shutdown_stream_ (module fclose, 33 bytes, full match; gdidream.csv).
+CMT	607f2	plate	Watcom 10.6 runtime: IF@DATAN (module atan387, 21 bytes, full match; gdidream.csv).
+CMT	60807	plate	Watcom 10.6 runtime: IF@DATAN2 (module atan387, 21 bytes, full match; gdidream.csv).
+CMT	60828	plate	Watcom 10.6 runtime: atan2_ (module atan387, 16 bytes, full match; gdidream.csv).
+CMT	60842	plate	Watcom 10.6 runtime: rand_ (module rand, 36 bytes, full match; gdidream.csv).
+CMT	60866	plate	Watcom 10.6 runtime: srand_ (module rand, 16 bytes, full match; gdidream.csv).
+CMT	60d12	plate	Watcom 10.6 runtime: memmove_ (module memmove, 77 bytes, full match; gdidream.csv).
+CMT	60d5f	plate	Watcom 10.6 runtime: printf_ (module printf, 34 bytes, full match; gdidream.csv).
+CMT	60dae	plate	Watcom 10.6 runtime: _exit_ (module exit, 37 bytes, full match; gdidream.csv).
+CMT	654d4	plate	Watcom 10.6 runtime: _uultoa_, _uutoa_, ultoa_, utoa_ (module uitoa, 80 bytes, core match; gdidream.csv).
+CMT	6551d	plate	Watcom 10.6 runtime: _itoa_, _ltoa_ (module itoa, 27 bytes, full match; gdidream.csv).
+CMT	65538	plate	Watcom 10.6 runtime: __DLLstart_, _cstart_ (module cstrtwnt, 116 bytes, full match; gdidream.csv).
+CMT	6659f	plate	Watcom 10.6 runtime: calloc_ (module calloc, 24 bytes, full match; gdidream.csv).
+CMT	77713	plate	Watcom 10.6 runtime: _heapwalk_ (module nheapwal, 36 bytes, full match; gdidream.csv).
+CMT	777d7	plate	Watcom 10.6 runtime: strstr_ (module strstr, 190 bytes, full match; gdidream.csv).
+CMT	778a8	plate	Watcom 10.6 runtime: vsprintf_ (module vsprintf, 21 bytes, full match; gdidream.csv).
+CMT	7796e	plate	Watcom 10.6 runtime: _dos_setdrive_ (module sdrvewnt, 50 bytes, core match; gdidream.csv).
+CMT	77c35	plate	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; gdidream.csv).
+CMT	781a7	plate	Watcom 10.6 runtime: realloc_ (module nrealloc, 122 bytes, full match; gdidream.csv).
+CMT	78222	plate	Watcom 10.6 runtime: IF@POW (module pow387, 192 bytes, full match; gdidream.csv).
+CMT	78378	plate	Watcom 10.6 runtime: pow_ (module pow387, 16 bytes, full match; gdidream.csv).
+CMT	78395	plate	Watcom 10.6 runtime: __exit_with_msg_ (module xmsgwnt, 55 bytes, core match; gdidream.csv).
+CMT	783ce	plate	Watcom 10.6 runtime: __fatal_runtime_error_ (module xmsgwnt, 29 bytes, full match; gdidream.csv).
+CMT	783eb	plate	Watcom 10.6 runtime: __threadid_ (module mainwnt, 28 bytes, full match; gdidream.csv).
+CMT	786d1	plate	Watcom 10.6 runtime: __set_errno_dos_ (module dosret, 81 bytes, full match; gdidream.csv).
+CMT	78786	plate	Watcom 10.6 runtime: __GetNTDirInfo_ (module ntdirinf, 59 bytes, full match; gdidream.csv).
+CMT	7e99c	plate	Watcom 10.6 runtime: __fptan_chk (module chipt32, 177 bytes, full match; gdidream.csv).
+CMT	7eaec	plate	Watcom 10.6 runtime: __init_8087_ (module chk8087, 49 bytes, full match; gdidream.csv).
+CMT	8521b	plate	Watcom 10.6 runtime: __NTAtMaxFiles_ (module nthdl, 69 bytes, full match; gdidream.csv).
+CMT	85260	plate	Watcom 10.6 runtime: __NTAddFileHandle_ (module nthdl, 121 bytes, full match; gdidream.csv).
+CMT	8537e	plate	Watcom 10.6 runtime: __NTRemoveFileHandle_ (module nthdl, 44 bytes, full match; gdidream.csv).
+CMT	8544e	plate	Watcom 10.6 runtime: __set_EINVAL_ (module seterrno, 16 bytes, full match; gdidream.csv).
+CMT	8546c	plate	Watcom 10.6 runtime: __GetNTCreateAttr_ (module ntfio, 45 bytes, full match; gdidream.csv).
+CMT	85499	plate	Watcom 10.6 runtime: __GetNTAccessAttr_ (module ntfio, 44 bytes, full match; gdidream.csv).
+CMT	85723	plate	Watcom 10.6 runtime: fcloseall_ (module ioexit, 93 bytes, full match; gdidream.csv).
+CMT	85965	plate	Watcom 10.6 runtime: __flushall_ (module flushall, 59 bytes, full match; gdidream.csv).
+CMT	859a0	plate	Watcom 10.6 runtime: modf_ (module modf387, 25 bytes, full match; gdidream.csv).
+CMT	859c0	plate	Watcom 10.6 runtime: __STOSB (module __stos, 55 bytes, full match; gdidream.csv).
+CMT	859f7	plate	Watcom 10.6 runtime: __STOSD (module __stos, 108 bytes, full match; gdidream.csv).
+CMT	85a7c	plate	Watcom 10.6 runtime: __allocfp_ (module allocfp, 184 bytes, core match; gdidream.csv).
+CMT	85b37	plate	Watcom 10.6 runtime: __freefp_ (module allocfp, 57 bytes, full match; gdidream.csv).
+CMT	85b70	plate	Watcom 10.6 runtime: __purgefp_ (module allocfp, 30 bytes, full match; gdidream.csv).
+CMT	85b8e	plate	Watcom 10.6 runtime: __chktty_ (module chktty, 49 bytes, full match; gdidream.csv).
+CMT	85bc0	plate	Watcom 10.6 runtime: __ioalloc_ (module ioalloc, 119 bytes, core match; gdidream.csv).
+CMT	85d9d	plate	Watcom 10.6 runtime: __filbuf_ (module fgetc, 47 bytes, full match; gdidream.csv).
+CMT	86390	plate	Watcom 10.6 runtime: __fpatan_wrap (module chipw32, 52 bytes, full match; gdidream.csv).
+CMT	8646d	plate	Watcom 10.6 runtime: __NTMain, __WinMain (module wmainwnt, 192 bytes, core match; gdidream.csv).
+CMT	88871	plate	Watcom 10.6 runtime: _expand_ (module nexpand, 58 bytes, core match; gdidream.csv).
+CMT	88ae6	plate	Watcom 10.6 runtime: __@DEXP (module exp387, 96 bytes, full match; gdidream.csv).
+CMT	88c6b	plate	Watcom 10.6 runtime: __fdiv_fpr (module chipd32, 192 bytes, full match; gdidream.csv).
+CMT	8912d	plate	Watcom 10.6 runtime: __fdiv_chk (module chipd32, 19 bytes, full match; gdidream.csv).
+CMT	89140	plate	Watcom 10.6 runtime: __fdiv_m32 (module chipd32, 76 bytes, full match; gdidream.csv).
+CMT	8918c	plate	Watcom 10.6 runtime: __fdiv_m64 (module chipd32, 76 bytes, full match; gdidream.csv).
+CMT	891d8	plate	Watcom 10.6 runtime: __fdiv_m32r (module chipd32, 76 bytes, full match; gdidream.csv).
+CMT	89224	plate	Watcom 10.6 runtime: __fdiv_m64r (module chipd32, 76 bytes, full match; gdidream.csv).
+CMT	89270	plate	Watcom 10.6 runtime: __EnterWVIDEO_ (module enterdb, 38 bytes, full match; gdidream.csv).
+CMT	8934f	plate	Watcom 10.6 runtime: __FiniAccessH_ (module mthread, 28 bytes, full match; gdidream.csv).
+CMT	895d0	plate	Watcom 10.6 runtime: _InitFunctionPointers_ (module wingen, 192 bytes, core match; gdidream.csv).
+CMT	89757	plate	Watcom 10.6 runtime: _strdup_ (module strdup, 69 bytes, full match; gdidream.csv).
+CMT	8982c	plate	Watcom 10.6 runtime: _ustrdup_ (module ustrdup, 39 bytes, full match; gdidream.csv).
+CMT	89cdb	plate	Watcom 10.6 runtime: __NewExceptionHandler_ (module signlwnt, 62 bytes, core match; gdidream.csv).
+CMT	89d26	plate	Watcom 10.6 runtime: __DoneExceptionHandler_ (module signlwnt, 79 bytes, core match; gdidream.csv).
+CMT	89d4d	plate	Watcom 10.6 runtime: verify_pentium_fdiv_bug_ (module chipbug, 85 bytes, core match; gdidream.csv).
+CMT	89dd2	plate	Watcom 10.6 runtime: __math2err_ (module math2err, 192 bytes, full match; gdidream.csv).
+CMT	89fcf	plate	Watcom 10.6 runtime: _Not_Enough_Memory_ (module nomem, 18 bytes, full match; gdidream.csv).
+CMT	89fe2	plate	Watcom 10.6 runtime: __init_80x87 (module ini87386, 39 bytes, full match; gdidream.csv).
+CMT	8a066	plate	Watcom 10.6 runtime: getche_ (module gtchewnt, 34 bytes, full match; gdidream.csv).
+CMT	8a088	plate	Watcom 10.6 runtime: _heapenable_ (module heapen, 33 bytes, full match; gdidream.csv).
+CMT	8a164	plate	Watcom 10.6 runtime: _fullpath_ (module fullpath, 132 bytes, core match; gdidream.csv).
+CMT	8a280	plate	Watcom 10.6 runtime: __fpatan_chk (module chipa32, 192 bytes, full match; gdidream.csv).
+CMT	978c0	plate	Watcom 10.6 runtime: _uultoa_, _uutoa_, ultoa_, utoa_ (module uitoa, 80 bytes, core match; gdidream.csv).
+CMT	97909	plate	Watcom 10.6 runtime: _itoa_, _ltoa_ (module itoa, 27 bytes, full match; gdidream.csv).
+CMT	979c6	plate	Watcom 10.6 runtime: __FDFS (module fdfs386, 76 bytes, full match; gdidream.csv).
+CMT	97b3b	plate	Watcom 10.6 runtime: __AddThreadData_ (module trdlist, 97 bytes, full match; gdidream.csv).
+CMT	97b9c	plate	Watcom 10.6 runtime: __RemoveThreadData_ (module trdlist, 74 bytes, full match; gdidream.csv).
+CMT	97d21	plate	Watcom 10.6 runtime: _ustrlen_ (module ustrlen, 19 bytes, full match; gdidream.csv).
+CMT	98018	plate	Watcom 10.6 runtime: __SigInit_ (module signlwnt, 45 bytes, core match; gdidream.csv).
+CMT	980a8	plate	Watcom 10.6 runtime: __FDD (module div386, 192 bytes, full match; gdidream.csv).
+CMT	982b4	plate	Watcom 10.6 runtime: __FDA (module fdmth386, 192 bytes, full match; gdidream.csv).
+CMT	9846b	plate	Watcom 10.6 runtime: __FDM (module fdmth386, 192 bytes, full match; gdidream.csv).
+CMT	98608	plate	Watcom 10.6 runtime: __FDC (module fdc386, 56 bytes, full match; gdidream.csv).
+CMT	98646	plate	Watcom 10.6 runtime: __rterrmsg_ (module _matherr, 72 bytes, full match; gdidream.csv).
+CMT	9868e	plate	Watcom 10.6 runtime: _matherr_ (module _matherr, 47 bytes, full match; gdidream.csv).
+CMT	9879b	plate	Watcom 10.6 runtime: _LDScale10x_ (module ldcvt, 90 bytes, full match; gdidream.csv).
+CMT	993be	plate	Watcom 10.6 runtime: putch_ (module putchwnt, 98 bytes, core match; gdidream.csv).
+CMT	99c41	plate	Watcom 10.6 runtime: __RegisterThreadData_ (module register, 63 bytes, full match; gdidream.csv).
+CMT	99da6	plate	Watcom 10.6 runtime: __terminate_ (module abort, 18 bytes, full match; gdidream.csv).
+CMT	99e21	plate	Watcom 10.6 runtime: _F8RetInf_ (module fstat386, 32 bytes, full match; gdidream.csv).
+CMT	99e4d	plate	Watcom 10.6 runtime: F4OverFlow (module fstat386, 28 bytes, full match; gdidream.csv).
+CMT	99e6f	plate	Watcom 10.6 runtime: __get_std_stream_ (module iobaddr, 31 bytes, full match; gdidream.csv).
+CMT	99f74	plate	Watcom 10.6 runtime: __ZBuf2LD (module bufld386, 163 bytes, full match; gdidream.csv).
+CMT	9a1ee	plate	Watcom 10.6 runtime: __CEndThread_ (module thredwnt, 42 bytes, core match; gdidream.csv).
+CMT	9acfb	plate	Watcom 10.6 runtime: _mbvtop_ (module mbconv, 26 bytes, full match; gdidream.csv).
+CMT	9ad15	plate	Watcom 10.6 runtime: _ustrchr_ (module ustrchr, 22 bytes, full match; gdidream.csv).
 CMT	9c000	plate	IMAGE_IMPORT_DESCRIPTOR
 CMT	9c014	plate	IMAGE_IMPORT_DESCRIPTOR
 CMT	9c028	plate	IMAGE_IMPORT_DESCRIPTOR

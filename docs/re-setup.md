@@ -144,11 +144,9 @@ same contract. It is the loader's default prototype, so `ApplyWatcall.java` is
 not needed for the calling convention. The file also adds a `__stdcall` model
 for the Glide stubs.
 
-The bespoke-register runtime helpers still decompile wrong. The Watcom library
-match already exists (`sigs/dreamsfx.csv`, 282 functions; see
-[toolchain.md](toolchain.md)), but it records file offsets only. The loaded
-program can now map them (`Memory.locateAddressesForFileOffset`); that step and
-applying the names are not done yet.
+The Watcom runtime is named and typed by `ApplyWatcomSigs.java` and
+`ApplyWatcomHeaders.java` (below); the LE rows of `sigs/dreamsfx.csv` are
+mapped through the LE page table.
 
 LE addresses are the loader's object bases (code at `0x20000` in
 `DREAMSFX.EXE`), not file offsets.
@@ -231,6 +229,61 @@ functions; 5 of the 6 hand-matched renderer pairs recovered without names;
 10 names carried to the 3dfx build. Calibration: on known pairs, constant
 multisets agree at Jaccard 1.00 where exact code never matches, and mnemonic
 bigrams at 0.4–0.87. Treat low-score `slot` pairs as leads, not facts.
+
+### `FixWatcomBss.java` — the Windows `.bss` is truncated
+
+The Watcom linker writes `VirtualSize = 0` for every PE section. Ghidra then
+maps `WINDREAM.EXE`/`GDIDREAM.EXE` `.bss` as `0x4c7000`–`0x59a1ff`, but the
+section runs to `.reloc` at `0x6b2000`, and the game keeps globals up to
+`~0x6726f8` (window handle, DirectSound buffers, frame pointer). Those
+1.1 MB were unmapped memory in every earlier analysis: references survived,
+but nothing there could be typed. The script extends an uninitialized `.bss`
+to the next block; it is a no-op otherwise. `ghidra-import.ps1` now runs it as
+`-preScript` on every import. On an existing project:
+
+```powershell
+& $h ghidra dreams -process WINDREAM.EXE -noanalysis -scriptPath ghidra_scripts -postScript FixWatcomBss.java
+```
+
+### Watcom runtime: `ApplyWatcomSigs.java`, then `ApplyWatcomHeaders.java`
+
+`ApplyWatcomSigs.java <DREAMS_WATCOM>\sigs\<program>.csv` names the runtime
+from the library match ([toolchain.md](toolchain.md)): `__CHK`, `memcpy_`,
+`vsprintf_`, `int386x_`, ... PE rows carry virtual addresses. LE rows carry
+file offsets only, and **`Memory.locateAddressesForFileOffset` is a trap
+here**: it resolves into the loader's `.image` overlay (a raw copy of the
+file), not the loaded objects. The script reads the LE object/page tables from
+`.image`, maps each offset itself, and verifies the bytes, skipping 32-bit
+relocation sites, before naming anything. Result: 279 + 2 labels in
+`DREAMSFX.EXE`, 102 + 17 in each Windows build; user-assigned names are never
+overwritten.
+
+`ApplyWatcomHeaders.java <DREAMS_WATCOM>\10.6-cd\H` parses the Watcom C
+headers (`stdio.h` … `signal.h`, plus `graph.h` for DOS; `__DOS__` for LE,
+`__NT__` for PE) and gives each `name_` runtime function the prototype of
+`name`: `__watcall`, or `__cdecl` when variadic (Watcom passes varargs on the
+stack, caller pops; `tools/lx-loader-watcom.cspec` gained a `__cdecl` model
+for this). Functions with `float`/`double` are skipped. Ghidra's parser needs
+cleaned copies, written to `out/ghidra/watcom-h`: `#pragma aux`/`intrinsic`
+lines dropped, `pack(__push,1)` normalised, `__far`/`__near`/`__huge`/...
+removed, `__segment` → `unsigned short`. Typed: 98 functions in `DREAMSFX.EXE`,
+35 per Windows build; types include `REGS`/`SREGS` (28/12 bytes),
+`videoconfig`, `find_t`, `FILE`. DPMI calls now read as
+`r.x.eax = 1; r.x.ebx = sel; int386_(0x31, &r, &r)`.
+
+### `ApplyTypes.java` — DirectX interfaces and named globals
+
+`ApplyTypes.java re/structs/directx.h re/structs/windream-globals.tsv` parses
+the headers given and types the globals listed in the `.tsv`
+(`address type name comment`). `directx.h` declares the seven COM interfaces
+the Windows build uses; method order was generated from Wine's headers and
+checked identical to Microsoft's (Windows SDK 10.0.26100 `ddraw.h`/`dsound.h`),
+which themselves need `windows.h`/`objbase.h`/SAL and do not parse cleanly.
+Ghidra's bundled `windows_vs12_32.gdt` has no DirectX interfaces. After it,
+`DDraw_Present` reads `g_ddsBack->lpVtbl->Lock(g_ddsBack, NULL, &desc, 0,
+NULL)` with a typed `DDSURFACEDESC`. Labels are not exported by
+`ExportSymbols.java`; the `.tsv` is the record, so re-run it on a fresh
+project (after `FixWatcomBss.java`).
 
 ### `ApplyWatcall.java` — run this on any fresh project
 

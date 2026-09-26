@@ -9,8 +9,9 @@ Everything else still comes from community reports plus the binary analysis in
 Three properties of the Windows build, all confirmed from its import table
 (`engine.md`), account for essentially every failure mode:
 
-1. Palettized **DirectDraw** mode-setting, which Windows 11's DWM cannot provide
-   in true exclusive fullscreen.
+1. **DirectDraw** exclusive-fullscreen mode-setting (640x480, 16 bpp, a
+   primary surface with one flip back buffer), which Windows 11 handles badly.
+   Not a palettized 8-bit mode, as this page once said (`engine.md`).
 2. **`timeGetTime` with no frame limiter** — above ~30 FPS the physics break and
    a routine landing can kill the player.
 3. **MCI `cdaudio`** for music, which needs a real CD device with audio tracks.

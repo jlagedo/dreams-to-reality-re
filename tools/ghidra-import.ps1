@@ -96,7 +96,9 @@ foreach ($bin in $Binaries) {
         $Project, $ProjectName,
         "-import", $bin,
         "-overwrite",
-        "-scriptPath", "$repo\ghidra_scripts"
+        "-scriptPath", "$repo\ghidra_scripts",
+        # Watcom writes VirtualSize 0; map the whole .bss before analysis.
+        "-preScript", "FixWatcomBss.java"
     )
     if (-not $Analyze)      { $args += "-noanalysis" }
     if ($ImportSymbols)     { $args += @("-postScript", "ImportSymbols.java") }

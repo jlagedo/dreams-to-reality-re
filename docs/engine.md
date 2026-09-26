@@ -260,6 +260,27 @@ DIRECT DRAW ERROR
 the user to install DirectX 5. DirectDraw is used purely for 2D surface
 management and mode setting; the software rasterizer does all the drawing.
 
+With the COM interfaces typed (`re/structs/directx.h`, globals in
+`re/structs/windream-globals.tsv`) the setup reads directly: **[verified]**
+
+- `DDraw_Init` (`0x445955`): `DirectDrawCreate(NULL, &g_DirectDraw)`,
+  `QueryInterface` → `g_DirectDraw2`, `SetCooperativeLevel(g_hWnd,
+  DDSCL_EXCLUSIVE|DDSCL_FULLSCREEN)`, allocate the 0x96000-byte RAM frame
+  `g_frameBuffer`, then `DDraw_SetMode(640, 480)`.
+- `DDraw_SetMode`/`DDraw_CreateSurfaces` (`0x4454d1`/`0x4455ad`): pick the
+  640x480 entry of a 10-slot display-mode table, `SetDisplayMode(640, 480,
+  16, refresh, 0)`, `GetDisplayMode` to read the pixel format (565 →
+  `0x49da18 = 0`, 555 → `1`), `CreateSurface` with `DDSCAPS_PRIMARYSURFACE |
+  FLIP | COMPLEX` and one back buffer (`g_ddsPrimary`), `GetAttachedSurface` →
+  `g_ddsBack`.
+- `DSound_Init` (`0x4463e9`): `DirectSoundCreate`, `SetCooperativeLevel(
+  DSSCL_PRIORITY)`; `DSound_CreatePrimary` sets the primary buffer to
+  **22,050 Hz 16-bit stereo**; `DSound_CreateChannels` creates secondary
+  buffers with `CTRLFREQUENCY|CTRLPAN|CTRLVOLUME`: up to five 11,025 Hz
+  16-bit mono voices, one 22,050 Hz 16-bit stereo 2-second buffer and one
+  11,025 Hz 8-bit mono buffer, each the first field of a 0x18-byte channel
+  record.
+
 The GDI path is the classic `CreateCompatibleDC` + `CreateDIBSection` +
 `StretchBlt` windowed blit, which is why `GDIDREAM.EXE` runs in a window.
 
@@ -283,9 +304,13 @@ community, and each has a different fix: **[verified]** observation,
    [animation-timing.md](animation-timing.md). Community reports describe
    harmful landing damage at high render rates. DOSBox `cycles` throttling or
    DxWnd emulated vsync are reported workarounds.
-3. **Palettized DirectDraw mode-setting** is what actually breaks on Windows 11.
-   The DWM offers no true 8-bit exclusive-fullscreen palette path, producing
-   `Can't set DirectDraw mode` and `Can't create primary surface under DirectDraw`.
+3. **Exclusive-fullscreen DirectDraw mode-setting** is what breaks on
+   Windows 11, producing `Can't set DirectDraw mode` and `Can't create primary
+   surface under DirectDraw`. Correction: an earlier revision blamed an 8-bit
+   palettized mode. The code asks for **640x480 at 16 bpp** and accepts only
+   565 or 555 RGB surfaces (`DDraw_SetMode`, `DDraw_CreateSurfaces`,
+   **[verified]**); there is no palette. Why exactly modern Windows refuses the
+   mode or the flip chain is not established. **[unverified]**
 
 ### Input — no mouse anywhere, polled keyboard **[verified]**
 

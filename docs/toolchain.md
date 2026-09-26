@@ -190,8 +190,11 @@ them all, e.g. `fprintf_|fscanf_|sscanf_`.
 - **IDA** (Free works): File → Script file → `windream.idc`. Symbols are
   prefixed `wat_`. FLAIR's `pcf`/`sigmake` are not needed and are not bundled
   with IDA Free.
-- **Ghidra**: Script Manager → `windream_ghidra.py`. It labels the address and
-  renames the containing function when the match is at its entry point.
+- **Ghidra**: `ghidra_scripts/ApplyWatcomSigs.java <sigs>\<program>.csv`
+  (headless or Script Manager) names the functions in all four binaries,
+  including the LE ones, then `ApplyWatcomHeaders.java` applies the Watcom
+  header prototypes; see `re-setup.md`. The generated `windream_ghidra.py`
+  needs PyGhidra, which this machine's Python 3.14 cannot run.
 
 ## Was the C++ compiler used?
 
@@ -218,11 +221,12 @@ residue in `engine.md`. Confirming it needs a different technique.
 1. Nothing here identifies the middleware builds (Miles, UniVBE, Glide). Those
    libraries are not on the Watcom CD and would need their own references
    before the same trick could name their functions.
-2. The DOS builds' matches are reported as file offsets only. Mapping them to
-   linear addresses needs an LE-format section walker. `DREAMSFX.EXE` now loads
-   in Ghidra through the LE loader (`re-setup.md`), whose memory map can do
-   that conversion (`Memory.locateAddressesForFileOffset`); the names have not
-   been applied yet.
+2. ~~The DOS builds' matches are reported as file offsets only.~~ Resolved for
+   `DREAMSFX.EXE`: `ApplyWatcomSigs.java` maps them through the LE object and
+   page tables and verifies the bytes (279 named, 2 labelled). Ghidra's own
+   `Memory.locateAddressesForFileOffset` resolves into the loader's raw
+   `.image` copy instead and must not be used. `DREAMS.EXE` is not imported
+   yet.
 3. 10.6 versus 10.6a is undecidable from the runtime library, which is
    byte-identical between them. Whether anything else in the two distributions
    differs in a way the game binaries would reveal has not been checked.

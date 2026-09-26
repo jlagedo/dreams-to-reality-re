@@ -15,6 +15,7 @@
 | `docs/README.md` | Research documentation index |
 | `docs/re-setup.md` | Ghidra setup and workflow |
 | `re/symbols/*.tsv` | Saved Ghidra symbols and comments |
+| `re/structs/` | C layouts and typed-global lists for Ghidra (`windream.h`, `directx.h`, `windream-globals.tsv`) |
 | `ghidra_scripts/` | Java scripts for Ghidra |
 | `tools/` | Ghidra import and checkpoint PowerShell scripts; `lx-loader-watcom.cspec` for the DOS-build LE loader; `match_functions.py` cross-build function matcher |
 | `ghidra/` | Local Ghidra project (gitignored) |
@@ -127,4 +128,9 @@ and `-Binaries` (only the listed files are re-imported); `tools/re-checkpoint.ps
 accepts `-SkipExport` when the Ghidra GUI has the project open and `-Programs`
 (default includes `DREAMSFX.EXE`). `DREAMSFX.EXE` needs the LE loader and
 `ApplyGlideImports.java`; the matcher needs `ExportFunctionFeatures.java` run on
-both programs first. See `docs/re-setup.md` for the full command reference.
+both programs first. Type passes that `ImportSymbols.java` does not restore
+(re-run on a fresh project): `FixWatcomBss.java` (automatic on import),
+`ApplyWatcomSigs.java` + `ApplyWatcomHeaders.java` (Watcom runtime, from
+`DREAMS_WATCOM`), `ApplyTypes.java re/structs/directx.h
+re/structs/windream-globals.tsv` (Windows DirectX globals). See
+`docs/re-setup.md` for the full command reference.

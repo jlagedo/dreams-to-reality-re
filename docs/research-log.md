@@ -949,6 +949,30 @@ names, and one correction: `0x43a306` is `MGM_SendMessage`, not
 [engine.md](engine.md), *Presentation and 2D*; matcher in
 [re-setup.md](re-setup.md).
 
+## 2026-09-25 — DirectX interfaces, Watcom runtime and a truncated `.bss`
+
+Three typing passes, all reproducible from `re-setup.md`:
+
+- **DirectX.** Ghidra's Win32 archive has no DirectX interfaces, so
+  `re/structs/directx.h` declares the seven the game uses (order generated
+  from Wine, checked identical to the Windows SDK headers) and
+  `ApplyTypes.java` types 15 globals. DirectDraw and DirectSound setup now read
+  as `lpVtbl` calls. Correction: the Windows mode is 640x480 at **16 bpp**
+  (565/555), not the palettized 8-bit mode `engine.md` and `running.md`
+  claimed.
+- **`.bss`.** Watcom writes `VirtualSize = 0`; Ghidra mapped only
+  `0x4c7000`–`0x59a1ff` of a `.bss` that runs to `0x6b2000`, leaving 1.1 MB of
+  globals (window, sound buffers) unmapped in every earlier analysis.
+  `FixWatcomBss.java` extends it, and the import script runs it first.
+- **Watcom runtime.** `ApplyWatcomSigs.java` applies the existing library
+  matches (279 in `DREAMSFX.EXE`, 102 per Windows build). First attempt used
+  `Memory.locateAddressesForFileOffset`, which silently resolved into the LE
+  loader's raw `.image` copy; the names landed on phantom functions there and
+  were removed. The script now walks the LE page table and verifies bytes.
+  `ApplyWatcomHeaders.java` parses the Watcom 10.6 headers (after stripping
+  `#pragma aux`) and types 98 / 35 runtime functions, including `REGS` for
+  `int386`.
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)

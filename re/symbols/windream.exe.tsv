@@ -42,23 +42,141 @@ FUNC	40bc2	Joy_InitDevices	undefined8 Joy_InitDevices(void)
 FUNC	40d3d	Joy_Poll	undefined4 Joy_Poll(void)	
 FUNC	453ec	Video_ReleaseSurfaces	undefined Video_ReleaseSurfaces(void)	Releases DirectDraw surfaces or deletes the GDI DIB and DC.
 FUNC	4549b	Video_Present	undefined Video_Present(void)	Mode flag 0x633b18: 0 = DDraw_Present, 1 = GDI_Present.
+FUNC	454d1	DDraw_SetMode	undefined4 DDraw_SetMode(void)	Called with g_videoWidth/g_videoHeight; failure reports "Can't set DirectDraw mode".
 FUNC	455ad	DDraw_CreateSurfaces	undefined4 DDraw_CreateSurfaces(void)	Fills the primary/back surface pointers 0x4a453c/0x4a4540.
 FUNC	458bb	GDI_Present	undefined GDI_Present(void)	GetDC + StretchBlt(SRCCOPY) of the DIB to the client rect.
+FUNC	45955	DDraw_Init	undefined8 DDraw_Init(void)	DirectDrawCreate, QueryInterface IDirectDraw2, SetCooperativeLevel(EXCLUSIVE|FULLSCREEN), allocate g_frameBuffer, DDraw_SetMode.
 FUNC	45a57	DDraw_Present	undefined DDraw_Present(void)	Lock back surface, copy the software framebuffer by pitch, Unlock, Flip primary; Restore on DDERR_SURFACELOST.
 FUNC	45bf2	Video_Lock	undefined Video_Lock(void)	IDirectDrawSurface::Lock(DDLOCK_WAIT|DDLOCK_WRITEONLY) in DirectDraw mode; no-op for GDI.
 FUNC	45c3f	Video_Unlock	undefined Video_Unlock(void)	IDirectDrawSurface::Unlock in DirectDraw mode; no-op for GDI.
 FUNC	45c84	GDI_CreateDIB	bool GDI_CreateDIB(void)	Calls CreateDIBSection.
 FUNC	46019	Video_Init	undefined4 Video_Init(void)	640x480; writes the mode flag 0x633b18 (0 in WINDREAM, 1 in GDIDREAM: the only code byte that differs).
+FUNC	463e9	DSound_Init	undefined8 DSound_Init(void)	DirectSoundCreate, SetCooperativeLevel(PRIORITY), primary buffer, channel buffers.
+FUNC	46ebb	DSound_CreatePrimary	undefined8 DSound_CreatePrimary(void)	CreateSoundBuffer(primary), SetFormat 22050 Hz 16-bit stereo.
+FUNC	46f98	DSound_CreateChannels	undefined8 DSound_CreateChannels(void)	CreateSoundBuffer for the voice records (0x633b40), the 22 kHz stereo and the 11 kHz 8-bit channels.
+FUNC	54feb	__CHK	undefined4 __CHK(void)	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] FUN_00454feb is the important correction.\n\n[docs/dsn-loader.md > The stream abstraction] FUN_00454feb() returns the stream context.\n\n[docs/dsn-loader.md > The stream abstraction] | FUN_00454feb | CHK — Watcom stack-overflow probe | library match |\n\nWatcom 10.6 runtime: __CHK (module stkwnt, 16 bytes, full match; windream.csv).
+FUNC	54ffb	__STK	undefined4 __STK(int param_1)	Watcom 10.6 runtime: __STK (module stkwnt, 31 bytes, full match; windream.csv).
+FUNC	5502a	__GRO	undefined4 __GRO(int param_1)	Watcom 10.6 runtime: __GRO (module stkwnt, 32 bytes, full match; windream.csv).
+FUNC	5505e	strcpy_	char * strcpy_(char * __s1, char * __s2)	Watcom 10.6 runtime: strcpy_ (module strcpy, 31 bytes, full match; windream.csv).
+FUNC	5507d	strcat_	char * strcat_(char * __s1, char * __s2)	Watcom 10.6 runtime: strcat_ (module strcat, 51 bytes, full match; windream.csv).
+FUNC	55190	strncpy_	char * strncpy_(char * __s1, char * __s2, size_t __n)	Watcom 10.6 runtime: strncpy_ (module strncpy, 37 bytes, full match; windream.csv).
 FUNC	592e0	SW_SelectFlush	undefined SW_SelectFlush(void)	
 FUNC	59320	Render_Frame	undefined Render_Frame(undefined4 param_1)	
 FUNC	593a4	Render_FrameEx	undefined Render_FrameEx(undefined4 param_1, uint param_2)	
-FUNC	65538	entry	undefined entry(void)	[DOCS_SYNC]\n[docs/boot-sequence.md > Function map (boot path)] | 0x465538 | entry (Watcom startup) |\n\n[docs/research-log.md > 2026-09-24 — boot sequence decompiled, videos and menus named] Followed the player-visible boot flow through WINDREAM.EXE end to end: entry 00465538 → main 0048646d → Game_Run 0041745e → BootScreen 00436481.
+FUNC	5941d	fprintf_	int fprintf_(FILE * __fp, char * __format, ...)	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; windream.csv).
+FUNC	5943e	__CHP	float10 __CHP(void)	Watcom 10.6 runtime: __CHP (module fchop, 29 bytes, full match; windream.csv).
+FUNC	5c19a	IF@DSIN	undefined IF@DSIN(void)	Watcom 10.6 runtime: IF@DSIN (module trig387, 53 bytes, full match; windream.csv).
+FUNC	5c1e7	IF@DTAN	undefined IF@DTAN(void)	Watcom 10.6 runtime: IF@DTAN (module trig387, 21 bytes, full match; windream.csv).
+FUNC	5c208	sqrt_	undefined sqrt_(uint param_1, undefined4 param_2, int param_3, uint param_4)	Watcom 10.6 runtime: sqrt_ (module sqrt387, 48 bytes, full match; windream.csv).
+FUNC	5c23a	__@DSQRT	undefined8 __@DSQRT(uint param_1, undefined4 param_2)	Watcom 10.6 runtime: __@DSQRT (module sqrt387, 53 bytes, full match; windream.csv).
+FUNC	5c278	memcpy_	void * memcpy_(void * __s1, void * __s2, size_t __n)	[DOCS_SYNC]\n[docs/dsn-loader.md > Fixed — `tools/watcall-cspec.patch`] Ground truth: FUN_0045c278 is memcpy_ per the library match, and under watcall it decompiles as a textbook memcpy(param_1, param_2, param_3) returning param_1 — a dword loop plus a byte tail.\n\n[docs/dsn-loader.md > The blocker: wrong calling convention] FUN_0045c278 makes it obvious.\n\n[docs/dsn-loader.md > The stream abstraction] | FUN_0045c278 | memcpy_ | library match |\n\nWatcom 10.6 runtime: memcpy_ (module memcpy, 37 bytes, full match; windream.csv).
+FUNC	5c420	_uopen_	undefined _uopen_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: _uopen_, open_ (module openwnt, 36 bytes, full match; windream.csv).
+FUNC	5c444	_bprintf_	int _bprintf_(char * __buf, uint __bufsize, char * __fmt, ...)	Watcom 10.6 runtime: _bprintf_ (module bprintf, 39 bytes, full match; windream.csv).
+FUNC	5cc8b	fprintf_	int fprintf_(FILE * __fp, char * __format, ...)	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; windream.csv).
+FUNC	5fc20	strcmp_	int strcmp_(char * __s1, char * __s2)	Watcom 10.6 runtime: strcmp_ (module cmp386, 161 bytes, full match; windream.csv).
+FUNC	5fcc1	memcmp_	int memcmp_(void * __s1, void * __s2, size_t __n)	Watcom 10.6 runtime: memcmp_ (module memcmp, 30 bytes, full match; windream.csv).
+FUNC	5fcdf	floor_	undefined8 floor_(undefined4 param_1, undefined4 param_2, undefined4 param_3, undefined4 param_4)	Watcom 10.6 runtime: floor_ (module floor, 60 bytes, full match; windream.csv).
+FUNC	5fd1b	ceil_	undefined4 ceil_(undefined4 param_1, undefined4 param_2, double param_3)	Watcom 10.6 runtime: ceil_ (module ceil, 27 bytes, full match; windream.csv).
+FUNC	5fd4e	strlen_	size_t strlen_(char * __s)	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] | FUN_0045fd4e | strlen_ | library match |\n\nWatcom 10.6 runtime: strlen_ (module strlen, 25 bytes, full match; windream.csv).
+FUNC	5fd67	strncmp_	int strncmp_(char * __s1, char * __s2, size_t __n)	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] | FUN_0045fd67 | strncmp_ | library match |\n\nWatcom 10.6 runtime: strncmp_ (module strncmp, 41 bytes, full match; windream.csv).
+FUNC	5ffd5	fopen_	FILE * fopen_(char * __filename, char * __mode)	Watcom 10.6 runtime: fopen_ (module fopen, 132 bytes, full match; windream.csv).
+FUNC	600d0	fread_	size_t fread_(void * __ptr, size_t __size, size_t __n, FILE * __fp)	Watcom 10.6 runtime: fread_ (module fread, 192 bytes, core match; windream.csv).
+FUNC	603c2	fclose_	int fclose_(FILE * __fp)	Watcom 10.6 runtime: fclose_ (module fclose, 63 bytes, full match; windream.csv).
+FUNC	60401	__shutdown_stream_	undefined4 __shutdown_stream_(undefined4 param_1, int param_2)	Watcom 10.6 runtime: __shutdown_stream_ (module fclose, 33 bytes, full match; windream.csv).
+FUNC	607f2	IF@DATAN	undefined IF@DATAN(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: IF@DATAN (module atan387, 21 bytes, full match; windream.csv).
+FUNC	60807	IF@DATAN2	undefined IF@DATAN2(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: IF@DATAN2 (module atan387, 21 bytes, full match; windream.csv).
+FUNC	60828	atan2_	undefined atan2_(void)	Watcom 10.6 runtime: atan2_ (module atan387, 16 bytes, full match; windream.csv).
+FUNC	60842	rand_	int rand_(void)	Watcom 10.6 runtime: rand_ (module rand, 36 bytes, full match; windream.csv).
+FUNC	60866	srand_	void srand_(uint __seed)	Watcom 10.6 runtime: srand_ (module rand, 16 bytes, full match; windream.csv).
+FUNC	60d12	memmove_	void * memmove_(void * __s1, void * __s2, size_t __n)	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] | FUN_00460d12 | memmove_ | library match |\n\nWatcom 10.6 runtime: memmove_ (module memmove, 77 bytes, full match; windream.csv).
+FUNC	60d5f	printf_	int printf_(char * __format, ...)	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] FUN_00460d5f being printf_ likewise kills the "refill from file" reading.\n\n[docs/dsn-loader.md > The stream abstraction] | FUN_00460d5f | printf_ | library match |\n\nWatcom 10.6 runtime: printf_ (module printf, 34 bytes, full match; windream.csv).
+FUNC	60dae	_exit_	void _exit_(int __status)	Watcom 10.6 runtime: _exit_ (module exit, 37 bytes, full match; windream.csv).
+FUNC	654d4	_uultoa_	char * _uultoa_(undefined4 param_1, char * param_2)	Watcom 10.6 runtime: _uultoa_, _uutoa_, ultoa_, utoa_ (module uitoa, 80 bytes, core match; windream.csv).
+FUNC	6551d	_itoa_	char * _itoa_(int __value, char * __buf, int __radix)	Watcom 10.6 runtime: _itoa_, _ltoa_ (module itoa, 27 bytes, full match; windream.csv).
+FUNC	65538	__DLLstart_	undefined __DLLstart_(void)	[DOCS_SYNC]\n[docs/boot-sequence.md > Function map (boot path)] | 0x465538 | entry (Watcom startup) |\n\n[docs/research-log.md > 2026-09-24 — boot sequence decompiled, videos and menus named] Followed the player-visible boot flow through WINDREAM.EXE end to end: entry 00465538 → main 0048646d → Game_Run 0041745e → BootScreen 00436481.\n\nWatcom 10.6 runtime: __DLLstart_, _cstart_ (module cstrtwnt, 116 bytes, full match; windream.csv).
+FUNC	6659f	calloc_	void * calloc_(size_t __n, size_t __size)	Watcom 10.6 runtime: calloc_ (module calloc, 24 bytes, full match; windream.csv).
 FUNC	73014	SW_DrawObjectFaces	undefined SW_DrawObjectFaces(void)	[DOCS_SYNC]\n[docs/scene-geometry.md > Why it is not in the file] FUN_00473014 installs the render callback and walks the object list, so the face records are rendered; tag 2's triangle array with its normals, edge half-spaces and bounding boxes is the separate collision or spatial structure.
 FUNC	731b8	SW_ObjectHook2	undefined SW_ObjectHook2(void)	
 FUNC	768cc	SW_FlushSpans	undefined SW_FlushSpans(void)	
 FUNC	76dec	SW_FlushSpansAlt	undefined SW_FlushSpansAlt(void)	
+FUNC	77713	_heapwalk_	int _heapwalk_(_heapinfo * __entry)	Watcom 10.6 runtime: _heapwalk_ (module nheapwal, 36 bytes, full match; windream.csv).
+FUNC	777d7	strstr_	char * strstr_(char * __s1, char * __s2)	Watcom 10.6 runtime: strstr_ (module strstr, 190 bytes, full match; windream.csv).
+FUNC	778a8	vsprintf_	int vsprintf_(char * __s, char * __format, __va_list __arg)	Watcom 10.6 runtime: vsprintf_ (module vsprintf, 21 bytes, full match; windream.csv).
+FUNC	7796e	_dos_setdrive_	void _dos_setdrive_(uint __drivenum, uint * __drives)	Watcom 10.6 runtime: _dos_setdrive_ (module sdrvewnt, 50 bytes, core match; windream.csv).
+FUNC	77c35	fprintf_	int fprintf_(FILE * __fp, char * __format, ...)	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; windream.csv).
+FUNC	781a7	realloc_	void * realloc_(void * __ptr, size_t __size)	Watcom 10.6 runtime: realloc_ (module nrealloc, 122 bytes, full match; windream.csv).
+FUNC	78222	IF@POW	uint IF@POW(uint param_1, undefined4 param_2)	Watcom 10.6 runtime: IF@POW (module pow387, 192 bytes, full match; windream.csv).
+FUNC	78378	pow_	undefined pow_(uint param_1, undefined4 param_2)	Watcom 10.6 runtime: pow_ (module pow387, 16 bytes, full match; windream.csv).
+FUNC	78395	__exit_with_msg_	undefined __exit_with_msg_(void)	Watcom 10.6 runtime: __exit_with_msg_ (module xmsgwnt, 55 bytes, core match; windream.csv).
+FUNC	783ce	__fatal_runtime_error_	undefined __fatal_runtime_error_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __fatal_runtime_error_ (module xmsgwnt, 29 bytes, full match; windream.csv).
+FUNC	783eb	__threadid_	undefined __threadid_(void)	Watcom 10.6 runtime: __threadid_ (module mainwnt, 28 bytes, full match; windream.csv).
+FUNC	786d1	__set_errno_dos_	undefined8 __set_errno_dos_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __set_errno_dos_ (module dosret, 81 bytes, full match; windream.csv).
+FUNC	78786	__GetNTDirInfo_	undefined __GetNTDirInfo_(undefined4 param_1, undefined1 * param_2)	Watcom 10.6 runtime: __GetNTDirInfo_ (module ntdirinf, 59 bytes, full match; windream.csv).
 FUNC	78800	Render_AltObjectHook	undefined Render_AltObjectHook(void)	
 FUNC	7e498	Render_DrawObject	undefined Render_DrawObject(void)	[DOCS_SYNC]\n[docs/file-formats.md > `.DAN` — character and prop models (`DANF`)] Verified across 15,084 tracks and 142,806 keyframes in 780 clips from 159 distinct models with 0 invalid strides or nonmonotonic timestamps. - Engine evaluation: evaluated at runtime via Slerp (FUN_0045bf68) or Hermite spline, converted to local $3 \times 3$ rotation matrix (FUN_0045bc28), and composed down the skeletal hierarchy (FUN_0047e498 via FUN_0045b86c).\n\n[docs/models.md > Engine Evaluation Math in `WINDREAM.EXE` [verified]] Hierarchical Transform Composition (FUN_0047e498): - Evaluates: $$R_{world} = (R_{parent} \times R_{child}) \gg 15$$ $$T_{world} = ((R_{parent} \times T_{child}) \gg 15) + T_{parent}$$ - Matrix multiply implemented in FUN_0045b86c.\n\n[docs/models.md > Skeletal Pose Evaluation [partially verified]] In WINDREAM.EXE (FUN_0047e498 / FUN_0047e700), the local node rotation $R_{\text{local}}$ is replaced by $R_{\text{anim}}$, and world transforms are composed down the scene-graph hierarchy: $$R_{\text{world}} = (R_{\text{parent}} \cdot R_{\text{child}}) \gg 15$$ $$T_{\text{world}} = ((R_{\text{parent}} \cdot T_{\text{child}}) \gg 15) + T_{\text{parent}}$$\n\n[docs/models.md > World transforms] Order and rounding both come from WINDREAM.EXE — the multiply in FUN_0045b86c and the parent add in FUN_0047e498.
+FUNC	7e99c	__fptan_chk	undefined __fptan_chk(void)	Watcom 10.6 runtime: __fptan_chk (module chipt32, 177 bytes, full match; windream.csv).
+FUNC	7eaec	__init_8087_	undefined __init_8087_(void)	Watcom 10.6 runtime: __init_8087_ (module chk8087, 49 bytes, full match; windream.csv).
+FUNC	8521b	__NTAtMaxFiles_	undefined8 __NTAtMaxFiles_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __NTAtMaxFiles_ (module nthdl, 69 bytes, full match; windream.csv).
+FUNC	85260	__NTAddFileHandle_	undefined8 __NTAddFileHandle_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __NTAddFileHandle_ (module nthdl, 121 bytes, full match; windream.csv).
+FUNC	8537e	__NTRemoveFileHandle_	undefined __NTRemoveFileHandle_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __NTRemoveFileHandle_ (module nthdl, 44 bytes, full match; windream.csv).
+FUNC	8544e	__set_EINVAL_	undefined __set_EINVAL_(void)	Watcom 10.6 runtime: __set_EINVAL_ (module seterrno, 16 bytes, full match; windream.csv).
+FUNC	8546c	__GetNTCreateAttr_	undefined __GetNTCreateAttr_(void)	Watcom 10.6 runtime: __GetNTCreateAttr_ (module ntfio, 45 bytes, full match; windream.csv).
+FUNC	85499	__GetNTAccessAttr_	undefined __GetNTAccessAttr_(undefined4 param_1, undefined4 * param_2)	Watcom 10.6 runtime: __GetNTAccessAttr_ (module ntfio, 44 bytes, full match; windream.csv).
+FUNC	85723	fcloseall_	int fcloseall_(void)	Watcom 10.6 runtime: fcloseall_ (module ioexit, 93 bytes, full match; windream.csv).
+FUNC	85965	__flushall_	undefined8 __flushall_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __flushall_ (module flushall, 59 bytes, full match; windream.csv).
+FUNC	859a0	modf_	undefined4 modf_(undefined4 param_1, undefined4 param_2, double * param_3)	Watcom 10.6 runtime: modf_ (module modf387, 25 bytes, full match; windream.csv).
+FUNC	859c0	__STOSB	undefined __STOSB(uint param_1, uint param_2)	Watcom 10.6 runtime: __STOSB (module __stos, 55 bytes, full match; windream.csv).
+FUNC	859f7	__STOSD	undefined __STOSD(uint param_1, undefined4 param_2)	Watcom 10.6 runtime: __STOSD (module __stos, 108 bytes, full match; windream.csv).
+FUNC	85a7c	__allocfp_	undefined8 __allocfp_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __allocfp_ (module allocfp, 184 bytes, core match; windream.csv).
+FUNC	85b37	__freefp_	undefined __freefp_(void)	Watcom 10.6 runtime: __freefp_ (module allocfp, 57 bytes, full match; windream.csv).
+FUNC	85b70	__purgefp_	undefined __purgefp_(void)	Watcom 10.6 runtime: __purgefp_ (module allocfp, 30 bytes, full match; windream.csv).
+FUNC	85b8e	__chktty_	undefined __chktty_(undefined4 param_1)	Watcom 10.6 runtime: __chktty_ (module chktty, 49 bytes, full match; windream.csv).
+FUNC	85d9d	__filbuf_	undefined8 __filbuf_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __filbuf_ (module fgetc, 47 bytes, full match; windream.csv).
+FUNC	86390	__fpatan_wrap	undefined4 __fpatan_wrap(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __fpatan_wrap (module chipw32, 52 bytes, full match; windream.csv).
+FUNC	8646d	__NTMain	undefined __NTMain(void)	Watcom 10.6 runtime: __NTMain, __WinMain (module wmainwnt, 192 bytes, core match; windream.csv).
+FUNC	88871	_expand_	void * _expand_(void * __ptr, size_t __size)	Watcom 10.6 runtime: _expand_ (module nexpand, 58 bytes, core match; windream.csv).
+FUNC	88ae6	__@DEXP	longlong __@DEXP(uint param_1, undefined4 param_2)	Watcom 10.6 runtime: __@DEXP (module exp387, 96 bytes, full match; windream.csv).
+FUNC	88c6b	__fdiv_fpr	undefined __fdiv_fpr(void)	Watcom 10.6 runtime: __fdiv_fpr (module chipd32, 192 bytes, full match; windream.csv).
+FUNC	8912d	__fdiv_chk	undefined __fdiv_chk(void)	Watcom 10.6 runtime: __fdiv_chk (module chipd32, 19 bytes, full match; windream.csv).
+FUNC	89140	__fdiv_m32	undefined __fdiv_m32(void)	Watcom 10.6 runtime: __fdiv_m32 (module chipd32, 76 bytes, full match; windream.csv).
+FUNC	8918c	__fdiv_m64	undefined __fdiv_m64(void)	Watcom 10.6 runtime: __fdiv_m64 (module chipd32, 76 bytes, full match; windream.csv).
+FUNC	891d8	__fdiv_m32r	undefined __fdiv_m32r(void)	Watcom 10.6 runtime: __fdiv_m32r (module chipd32, 76 bytes, full match; windream.csv).
+FUNC	89224	__fdiv_m64r	undefined __fdiv_m64r(void)	Watcom 10.6 runtime: __fdiv_m64r (module chipd32, 76 bytes, full match; windream.csv).
+FUNC	89270	__EnterWVIDEO_	undefined4 __EnterWVIDEO_(undefined4 param_1, undefined2 param_2)	Watcom 10.6 runtime: __EnterWVIDEO_ (module enterdb, 38 bytes, full match; windream.csv).
+FUNC	8934f	__FiniAccessH_	undefined __FiniAccessH_(void)	Watcom 10.6 runtime: __FiniAccessH_ (module mthread, 28 bytes, full match; windream.csv).
+FUNC	89757	_strdup_	char * _strdup_(char * __string)	Watcom 10.6 runtime: _strdup_ (module strdup, 69 bytes, full match; windream.csv).
+FUNC	8982c	_ustrdup_	undefined8 _ustrdup_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: _ustrdup_ (module ustrdup, 39 bytes, full match; windream.csv).
+FUNC	89d26	__DoneExceptionHandler_	undefined __DoneExceptionHandler_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __DoneExceptionHandler_ (module signlwnt, 79 bytes, core match; windream.csv).
+FUNC	89dd2	__math2err_	undefined __math2err_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __math2err_ (module math2err, 192 bytes, full match; windream.csv).
+FUNC	89fcf	_Not_Enough_Memory_	undefined _Not_Enough_Memory_(undefined4 param_1)	Watcom 10.6 runtime: _Not_Enough_Memory_ (module nomem, 18 bytes, full match; windream.csv).
+FUNC	89fe2	__init_80x87	undefined __init_80x87(void)	Watcom 10.6 runtime: __init_80x87 (module ini87386, 39 bytes, full match; windream.csv).
+FUNC	8a066	getche_	int getche_(void)	Watcom 10.6 runtime: getche_ (module gtchewnt, 34 bytes, full match; windream.csv).
+FUNC	8a088	_heapenable_	int _heapenable_(int __enabled)	Watcom 10.6 runtime: _heapenable_ (module heapen, 33 bytes, full match; windream.csv).
+FUNC	8a164	_fullpath_	char * _fullpath_(char * __buf, char * __path, size_t __size)	Watcom 10.6 runtime: _fullpath_ (module fullpath, 132 bytes, core match; windream.csv).
+FUNC	8a280	__fpatan_chk	undefined8 __fpatan_chk(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __fpatan_chk (module chipa32, 192 bytes, full match; windream.csv).
+FUNC	978c0	_uultoa_	char * _uultoa_(undefined4 param_1, char * param_2)	Watcom 10.6 runtime: _uultoa_, _uutoa_, ultoa_, utoa_ (module uitoa, 80 bytes, core match; windream.csv).
+FUNC	97909	_itoa_	char * _itoa_(int __value, char * __buf, int __radix)	Watcom 10.6 runtime: _itoa_, _ltoa_ (module itoa, 27 bytes, full match; windream.csv).
+FUNC	979c6	__FDFS	uint __FDFS(undefined4 param_1, uint param_2)	Watcom 10.6 runtime: __FDFS (module fdfs386, 76 bytes, full match; windream.csv).
+FUNC	97b3b	__AddThreadData_	undefined4 __AddThreadData_(undefined4 param_1, int param_2)	Watcom 10.6 runtime: __AddThreadData_ (module trdlist, 97 bytes, full match; windream.csv).
+FUNC	97b9c	__RemoveThreadData_	undefined __RemoveThreadData_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __RemoveThreadData_ (module trdlist, 74 bytes, full match; windream.csv).
+FUNC	97d21	_ustrlen_	undefined8 _ustrlen_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: _ustrlen_ (module ustrlen, 19 bytes, full match; windream.csv).
+FUNC	980a8	__FDD	undefined __FDD(void)	Watcom 10.6 runtime: __FDD (module div386, 192 bytes, full match; windream.csv).
+FUNC	982b4	__FDA	undefined __FDA(void)	Watcom 10.6 runtime: __FDA (module fdmth386, 192 bytes, full match; windream.csv).
+FUNC	9846b	__FDM	undefined __FDM(void)	Watcom 10.6 runtime: __FDM (module fdmth386, 192 bytes, full match; windream.csv).
+FUNC	98608	__FDC	undefined __FDC(void)	Watcom 10.6 runtime: __FDC (module fdc386, 56 bytes, full match; windream.csv).
+FUNC	98646	__rterrmsg_	undefined __rterrmsg_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __rterrmsg_ (module _matherr, 72 bytes, full match; windream.csv).
+FUNC	9868e	_matherr_	float10 _matherr_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: _matherr_ (module _matherr, 47 bytes, full match; windream.csv).
+FUNC	9879b	_LDScale10x_	undefined _LDScale10x_(undefined4 param_1, uint param_2)	Watcom 10.6 runtime: _LDScale10x_ (module ldcvt, 90 bytes, full match; windream.csv).
+FUNC	993be	putch_	int putch_(int __c)	Watcom 10.6 runtime: putch_ (module putchwnt, 98 bytes, core match; windream.csv).
+FUNC	99c41	__RegisterThreadData_	undefined __RegisterThreadData_(void)	Watcom 10.6 runtime: __RegisterThreadData_ (module register, 63 bytes, full match; windream.csv).
+FUNC	99da6	__terminate_	undefined __terminate_(undefined4 param_1)	Watcom 10.6 runtime: __terminate_ (module abort, 18 bytes, full match; windream.csv).
+FUNC	99e21	_F8RetInf_	ulonglong _F8RetInf_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: _F8RetInf_ (module fstat386, 32 bytes, full match; windream.csv).
+FUNC	99e4d	F4OverFlow	undefined F4OverFlow(void)	Watcom 10.6 runtime: F4OverFlow (module fstat386, 28 bytes, full match; windream.csv).
+FUNC	99e6f	__get_std_stream_	longlong __get_std_stream_(undefined4 param_1, uint param_2)	Watcom 10.6 runtime: __get_std_stream_ (module iobaddr, 31 bytes, full match; windream.csv).
+FUNC	99f74	__ZBuf2LD	undefined __ZBuf2LD(undefined4 param_1, undefined8 * param_2)	Watcom 10.6 runtime: __ZBuf2LD (module bufld386, 163 bytes, full match; windream.csv).
+FUNC	9a1ee	__CEndThread_	undefined __CEndThread_(undefined4 param_1, undefined4 param_2)	Watcom 10.6 runtime: __CEndThread_ (module thredwnt, 42 bytes, core match; windream.csv).
+FUNC	9acfb	_mbvtop_	undefined _mbvtop_(undefined4 param_1, char * param_2)	Watcom 10.6 runtime: _mbvtop_ (module mbconv, 26 bytes, full match; windream.csv).
+FUNC	9ad15	_ustrchr_	undefined _ustrchr_(void)	Watcom 10.6 runtime: _ustrchr_ (module ustrchr, 22 bytes, full match; windream.csv).
 CMT	178	eol	AUTO
 CMT	1a0	eol	.idata
 CMT	1c8	eol	DGROUP
@@ -174,6 +292,21 @@ CMT	9c23c	eol	IMAGE_THUNK_DATA32
 CMT	9c240	eol	IMAGE_THUNK_DATA32
 CMT	9c248	eol	IMAGE_THUNK_DATA32
 CMT	9c250	eol	IMAGE_THUNK_DATA32
+CMT	a4528	eol	GDI path: memory DC selected with the DIB (GDI_Present StretchBlt source).
+CMT	a4534	eol	DirectDrawCreate out parameter (FUN_00445955).
+CMT	a4538	eol	QueryInterface from g_DirectDraw; "Can't go to Direct Draw 2".
+CMT	a453c	eol	IDirectDraw2::CreateSurface, caps PRIMARYSURFACE|FLIP|COMPLEX, 1 back buffer.
+CMT	a4540	eol	GetAttachedSurface(BACKBUFFER) of g_ddsPrimary; Lock/Unlock target.
+CMT	1e549c	eol	Software frame in RAM, 0x96000 bytes (640x480x2); copied out by DDraw_Present.
+CMT	233b18	eol	0 = DirectDraw, 1 = GDI; set in Video_Init (the WINDREAM/GDIDREAM byte).
+CMT	233b1c	eol	640, set in Video_Init.
+CMT	233b20	eol	480, set in Video_Init.
+CMT	233b24	eol	Game window; SetCooperativeLevel and GetDC target.
+CMT	233b28	eol	First field of a 0x18-byte channel record; 22050 Hz 16-bit stereo, 0x2b110 bytes (2 s).
+CMT	233b40	eol	First of up to 5 0x18-byte channel records; 11025 Hz 16-bit mono, CTRLFREQUENCY|PAN|VOLUME.
+CMT	233bb8	eol	First field of a 0x18-byte channel record; 11025 Hz 8-bit mono, 0x4b000 bytes.
+CMT	233be0	eol	DirectSoundCreate out parameter (FUN_004463e9); SetCooperativeLevel PRIORITY.
+CMT	233be8	eol	Primary buffer, SetFormat 22050 Hz 16-bit stereo.
 CMT	9c258	pre	1  CreateCompatibleDC  <<not bound>>
 CMT	9c25c	pre	2  CreateDIBSection  <<not bound>>
 CMT	9c260	pre	3  DeleteDC  <<not bound>>
@@ -437,8 +570,10 @@ CMT	440aa	plate	[DOCS_SYNC]\n[docs/ai-animation-runtime.md > Firing animation: I
 CMT	44b8f	plate	[DOCS_SYNC]\n[docs/ai-animation-runtime.md > Firing animation: IBI sequence and remaining effect identity] [verified control flow] For the IBI actor in Project54, all four requested states resolve to IBIAN016, then FUN_00407b51 triggers the moving effect through FUN_00442944 / FUN_00442786 / FUN_00442e0d; the collision path applies damage through FUN_00444b8f / FUN_004440aa / FUN_00443619.\n\n[docs/ai-animation-runtime.md > Project54 `IBI.DAN`: firing path] FUN_00444b8f handles effect collisions; for class 0x14, FUN_004440aa calls FUN_00443619 to reduce the target's health at +0x38 by 10 and request its hit/death state.\n\n[docs/research-log.md > 2026-09-24 — retail AI scheduler and action-to-clip path] FUN_00444b8f checks effect collision; class 0x14 calls FUN_004440aa, which calls FUN_00443619 to reduce target health and queue hit/death states.
 CMT	453ec	plate	Releases DirectDraw surfaces or deletes the GDI DIB and DC.
 CMT	4549b	plate	Mode flag 0x633b18: 0 = DDraw_Present, 1 = GDI_Present.
+CMT	454d1	plate	Called with g_videoWidth/g_videoHeight; failure reports "Can't set DirectDraw mode".
 CMT	455ad	plate	Fills the primary/back surface pointers 0x4a453c/0x4a4540.
 CMT	458bb	plate	GetDC + StretchBlt(SRCCOPY) of the DIB to the client rect.
+CMT	45955	plate	DirectDrawCreate, QueryInterface IDirectDraw2, SetCooperativeLevel(EXCLUSIVE|FULLSCREEN), allocate g_frameBuffer, DDraw_SetMode.
 CMT	45a57	plate	Lock back surface, copy the software framebuffer by pitch, Unlock, Flip primary; Restore on DDERR_SURFACELOST.
 CMT	45bf2	plate	IDirectDrawSurface::Lock(DDLOCK_WAIT|DDLOCK_WRITEONLY) in DirectDraw mode; no-op for GDI.
 CMT	45c3f	plate	IDirectDrawSurface::Unlock in DirectDraw mode; no-op for GDI.
@@ -446,11 +581,19 @@ CMT	45c84	plate	Calls CreateDIBSection.
 CMT	46019	plate	640x480; writes the mode flag 0x633b18 (0 in WINDREAM, 1 in GDIDREAM: the only code byte that differs).
 CMT	460cf	plate	[DOCS_SYNC]\n[docs/engine.md > Input — no mouse anywhere, polled keyboard **[verified]**] - The WndProc (0x44627b, window class "Dreams to Reality" registered in 0x4460cf) handles exactly five messages: WM_DESTROY, WM_SYSKEYDOWN/WM_SYSKEYUP — only to test wParam == VK_MENU so holding Alt does not open the Windows system menu — and WM_SYSCOMMAND (blocks SC_KEYMENU).\n\n[docs/engine.md > Input — no mouse anywhere, polled keyboard **[verified]**] No WM_MOUSEMOVE, no button messages, and not even WM_KEYDOWN. - The keyboard is polled: 0x440757 calls GetAsyncKeyState(0..255) once per frame into a 256-byte state array at 0x6308d8 (bit 0 = held, bit 1 = press edge, bit 2 = release edge); 0x42493b (called from the frame pump before the event queues) posts each new key press as event 0x33. - The only analog devices are joysticks: two polled devices (4-axis and 3-axis) through the joyGetPosEx imports, posted as events 0x39/0x3a on change. - The Windows cursor is hidden immediately after window creation (ShowCursor(0) in 0x4460cf).
 CMT	4627b	plate	[DOCS_SYNC]\n[docs/engine.md > Input — no mouse anywhere, polled keyboard **[verified]**] - The WndProc (0x44627b, window class "Dreams to Reality" registered in 0x4460cf) handles exactly five messages: WM_DESTROY, WM_SYSKEYDOWN/WM_SYSKEYUP — only to test wParam == VK_MENU so holding Alt does not open the Windows system menu — and WM_SYSCOMMAND (blocks SC_KEYMENU).
+CMT	463e9	plate	DirectSoundCreate, SetCooperativeLevel(PRIORITY), primary buffer, channel buffers.
 CMT	46654	plate	[DOCS_SYNC]\n[docs/boot-sequence.md > Main menu (`BootScreen` menu loop, tick `0x435fae`)] * Menu sounds travel through 0x446654 events 9 (move) / 10 (confirm).
 CMT	46e01	plate	[DOCS_SYNC]\n[docs/assets.md > `DIALOG.DRD` — voice bank] At runtime FUN_00410928 reads one selected record, FUN_00446e01 submits its WAVE data to the sound buffer, and the same entry's 589 total text lines are drawn on the timed-caption path.
+CMT	46ebb	plate	CreateSoundBuffer(primary), SetFormat 22050 Hz 16-bit stereo.
+CMT	46f98	plate	CreateSoundBuffer for the voice records (0x633b40), the 22 kHz stereo and the 11 kHz 8-bit channels.
 CMT	48e25	plate	[DOCS_SYNC]\n[docs/file-formats.md > The record codec and layout **[verified]**] That is the engine's own loop, FUN_00448e25 in WINDREAM.EXE, applied per record by FUN_00449bf9.
 CMT	49bf9	plate	[DOCS_SYNC]\n[docs/file-formats.md > The record codec and layout **[verified]**] That is the engine's own loop, FUN_00448e25 in WINDREAM.EXE, applied per record by FUN_00449bf9.
-CMT	54feb	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] FUN_00454feb is the important correction.\n\n[docs/dsn-loader.md > The stream abstraction] FUN_00454feb() returns the stream context.\n\n[docs/dsn-loader.md > The stream abstraction] | FUN_00454feb | CHK — Watcom stack-overflow probe | library match |
+CMT	54feb	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] FUN_00454feb is the important correction.\n\n[docs/dsn-loader.md > The stream abstraction] FUN_00454feb() returns the stream context.\n\n[docs/dsn-loader.md > The stream abstraction] | FUN_00454feb | CHK — Watcom stack-overflow probe | library match |\n\nWatcom 10.6 runtime: __CHK (module stkwnt, 16 bytes, full match; windream.csv).
+CMT	54ffb	plate	Watcom 10.6 runtime: __STK (module stkwnt, 31 bytes, full match; windream.csv).
+CMT	5502a	plate	Watcom 10.6 runtime: __GRO (module stkwnt, 32 bytes, full match; windream.csv).
+CMT	5505e	plate	Watcom 10.6 runtime: strcpy_ (module strcpy, 31 bytes, full match; windream.csv).
+CMT	5507d	plate	Watcom 10.6 runtime: strcat_ (module strcat, 51 bytes, full match; windream.csv).
+CMT	55190	plate	Watcom 10.6 runtime: strncpy_ (module strncpy, 37 bytes, full match; windream.csv).
 CMT	551b5	plate	[DOCS_SYNC]\n[docs/models.md > Animation names and runtime IDs] WINDREAM.EXE at FUN_00404d98 reads the .DAN clip directory (or searches an???.3da files when there is no container), parses each numeric suffix via FUN_004551b5, and installs the loaded clip in that numbered runtime slot.
 CMT	55278	plate	[DOCS_SYNC]\n[docs/models.md > Animation names and runtime IDs] FUN_00455278 retrieves a track entry from a clip slot.
 CMT	553f8	plate	[DOCS_SYNC]\n[docs/models.md > Animation names and runtime IDs] Its helper FUN_004553f8 splits a packed (clip slot << 16) | track slot value; that is a track lookup encoding.
@@ -462,6 +605,8 @@ CMT	56368	plate	[DOCS_SYNC]\n[docs/scene-geometry.md > Why it is not in the file
 CMT	56e24	plate	[DOCS_SYNC]\n[docs/scene-geometry.md > Why it is not in the file] FUN_00456e24 decodes a record into an arena and hands it to FUN_00456368, which walks the structure through FUN_00455eb4 / FUN_00455e48 / FUN_00455d6c down to FUN_00455700.
 CMT	57a04	plate	[DOCS_SYNC]\n[docs/animation-root-blending.md > Root displacement and physics [verified flow; integration pending]] 004062ad and 004068be save the previous root position at actor +0x128, read the newly evaluated position into +0x11c via 00457a04, and subtract them using 0045b98c.
 CMT	57aa0	plate	[DOCS_SYNC]\n[docs/animation-root-blending.md > Root displacement and physics [verified flow; integration pending]] The movement/collision path at 0043d83e subsequently writes the resolved actor position back through 00457aa0.
+CMT	5941d	plate	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; windream.csv).
+CMT	5943e	plate	Watcom 10.6 runtime: __CHP (module fchop, 29 bytes, full match; windream.csv).
 CMT	59808	plate	[DOCS_SYNC]\n[docs/animation-validation.md > Further corrections and open tests] Engine evaluators 00459808 and 0045a03c use rotation/translation strides 20/16 and 60/48 respectively.\n\n[docs/models.md > Track Record Layout [verified]] These pairings agree with evaluators FUN_00459808 and FUN_0045a03c.
 CMT	599ec	plate	[DOCS_SYNC]\n[docs/animation-root-blending.md > Original blend path [verified common case]] 004599ec handles two linear clip channels; 0045aa00 handles two spline-layout channels.
 CMT	59d60	plate	[DOCS_SYNC]\n[docs/animation-validation.md > Named directory [verified]] The animation evaluator at WINDREAM.EXE:00459d60 walks the model and clip slot tables together.
@@ -476,24 +621,128 @@ CMT	5b86c	plate	[DOCS_SYNC]\n[docs/file-formats.md > `.DAN` — character and pr
 CMT	5b98c	plate	[DOCS_SYNC]\n[docs/animation-root-blending.md > Root displacement and physics [verified flow; integration pending]] 004062ad and 004068be save the previous root position at actor +0x128, read the newly evaluated position into +0x11c via 00457a04, and subtract them using 0045b98c.
 CMT	5bc28	plate	[DOCS_SYNC]\n[docs/file-formats.md > `.DAN` — character and prop models (`DANF`)] Verified across 15,084 tracks and 142,806 keyframes in 780 clips from 159 distinct models with 0 invalid strides or nonmonotonic timestamps. - Engine evaluation: evaluated at runtime via Slerp (FUN_0045bf68) or Hermite spline, converted to local $3 \times 3$ rotation matrix (FUN_0045bc28), and composed down the skeletal hierarchy (FUN_0047e498 via FUN_0045b86c).\n\n[docs/models.md > Engine Evaluation Math in `WINDREAM.EXE` [verified]] Quaternion to Rotation Matrix (FUN_0045bc28): Takes a Q15 quaternion param_1 and computes a $3 \times 3$ row-major fixed-point rotation matrix at param_2: c // Diagonal terms: param_2[0] = 0x8000 - ((qy*qy + qz*qz) >> 14); param_2[4] = 0x8000 - ((qx*qx + qz*qz) >> 14); param_2[8] = 0x8000 - ((qx*qx + qy*qy) >> 14); // Off-diagonal terms: param_2[1] = (qx*qy - qz*qw) >> 14; param_2[3] = (qx*qy + qz*qw) >> 14; param_2[2] = (qx*qz + qy*qw) >> 14; param_2[6] = (qx*qz - qy*qw) >> 14; param_2[5] = (qy*qz - qx*qw) >> 14; param_2[7] = (qy*qz + qx*qw) >> 14; Note that right shift by 14 on Q15 squares ($32768^2 = 2^{30}$) effectively computes $2 \times Q_a Q_b / 32768$.
 CMT	5bf68	plate	[DOCS_SYNC]\n[docs/file-formats.md > `.DAN` — character and prop models (`DANF`)] Verified across 15,084 tracks and 142,806 keyframes in 780 clips from 159 distinct models with 0 invalid strides or nonmonotonic timestamps. - Engine evaluation: evaluated at runtime via Slerp (FUN_0045bf68) or Hermite spline, converted to local $3 \times 3$ rotation matrix (FUN_0045bc28), and composed down the skeletal hierarchy (FUN_0047e498 via FUN_0045b86c).
-CMT	5c278	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > Fixed — `tools/watcall-cspec.patch`] Ground truth: FUN_0045c278 is memcpy_ per the library match, and under watcall it decompiles as a textbook memcpy(param_1, param_2, param_3) returning param_1 — a dword loop plus a byte tail.\n\n[docs/dsn-loader.md > The blocker: wrong calling convention] FUN_0045c278 makes it obvious.\n\n[docs/dsn-loader.md > The stream abstraction] | FUN_0045c278 | memcpy_ | library match |
+CMT	5c19a	plate	Watcom 10.6 runtime: IF@DSIN (module trig387, 53 bytes, full match; windream.csv).
+CMT	5c1e7	plate	Watcom 10.6 runtime: IF@DTAN (module trig387, 21 bytes, full match; windream.csv).
+CMT	5c208	plate	Watcom 10.6 runtime: sqrt_ (module sqrt387, 48 bytes, full match; windream.csv).
+CMT	5c23a	plate	Watcom 10.6 runtime: __@DSQRT (module sqrt387, 53 bytes, full match; windream.csv).
+CMT	5c278	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > Fixed — `tools/watcall-cspec.patch`] Ground truth: FUN_0045c278 is memcpy_ per the library match, and under watcall it decompiles as a textbook memcpy(param_1, param_2, param_3) returning param_1 — a dword loop plus a byte tail.\n\n[docs/dsn-loader.md > The blocker: wrong calling convention] FUN_0045c278 makes it obvious.\n\n[docs/dsn-loader.md > The stream abstraction] | FUN_0045c278 | memcpy_ | library match |\n\nWatcom 10.6 runtime: memcpy_ (module memcpy, 37 bytes, full match; windream.csv).
+CMT	5c420	plate	Watcom 10.6 runtime: _uopen_, open_ (module openwnt, 36 bytes, full match; windream.csv).
+CMT	5c444	plate	Watcom 10.6 runtime: _bprintf_ (module bprintf, 39 bytes, full match; windream.csv).
 CMT	5ca34	plate	[DOCS_SYNC]\n[docs/assets.md > `.3DC` / `.3DM` — `F3DC`] In hex they are 0x004741B0 and 0x0045CA34, and the byte-identical values recur across .3DM, .DSN *and* .DAN — 0x004741A0 appears in all three.
-CMT	5fd4e	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] | FUN_0045fd4e | strlen_ | library match |
-CMT	5fd67	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] | FUN_0045fd67 | strncmp_ | library match |
-CMT	60d12	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] | FUN_00460d12 | memmove_ | library match |
-CMT	60d5f	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] FUN_00460d5f being printf_ likewise kills the "refill from file" reading.\n\n[docs/dsn-loader.md > The stream abstraction] | FUN_00460d5f | printf_ | library match |
+CMT	5cc8b	plate	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; windream.csv).
+CMT	5fc20	plate	Watcom 10.6 runtime: strcmp_ (module cmp386, 161 bytes, full match; windream.csv).
+CMT	5fcc1	plate	Watcom 10.6 runtime: memcmp_ (module memcmp, 30 bytes, full match; windream.csv).
+CMT	5fcdf	plate	Watcom 10.6 runtime: floor_ (module floor, 60 bytes, full match; windream.csv).
+CMT	5fd1b	plate	Watcom 10.6 runtime: ceil_ (module ceil, 27 bytes, full match; windream.csv).
+CMT	5fd4e	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] | FUN_0045fd4e | strlen_ | library match |\n\nWatcom 10.6 runtime: strlen_ (module strlen, 25 bytes, full match; windream.csv).
+CMT	5fd67	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] | FUN_0045fd67 | strncmp_ | library match |\n\nWatcom 10.6 runtime: strncmp_ (module strncmp, 41 bytes, full match; windream.csv).
+CMT	5ffd5	plate	Watcom 10.6 runtime: fopen_ (module fopen, 132 bytes, full match; windream.csv).
+CMT	600d0	plate	Watcom 10.6 runtime: fread_ (module fread, 192 bytes, core match; windream.csv).
+CMT	603c2	plate	Watcom 10.6 runtime: fclose_ (module fclose, 63 bytes, full match; windream.csv).
+CMT	60401	plate	Watcom 10.6 runtime: __shutdown_stream_ (module fclose, 33 bytes, full match; windream.csv).
+CMT	607f2	plate	Watcom 10.6 runtime: IF@DATAN (module atan387, 21 bytes, full match; windream.csv).
+CMT	60807	plate	Watcom 10.6 runtime: IF@DATAN2 (module atan387, 21 bytes, full match; windream.csv).
+CMT	60828	plate	Watcom 10.6 runtime: atan2_ (module atan387, 16 bytes, full match; windream.csv).
+CMT	60842	plate	Watcom 10.6 runtime: rand_ (module rand, 36 bytes, full match; windream.csv).
+CMT	60866	plate	Watcom 10.6 runtime: srand_ (module rand, 16 bytes, full match; windream.csv).
+CMT	60d12	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] | FUN_00460d12 | memmove_ | library match |\n\nWatcom 10.6 runtime: memmove_ (module memmove, 77 bytes, full match; windream.csv).
+CMT	60d5f	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] FUN_00460d5f being printf_ likewise kills the "refill from file" reading.\n\n[docs/dsn-loader.md > The stream abstraction] | FUN_00460d5f | printf_ | library match |\n\nWatcom 10.6 runtime: printf_ (module printf, 34 bytes, full match; windream.csv).
 CMT	60d82	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > The stream abstraction] | FUN_00460d82 | still unidentified | Cryo code |
-CMT	65538	plate	[DOCS_SYNC]\n[docs/boot-sequence.md > Function map (boot path)] | 0x465538 | entry (Watcom startup) |\n\n[docs/research-log.md > 2026-09-24 — boot sequence decompiled, videos and menus named] Followed the player-visible boot flow through WINDREAM.EXE end to end: entry 00465538 → main 0048646d → Game_Run 0041745e → BootScreen 00436481.
+CMT	60dae	plate	Watcom 10.6 runtime: _exit_ (module exit, 37 bytes, full match; windream.csv).
+CMT	654d4	plate	Watcom 10.6 runtime: _uultoa_, _uutoa_, ultoa_, utoa_ (module uitoa, 80 bytes, core match; windream.csv).
+CMT	6551d	plate	Watcom 10.6 runtime: _itoa_, _ltoa_ (module itoa, 27 bytes, full match; windream.csv).
+CMT	65538	plate	[DOCS_SYNC]\n[docs/boot-sequence.md > Function map (boot path)] | 0x465538 | entry (Watcom startup) |\n\n[docs/research-log.md > 2026-09-24 — boot sequence decompiled, videos and menus named] Followed the player-visible boot flow through WINDREAM.EXE end to end: entry 00465538 → main 0048646d → Game_Run 0041745e → BootScreen 00436481.\n\nWatcom 10.6 runtime: __DLLstart_, _cstart_ (module cstrtwnt, 116 bytes, full match; windream.csv).
+CMT	6659f	plate	Watcom 10.6 runtime: calloc_ (module calloc, 24 bytes, full match; windream.csv).
 CMT	71a67	plate	[DOCS_SYNC]\n[docs/models.md > UVs — solved **[verified]**] The engine agrees. WINDREAM.EXE's texture inner loop at 0x00471a67 reads
 CMT	73014	plate	[DOCS_SYNC]\n[docs/scene-geometry.md > Why it is not in the file] FUN_00473014 installs the render callback and walks the object list, so the face records are rendered; tag 2's triangle array with its normals, edge half-spaces and bounding boxes is the separate collision or spatial structure.
 CMT	741a0	plate	[DOCS_SYNC]\n[docs/assets.md > `.3DC` / `.3DM` — `F3DC`] In hex they are 0x004741B0 and 0x0045CA34, and the byte-identical values recur across .3DM, .DSN *and* .DAN — 0x004741A0 appears in all three.\n\n[docs/file-formats.md > The 20-byte object records **[verified]**] When non-zero, holds 0x004741A0 (in 1,719 of 2,145 records), marking static world geometry loaded directly into memory arenas. - Word 1 (u32): Relocated address / runtime buffer offset (e.g.
 CMT	741b0	plate	[DOCS_SYNC]\n[docs/assets.md > `.3DC` / `.3DM` — `F3DC`] In hex they are 0x004741B0 and 0x0045CA34, and the byte-identical values recur across .3DM, .DSN *and* .DAN — 0x004741A0 appears in all three.
+CMT	77713	plate	Watcom 10.6 runtime: _heapwalk_ (module nheapwal, 36 bytes, full match; windream.csv).
+CMT	777d7	plate	Watcom 10.6 runtime: strstr_ (module strstr, 190 bytes, full match; windream.csv).
+CMT	778a8	plate	Watcom 10.6 runtime: vsprintf_ (module vsprintf, 21 bytes, full match; windream.csv).
+CMT	7796e	plate	Watcom 10.6 runtime: _dos_setdrive_ (module sdrvewnt, 50 bytes, core match; windream.csv).
+CMT	77c35	plate	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; windream.csv).
+CMT	781a7	plate	Watcom 10.6 runtime: realloc_ (module nrealloc, 122 bytes, full match; windream.csv).
+CMT	78222	plate	Watcom 10.6 runtime: IF@POW (module pow387, 192 bytes, full match; windream.csv).
+CMT	78378	plate	Watcom 10.6 runtime: pow_ (module pow387, 16 bytes, full match; windream.csv).
+CMT	78395	plate	Watcom 10.6 runtime: __exit_with_msg_ (module xmsgwnt, 55 bytes, core match; windream.csv).
+CMT	783ce	plate	Watcom 10.6 runtime: __fatal_runtime_error_ (module xmsgwnt, 29 bytes, full match; windream.csv).
+CMT	783eb	plate	Watcom 10.6 runtime: __threadid_ (module mainwnt, 28 bytes, full match; windream.csv).
+CMT	786d1	plate	Watcom 10.6 runtime: __set_errno_dos_ (module dosret, 81 bytes, full match; windream.csv).
+CMT	78786	plate	Watcom 10.6 runtime: __GetNTDirInfo_ (module ntdirinf, 59 bytes, full match; windream.csv).
 CMT	78c2c	plate	[DOCS_SYNC]\n[docs/models.md > Addresses, and the 220] The 0x14 was pinned from the binary, not guessed: FUN_00478c2c reads the vertex count at node +0x7c and the array at node +0x80 with stride 0x28, which are exactly +0x90 and +0x94 of this header.
 CMT	78dac	plate	[DOCS_SYNC]\n[docs/models.md > Engine Evaluation Math in `WINDREAM.EXE` [verified]] Vertex Deformations (FUN_00478dac): - Deforms local vertex coordinates into world coordinates for rendering: $$V_{world} = ((R_{world} \times V_{local}) \gg 15) + T_{world}$$
 CMT	7b7e0	plate	[DOCS_SYNC]\n[docs/models.md > Textures] The row is chosen at runtime: WINDREAM.EXE selects 31 - shade, the shade coming from lighting in FUN_0047b7e0.
 CMT	7e498	plate	[DOCS_SYNC]\n[docs/file-formats.md > `.DAN` — character and prop models (`DANF`)] Verified across 15,084 tracks and 142,806 keyframes in 780 clips from 159 distinct models with 0 invalid strides or nonmonotonic timestamps. - Engine evaluation: evaluated at runtime via Slerp (FUN_0045bf68) or Hermite spline, converted to local $3 \times 3$ rotation matrix (FUN_0045bc28), and composed down the skeletal hierarchy (FUN_0047e498 via FUN_0045b86c).\n\n[docs/models.md > Engine Evaluation Math in `WINDREAM.EXE` [verified]] Hierarchical Transform Composition (FUN_0047e498): - Evaluates: $$R_{world} = (R_{parent} \times R_{child}) \gg 15$$ $$T_{world} = ((R_{parent} \times T_{child}) \gg 15) + T_{parent}$$ - Matrix multiply implemented in FUN_0045b86c.\n\n[docs/models.md > Skeletal Pose Evaluation [partially verified]] In WINDREAM.EXE (FUN_0047e498 / FUN_0047e700), the local node rotation $R_{\text{local}}$ is replaced by $R_{\text{anim}}$, and world transforms are composed down the scene-graph hierarchy: $$R_{\text{world}} = (R_{\text{parent}} \cdot R_{\text{child}}) \gg 15$$ $$T_{\text{world}} = ((R_{\text{parent}} \cdot T_{\text{child}}) \gg 15) + T_{\text{parent}}$$\n\n[docs/models.md > World transforms] Order and rounding both come from WINDREAM.EXE — the multiply in FUN_0045b86c and the parent add in FUN_0047e498.
 CMT	7e700	plate	[DOCS_SYNC]\n[docs/models.md > Skeletal Pose Evaluation [partially verified]] In WINDREAM.EXE (FUN_0047e498 / FUN_0047e700), the local node rotation $R_{\text{local}}$ is replaced by $R_{\text{anim}}$, and world transforms are composed down the scene-graph hierarchy: $$R_{\text{world}} = (R_{\text{parent}} \cdot R_{\text{child}}) \gg 15$$ $$T_{\text{world}} = ((R_{\text{parent}} \cdot T_{\text{child}}) \gg 15) + T_{\text{parent}}$$
-CMT	8646d	plate	[DOCS_SYNC]\n[docs/boot-sequence.md > Function map (boot path)] | 0x48646d | main — heap/stack init, calls the controller |\n\n[docs/research-log.md > 2026-09-24 — boot sequence decompiled, videos and menus named] Followed the player-visible boot flow through WINDREAM.EXE end to end: entry 00465538 → main 0048646d → Game_Run 0041745e → BootScreen 00436481.
+CMT	7e99c	plate	Watcom 10.6 runtime: __fptan_chk (module chipt32, 177 bytes, full match; windream.csv).
+CMT	7eaec	plate	Watcom 10.6 runtime: __init_8087_ (module chk8087, 49 bytes, full match; windream.csv).
+CMT	8521b	plate	Watcom 10.6 runtime: __NTAtMaxFiles_ (module nthdl, 69 bytes, full match; windream.csv).
+CMT	85260	plate	Watcom 10.6 runtime: __NTAddFileHandle_ (module nthdl, 121 bytes, full match; windream.csv).
+CMT	8537e	plate	Watcom 10.6 runtime: __NTRemoveFileHandle_ (module nthdl, 44 bytes, full match; windream.csv).
+CMT	8544e	plate	Watcom 10.6 runtime: __set_EINVAL_ (module seterrno, 16 bytes, full match; windream.csv).
+CMT	8546c	plate	Watcom 10.6 runtime: __GetNTCreateAttr_ (module ntfio, 45 bytes, full match; windream.csv).
+CMT	85499	plate	Watcom 10.6 runtime: __GetNTAccessAttr_ (module ntfio, 44 bytes, full match; windream.csv).
+CMT	85723	plate	Watcom 10.6 runtime: fcloseall_ (module ioexit, 93 bytes, full match; windream.csv).
+CMT	85965	plate	Watcom 10.6 runtime: __flushall_ (module flushall, 59 bytes, full match; windream.csv).
+CMT	859a0	plate	Watcom 10.6 runtime: modf_ (module modf387, 25 bytes, full match; windream.csv).
+CMT	859c0	plate	Watcom 10.6 runtime: __STOSB (module __stos, 55 bytes, full match; windream.csv).
+CMT	859f7	plate	Watcom 10.6 runtime: __STOSD (module __stos, 108 bytes, full match; windream.csv).
+CMT	85a7c	plate	Watcom 10.6 runtime: __allocfp_ (module allocfp, 184 bytes, core match; windream.csv).
+CMT	85b37	plate	Watcom 10.6 runtime: __freefp_ (module allocfp, 57 bytes, full match; windream.csv).
+CMT	85b70	plate	Watcom 10.6 runtime: __purgefp_ (module allocfp, 30 bytes, full match; windream.csv).
+CMT	85b8e	plate	Watcom 10.6 runtime: __chktty_ (module chktty, 49 bytes, full match; windream.csv).
+CMT	85bc0	plate	Watcom 10.6 runtime: __ioalloc_ (module ioalloc, 119 bytes, core match; windream.csv).
+CMT	85d9d	plate	Watcom 10.6 runtime: __filbuf_ (module fgetc, 47 bytes, full match; windream.csv).
+CMT	86390	plate	Watcom 10.6 runtime: __fpatan_wrap (module chipw32, 52 bytes, full match; windream.csv).
+CMT	8646d	plate	Watcom 10.6 runtime: __NTMain, __WinMain (module wmainwnt, 192 bytes, core match; windream.csv).
+CMT	88871	plate	Watcom 10.6 runtime: _expand_ (module nexpand, 58 bytes, core match; windream.csv).
+CMT	88ae6	plate	Watcom 10.6 runtime: __@DEXP (module exp387, 96 bytes, full match; windream.csv).
+CMT	88c6b	plate	Watcom 10.6 runtime: __fdiv_fpr (module chipd32, 192 bytes, full match; windream.csv).
+CMT	8912d	plate	Watcom 10.6 runtime: __fdiv_chk (module chipd32, 19 bytes, full match; windream.csv).
+CMT	89140	plate	Watcom 10.6 runtime: __fdiv_m32 (module chipd32, 76 bytes, full match; windream.csv).
+CMT	8918c	plate	Watcom 10.6 runtime: __fdiv_m64 (module chipd32, 76 bytes, full match; windream.csv).
+CMT	891d8	plate	Watcom 10.6 runtime: __fdiv_m32r (module chipd32, 76 bytes, full match; windream.csv).
+CMT	89224	plate	Watcom 10.6 runtime: __fdiv_m64r (module chipd32, 76 bytes, full match; windream.csv).
+CMT	89270	plate	Watcom 10.6 runtime: __EnterWVIDEO_ (module enterdb, 38 bytes, full match; windream.csv).
+CMT	8934f	plate	Watcom 10.6 runtime: __FiniAccessH_ (module mthread, 28 bytes, full match; windream.csv).
+CMT	895d0	plate	Watcom 10.6 runtime: _InitFunctionPointers_ (module wingen, 192 bytes, core match; windream.csv).
+CMT	89757	plate	Watcom 10.6 runtime: _strdup_ (module strdup, 69 bytes, full match; windream.csv).
+CMT	8982c	plate	Watcom 10.6 runtime: _ustrdup_ (module ustrdup, 39 bytes, full match; windream.csv).
+CMT	89cdb	plate	Watcom 10.6 runtime: __NewExceptionHandler_ (module signlwnt, 62 bytes, core match; windream.csv).
+CMT	89d26	plate	Watcom 10.6 runtime: __DoneExceptionHandler_ (module signlwnt, 79 bytes, core match; windream.csv).
+CMT	89d4d	plate	Watcom 10.6 runtime: verify_pentium_fdiv_bug_ (module chipbug, 85 bytes, core match; windream.csv).
+CMT	89dd2	plate	Watcom 10.6 runtime: __math2err_ (module math2err, 192 bytes, full match; windream.csv).
+CMT	89fcf	plate	Watcom 10.6 runtime: _Not_Enough_Memory_ (module nomem, 18 bytes, full match; windream.csv).
+CMT	89fe2	plate	Watcom 10.6 runtime: __init_80x87 (module ini87386, 39 bytes, full match; windream.csv).
+CMT	8a066	plate	Watcom 10.6 runtime: getche_ (module gtchewnt, 34 bytes, full match; windream.csv).
+CMT	8a088	plate	Watcom 10.6 runtime: _heapenable_ (module heapen, 33 bytes, full match; windream.csv).
+CMT	8a164	plate	Watcom 10.6 runtime: _fullpath_ (module fullpath, 132 bytes, core match; windream.csv).
+CMT	8a280	plate	Watcom 10.6 runtime: __fpatan_chk (module chipa32, 192 bytes, full match; windream.csv).
+CMT	978c0	plate	Watcom 10.6 runtime: _uultoa_, _uutoa_, ultoa_, utoa_ (module uitoa, 80 bytes, core match; windream.csv).
+CMT	97909	plate	Watcom 10.6 runtime: _itoa_, _ltoa_ (module itoa, 27 bytes, full match; windream.csv).
+CMT	979c6	plate	Watcom 10.6 runtime: __FDFS (module fdfs386, 76 bytes, full match; windream.csv).
+CMT	97b3b	plate	Watcom 10.6 runtime: __AddThreadData_ (module trdlist, 97 bytes, full match; windream.csv).
+CMT	97b9c	plate	Watcom 10.6 runtime: __RemoveThreadData_ (module trdlist, 74 bytes, full match; windream.csv).
+CMT	97d21	plate	Watcom 10.6 runtime: _ustrlen_ (module ustrlen, 19 bytes, full match; windream.csv).
+CMT	98018	plate	Watcom 10.6 runtime: __SigInit_ (module signlwnt, 45 bytes, core match; windream.csv).
+CMT	980a8	plate	Watcom 10.6 runtime: __FDD (module div386, 192 bytes, full match; windream.csv).
+CMT	982b4	plate	Watcom 10.6 runtime: __FDA (module fdmth386, 192 bytes, full match; windream.csv).
+CMT	9846b	plate	Watcom 10.6 runtime: __FDM (module fdmth386, 192 bytes, full match; windream.csv).
+CMT	98608	plate	Watcom 10.6 runtime: __FDC (module fdc386, 56 bytes, full match; windream.csv).
+CMT	98646	plate	Watcom 10.6 runtime: __rterrmsg_ (module _matherr, 72 bytes, full match; windream.csv).
+CMT	9868e	plate	Watcom 10.6 runtime: _matherr_ (module _matherr, 47 bytes, full match; windream.csv).
+CMT	9879b	plate	Watcom 10.6 runtime: _LDScale10x_ (module ldcvt, 90 bytes, full match; windream.csv).
+CMT	993be	plate	Watcom 10.6 runtime: putch_ (module putchwnt, 98 bytes, core match; windream.csv).
+CMT	99c41	plate	Watcom 10.6 runtime: __RegisterThreadData_ (module register, 63 bytes, full match; windream.csv).
+CMT	99da6	plate	Watcom 10.6 runtime: __terminate_ (module abort, 18 bytes, full match; windream.csv).
+CMT	99e21	plate	Watcom 10.6 runtime: _F8RetInf_ (module fstat386, 32 bytes, full match; windream.csv).
+CMT	99e4d	plate	Watcom 10.6 runtime: F4OverFlow (module fstat386, 28 bytes, full match; windream.csv).
+CMT	99e6f	plate	Watcom 10.6 runtime: __get_std_stream_ (module iobaddr, 31 bytes, full match; windream.csv).
+CMT	99f74	plate	Watcom 10.6 runtime: __ZBuf2LD (module bufld386, 163 bytes, full match; windream.csv).
+CMT	9a1ee	plate	Watcom 10.6 runtime: __CEndThread_ (module thredwnt, 42 bytes, core match; windream.csv).
+CMT	9acfb	plate	Watcom 10.6 runtime: _mbvtop_ (module mbconv, 26 bytes, full match; windream.csv).
+CMT	9ad15	plate	Watcom 10.6 runtime: _ustrchr_ (module ustrchr, 22 bytes, full match; windream.csv).
 CMT	9afd1	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > The Body Unpackers and Call Hierarchy **[verified]**] FUN_004177f5 (DSN_LoadTag1_MaterialsAndFaces): Verifies tag \x01, reads the packed length $L$, seeks past chunk padding, calls FUN_0049afd1() to unpack the LZ stream into the arena directory, materials table, scene-graph nodes, and face records. 2.\n\n[docs/dsn-loader.md > The Body Unpackers and Call Hierarchy **[verified]**] FUN_004178fe (DSN_LoadTag2_VertexPool): Verifies tag \x02, reads length $L$, and unpacks the LZ stream via FUN_0049afd1() into the shared vertex pool at +0x30. 3.\n\n[docs/models.md > Animation names and runtime IDs] The engine's loader at FUN_0040fff7 / FUN_004105eb decompresses each Tag 3 chunk via Cryo's LZ decompressor (FUN_0049afd1) into runtime skeletal animation tracks.
 CMT	9c000	plate	IMAGE_IMPORT_DESCRIPTOR
 CMT	9c014	plate	IMAGE_IMPORT_DESCRIPTOR
@@ -649,6 +898,27 @@ CMT	fbab4	plate	[DOCS_SYNC]\n[docs/sprites-ui-dialog.md > Player pyramid HUD] Th
 CMT	fbab8	plate	[DOCS_SYNC]\n[docs/sprites-ui-dialog.md > Player pyramid HUD] The main HUD path sends actor +0x38 (vitality), +0x3c (magic), and +0x40 (oxygen); the fallback globals are 0x004fbab0 (100), 0x004fbab4 (20), and 0x004fbab8 (0).
 CMT	fbac8	plate	[DOCS_SYNC]\n[docs/sprites-ui-dialog.md > Player pyramid HUD] Actor +0x50 (fallback 0x004fbac8) is a separate HUD state/blink input; FUN_0042CE4A adjusts it with state-dependent frame-time rates and a 200-unit bound.
 CMT	fbb48	plate	[DOCS_SYNC]\n[docs/sprites-ui-dialog.md > Player pyramid HUD] The active actor pointer used by this HUD is DAT_004fbb48.
+CMT	1dab98	plate	[DOCS_SYNC]\n[docs/game-content.md > Save system] The "protected slot" concept is confirmed in the retail save menu: FUN_00437AA2(1) searches only slots whose status field at 0x5DAB98 + 4*i is zero, while load mode (FUN_00437AA2(0)) considers all slots.
+CMT	1df3ac	plate	[DOCS_SYNC]\n[docs/ai-animation-runtime.md > Per-frame scheduler] The 0x005df3ec and 0x005df3ac arrays hold controller records; 0x005df42c holds member actors.\n\n[docs/ai-animation-runtime.md > Per-frame scheduler] | 0x005df3ac | 0x005df470 | FUN_00413b3b | Update linked or grouped AI actors. |\n\n[docs/ai-animation-runtime.md > Per-frame scheduler] | 0x005df3ac | 0x005df470 | FUN_00414f6d | Aggregate status from linked actors. |
+CMT	1df3ec	plate	[DOCS_SYNC]\n[docs/ai-animation-runtime.md > Per-frame scheduler] The 0x005df3ec and 0x005df3ac arrays hold controller records; 0x005df42c holds member actors.\n\n[docs/ai-animation-runtime.md > Per-frame scheduler] | 0x005df3ec | 0x005df474 | FUN_0041208f | Apply project-selected actor mode transitions. |
+CMT	1df42c	plate	[DOCS_SYNC]\n[docs/ai-animation-runtime.md > Per-frame scheduler] The 0x005df3ec and 0x005df3ac arrays hold controller records; 0x005df42c holds member actors.\n\n[docs/ai-animation-runtime.md > Per-frame scheduler] | 0x005df42c | 0x005df46c | FUN_00414b24 | Run per-actor steering and action decisions. |\n\n[docs/ai-animation-runtime.md > Per-frame scheduler] | 0x005df42c | 0x005df46c | FUN_00414d61 | Refresh actor candidate and target state. |
+CMT	1df46c	plate	[DOCS_SYNC]\n[docs/ai-animation-runtime.md > Per-frame scheduler] | 0x005df42c | 0x005df46c | FUN_00414b24 | Run per-actor steering and action decisions. |\n\n[docs/ai-animation-runtime.md > Per-frame scheduler] | 0x005df42c | 0x005df46c | FUN_00414d61 | Refresh actor candidate and target state. |
+CMT	1df470	plate	[DOCS_SYNC]\n[docs/ai-animation-runtime.md > Per-frame scheduler] | 0x005df3ac | 0x005df470 | FUN_00413b3b | Update linked or grouped AI actors. |\n\n[docs/ai-animation-runtime.md > Per-frame scheduler] | 0x005df3ac | 0x005df470 | FUN_00414f6d | Aggregate status from linked actors. |
+CMT	1df474	plate	[DOCS_SYNC]\n[docs/ai-animation-runtime.md > Per-frame scheduler] | 0x005df3ec | 0x005df474 | FUN_0041208f | Apply project-selected actor mode transitions. |
+CMT	1df494	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > Globals it populates] | _DAT_005df494 | u32 from header offset 5 — the file size |
+CMT	1df498	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > Globals it populates] | _DAT_005df498 | u16 — the object/name count |
+CMT	1df49c	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > Globals it populates] | _DAT_005df49c | set to 1 on success — "scene header loaded" |
+CMT	1dfa84	plate	[DOCS_SYNC]\n[docs/dsn-loader.md > Globals it populates] | 0x5dfa84 | written by a string op before the read — likely the path buffer |
+CMT	1dfb8c	plate	[DOCS_SYNC]\n[docs/research-log.md > 2026-09-25 — PYRAM pixels contain layer commands] The field producer is now traced: BSS at 0x5DFB8C is an 84×64 byte plane.\n\n[docs/sprites-ui-dialog.md > Correct pixel interpretation] FUN_00403B60 treats BSS storage at 0x5DFB8C as an 84×64 byte field.
+CMT	1e5388	plate	[DOCS_SYNC]\n[docs/animation-timing.md > Clock to frame counter] | 004171b2–004171be | Calculates 30 / estimated_fps into 005e5388. The double at 004c41cc is 30.0. |
+CMT	1e5480	plate	[DOCS_SYNC]\n[docs/boot-sequence.md > The event sequence, as the player sees it] | 4 | New game | on confirm (item 0) the tick copies the current project's video name out of its DREAMS.DAT record (+0x3c), exits the menu; BootScreen resets entities, arms a 15 s in-engine transition timer (_DAT_005e5480 = 15.0), then plays the project video if the record names one | Project 0 record names ETE_E~1.HNM — absent from both discs, so this play silently fails and is skipped (see "The ETE mystery") |\n\n[docs/research-log.md > 2026-09-24 — boot sequence decompiled, videos and menus named] Second, between menu confirm and the briefing there is a rendered, non-video 15-second in-engine transition (_DAT_005e5480 = 15.0 armed on new game, counted down in 004240ba).
+CMT	2308d8	plate	[DOCS_SYNC]\n[docs/engine.md > Input — no mouse anywhere, polled keyboard **[verified]**] No WM_MOUSEMOVE, no button messages, and not even WM_KEYDOWN. - The keyboard is polled: 0x440757 calls GetAsyncKeyState(0..255) once per frame into a 256-byte state array at 0x6308d8 (bit 0 = held, bit 1 = press edge, bit 2 = release edge); 0x42493b (called from the frame pump before the event queues) posts each new key press as event 0x33. - The only analog devices are joysticks: two polled devices (4-axis and 3-axis) through the joyGetPosEx imports, posted as events 0x39/0x3a on change. - The Windows cursor is hidden immediately after window creation (ShowCursor(0) in 0x4460cf).
+CMT	2308e1	plate	[DOCS_SYNC]\n[docs/research-log.md > 2026-09-25 — HUD anchors and dialogue portraits] The in-game spell page is opened by mapped action flag 0x006308e1; the binary does not pin that action to one physical keyboard key or joystick button.\n\n[docs/sprites-ui-dialog.md > Separate menu loops] The gameplay controller checks mapped input flag 0x006308e1 and calls FUN_0043141C to open the spell page.
+CMT	230909	plate	[DOCS_SYNC]\n[docs/sprites-ui-dialog.md > Separate menu loops] Three configured button flags (0x00630909/0x0063090a/0x0063090b) assign the selected spell to quick slot 0/1/2.
+CMT	23090a	plate	[DOCS_SYNC]\n[docs/sprites-ui-dialog.md > Separate menu loops] Three configured button flags (0x00630909/0x0063090a/0x0063090b) assign the selected spell to quick slot 0/1/2.
+CMT	23090b	plate	[DOCS_SYNC]\n[docs/sprites-ui-dialog.md > Separate menu loops] Three configured button flags (0x00630909/0x0063090a/0x0063090b) assign the selected spell to quick slot 0/1/2.
+CMT	2309e0	plate	[DOCS_SYNC]\n[docs/animation-timing.md > Clock to frame counter] | 0043a306, command 0x11 | Updates the timer and returns 006309e0. |\n\n[docs/animation-timing.md > Clock to frame counter] | 00440890 | Adds floor(elapsed_ms/5) to counter 006309e0 when at least one period elapsed. |
+CMT	2309e8	plate	[DOCS_SYNC]\n[docs/animation-timing.md > Clock to frame counter] | 00440802 | Reads timeGetTime; stores 1000/200 = 5 ms as the main counter period at 006309e8. The other timer has a separate period. |
 CMT	2be150	plate	Rsrc_Icon_1_0 Size of resource: 0x2e8 bytes
 CMT	2be438	plate	Rsrc_Icon_2_0 Size of resource: 0x8a8 bytes
 CMT	2bece0	plate	Rsrc_Icon_3_0 Size of resource: 0x668 bytes

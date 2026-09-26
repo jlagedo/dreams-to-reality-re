@@ -1,0 +1,18 @@
+# Typed globals for WINDREAM.EXE / GDIDREAM.EXE (identical layout).
+# Applied by ghidra_scripts/ApplyTypes.java with re/structs/directx.h.
+# address	type	name	comment
+004a4534	IDirectDraw*	g_DirectDraw	DirectDrawCreate out parameter (FUN_00445955).
+004a4538	IDirectDraw2*	g_DirectDraw2	QueryInterface from g_DirectDraw; "Can't go to Direct Draw 2".
+004a453c	IDirectDrawSurface*	g_ddsPrimary	IDirectDraw2::CreateSurface, caps PRIMARYSURFACE|FLIP|COMPLEX, 1 back buffer.
+004a4540	IDirectDrawSurface*	g_ddsBack	GetAttachedSurface(BACKBUFFER) of g_ddsPrimary; Lock/Unlock target.
+004a4528	HDC	g_gdiMemDC	GDI path: memory DC selected with the DIB (GDI_Present StretchBlt source).
+00633b18	DWORD	g_videoUseGDI	0 = DirectDraw, 1 = GDI; set in Video_Init (the WINDREAM/GDIDREAM byte).
+00633b1c	DWORD	g_videoWidth	640, set in Video_Init.
+00633b20	DWORD	g_videoHeight	480, set in Video_Init.
+00633b24	HWND	g_hWnd	Game window; SetCooperativeLevel and GetDC target.
+005e549c	void*	g_frameBuffer	Software frame in RAM, 0x96000 bytes (640x480x2); copied out by DDraw_Present.
+00633be0	IDirectSound*	g_DirectSound	DirectSoundCreate out parameter (FUN_004463e9); SetCooperativeLevel PRIORITY.
+00633be8	IDirectSoundBuffer*	g_dsbPrimary	Primary buffer, SetFormat 22050 Hz 16-bit stereo.
+00633b28	IDirectSoundBuffer*	g_dsChannel22kStereo	First field of a 0x18-byte channel record; 22050 Hz 16-bit stereo, 0x2b110 bytes (2 s).
+00633b40	IDirectSoundBuffer*	g_dsVoices	First of up to 5 0x18-byte channel records; 11025 Hz 16-bit mono, CTRLFREQUENCY|PAN|VOLUME.
+00633bb8	IDirectSoundBuffer*	g_dsChannel11kMono8	First field of a 0x18-byte channel record; 11025 Hz 8-bit mono, 0x4b000 bytes.

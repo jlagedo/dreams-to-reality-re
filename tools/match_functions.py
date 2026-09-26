@@ -55,6 +55,7 @@ PLATFORM_PREFIXES = (
     "gu",
     "_",
     "DDraw_",
+    "DSound_",
     "GDI_",
     "Video_",
     "Kbd_",
