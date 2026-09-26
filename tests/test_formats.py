@@ -473,7 +473,7 @@ def test_every_face_vertex_pointer_lands_on_a_vertex_record():
     """
     from dreams.formats import lz
 
-    scenes = sorted({p for d in (paths.disc(1), paths.disc(2)) for p in d.rglob("*.DSN")})
+    scenes = {p.stem: p for d in (paths.disc(1), paths.disc(2)) for p in d.rglob("*.DSN")}.values()
     total = 0
     for p in scenes:
         tag1 = lz.decompress(next(r.payload for r in scene.read_records(p) if r.tag == 1))
@@ -689,3 +689,62 @@ def test_extract_sd_audio_bit_exact_reference():
     wav = video.extract_sd_audio(disc2_project)
     assert wav is not None
     assert wav[44:] == ref_wav_path.read_bytes()[44:]
+
+
+@needs_discs
+def test_collision_mesh_has_the_floor_and_ceiling_of_the_cave():
+    """Tag 2 decodes as the collision mesh the engine's floor probe reads.
+
+    `E01GROTT` is a closed cave: under any point inside it there is exactly a
+    floor at y = 8 and a ceiling about 2,000 units up (Y points down).
+    """
+    from dreams.formats import collision
+
+    c = collision.read_collision(_scene("E01GROTT"))
+    assert (len(c.points), len(c.triangles)) == (193, 351)
+    for x, z in ((600, 600), (-600, -500), (0, 900)):
+        hits = sorted(
+            h for t in c.triangles if (h := collision.floor_height(t, c.points, x, z)) is not None
+        )
+        assert hits[-1] == 8
+        assert -2200 < hits[0] < -1900
+
+
+@needs_discs
+@pytest.mark.corpus
+def test_collision_triangles_carry_planes_edges_and_boxes():
+    """Every scene's collision triangles hold what the engine's tests read.
+
+    Measured over all 152,536 triangles: unit Q15 normals 99.5%, bounding box
+    at +0x48/+0x54 exact 99.2%, plane distance n . v0 >> 15 within 2 units
+    97.6%, all three vertices on or inside all three edge planes 94.5%. The
+    misses cluster in a few scenes (F31CIEL, the sky, is lowest), so the bars
+    are overall rates, not per scene.
+    """
+    import math
+    from collections import Counter
+
+    from dreams.formats import collision
+
+    scenes = {p.stem: p for d in (paths.disc(1), paths.disc(2)) for p in d.rglob("*.DSN")}.values()
+    k: Counter = Counter()
+    for p in scenes:
+        c = collision.read_collision(p)
+        for t in c.triangles:
+            vs = [c.points[i] for i in t.points]
+            k["n"] += 1
+            k["unit"] += abs(math.sqrt(sum(n * n for n in t.normal)) - 32768) < 4
+            k["plane"] += all(
+                abs((sum(a * b for a, b in zip(t.normal, v, strict=True)) >> 15) - t.plane) <= 2
+                for v in vs
+            )
+            k["box"] += list(t.box_min) == [min(v[i] for v in vs) for i in range(3)] and list(
+                t.box_max
+            ) == [max(v[i] for v in vs) for i in range(3)]
+            k["edges"] += all(
+                min((sum(a * b for a, b in zip(e, v, strict=True)) >> 15) - q for v in vs) >= -2
+                for e, q in zip(t.edges, t.edge_planes, strict=True)
+            )
+    assert k["n"] == 152_536
+    assert k["unit"] >= 0.99 * k["n"] and k["box"] >= 0.99 * k["n"]
+    assert k["plane"] >= 0.97 * k["n"] and k["edges"] >= 0.94 * k["n"]

@@ -565,6 +565,133 @@ Open: the exact float expressions hidden behind `__CHP` in the orbit mode;
 the free camera's key map; which triggers post `0x2c`-`0x2f` and with what
 payloads (they come from the level scripts, `SCENE_TickTriggers` (`0x429061`) and entity code).
 
+## Collision and physics **[verified]**
+
+Traced 2026-09-26 in `WINDREAM.EXE`; all names below are in the registry
+with blind review. Data layouts are in `re/structs/windream.h`
+(`COLL_Triangle`, `COLL_Mesh`, `PHYS_Collider`, `PHYS_ForceField`); the level
+mesh decodes with [`dreams.formats.collision`](../src/dreams/formats/collision.py).
+
+### Frame order
+
+`GAME_Tick` (`0x4240ba`): player input (`0x423767`) → `CAM_CompCameraPos` (`0x4099d2`) → AI squads →
+`ENT_TickAll` (`0x407089`) (animation, then `PHYS_TickEntity` (`0x43d83e`) integrates each entity) → level exits
+→ `0x423f60`: **`PHYS_ResolveCollisions` (`0x40bff8`)** → `REND_DrawFrame` (`0x459320`). So movement is
+integrated first and collision resolved once per frame just before drawing;
+the camera sees the previous frame's positions.
+
+### The level collision mesh
+
+`.DSN` tag 2 is loaded as `.3DI`, resource type 5, and added to a single
+**collision world** (`0x66e01c`) with `PHYS_AddMesh` (`0x45f450`). It is a subset of the rendered
+faces plus invisible proxies (skies, video surfaces and water are left out):
+
+```
+point count, points (i32 xyz), triangle count, triangles (96 bytes),
+normal count, normals (i32 xyz, Q15, one per triangle)
+
+triangle  +0x00 3 point pointers   +0x0c normal pointer   +0x10 plane d
+          +0x14 3 inward edge-plane normals (Q15)          +0x38 3 edge constants
+          +0x44 owning mesh        +0x48 bbox min          +0x54 bbox max
+```
+
+Over all 152,536 triangles: unit normals 99.5%, exact boxes 99.2%, plane
+distance within 2 units 97.6%. **[verified]** against the disc data by
+`tests/test_formats.py`.
+
+**Broadphase.** `PHYS_InsertMeshTriangles` (`0x45cf2c`) puts each triangle's min and max into three
+per-axis sorted endpoint arrays; `PHYS_SweepAxis` (`0x45d420`) is an incremental
+sweep-and-prune that moves each collider's `centre ± radius` interval through
+them and keeps two candidate lists per collider (walls `+0x30`, floors
+`+0x34`).
+
+**Narrow phase.** `PHYS_CollideSphereTriangle` (`0x45e724`): signed plane distance `n·c >> 15 − d`
+(filtered by the collider's side flags: 1 front, 2 back), then the three edge
+distances (`PHYS_GetEdgeDistance` (`0x45ddec`)); inside all three is a face contact (closest point =
+projection, returns ±2), otherwise the closest point on an edge or vertex
+(`PHYS_FindClosestOnSegment` (`0x45e260`), returns ±1) within the radius. The sign is the side of the
+plane.
+
+### Colliders and radii
+
+Every entity gets one sphere at level load (`PHYS_InitEntity` (`0x43d62c`)):
+
+- **walkers** (`+0xa9 & 2`): `PHYS_AttachActorCollider` (`0x40bedb`), both sides, radius actor
+  `+0x10c`; the model's `ZZZZZ` node is the foot marker (`+0x84`) and is hidden
+  along with `BASSIN01`;
+- **free objects** (`+0xa9 & 8`): `PHYS_AttachObjectCollider` (`0x40be46`), radius **50**, mass 10;
+- the camera eye gets its own (`CAM_CollideEye` (`0x40d5e4`), radius `0x49d2dc` = 100).
+
+At most 30 registered (`PHYS_RegisterCollider` (`0x40bd2b`)), 255 per world. Mass defaults to 1.0.
+
+### Integration (`PHYS_IntegrateMotion` (`0x43d360`), per entity per frame)
+
+```
+k      = Δt · (1/30) · 10                       Δt = 0x5e5388 (see The fixed step)
+F      = Σ fields(pos) + own force (+0x260..+0x270)
+v     += k · F / m                               v = +0x238..+0x248, m = +0x250
+v     *= damp · +0x27c                           damp 0.99 flying/airborne, 0.9 ground, 0.7 swimming
+step   = round(root_motion(+0x18..+0x20) + v + k · G / m)    G = Σ drift fields
+pos   += step                                    step kept at +0x2a0, |step| at +0x2b8
+```
+
+Velocity is added to the position **without** a Δt factor: the step is `v`
+per call.
+
+**Force fields** (`PHYS_AddForceField` (`0x43ce37`), 0x60 bytes, at most 128): type 0 uniform
+(`vector · m`), 1 box (uniform inside `+0x20..+0x48`), 2 radial inverse-square
+(`d · m · strength / |d|³`), 3 drift (added to the step, not the velocity).
+**Gravity** is a uniform field `(0, 9.81, 0)` created at level start by
+`0x41ee09` (Y is down); the level record's `+0x100/+0x104/+0x108` override it
+(`+0x104` negated), and each box record with a path adds a type-1 field
+along it.
+
+**Walking** (mode 1): while grounded the actor's own force is `(0, −9.81·m, 0)`
+and vertical velocity is zeroed, so gravity cancels; airborne (`+0x278` bit 0),
+the own force is 0 and gravity acts. **Swimming** (mode 2) and **flying** (mode 3)
+cancel gravity on entry and ramp the entry vertical speed linearly to 0 over
+15 and 30 Δt units (`PHYS_TickSwimVertical` (`0x43dd3a`), `PHYS_TickFlyVertical` (`0x43dc4f`)).
+
+### Collision response (`PHYS_ResolveCollisions` (`0x40bff8`), once per frame)
+
+1. **Walkers** (`PHYS_MoveWalker` (`0x40c42c`)): `PHYS_SweepCollider` (`0x40ca00`) moves the sphere from last
+   frame's position (`+0x2ac`) to the new one in steps no longer than its
+   radius, gathering contacts by priority (front face, front edge, back face,
+   back edge) and summing one push-out per distinct normal
+   (`PHYS_AccumulatePush` (`0x40c8c8`): radius − distance along the normal). The push is subtracted
+   from the position: that is the **wall slide** — only the component into the
+   wall is removed. On contact X/Z velocity halves (`0.5`), vertical velocity
+   is zeroed if grounded, and `+0x278` bit 1 is set. A nearly still walker
+   (speed < 2) ignores sideways pushes under 20 units, which stops jitter.
+2. **Ground** (`PHYS_FindGround` (`0x40cfc5`)): among the floor candidates (walls, with normal Y
+   0, are skipped) take the nearest floor below the feet, else the nearest
+   surface above. Feet = the `ZZZZZ` node, or `+0x110` below the origin.
+   Within the **step height of 100** (`0x49d2e0`) the walker snaps to 5 units
+   above the floor and stays grounded; further below it becomes airborne;
+   no floor at all sets `+0x278` bit 0x20 and keeps it grounded. It records the
+   floor triangle (`+0x7c`), floor Y (`+0x88`) and the slope along the heading
+   (`+0x298`).
+3. **Free objects** (`PHYS_MoveBouncer` (`0x40c70c`)): same sweep, then the velocity reflects,
+   `v − 2(v·n)n`.
+4. **Entity pairs** (`PHYS_CollideEntities` (`0x40d2dc`)): spheres of `max(radius/2, |step|)`;
+   overlap is split by mass ratio; both record the impact (`+0x294`, clamped
+   127), the other entity (`+0x29c`) and `+0x278` bit 0x10.
+5. **Platforms** (`PHYS_CollidePlatforms` (`0x43e32e`)): an entity flagged `+0xad & 8` turns each
+   child node into a platform (at most 64, "too many PLT"; `PHYS_BuildPlatforms` (`0x43df1f`)).
+   A walker inside a platform's box rides it (`+0x278` bit 0x40; the platform's
+   frame delta is added and its top becomes the floor); otherwise it is
+   pushed out of the platform's cylinder by the overlap + 5.
+
+`+0x278` flags: 1 airborne, 2 wall contact, 4 entering flight, 8 entering
+water, 0x10 entity contact, 0x20 no floor, 0x40 on a platform.
+
+Shadows are blobs from `ombre.3dc`/`ombre2.3dc` (`ENT_InitShadows` (`0x43e55c`)), placed 10 units
+above the floor Y and aligned to the floor triangle (`ENT_UpdateShadow` (`0x43e9aa`)).
+
+Open: what `+0x258` (1.0) and `+0x280` (1000.0) are for outside the swim/fly
+ramps; the hidden float in the pair radius; the line-of-sight segment test
+(`0x45f654`) used by AI and projectiles.
+
 ## Subsystem naming
 
 Recovered symbol fragments suggest a `<MODULE>_<Verb><Type>` convention:

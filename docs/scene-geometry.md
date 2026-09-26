@@ -130,8 +130,11 @@ discs, with zero failures.
 Not float and not 16.16 fixed point — plain signed integers. A room is a couple
 of thousand units across; `E01GROTT` spans 2464 x 2140 x 2166.
 
-The rest of tag 2 is unaccounted for. `E10_PIEC` carries 12,480 bytes for at
-most ~94 vertices, so something else lives past the array.
+The rest of tag 2 is the **collision mesh** (2026-09-26): after the points
+come 96-byte triangles with plane, edge half-spaces and bounding box, then one
+Q15 normal per triangle. `E10_PIEC`'s 12,480 bytes are 64 points, 108
+triangles and 108 normals exactly. Layout in [engine.md](engine.md),
+*Collision and physics*; decoder `dreams.formats.collision`.
 
 ## Tag 1 — materials and faces
 

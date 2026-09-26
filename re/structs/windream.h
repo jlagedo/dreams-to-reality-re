@@ -223,14 +223,52 @@ typedef struct MDL_Node {
     dreams_u32 shade;          /* +0xd0 used as the face shade when light_count is 0 */
 } MDL_Node;
 
-/* .3DI collision mesh (resource type 5), relocated by 0x455fb4 from resource +0x14. */
+/* .3DI collision mesh (resource type 5), relocated by MDL_RelocCollision (0x455fb4)
+ * from resource +0x14. Decoded by src/dreams/formats/collision.py. */
 typedef struct COLL_Triangle {
-    dreams_u32 v[3];           /* +0x00 pointers to 12-byte points */
-    dreams_u32 normal;         /* +0x0c pointer */
-    dreams_u8 unknown_10[0x34];
-    dreams_u32 link;           /* +0x44 pointer, relocated */
-    dreams_u8 unknown_48[0x18];
+    dreams_i32 *v[3];          /* +0x00 pointers to 12-byte integer points */
+    dreams_i32 *normal;        /* +0x0c pointer to a Q15 unit normal (12 bytes) */
+    dreams_i32 plane;          /* +0x10 n . v0 >> 15 */
+    dreams_i32 edge_normal[3][3]; /* +0x14 inward Q15 edge-plane normals */
+    dreams_i32 edge_plane[3];  /* +0x38 inside edge k when e_k . p >> 15 - c_k >= 0 */
+    struct COLL_Mesh *mesh;    /* +0x44 the mesh this triangle belongs to */
+    dreams_i32 box_min[3];     /* +0x48 sweep-and-prune bounds */
+    dreams_i32 box_max[3];     /* +0x54 */
 } COLL_Triangle;
+
+typedef struct COLL_Mesh {
+    dreams_u32 point_count;    /* +0x00 */
+    dreams_i32 *points;        /* +0x04 */
+    dreams_u32 triangle_count; /* +0x08 */
+    COLL_Triangle *triangles;  /* +0x0c */
+    dreams_u32 normal_count;   /* +0x10 equals triangle_count */
+    dreams_i32 *normals;       /* +0x14 */
+    dreams_u32 unknown_18;     /* +0x18 returned by PHYS_GetTriangle (0x45f600) */
+} COLL_Mesh;
+
+/* Sphere collider in the collision world at 0x66e01c (at most 255). */
+typedef struct PHYS_Collider {
+    dreams_i32 centre[3];      /* +0x00 */
+    dreams_i32 radius;         /* +0x0c */
+    dreams_u8 sides;           /* +0x10 1 front faces, 2 back faces */
+    dreams_u8 unknown_11[3];
+    dreams_u32 sweep[3][2];    /* +0x14 per-axis cursors into the sorted endpoint arrays */
+    dreams_u8 unknown_2c[4];
+    void *candidates;          /* +0x30 linked list of overlapping triangles */
+    void *floor_candidates;    /* +0x34 */
+} PHYS_Collider;
+
+/* Force field (0x626fdc, 128 entries, count 0x629fdc). */
+typedef struct PHYS_ForceField {
+    dreams_u8 type;            /* +0x00 0 uniform, 1 box, 2 radial, 3 drift */
+    dreams_u8 unknown_01[7];
+    dreams_f64 vector[3];      /* +0x08 direction and size; centre for radial */
+    dreams_f64 box_min[3];     /* +0x20 */
+    dreams_f64 box_max[3];     /* +0x38 */
+    dreams_f64 strength;       /* +0x50 radial fields */
+    dreams_u8 active;          /* +0x58 */
+    dreams_u8 unknown_59[7];
+} PHYS_ForceField;
 
 typedef struct DAN_TrackHeader {
     dreams_u32 unknown_00[5];                 /* +0x00 */

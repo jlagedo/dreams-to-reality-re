@@ -1129,6 +1129,30 @@ Named with blind review: 25 `CAM_*` functions, the viewport/projection setters
 `REND_SetFarPlane` (`0x456ccc`), `REND_UpdateFrustum` (`0x456cd4`)), `VID_SetResolution` (`0x41592c`), `MDL_SetNodeRotation` (`0x457a38`) and four
 `MATH_*` helpers.
 
+## 2026-09-26 — collision and physics
+
+The collision model is complete enough to reimplement; details in
+[engine.md](engine.md), *Collision and physics*.
+
+- **Tag 2 decoded in full**: points, 96-byte triangles (plane, three inward
+  edge half-spaces, bounding box, owning mesh) and one normal per triangle.
+  `E10_PIEC`'s 12,480 bytes are exactly 64 + 108 + 108 records. New decoder
+  `dreams.formats.collision`; the corpus test checks 152,536 triangles.
+- **Engine side**: one collision world with an incremental sweep-and-prune
+  broadphase over the triangle boxes, sphere colliders (walkers radius
+  `+0x10c`, free objects 50, camera 100), sphere-triangle tests by face, edge
+  and vertex, a sub-stepped sweep no longer than the radius per step, push-out
+  along the contact normals (the wall slide), a floor probe with a 100-unit
+  step height, mass-weighted entity separation, bouncing free objects and
+  rideable platforms.
+- **Integration**: force fields (uniform gravity `(0, 9.81, 0)`, box
+  currents, inverse-square points, drift), per-mode damping (0.99, 0.9, 0.7),
+  and a step of `v` per frame plus root motion. Grounded walkers cancel
+  gravity with their own force; swimming and flying ramp vertical speed to 0
+  over 15 and 30 Δt units.
+- 59 functions named with blind review (`PHYS_*`, plus `ENT_InitShadows` (`0x43e55c`)
+  and `ENT_UpdateShadow` (`0x43e9aa`): the shadow blobs are `ombre.3dc`). `0x45cd60` stays unnamed.
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)
