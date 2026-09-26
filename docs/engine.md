@@ -668,7 +668,7 @@ per call.
 (`vector · m`), 1 box (uniform inside `+0x20..+0x48`), 2 radial inverse-square
 (`d · m · strength / |d|³`), 3 drift (added to the step, not the velocity).
 **Gravity** is a uniform field `(0, 9.81, 0)` created at level start by
-`0x41ee09` (Y is down); the level record's `+0x100/+0x104/+0x108` override it
+`PHYS_InitForceFields` (`0x41ee09`) (Y is down; it adds exactly one gravity field); the level record's `+0x100/+0x104/+0x108` override it
 (`+0x104` negated), and each box record with a path adds a type-1 field
 along it.
 
