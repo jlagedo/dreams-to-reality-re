@@ -1,0 +1,284 @@
+#program	DREAMSFX.EXE
+#sha256	9b95f25f00b46387ba292e2060b395c55170fcd10d7e3b5cf5e965fecf5027d3
+#imagebase	0
+FUNC	670f0	Glide_Open	undefined Glide_Open(void)	
+FUNC	67474	Glide_Close	undefined Glide_Close(void)	
+FUNC	67490	Glide_ClearToBackground	undefined Glide_ClearToBackground(void)	
+FUNC	674ac	Glide_Clear	undefined Glide_Clear(void)	
+FUNC	674c0	Glide_Swap	undefined Glide_Swap(void)	
+FUNC	67568	Glide_DrawPolygon	undefined Glide_DrawPolygon(void)	
+FUNC	68390	Kbd_InstallHandler	undefined Kbd_InstallHandler(void)	
+FUNC	683fe	Kbd_RestoreHandler	undefined Kbd_RestoreHandler(void)	
+FUNC	73ae8	_entry	undefined _entry(void)	
+FUNC	86210	Timer_InstallHandler	undefined Timer_InstallHandler(void)	
+FUNC	862f8	Timer_RestoreHandler	undefined Timer_RestoreHandler(void)	
+FUNC	9afe5	DPMI_SetRealModeVector	undefined DPMI_SetRealModeVector(void)	
+FUNC	9b323	AIL_CallDriver	undefined AIL_CallDriver(void)	
+FUNC	ac894	__loadme	void __loadme(void)	
+FUNC	adc1c	caseD_2	undefined caseD_2(void)	
+FUNC	adc4e	caseD_0	undefined caseD_0(void)	
+FUNC	ae2db	caseD_3	undefined caseD_3(void)	
+FUNC	b07bb	__fdivp_sti_st	undefined __fdivp_sti_st(void)	Library Function - Single Match\n __fdivp_sti_st\n\nLibrary: Visual Studio
+FUNC	b0840	__adj_fdiv_m64	undefined __adj_fdiv_m64(void)	Library Function - Single Match\n __adj_fdiv_m64\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, Visual Studio 2003 Debug, Visual Studio 2003 Release
+FUNC	b898c	grAADrawLine	void grAADrawLine(GrVertex * v1, GrVertex * v2)	Glide 2 import thunk for _GRAADRAWLINE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8991	grAADrawPoint	void grAADrawPoint(GrVertex * pt)	Glide 2 import thunk for _GRAADRAWPOINT@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8996	grAADrawPolygon	void grAADrawPolygon(int nverts, int * ilist, GrVertex * vlist)	Glide 2 import thunk for _GRAADRAWPOLYGON@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b899b	grAADrawPolygonVertexList	void grAADrawPolygonVertexList(int nverts, GrVertex * vlist)	Glide 2 import thunk for _GRAADRAWPOLYGONVERTEXLIST@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89a0	grAADrawTriangle	void grAADrawTriangle(GrVertex * a, GrVertex * b, GrVertex * c, FxBool ab_antialias, FxBool bc_antialias, FxBool ca_antialias)	Glide 2 import thunk for _GRAADRAWTRIANGLE@24 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89a5	grAlphaBlendFunction	void grAlphaBlendFunction(GrAlphaBlendFnc_t rgb_sf, GrAlphaBlendFnc_t rgb_df, GrAlphaBlendFnc_t alpha_sf, GrAlphaBlendFnc_t alpha_df)	Glide 2 import thunk for _GRALPHABLENDFUNCTION@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89aa	grAlphaCombine	void grAlphaCombine(GrCombineFunction_t function, GrCombineFactor_t factor, GrCombineLocal_t local, GrCombineOther_t other, FxBool invert)	Glide 2 import thunk for _GRALPHACOMBINE@20 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89af	grAlphaControlsITRGBLighting	void grAlphaControlsITRGBLighting(FxBool enable)	Glide 2 import thunk for _GRALPHACONTROLSITRGBLIGHTING@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89b4	grAlphaTestFunction	void grAlphaTestFunction(GrCmpFnc_t function)	Glide 2 import thunk for _GRALPHATESTFUNCTION@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89b9	grAlphaTestReferenceValue	void grAlphaTestReferenceValue(GrAlpha_t value)	Glide 2 import thunk for _GRALPHATESTREFERENCEVALUE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89be	grBufferClear	void grBufferClear(GrColor_t color, GrAlpha_t alpha, FxU16 depth)	Glide 2 import thunk for _GRBUFFERCLEAR@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89c3	grBufferNumPending	int grBufferNumPending(void)	Glide 2 import thunk for _GRBUFFERNUMPENDING@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89c8	grBufferSwap	void grBufferSwap(int swap_interval)	Glide 2 import thunk for _GRBUFFERSWAP@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89cd	grCheckForRoom	void grCheckForRoom(FxI32 n)	Glide 2 import thunk for _GRCHECKFORROOM@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89d2	grChromakeyMode	void grChromakeyMode(GrChromakeyMode_t mode)	Glide 2 import thunk for _GRCHROMAKEYMODE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89d7	grChromakeyValue	void grChromakeyValue(GrColor_t value)	Glide 2 import thunk for _GRCHROMAKEYVALUE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89dc	grClipWindow	void grClipWindow(FxU32 minx, FxU32 miny, FxU32 maxx, FxU32 maxy)	Glide 2 import thunk for _GRCLIPWINDOW@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89e1	grColorCombine	void grColorCombine(GrCombineFunction_t function, GrCombineFactor_t factor, GrCombineLocal_t local, GrCombineOther_t other, FxBool invert)	Glide 2 import thunk for _GRCOLORCOMBINE@20 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89e6	grColorMask	void grColorMask(FxBool rgb, FxBool a)	Glide 2 import thunk for _GRCOLORMASK@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89eb	grConstantColorValue4	void grConstantColorValue4(float a, float r, float g, float b)	Glide 2 import thunk for _GRCONSTANTCOLORVALUE4@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89f0	grConstantColorValue	void grConstantColorValue(GrColor_t value)	Glide 2 import thunk for _GRCONSTANTCOLORVALUE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89f5	grCullMode	void grCullMode(GrCullMode_t mode)	Glide 2 import thunk for _GRCULLMODE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89fa	grDepthBiasLevel	void grDepthBiasLevel(FxI16 level)	Glide 2 import thunk for _GRDEPTHBIASLEVEL@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b89ff	grDepthBufferFunction	void grDepthBufferFunction(GrCmpFnc_t function)	Glide 2 import thunk for _GRDEPTHBUFFERFUNCTION@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a04	grDepthBufferMode	void grDepthBufferMode(GrDepthBufferMode_t mode)	Glide 2 import thunk for _GRDEPTHBUFFERMODE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a09	grDepthMask	void grDepthMask(FxBool mask)	Glide 2 import thunk for _GRDEPTHMASK@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a0e	grDisableAllEffects	void grDisableAllEffects(void)	Glide 2 import thunk for _GRDISABLEALLEFFECTS@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a13	grDitherMode	void grDitherMode(GrDitherMode_t mode)	Glide 2 import thunk for _GRDITHERMODE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a18	grDrawLine	void grDrawLine(GrVertex * v1, GrVertex * v2)	Glide 2 import thunk for _GRDRAWLINE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a1d	grDrawPlanarPolygon	void grDrawPlanarPolygon(int nverts, int * ilist, GrVertex * vlist)	Glide 2 import thunk for _GRDRAWPLANARPOLYGON@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a22	grDrawPlanarPolygonVertexList	void grDrawPlanarPolygonVertexList(int nverts, GrVertex * vlist)	Glide 2 import thunk for _GRDRAWPLANARPOLYGONVERTEXLIST@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a27	grDrawPoint	void grDrawPoint(GrVertex * pt)	Glide 2 import thunk for _GRDRAWPOINT@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a2c	grDrawPolygon	void grDrawPolygon(int nverts, int * ilist, GrVertex * vlist)	Glide 2 import thunk for _GRDRAWPOLYGON@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a31	grDrawPolygonVertexList	void grDrawPolygonVertexList(int nverts, GrVertex * vlist)	Glide 2 import thunk for _GRDRAWPOLYGONVERTEXLIST@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a36	grDrawTriangle	void grDrawTriangle(GrVertex * a, GrVertex * b, GrVertex * c)	Glide 2 import thunk for _GRDRAWTRIANGLE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a3b	grErrorSetCallback	void grErrorSetCallback(GrErrorCallbackFnc_t fnc)	Glide 2 import thunk for _GRERRORSETCALLBACK@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a40	grFogColorValue	void grFogColorValue(GrColor_t fogcolor)	Glide 2 import thunk for _GRFOGCOLORVALUE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a45	grFogMode	void grFogMode(GrFogMode_t mode)	Glide 2 import thunk for _GRFOGMODE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a4a	grFogTable	void grFogTable(GrFog_t * ft)	Glide 2 import thunk for _GRFOGTABLE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a4f	grGammaCorrectionValue	void grGammaCorrectionValue(float value)	Glide 2 import thunk for _GRGAMMACORRECTIONVALUE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a54	grGlideGetState	void grGlideGetState(GrState * state)	Glide 2 import thunk for _GRGLIDEGETSTATE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a59	grGlideGetVersion	void grGlideGetVersion(char[80] version)	Glide 2 import thunk for _GRGLIDEGETVERSION@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a5e	grGlideInit	void grGlideInit(void)	Glide 2 import thunk for _GRGLIDEINIT@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a63	grGlideSetState	void grGlideSetState(GrState * state)	Glide 2 import thunk for _GRGLIDESETSTATE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a68	grGlideShamelessPlug	void grGlideShamelessPlug(FxBool on)	Glide 2 import thunk for _GRGLIDESHAMELESSPLUG@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a6d	grGlideShutdown	void grGlideShutdown(void)	Glide 2 import thunk for _GRGLIDESHUTDOWN@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a72	grHints	void grHints(GrHint_t hintType, FxU32 hintMask)	Glide 2 import thunk for _GRHINTS@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a77	grLfbConstantAlpha	void grLfbConstantAlpha(GrAlpha_t alpha)	Glide 2 import thunk for _GRLFBCONSTANTALPHA@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a7c	grLfbConstantDepth	void grLfbConstantDepth(FxU16 depth)	Glide 2 import thunk for _GRLFBCONSTANTDEPTH@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a81	grLfbLock	FxBool grLfbLock(GrLock_t type, GrBuffer_t buffer, GrLfbWriteMode_t writeMode, GrOriginLocation_t origin, FxBool pixelPipeline, GrLfbInfo_t * info)	Glide 2 import thunk for _GRLFBLOCK@24 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a86	grLfbReadRegion	FxBool grLfbReadRegion(GrBuffer_t src_buffer, FxU32 src_x, FxU32 src_y, FxU32 src_width, FxU32 src_height, FxU32 dst_stride, void * dst_data)	Glide 2 import thunk for _GRLFBREADREGION@28 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a8b	grLfbWriteRegion	FxBool grLfbWriteRegion(GrBuffer_t dst_buffer, FxU32 dst_x, FxU32 dst_y, GrLfbSrcFmt_t src_format, FxU32 src_width, FxU32 src_height, FxI32 src_stride, void * src_data)	Glide 2 import thunk for _GRLFBWRITEREGION@32 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a90	grLfbUnlock	FxBool grLfbUnlock(GrLock_t type, GrBuffer_t buffer)	Glide 2 import thunk for _GRLFBUNLOCK@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a95	grLfbWriteColorFormat	void grLfbWriteColorFormat(GrColorFormat_t colorFormat)	Glide 2 import thunk for _GRLFBWRITECOLORFORMAT@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a9a	grLfbWriteColorSwizzle	void grLfbWriteColorSwizzle(FxBool swizzleBytes, FxBool swapWords)	Glide 2 import thunk for _GRLFBWRITECOLORSWIZZLE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8a9f	grRenderBuffer	void grRenderBuffer(GrBuffer_t buffer)	Glide 2 import thunk for _GRRENDERBUFFER@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8aa4	grResetTriStats	void grResetTriStats(void)	Glide 2 import thunk for _GRRESETTRISTATS@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8aa9	grSplash	void grSplash(float x, float y, float width, float height, FxU32 frame)	Glide 2 import thunk for _GRSPLASH@20 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8aae	GRSSTCONFIGPIPELINE_12	undefined GRSSTCONFIGPIPELINE_12(void)	Glide 2 import thunk for _GRSSTCONFIGPIPELINE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8ab3	grSstControl	FxBool grSstControl(FxU32 code)	Glide 2 import thunk for _GRSSTCONTROL@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8ab8	grSstIdle	void grSstIdle(void)	Glide 2 import thunk for _GRSSTIDLE@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8abd	grSstIsBusy	FxBool grSstIsBusy(void)	Glide 2 import thunk for _GRSSTISBUSY@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8ac2	grSstOrigin	void grSstOrigin(GrOriginLocation_t origin)	Glide 2 import thunk for _GRSSTORIGIN@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8ac7	grSstPerfStats	void grSstPerfStats(GrSstPerfStats_t * pStats)	Glide 2 import thunk for _GRSSTPERFSTATS@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8acc	grSstQueryBoards	FxBool grSstQueryBoards(GrHwConfiguration * hwconfig)	Glide 2 import thunk for _GRSSTQUERYBOARDS@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8ad1	grSstQueryHardware	FxBool grSstQueryHardware(GrHwConfiguration * hwconfig)	Glide 2 import thunk for _GRSSTQUERYHARDWARE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8ad6	grSstResetPerfStats	void grSstResetPerfStats(void)	Glide 2 import thunk for _GRSSTRESETPERFSTATS@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8adb	grSstScreenHeight	FxU32 grSstScreenHeight(void)	Glide 2 import thunk for _GRSSTSCREENHEIGHT@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8ae0	grSstScreenWidth	FxU32 grSstScreenWidth(void)	Glide 2 import thunk for _GRSSTSCREENWIDTH@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8ae5	grSstSelect	void grSstSelect(int which_sst)	Glide 2 import thunk for _GRSSTSELECT@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8aea	grSstStatus	FxU32 grSstStatus(void)	Glide 2 import thunk for _GRSSTSTATUS@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8aef	grSstVideoLine	FxU32 grSstVideoLine(void)	Glide 2 import thunk for _GRSSTVIDEOLINE@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8af4	GRSSTVIDMODE_8	undefined GRSSTVIDMODE_8(void)	Glide 2 import thunk for _GRSSTVIDMODE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8af9	grSstVRetraceOn	FxBool grSstVRetraceOn(void)	Glide 2 import thunk for _GRSSTVRETRACEON@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8afe	grSstWinClose	void grSstWinClose(void)	Glide 2 import thunk for _GRSSTWINCLOSE@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b03	grSstWinOpen	FxBool grSstWinOpen(FxU32 hWnd, GrScreenResolution_t screen_resolution, GrScreenRefresh_t refresh_rate, GrColorFormat_t color_format, GrOriginLocation_t origin_location, int nColBuffers, int nAuxBuffers)	Glide 2 import thunk for _GRSSTWINOPEN@28 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b08	grTexCalcMemRequired	FxU32 grTexCalcMemRequired(GrLOD_t lodmin, GrLOD_t lodmax, GrAspectRatio_t aspect, GrTextureFormat_t fmt)	Glide 2 import thunk for _GRTEXCALCMEMREQUIRED@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b0d	grTexClampMode	void grTexClampMode(GrChipID_t tmu, GrTextureClampMode_t s_clampmode, GrTextureClampMode_t t_clampmode)	Glide 2 import thunk for _GRTEXCLAMPMODE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b12	grTexCombine	void grTexCombine(GrChipID_t tmu, GrCombineFunction_t rgb_function, GrCombineFactor_t rgb_factor, GrCombineFunction_t alpha_function, GrCombineFactor_t alpha_factor, FxBool rgb_invert, FxBool alpha_invert)	Glide 2 import thunk for _GRTEXCOMBINE@28 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b17	grTexCombineFunction	void grTexCombineFunction(GrChipID_t tmu, GrTextureCombineFnc_t fnc)	Glide 2 import thunk for _GRTEXCOMBINEFUNCTION@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b1c	grTexDetailControl	void grTexDetailControl(GrChipID_t tmu, int lod_bias, FxU8 detail_scale, float detail_max)	Glide 2 import thunk for _GRTEXDETAILCONTROL@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b21	grTexDownloadMipMap	void grTexDownloadMipMap(GrChipID_t tmu, FxU32 startAddress, FxU32 evenOdd, GrTexInfo * info)	Glide 2 import thunk for _GRTEXDOWNLOADMIPMAP@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b26	grTexDownloadMipMapLevel	void grTexDownloadMipMapLevel(GrChipID_t tmu, FxU32 startAddress, GrLOD_t thisLod, GrLOD_t largeLod, GrAspectRatio_t aspectRatio, GrTextureFormat_t format, FxU32 evenOdd, void * data)	Glide 2 import thunk for _GRTEXDOWNLOADMIPMAPLEVEL@32 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b2b	grTexDownloadMipMapLevelPartial	void grTexDownloadMipMapLevelPartial(GrChipID_t tmu, FxU32 startAddress, GrLOD_t thisLod, GrLOD_t largeLod, GrAspectRatio_t aspectRatio, GrTextureFormat_t format, FxU32 evenOdd, void * data, int start, int end)	Glide 2 import thunk for _GRTEXDOWNLOADMIPMAPLEVELPARTIAL@40 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b30	grTexDownloadTable	void grTexDownloadTable(GrChipID_t tmu, GrTexTable_t type, void * data)	Glide 2 import thunk for _GRTEXDOWNLOADTABLE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b35	grTexDownloadTablePartial	void grTexDownloadTablePartial(GrChipID_t tmu, GrTexTable_t type, void * data, int start, int end)	Glide 2 import thunk for _GRTEXDOWNLOADTABLEPARTIAL@20 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b3a	grTexFilterMode	void grTexFilterMode(GrChipID_t tmu, GrTextureFilterMode_t minfilter_mode, GrTextureFilterMode_t magfilter_mode)	Glide 2 import thunk for _GRTEXFILTERMODE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b3f	grTexLodBiasValue	void grTexLodBiasValue(GrChipID_t tmu, float bias)	Glide 2 import thunk for _GRTEXLODBIASVALUE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b44	grTexMaxAddress	FxU32 grTexMaxAddress(GrChipID_t tmu)	Glide 2 import thunk for _GRTEXMAXADDRESS@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b49	grTexMinAddress	FxU32 grTexMinAddress(GrChipID_t tmu)	Glide 2 import thunk for _GRTEXMINADDRESS@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b4e	grTexMipMapMode	void grTexMipMapMode(GrChipID_t tmu, GrMipMapMode_t mode, FxBool lodBlend)	Glide 2 import thunk for _GRTEXMIPMAPMODE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b53	grTexMultibase	void grTexMultibase(GrChipID_t tmu, FxBool enable)	Glide 2 import thunk for _GRTEXMULTIBASE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b58	grTexMultibaseAddress	void grTexMultibaseAddress(GrChipID_t tmu, GrTexBaseRange_t range, FxU32 startAddress, FxU32 evenOdd, GrTexInfo * info)	Glide 2 import thunk for _GRTEXMULTIBASEADDRESS@20 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b5d	grTexNCCTable	void grTexNCCTable(GrChipID_t tmu, GrNCCTable_t table)	Glide 2 import thunk for _GRTEXNCCTABLE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b62	grTexSource	void grTexSource(GrChipID_t tmu, FxU32 startAddress, FxU32 evenOdd, GrTexInfo * info)	Glide 2 import thunk for _GRTEXSOURCE@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b67	grTexTextureMemRequired	FxU32 grTexTextureMemRequired(FxU32 evenOdd, GrTexInfo * info)	Glide 2 import thunk for _GRTEXTEXTUREMEMREQUIRED@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b6c	grTriStats	void grTriStats(FxU32 * trisProcessed, FxU32 * trisDrawn)	Glide 2 import thunk for _GRTRISTATS@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b71	gu3dfGetInfo	FxBool gu3dfGetInfo(char * filename, Gu3dfInfo * info)	Glide 2 import thunk for _GU3DFGETINFO@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b76	gu3dfLoad	FxBool gu3dfLoad(char * filename, Gu3dfInfo * data)	Glide 2 import thunk for _GU3DFLOAD@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b7b	guAADrawTriangleWithClip	void guAADrawTriangleWithClip(GrVertex * a, GrVertex * b, GrVertex * c)	Glide 2 import thunk for _GUAADRAWTRIANGLEWITHCLIP@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b80	guAlphaSource	void guAlphaSource(GrAlphaSource_t mode)	Glide 2 import thunk for _GUALPHASOURCE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b85	guColorCombineFunction	void guColorCombineFunction(GrColorCombineFnc_t fnc)	Glide 2 import thunk for _GUCOLORCOMBINEFUNCTION@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b8a	guDrawPolygonVertexListWithClip	void guDrawPolygonVertexListWithClip(int nverts, GrVertex * vlist)	Glide 2 import thunk for _GUDRAWPOLYGONVERTEXLISTWITHCLIP@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b8f	guDrawTriangleWithClip	void guDrawTriangleWithClip(GrVertex * a, GrVertex * b, GrVertex * c)	Glide 2 import thunk for _GUDRAWTRIANGLEWITHCLIP@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b94	guEncodeRLE16	int guEncodeRLE16(void * dst, void * src, FxU32 width, FxU32 height)	Glide 2 import thunk for _GUENCODERLE16@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b99	guEndianSwapBytes	FxU16 guEndianSwapBytes(FxU16 value)	Glide 2 import thunk for _GUENDIANSWAPBYTES@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8b9e	guEndianSwapWords	FxU32 guEndianSwapWords(FxU32 value)	Glide 2 import thunk for _GUENDIANSWAPWORDS@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8ba3	guFogGenerateExp2	void guFogGenerateExp2(GrFog_t * fogtable, float density)	Glide 2 import thunk for _GUFOGGENERATEEXP2@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8ba8	guFogGenerateExp	void guFogGenerateExp(GrFog_t * fogtable, float density)	Glide 2 import thunk for _GUFOGGENERATEEXP@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bad	guFogGenerateLinear	void guFogGenerateLinear(GrFog_t * fogtable, float nearZ, float farZ)	Glide 2 import thunk for _GUFOGGENERATELINEAR@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bb2	guFogTableIndexToW	float guFogTableIndexToW(int i)	Glide 2 import thunk for _GUFOGTABLEINDEXTOW@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bb7	GUMOVIESETNAME_4	undefined GUMOVIESETNAME_4(void)	Glide 2 import thunk for _GUMOVIESETNAME@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bbc	GUMOVIESTART_0	undefined GUMOVIESTART_0(void)	Glide 2 import thunk for _GUMOVIESTART@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bc1	GUMOVIESTOP_0	undefined GUMOVIESTOP_0(void)	Glide 2 import thunk for _GUMOVIESTOP@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bc6	GUMPDRAWTRIANGLE_12	undefined GUMPDRAWTRIANGLE_12(void)	Glide 2 import thunk for _GUMPDRAWTRIANGLE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bcb	GUMPINIT_0	undefined GUMPINIT_0(void)	Glide 2 import thunk for _GUMPINIT@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bd0	GUMPTEXCOMBINEFUNCTION_4	undefined GUMPTEXCOMBINEFUNCTION_4(void)	Glide 2 import thunk for _GUMPTEXCOMBINEFUNCTION@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bd5	GUMPTEXSOURCE_8	undefined GUMPTEXSOURCE_8(void)	Glide 2 import thunk for _GUMPTEXSOURCE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bda	guTexAllocateMemory	GrMipMapId_t guTexAllocateMemory(GrChipID_t tmu, FxU8 odd_even_mask, int width, int height, GrTextureFormat_t fmt, GrMipMapMode_t mm_mode, GrLOD_t smallest_lod, GrLOD_t largest_lod, GrAspectRatio_t aspect, GrTextureClampMode_t s_clamp_mode, GrTextureClampMode_t t_clamp_mode, GrTextureFilterMode_t minfilter_mode, GrTextureFilterMode_t magfilter_mode, float lod_bias, FxBool trilinear)	Glide 2 import thunk for _GUTEXALLOCATEMEMORY@60 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bdf	guTexChangeAttributes	FxBool guTexChangeAttributes(GrMipMapId_t mmid, int width, int height, GrTextureFormat_t fmt, GrMipMapMode_t mm_mode, GrLOD_t smallest_lod, GrLOD_t largest_lod, GrAspectRatio_t aspect, GrTextureClampMode_t s_clamp_mode, GrTextureClampMode_t t_clamp_mode, GrTextureFilterMode_t minFilterMode, GrTextureFilterMode_t magFilterMode)	Glide 2 import thunk for _GUTEXCHANGEATTRIBUTES@48 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8be4	guTexCombineFunction	void guTexCombineFunction(GrChipID_t tmu, GrTextureCombineFnc_t fnc)	Glide 2 import thunk for _GUTEXCOMBINEFUNCTION@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8be9	guTexCreateColorMipMap	FxU16 * guTexCreateColorMipMap(void)	Glide 2 import thunk for _GUTEXCREATECOLORMIPMAP@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bee	guTexDownloadMipMap	void guTexDownloadMipMap(GrMipMapId_t mmid, void * src, GuNccTable * table)	Glide 2 import thunk for _GUTEXDOWNLOADMIPMAP@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bf3	guTexDownloadMipMapLevel	void guTexDownloadMipMapLevel(GrMipMapId_t mmid, GrLOD_t lod, void * * src)	Glide 2 import thunk for _GUTEXDOWNLOADMIPMAPLEVEL@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bf8	guTexGetCurrentMipMap	GrMipMapId_t guTexGetCurrentMipMap(GrChipID_t tmu)	Glide 2 import thunk for _GUTEXGETCURRENTMIPMAP@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8bfd	guTexGetMipMapInfo	GrMipMapInfo * guTexGetMipMapInfo(GrMipMapId_t mmid)	Glide 2 import thunk for _GUTEXGETMIPMAPINFO@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8c02	guTexMemQueryAvail	FxU32 guTexMemQueryAvail(GrChipID_t tmu)	Glide 2 import thunk for _GUTEXMEMQUERYAVAIL@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8c07	guTexMemReset	void guTexMemReset(void)	Glide 2 import thunk for _GUTEXMEMRESET@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8c0c	guTexSource	void guTexSource(GrMipMapId_t id)	Glide 2 import thunk for _GUTEXSOURCE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+FUNC	b8c11	ConvertAndDownloadRle	void ConvertAndDownloadRle(GrChipID_t tmu, FxU32 startAddress, GrLOD_t thisLod, GrLOD_t largeLod, GrAspectRatio_t aspectRatio, GrTextureFormat_t format, FxU32 evenOdd, FxU8 * bm_data, long bm_h, FxU32 u0, FxU32 v0, FxU32 width, FxU32 height, FxU32 dest_width, FxU32 dest_height, FxU16 * tlut)	Glide 2 import thunk for _CONVERTANDDOWNLOADRLE@64 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b07bb	plate	Library Function - Single Match\n __fdivp_sti_st\n\nLibrary: Visual Studio
+CMT	b0840	plate	Library Function - Single Match\n __adj_fdiv_m64\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, Visual Studio 2003 Debug, Visual Studio 2003 Release
+CMT	b898c	plate	Glide 2 import thunk for _GRAADRAWLINE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8991	plate	Glide 2 import thunk for _GRAADRAWPOINT@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8996	plate	Glide 2 import thunk for _GRAADRAWPOLYGON@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b899b	plate	Glide 2 import thunk for _GRAADRAWPOLYGONVERTEXLIST@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89a0	plate	Glide 2 import thunk for _GRAADRAWTRIANGLE@24 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89a5	plate	Glide 2 import thunk for _GRALPHABLENDFUNCTION@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89aa	plate	Glide 2 import thunk for _GRALPHACOMBINE@20 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89af	plate	Glide 2 import thunk for _GRALPHACONTROLSITRGBLIGHTING@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89b4	plate	Glide 2 import thunk for _GRALPHATESTFUNCTION@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89b9	plate	Glide 2 import thunk for _GRALPHATESTREFERENCEVALUE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89be	plate	Glide 2 import thunk for _GRBUFFERCLEAR@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89c3	plate	Glide 2 import thunk for _GRBUFFERNUMPENDING@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89c8	plate	Glide 2 import thunk for _GRBUFFERSWAP@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89cd	plate	Glide 2 import thunk for _GRCHECKFORROOM@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89d2	plate	Glide 2 import thunk for _GRCHROMAKEYMODE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89d7	plate	Glide 2 import thunk for _GRCHROMAKEYVALUE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89dc	plate	Glide 2 import thunk for _GRCLIPWINDOW@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89e1	plate	Glide 2 import thunk for _GRCOLORCOMBINE@20 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89e6	plate	Glide 2 import thunk for _GRCOLORMASK@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89eb	plate	Glide 2 import thunk for _GRCONSTANTCOLORVALUE4@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89f0	plate	Glide 2 import thunk for _GRCONSTANTCOLORVALUE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89f5	plate	Glide 2 import thunk for _GRCULLMODE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89fa	plate	Glide 2 import thunk for _GRDEPTHBIASLEVEL@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b89ff	plate	Glide 2 import thunk for _GRDEPTHBUFFERFUNCTION@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a04	plate	Glide 2 import thunk for _GRDEPTHBUFFERMODE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a09	plate	Glide 2 import thunk for _GRDEPTHMASK@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a0e	plate	Glide 2 import thunk for _GRDISABLEALLEFFECTS@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a13	plate	Glide 2 import thunk for _GRDITHERMODE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a18	plate	Glide 2 import thunk for _GRDRAWLINE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a1d	plate	Glide 2 import thunk for _GRDRAWPLANARPOLYGON@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a22	plate	Glide 2 import thunk for _GRDRAWPLANARPOLYGONVERTEXLIST@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a27	plate	Glide 2 import thunk for _GRDRAWPOINT@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a2c	plate	Glide 2 import thunk for _GRDRAWPOLYGON@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a31	plate	Glide 2 import thunk for _GRDRAWPOLYGONVERTEXLIST@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a36	plate	Glide 2 import thunk for _GRDRAWTRIANGLE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a3b	plate	Glide 2 import thunk for _GRERRORSETCALLBACK@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a40	plate	Glide 2 import thunk for _GRFOGCOLORVALUE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a45	plate	Glide 2 import thunk for _GRFOGMODE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a4a	plate	Glide 2 import thunk for _GRFOGTABLE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a4f	plate	Glide 2 import thunk for _GRGAMMACORRECTIONVALUE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a54	plate	Glide 2 import thunk for _GRGLIDEGETSTATE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a59	plate	Glide 2 import thunk for _GRGLIDEGETVERSION@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a5e	plate	Glide 2 import thunk for _GRGLIDEINIT@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a63	plate	Glide 2 import thunk for _GRGLIDESETSTATE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a68	plate	Glide 2 import thunk for _GRGLIDESHAMELESSPLUG@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a6d	plate	Glide 2 import thunk for _GRGLIDESHUTDOWN@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a72	plate	Glide 2 import thunk for _GRHINTS@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a77	plate	Glide 2 import thunk for _GRLFBCONSTANTALPHA@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a7c	plate	Glide 2 import thunk for _GRLFBCONSTANTDEPTH@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a81	plate	Glide 2 import thunk for _GRLFBLOCK@24 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a86	plate	Glide 2 import thunk for _GRLFBREADREGION@28 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a8b	plate	Glide 2 import thunk for _GRLFBWRITEREGION@32 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a90	plate	Glide 2 import thunk for _GRLFBUNLOCK@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a95	plate	Glide 2 import thunk for _GRLFBWRITECOLORFORMAT@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a9a	plate	Glide 2 import thunk for _GRLFBWRITECOLORSWIZZLE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8a9f	plate	Glide 2 import thunk for _GRRENDERBUFFER@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8aa4	plate	Glide 2 import thunk for _GRRESETTRISTATS@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8aa9	plate	Glide 2 import thunk for _GRSPLASH@20 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8aae	plate	Glide 2 import thunk for _GRSSTCONFIGPIPELINE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8ab3	plate	Glide 2 import thunk for _GRSSTCONTROL@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8ab8	plate	Glide 2 import thunk for _GRSSTIDLE@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8abd	plate	Glide 2 import thunk for _GRSSTISBUSY@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8ac2	plate	Glide 2 import thunk for _GRSSTORIGIN@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8ac7	plate	Glide 2 import thunk for _GRSSTPERFSTATS@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8acc	plate	Glide 2 import thunk for _GRSSTQUERYBOARDS@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8ad1	plate	Glide 2 import thunk for _GRSSTQUERYHARDWARE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8ad6	plate	Glide 2 import thunk for _GRSSTRESETPERFSTATS@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8adb	plate	Glide 2 import thunk for _GRSSTSCREENHEIGHT@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8ae0	plate	Glide 2 import thunk for _GRSSTSCREENWIDTH@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8ae5	plate	Glide 2 import thunk for _GRSSTSELECT@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8aea	plate	Glide 2 import thunk for _GRSSTSTATUS@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8aef	plate	Glide 2 import thunk for _GRSSTVIDEOLINE@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8af4	plate	Glide 2 import thunk for _GRSSTVIDMODE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8af9	plate	Glide 2 import thunk for _GRSSTVRETRACEON@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8afe	plate	Glide 2 import thunk for _GRSSTWINCLOSE@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b03	plate	Glide 2 import thunk for _GRSSTWINOPEN@28 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b08	plate	Glide 2 import thunk for _GRTEXCALCMEMREQUIRED@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b0d	plate	Glide 2 import thunk for _GRTEXCLAMPMODE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b12	plate	Glide 2 import thunk for _GRTEXCOMBINE@28 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b17	plate	Glide 2 import thunk for _GRTEXCOMBINEFUNCTION@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b1c	plate	Glide 2 import thunk for _GRTEXDETAILCONTROL@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b21	plate	Glide 2 import thunk for _GRTEXDOWNLOADMIPMAP@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b26	plate	Glide 2 import thunk for _GRTEXDOWNLOADMIPMAPLEVEL@32 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b2b	plate	Glide 2 import thunk for _GRTEXDOWNLOADMIPMAPLEVELPARTIAL@40 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b30	plate	Glide 2 import thunk for _GRTEXDOWNLOADTABLE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b35	plate	Glide 2 import thunk for _GRTEXDOWNLOADTABLEPARTIAL@20 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b3a	plate	Glide 2 import thunk for _GRTEXFILTERMODE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b3f	plate	Glide 2 import thunk for _GRTEXLODBIASVALUE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b44	plate	Glide 2 import thunk for _GRTEXMAXADDRESS@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b49	plate	Glide 2 import thunk for _GRTEXMINADDRESS@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b4e	plate	Glide 2 import thunk for _GRTEXMIPMAPMODE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b53	plate	Glide 2 import thunk for _GRTEXMULTIBASE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b58	plate	Glide 2 import thunk for _GRTEXMULTIBASEADDRESS@20 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b5d	plate	Glide 2 import thunk for _GRTEXNCCTABLE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b62	plate	Glide 2 import thunk for _GRTEXSOURCE@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b67	plate	Glide 2 import thunk for _GRTEXTEXTUREMEMREQUIRED@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b6c	plate	Glide 2 import thunk for _GRTRISTATS@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b71	plate	Glide 2 import thunk for _GU3DFGETINFO@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b76	plate	Glide 2 import thunk for _GU3DFLOAD@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b7b	plate	Glide 2 import thunk for _GUAADRAWTRIANGLEWITHCLIP@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b80	plate	Glide 2 import thunk for _GUALPHASOURCE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b85	plate	Glide 2 import thunk for _GUCOLORCOMBINEFUNCTION@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b8a	plate	Glide 2 import thunk for _GUDRAWPOLYGONVERTEXLISTWITHCLIP@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b8f	plate	Glide 2 import thunk for _GUDRAWTRIANGLEWITHCLIP@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b94	plate	Glide 2 import thunk for _GUENCODERLE16@16 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b99	plate	Glide 2 import thunk for _GUENDIANSWAPBYTES@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8b9e	plate	Glide 2 import thunk for _GUENDIANSWAPWORDS@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8ba3	plate	Glide 2 import thunk for _GUFOGGENERATEEXP2@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8ba8	plate	Glide 2 import thunk for _GUFOGGENERATEEXP@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bad	plate	Glide 2 import thunk for _GUFOGGENERATELINEAR@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bb2	plate	Glide 2 import thunk for _GUFOGTABLEINDEXTOW@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bb7	plate	Glide 2 import thunk for _GUMOVIESETNAME@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bbc	plate	Glide 2 import thunk for _GUMOVIESTART@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bc1	plate	Glide 2 import thunk for _GUMOVIESTOP@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bc6	plate	Glide 2 import thunk for _GUMPDRAWTRIANGLE@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bcb	plate	Glide 2 import thunk for _GUMPINIT@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bd0	plate	Glide 2 import thunk for _GUMPTEXCOMBINEFUNCTION@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bd5	plate	Glide 2 import thunk for _GUMPTEXSOURCE@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bda	plate	Glide 2 import thunk for _GUTEXALLOCATEMEMORY@60 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bdf	plate	Glide 2 import thunk for _GUTEXCHANGEATTRIBUTES@48 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8be4	plate	Glide 2 import thunk for _GUTEXCOMBINEFUNCTION@8 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8be9	plate	Glide 2 import thunk for _GUTEXCREATECOLORMIPMAP@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bee	plate	Glide 2 import thunk for _GUTEXDOWNLOADMIPMAP@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bf3	plate	Glide 2 import thunk for _GUTEXDOWNLOADMIPMAPLEVEL@12 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bf8	plate	Glide 2 import thunk for _GUTEXGETCURRENTMIPMAP@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8bfd	plate	Glide 2 import thunk for _GUTEXGETMIPMAPINFO@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8c02	plate	Glide 2 import thunk for _GUTEXMEMQUERYAVAIL@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8c07	plate	Glide 2 import thunk for _GUTEXMEMRESET@0 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8c0c	plate	Glide 2 import thunk for _GUTEXSOURCE@4 (glimport.asm); patched to glide2x.ovl by __loadme on first call.
+CMT	b8c11	plate	Glide 2 import thunk for _CONVERTANDDOWNLOADRLE@64 (glimport.asm); patched to glide2x.ovl by __loadme on first call.

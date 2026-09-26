@@ -13,7 +13,7 @@ a single shared chunk-IO layer under all asset loading.
 | `.3DM` | `F3DC` | `46 33 44 43` | `ESSAI.3DM` | 98,332 | **Different structure** — fixed 3×32 KB blocks, likely textures |
 | `.DAN` | `DANF` | `44 41 4E 46` | `AR0.DAN` | 58,862 | **Character and prop models** + animation — see [models.md](models.md) |
 | `.DSN` | `DSNF` | `44 53 4E 46` | `E01GROTT.DSN` | 1,771,734 | Scene / level |
-| `.DRD` | `DRDF` | `44 52 44 46` | `DIALOG.DRD` | **24,592,952** | **Voice bank** — 178 WAVE clips (72.6% by size) plus 575 timed script lines |
+| `.DRD` | `DRDF` | `44 52 44 46` | `DIALOG.DRD` | **24,592,952** | **Voice bank** — 178 WAVE clips (72.6% by size) plus 589 timed script lines |
 | `.PAK` | `PAK0` | `50 41 4B 30` | `OBJET1.PAK` | 62,008 | Container of `F3DC` chunks |
 | `.BF` | `UBIK` | `55 42 49 4B` | `ICONES.BF` | 372,358 | **Named-file container** — 267-byte table rows; disc 2 has 6 members, disc 1 five |
 | `.UBB` | `UBB2` / `UBS2` | — | `ARENTRAD.UBB` | 1,715,124 | **Video** — HNM generation 5 |
@@ -378,8 +378,19 @@ packed offset table starts at `0x14`; the first entry starts at `0x2EB`. The
 upper three bytes of each word hold a wrapping 24-bit offset field and the
 low-byte role is unknown. Reconstructing positions by detecting wraps yields
 all 178 adjacent records through EOF. Each record carries a RIFF/WAVE block,
-timed text lines, and sometimes a tag-4 auxiliary block. The recovered parser
-finds 575 non-empty text lines total.
+timed text lines, and sometimes a tag-4 portrait. Sub-block sizes include their
+own 5-byte header; tag 2's size is therefore five bytes longer than the WAVE
+payload. The recovered parser finds 589 non-empty text lines total.
+
+Tag 4 is not a keyframe or camera script. It is an indexed 2-byte-per-pixel
+sprite: a 512-byte RGB555 palette, one 124×124 or 128×128 image (with five
+nearby dimension variants), the `TABLE` marker, reserved capacity for 256
+28-byte descriptors, and a trailing count of 1. Only the first descriptor is
+populated. The engine loads the palette and that descriptor, then draws the
+portrait beside the captions. **[verified]** 169 of 178 entries carry one; 9
+have no portrait. Their payload bodies total 6,719,761 bytes (27.3% of the
+archive): 107 images are 128×128, 57 are 124×124, and five have nearby size
+variants.
 
 At runtime, event `0x40` selects an entry index. The game loads the matching
 record, submits its WAVE bytes to the sound buffer, and displays its timed
@@ -779,7 +790,11 @@ Decompiled from `FUN_0041deb8` (entity instantiation) and `FUN_00416606` (the en
   - `6`: aerial waypoint flight behavior.
 - `+0x68` `i32`: movement speed / velocity multiplier (default `16.0f`).
 - `+0x6C` `i32`: waypoint route target index (indexes into `BOX0` .. `BOX11`).
-- `+0x70` `i32`: health / hitpoints or dialogue bank speech index.
+- `+0x70` `i32`: behavior-specific parameter, not the player's HUD vitality.
+  Selector-5 actors copy it to runtime actor `+0x10C`, where the attack-effect
+  launcher uses it as a launch magnitude. It is not the source of the
+  dialogue-event index: speech event `0x40` gets its one-based entry ID from
+  `LINKADVENT +0x1C`. Player HUD vitality is read from runtime actor `+0x38`.
 - `+0x74` .. `+0x98`: animation playback state, secondary action timers, and sub-object visibility masks.
 
 The engine's debug HUD at `FUN_00416606` directly labels these fields:
@@ -805,7 +820,7 @@ Entering this axis-aligned 3D volume triggers the level transition to the target
 ##### `LINKADVENT` fields (0x40 bytes) **[verified]**
 - `+0x00` `char[12]`: advent slot name (`LINKADVENT0` .. `LINKADVENT15`).
 - `+0x14` `i32`: target `OBJET` slot index ($0 \dots 15$) bound to this adventure event condition.
-- `+0x1C` `i32`: quest progression / storyline milestone stage ($0 \dots 176$).
+- `+0x1C` `i32`: for opcode `0x40`, a one-based `DIALOG.DRD` entry ID; zero means no dialogue. The runtime copies it to the action task and queues `value - 1` as the zero-based entry index. Across the discs, 73 of 80 opcode-`0x40` records have a nonzero value (1–174). Other opcodes may use this field differently.
 - `+0x20` `i32`: event condition opcode (e.g. proximity trigger, item delivery, interaction).
 - `+0x24` `i32`: action parameter / destination event.
 - `+0x2C` `char[16]`: cutscene video filename (11 entries carry a `.HNM`/`.UBB` cutscene movie, e.g. `AUTEL.HNM`, `ANGKOR.HNM`, `CASCADE.HNM`, `SHAMAN.HNM`, `GUARDIAN.UBB`).

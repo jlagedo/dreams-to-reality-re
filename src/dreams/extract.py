@@ -1029,7 +1029,7 @@ DESCRIPTIONS = {
     "leveltex": "Level textures from .DSN scenes: one 256x256 per object",
     "models": "Character and prop models (.DAN, .3DC) as glTF, with texture pages"
     " and textured previews",
-    "dialogue": "DIALOG.DRD script: 575 timed lines (the audio is the voice group)",
+    "dialogue": "DIALOG.DRD script: 589 timed lines (the audio is the voice group)",
     "scenes": "Level geometry from .DSN as glTF, with textures",
     "gallery": "CRYOPLUS bonus gallery, 16-bit TGA",
     "renders": "Developer reference renders, copied verbatim",

@@ -1,8 +1,8 @@
 """`DIALOG.DRD` — the game's **voice bank**, with the script alongside it.
 
 24.6 MB, and it was catalogued as a "dialog bundle". It is overwhelmingly
-audio: **72.6% is 178 RIFF/WAVE clips**, 27.3% is auxiliary binary, and only
-**0.084%** is the 575 timed text lines. **[verified]**
+audio: **72.6% is 178 RIFF/WAVE clips**, 27.3% is tagged portrait sprites, and
+only **0.084%** is the 589 timed text lines. **[verified]**
 
 ::
 
@@ -25,7 +25,8 @@ high-byte wrap counter; that reading walks all 178 entries exactly to EOF, with
 ``P[i] + entry_size == P[i+1]`` throughout. **[verified]**; the low byte's
 semantic role is still unknown.
 
-Each entry header is 14 bytes, then sub-blocks tagged ``u8 tag, u32 size``::
+Each entry header is 14 bytes, then sub-blocks tagged ``u8 tag, u32 size``.
+The sub-block size includes its own 5-byte header::
 
     P+0   u8   1
     P+1   u32  entry size, through to the next header
@@ -33,10 +34,18 @@ Each entry header is 14 bytes, then sub-blocks tagged ``u8 tag, u32 size``::
     P+9   u8   2
     P+10  u32  stored WAVE size, consistently 13 more than the RIFF's own
     P+14       RIFF/WAVE, mono 11,025 Hz 8-bit
-    ...        tag 3 = text lines, tag 4 = auxiliary binary
+    ...        tag 3 = timed text, optional tag 4 = one indexed portrait sprite
 
 The dialogue is plain 7-bit ASCII and **English**, while ``DATA/LANG`` is
 French-labelled — this dump is a mixed build.
+
+Tag 4's payload uses the same ``TABLE`` sprite layout as ``ICONES.BF``: a
+512-byte RGB555 palette, a 2-byte-per-pixel image, the ``TABLE`` marker, 256
+28-byte descriptor capacity, and a trailing count of 1. The first descriptor
+is the portrait the game displays; the remaining reserved descriptors are
+unused. 169 entries have this block and 9 do not. The images are 124×124 or
+128×128 (with five nearby dimension variants), not lip-sync keys or camera
+vectors.
 
 At runtime, `FUN_0041072c` caches the entry-offset table and a reusable entry
 buffer; `FUN_00410928` seeks and reads one requested entry. Event `0x40` routes
@@ -64,6 +73,7 @@ class Entry:
     lines: list[str] = field(default_factory=list)
     timings: list[int] = field(default_factory=list)
     wave: bytes = b""
+    portrait: bytes = b""
 
 
 def read(path: str | Path) -> list[Entry]:
@@ -96,14 +106,19 @@ def read(path: str | Path) -> list[Entry]:
             entry.wave = raw[pos : pos + riff]
             pos += riff
         else:  # pragma: no cover - every sampled entry has one
-            pos += max(wave_size - 13, 0)
+            # The tag-2 size includes its 5-byte header; the payload is the
+            # WAVE itself.
+            pos += max(wave_size - 5, 0)
         end = min(at + size, len(raw))
         while pos + 5 <= end:
             tag = raw[pos]
-            blk = struct.unpack_from("<I", raw, pos + 1)[0]
-            if blk <= 0 or pos + 5 + blk > end:
+            block_size = struct.unpack_from("<I", raw, pos + 1)[0]
+            # DRD block sizes include their 5-byte tag/size header. The tag-3
+            # total therefore ends exactly where the optional tag-4 header
+            # begins.
+            if block_size < 5 or pos + block_size > end:
                 break
-            body = raw[pos + 5 : pos + 5 + blk]
+            body = raw[pos + 5 : pos + block_size]
             if tag == 3:
                 # Each line is: u32 timing, u8 length (counting the NUL),
                 # then the text. The first line of an entry is always t=0.
@@ -119,7 +134,9 @@ def read(path: str | Path) -> list[Entry]:
                     if text.strip():
                         entry.lines.append(text.decode("latin-1"))
                         entry.timings.append(timing)
-            pos += 5 + blk
+            elif tag == 4:
+                entry.portrait = body
+            pos += block_size
         out.append(entry)
     return out
 

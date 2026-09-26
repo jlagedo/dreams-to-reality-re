@@ -103,6 +103,44 @@ and write pixels into it. **[verified]**
 - **Glide is the only hardware-accelerated path in the entire product, and it
   exists only in the DOS 3dfx build.** There is no Direct3D anywhere.
 
+### 3dfx path — Glide 2 in `DREAMSFX.EXE` **[verified]**
+
+The LE import table is empty: nothing is statically linked. Glide comes from
+3dfx's DOS import library, `glimport.asm` in the
+[released Glide source](https://github.com/sezero/glide): 130 decorated names
+(`_GRDRAWTRIANGLE@12` ... `_CONVERTANDDOWNLOADRLE@64`), 130 five-byte
+`call __loadme` stubs at `0xb898c`, and `__dlltab` at `0xb8c18`. On the first
+call `__loadme` (`0xac894`) finds `glide2x.ovl` (current directory, `PATH`,
+`C:\WINDOWS\SYSTEM\`; string `LINEXE_LOADER`) and patches the stub. Miles is
+linked in and loads its `.DIG`/`.MDI` driver from `DATA\SOUND\DIG.INI`.
+
+`ghidra_scripts/ApplyGlideImports.java` names and types the stubs from the
+Voodoo Graphics (`glide2x/sst1`) headers (see `re-setup.md`). The game calls 35
+of the 130 functions, almost all from a thin backend at `0x670f0`–`0x68400`:
+
+- **`Glide_Open`** (`0x670f0`): `grGlideInit`, `grSstQueryHardware`,
+  `grSstSelect(0)`, `grSstWinOpen(0, GR_RESOLUTION_640x480, GR_REFRESH_60Hz,
+  GR_COLORFORMAT_ARGB, GR_ORIGIN_UPPER_LEFT, 2, 1)` (double buffer plus one aux
+  buffer for depth), then `grTexFilterMode(GR_TMU0, BILINEAR, BILINEAR)` and
+  `grGammaCorrectionValue(0.8)`. The 640x480 lock is this call.
+- **`Glide_DrawPolygon`** (`0x67568`) fills three `GrVertex` and calls
+  `grDrawTriangle`, or `guDrawTriangleWithClip` when clipping is needed. Its
+  modes: `guColorCombineFunction(GR_COLORCOMBINE_DECAL_TEXTURE)` with
+  `grChromakeyMode(ENABLE)` for key-colour transparency; texture ×
+  iterated RGB (`grColorCombine(SCALE_OTHER, LOCAL, ITERATED, TEXTURE)`, i.e.
+  Gouraud-lit textures); flat constant colour (`grColorCombine(LOCAL, ZERO,
+  CONSTANT, CONSTANT)`); texture clamp toggled per polygon
+  (`grTexClampMode`).
+- `Glide_Clear`, `Glide_ClearToBackground` (`grBufferClear`), `Glide_Swap`
+  (`grBufferSwap`) and `Glide_Close` (`grGlideShutdown`).
+
+Also called elsewhere: `grTexDownloadMipMapLevel` and `grTexSource` (texture
+upload), `grDepthBufferMode`/`grDepthBufferFunction`/`grDepthMask`,
+`grAlphaBlendFunction`, `grFogMode`/`grFogTable`/`guFogGenerateExp`/
+`grFogColorValue`, `grLfbLock`/`grLfbUnlock` (direct framebuffer writes) and
+`grClipWindow`. Glide's constants are `#define`s, so the decompiler prints
+them as numbers; the names above are from `glide.h`/`sst1vid.h`.
+
 ### Windows video API — DirectDraw only
 
 Complete import table of `WINDREAM.EXE` / `GDIDREAM.EXE`: **[verified]**
@@ -183,7 +221,53 @@ There is **no mouse-look and no mouse input of any kind**:
 - The Windows cursor is hidden immediately after window creation
   (`ShowCursor(0)` in `0x4460cf`).
 
-Controls are therefore arrows + Ctrl/Alt/Space + number keys, or a joypad —
+#### Joystick path **[verified]**
+
+Only the Windows builds read a joystick; the DOS builds have no joystick code
+(below).
+
+1. **Startup.** `0x43a169` calls `0x44091d` and `0x440bc2`. Each counts devices
+   with `joyGetNumDevs`, reads `wNumButtons` (and `JOYCAPS_HASPOV` in
+   `0x44091d`) via `joyGetDevCapsA`, then **stores the current X/Y as the
+   centre**. There is no calibration screen; the stick must be at rest when
+   the game starts.
+2. **`J` / `K`.** The key handler `0x415aa7` maps VK `0x4a` (`J`) to dispatcher
+   command 10, input mode 3 (`0x40ec46`) and the on-screen string `Joystick`;
+   VK `0x4b` (`K`) to command 4, mode 0 and `Keyboard`.
+3. **Enable flags.** In the dispatcher `0x43a306`, commands 7/8 set/clear
+   `0x5e54bb` (via `0x424c5f`/`0x424c87`) and commands 10/11 set/clear
+   `0x5e54ba` (`0x424caf`/`0x424cd7`). Both enables are gated on `0x626f70`,
+   set during startup detection.
+4. **Per frame.** `0x42493b` polls only enabled devices: `0x440ad3` (X/Y minus
+   centre, POV, buttons) posts event `0x39`; `0x440d3d` (X/Y minus centre,
+   buttons, no POV) posts event `0x3a`. Both only on change.
+
+So `J` drives the `0x3a` path: X/Y plus buttons, no hat. No call site with a
+literal command 7 was found, so what enables the `0x39`/POV path is open, as
+is the consumer that turns event `0x3a` into player movement.
+
+#### DOS builds: no joystick code **[verified]**
+
+`DREAMSFX.EXE`, loaded with the LE loader (`re-setup.md`), was scanned for
+every `IN`/`OUT` and `INT`. Nothing reads game port `0x201` and nothing calls
+BIOS `INT 15h AH=84h`, the only two ways a DOS program reads an analog
+joystick. The `0x201` constants that exist are DPMI `INT 31h` function
+`0x0201` (set real-mode interrupt vector). A raw byte-level scan of
+`DREAMS.EXE` found the same. The `J` key, `Joystick` string and `TOUCHES.SPR`
+joypad caps are shared UI, so the DOS builds show a joypad mode they cannot
+drive.
+
+What the DOS executable does touch: PIT `0x40/0x43` and `INT 21h` vector 08
+(timer), port `0x60`, `INT 16h` and vector 09 (keyboard), PIC `0x20`, VGA
+`0x3da` and SVGA chipset probes, `INT 2Fh` `1684/1686` (Windows/DPMI
+detection) and real-mode **`INT 66h`, the Miles Sound System (AIL 3) driver
+call**: the caller `0x9b323` (`AIL_CallDriver`) matches the executable's
+`AIL_call_driver(...)` trace string, and `DATA\SOUND\MSSDRVR.LST` is headed
+"Miles Sound System from RAD Software". The `.DIG`/`.MDI` files there are Miles
+drivers (`AIL3DIG`, `AIL3MDI`), not DIGPAK.
+
+Controls are therefore arrows + Ctrl/Alt/Space + number keys, or a joypad on
+the Windows builds only —
 exactly as `README.TXT` §6 documents (also in-game F10 help). Camera views
 are `Alt+5..0`, not mouse-driven. See [boot-sequence.md](boot-sequence.md)
 for the frame pump that drives all of this.

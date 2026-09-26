@@ -33,7 +33,7 @@ zero-crossing rate 0.101, DC offset −1.3, **zero** clipped samples across
 
 24.6 MB was never plausible for dialogue text, and it is not: **72.6% is 178
 RIFF/WAVE clips** (mono, 11,025 Hz, 8-bit), 27.3% is type-4 binary, and only
-**0.084%** is the script. Decoded in `dreams.formats.dialog`: 178 entries, 575 lines, every one printable ASCII, each carrying a timing field.
+**0.084%** is the script. Decoded in `dreams.formats.dialog`: 178 entries, 589 lines, every one printable ASCII, each carrying a timing field.
 The 178 clips total 17,848,529 bytes and the entry chain walks exactly to EOF.
 An offset-table word is not a plain file offset: the upper three bytes contain
 a wrapping 24-bit field, while the low byte's role is unknown. Reconstructing
@@ -801,6 +801,46 @@ field is generated at runtime, not loaded from a texture asset. The final
 composite still depends on animation and state because `0xfd`/`0xfe`/`0xff`
 are commands resolved by `FUN_0040368B`.
 
+## 2026-09-25 — HUD anchors and dialogue portraits
+
+`FUN_00434596` anchors the 64×84 pyramid at `(20/sx, (H-90)/sy)` and the active
+40×40 MAGIE icon at `((W-230)/sx, (H-50)/sy)`. The 320×240 path uses logical
+640×400 with 2× downscaling; 640×480 uses logical 640×480 at 1:1. The HUD
+compositor clips linked layers by row; `pyrafvi`/`pyrafma` are procedural
+opacity masks. `exprbor` and `exprlev` are in the asset name table but have no
+code xrefs or draw in the HUD path. `pyrcurs` is a 4×4 sprite moving on the
+center line of the flat pyramid art. Spell IDs 0–13 instead form a column-major
+4×4 menu grid in `[OBJECT]` order.
+
+The in-game spell page is opened by mapped action flag `0x006308e1`; the binary
+does not pin that action to one physical keyboard key or joystick button.
+`FUN_004288C6` copies each `LINKADVENT +0x1C` into runtime task `+0x10`;
+`FUN_00429061` emits UI event `0x40` with that value minus one as the
+zero-based dialogue index. Of 80 records whose condition opcode is `0x40`, 73
+carry a nonzero entry ID (1–174). This is the story-speech source, not
+`OBJET +0x70`. `FUN_00420B60` handles a separate LINKADVENT path: it queues
+event `0x42` with a target name and starts configured cutscene video. Player HUD values are read from runtime actor
+`+0x38` (vitality), `+0x3c` (magic), and `+0x40` (oxygen). `FUN_0042D0AE`
+initializes current vitality at `+0x38` to 100 and current magic at `+0x3c` to
+20; no separate maximum-vitality field is confirmed, and `+0x1c` remains
+unknown. The fallback globals start at 100 vitality, 20 magic, and 0 oxygen.
+Underwater, `FUN_00423399` drains actor
+`+0x40` by `scene[+0x118] * frameDelta * 0.01`; `FUN_004231F0` refills it to
+100 in the safe water band, while `FUN_00423399` caps it at 100. Actor `+0x50` is a separate state/blink value
+bounded at 200. The XP strips have no identified draw or live variable.
+
+The previous 575-line DIALOG.DRD count was low. Summing all entry line counts
+and parsing their records yields 589 timed text lines. Tag-4 sizes include the
+5-byte header; the 169 blocks decode as one 2-byte indexed portrait image with
+a 512-byte palette, 256-descriptor capacity, and trailing count 1.
+`FUN_00427020` repacks the first
+descriptor and `FUN_00427432` draws the portrait at `(16/sx,64/sy)`. Captions
+start at `(150/sx,90/sy)` with 20/sy row spacing; the renderer does no box
+wrap and draws no dark backing rectangle. The Save action's associated static
+description begins at `0x004a108f` (`Save the game`); the executable contains
+no standalone `Save` literal. `TITRES.SPR` is outside the fixed five-bank load
+list and has no runtime references found.
+
 ## 2026-09-24 — retail AI scheduler and action-to-clip path
 
 Decompiled the AI pass called by the frame tick: `FUN_00415109` walks separate
@@ -846,6 +886,43 @@ the flags word rather than an entity-kind enum, and `OBJET +0x6C` is copied to
 runtime actor `+0x108` but is not a direct index into the 12 local `BOX` records.
 The full trace and remaining checks are in
 [ai-animation-runtime.md](ai-animation-runtime.md).
+
+## 2026-09-25 — retail 3dfx build runs; joystick is Windows-only
+
+`DREAMSFX.EXE` runs under DOSBox Staging 0.83 with its built-in Voodoo 1:
+install, 3dfx logo, filtered Voodoo rendering and redbook music all work.
+Staging 0.83 crashes at startup (`0xC0000409` in `ucrtbase.dll`) when its own
+path is non-ASCII; the installer never copies `glide2x.ovl`. Setup is in
+[running.md](running.md).
+
+A DualSense is detected by DOSBox but ignored by the game. The
+[yetmorecode LE loader](https://github.com/yetmorecode/ghidra-lx-loader), built
+from source for Ghidra 12.1.3 with our `__watcall` prototype
+(`tools/lx-loader-watcom.cspec`), put `DREAMSFX.EXE` into the project. A scan
+of every `IN`/`OUT`/`INT` found no game-port `0x201` access and no BIOS
+`INT 15h AH=84h`: **the DOS builds have no joystick code**. Real-mode `INT 66h`
+is the Miles (AIL 3) driver call, `AIL_CallDriver`; an initial DIGPAK guess,
+based on the `.DIG` extensions and `SETSOUND.EXE`, was wrong.
+
+In `WINDREAM.EXE` the joystick path is real: `J` (`0x415aa7`) issues dispatcher
+command 10, which enables the `0x440d3d` poll (X/Y relative to the position
+at startup, plus buttons) and posts event `0x3a`. Open: what enables the
+`0x39`/POV path, and which consumer turns `0x3a` into movement. Details in
+[engine.md](engine.md).
+
+## 2026-09-25 — Glide 2 calls typed in `DREAMSFX.EXE`
+
+`DREAMSFX.EXE` has no LE imports. Glide is bound through 3dfx's DOS import
+library (`glimport.asm`, in the released Glide source): 130 `call __loadme`
+stubs resolved against `glide2x.ovl` on first use. `ApplyGlideImports.java`
+parses the Voodoo Graphics (`sst1`) headers and types all stubs; three
+analysis artefacts (no-return `__loadme`, stubs auto-made thunks of it, an
+off-by-one from the non-`_GR` last name) had to be undone first. Result: the
+game calls 35 Glide functions from a small backend. `Glide_Open` fixes
+640x480 at 60 Hz, double-buffered with depth, bilinear filtering, gamma 0.8.
+`Glide_DrawPolygon` uses decal + chroma-key, texture × Gouraud and flat
+constant-colour modes. Details in [engine.md](engine.md), procedure in
+[re-setup.md](re-setup.md).
 
 ## Sources
 

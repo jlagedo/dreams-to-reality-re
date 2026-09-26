@@ -1,8 +1,8 @@
 # Running the game
 
-**Nothing here has been verified on this machine yet.** The rankings and configs
-below come from community reports plus the binary analysis in `engine.md`.
-**[sourced]** unless marked otherwise.
+**The 3dfx build (section 2) runs on this machine — [verified] 2026-09-25.**
+Everything else still comes from community reports plus the binary analysis in
+`engine.md`. **[sourced]** unless marked otherwise.
 
 ## Why it is hard
 
@@ -76,26 +76,97 @@ dialogs that lock up, and crashes when loading new stages.
 
 ---
 
-## 2. DOS 3dfx build — best looking
+## 2. DOS 3dfx build — best looking, verified
 
 `DREAMSFX.EXE`. The **only hardware-accelerated path in the entire product**.
-VOGONS reports it "runs very well" with gulikoza's patched DOSBox plus dgVoodoo.
 Locked to 640x480.
 
-Extra setup: the Glide runtime needs `glide2x.ovl`, which is packed inside
-`3DFX\GRTVGR.EXE` — a PKZIP archive despite the `.exe` extension.
+**[verified]** Runs under **DOSBox Staging 0.83.0** using its built-in Voodoo 1
+emulation — no Glide wrapper, no patched DOSBox. Install, 3dfx logo, in-game
+Voodoo rendering (bilinear-filtered textures) and CD music from the `.cue`
+audio tracks all work. Not yet checked: the landing-physics bug at this cycle
+count, disc 2 swapping, save/load.
 
-```bash
-# either
-7z x "3DFX/GRTVGR.EXE" -o./glide
-# or, the PCGamingWiki incantation
-pkunzip d:\3dfx\grtvgr.exe glide\drivers\voodoo\dos\glide2x.ovl
+### Setup
+
+1. **Install DOSBox Staging to an ASCII-only path.** 0.83.0 crashes at startup
+   (exit `0xC0000409` in `ucrtbase.dll`, with any config or none) when its own
+   directory contains non-ASCII characters — `winget install
+   DOSBoxStaging.DOSBoxStaging` lands in `%LOCALAPPDATA%\Programs\DOSBox
+   Staging`, which breaks under a profile like `C:\Users\João ...`. Copying the
+   install folder to e.g. `E:\games\dosbox-staging` fixes it. An empty
+   `dosbox-staging.conf` next to `dosbox.exe` enables portable mode, keeping
+   its config there too.
+2. **Extract `glide2x.ovl`** from `3DFX\GRTVGR.EXE` (a PKZIP archive despite
+   the extension) — the member is `Glide/Drivers/Voodoo/Dos/glide2x.ovl`
+   (348,791 bytes); not the `Vrush` or Win95 ones. Any unzip works, including
+   Python's `zipfile`.
+3. **Copy it into the install directory yourself.** `INSTALFX.BAT` ->
+   `INST_SFX.BAT` never copies it. Pre-creating `C:\CRYO\DREAMS\GLIDE2X.OVL`
+   before installing works; `xcopy` leaves it alone.
+4. **Run `INSTALFX.BAT`** from the CD: press `C` for the drive, configure
+   `SETSOUND.EXE` as Sound Blaster 16 (Staging's defaults: 220 / IRQ 7 / DMA 1 /
+   HDMA 5), then answer the "Minimum install?" prompt. Both answers copy the
+   same files; **No** only adds `DATA\FULL.ID` (the maxi marker, see
+   `disc-layout.md`). The script then launches `DREAMSFX.EXE`.
+
+### Config
+
+```ini
+[sdl]
+fullscreen = false
+
+[render]
+shader = crt-auto        ; Staging's default CRT look; 'sharp' removes the scanlines
+
+[dosbox]
+machine = svga_s3
+memsize = 32
+
+[cpu]
+core = dynamic
+cputype = pentium_mmx    ; newest type Staging offers; the game needs only a Pentium
+cpu_cycles = 200000      ; ~Pentium II 266-300; tune DOWN if the player dies on landing
+
+[voodoo]
+voodoo = true
+voodoo_memsize = 4
+
+[autoexec]
+imgmount d "...\Dreams to Reality (Europe) (Disc 1).cue" "...\Dreams to Reality (Europe) (Disc 2).cue" -t cdrom
+mount c "E:\games\dreams"
+c:
+if exist C:\CRYO\DREAMS\DREAMSFX.EXE goto play
+d:
+INSTALFX.BAT
+goto end
+:play
+cd \CRYO\DREAMS
+DREAMSFX.EXE
+:end
 ```
 
-Then install with `INSTALFX.BAT` instead of `INSTALL.BAT`.
+Both discs are mounted on D:; **Ctrl+F4** swaps to the next image. The same
+config installs on first run and plays afterwards. In 0.83 `glshader` is a
+deprecated alias for `shader`; `cycles` is now `cpu_cycles`.
 
-Requires a Glide-capable DOSBox (gulikoza's build, or DOSBox ECE) with dgVoodoo
-as the wrapper. GLIDOS is an alternative wrapper for the same executable.
+At 20000 cycles the game ran slowly; 200000 on an i9 is smooth, but has not
+yet been checked against the landing bug. **Ctrl+F11/F12** lower/raise cycles
+live. The same install also runs the software build: copy the config, set
+`voodoo = false` and launch `DREAMS.EXE`. It works, but it is point-sampled
+and far blockier than the Voodoo output.
+
+What the output looks like: filtered textures and Gouraud shading from the
+emulated Voodoo, but hard aliased polygon edges and visible 16-bit dithering at
+640x480 — that is authentic Voodoo 1 output, not a misconfiguration.
+
+### Alternatives
+
+For higher internal resolution, Glide passthrough to **dgVoodoo2** on the host
+GPU is the route: DOSBox-X (`glide=true`), or the older gulikoza build / DOSBox
+ECE that VOGONS reports "runs very well". Passthrough uses the emulator's own
+`glide2x.ovl` stub, not the game's. GLIDOS is another wrapper for the same
+executable. None of these are tested here.
 
 ---
 
@@ -125,6 +196,32 @@ Additional notes:
 
 ---
 
+## Controllers
+
+**The DOS and 3dfx builds cannot use a joystick** — they contain no joystick
+code at all (`engine.md`, *DOS builds: no joystick code*). DOSBox Staging
+detects a PS5 DualSense fine (`MAPPER: Initialised DualSense Wireless
+Controller with 6 axes, 17 buttons, and 0 hat(s)`), and the game still offers a
+`J` joypad mode, but nothing reads it. **[verified]**
+
+Under DOSBox, map the pad to keys instead (**Ctrl+F1**, click a key, **Add**,
+press the pad button, **Save**). A layout for the README controls:
+
+| DualSense | Key | Action |
+|---|---|---|
+| Left stick / D-pad | arrows | move |
+| Cross | Ctrl | jump / kick |
+| Square | Alt | punch / walk / fly / sword |
+| Triangle | Space | combat mode |
+| Circle | Down | defend |
+| L1 / R1 / L2 | 1 / 2 / 3 | magic pre-select |
+| Options | Esc | menu |
+
+**The Windows build does read a joystick** through WinMM `joyGetPosEx`. Press
+`J` in game; the stick is centred on its position at launch, so leave it at
+rest while the game starts. Only X/Y and buttons are used on that path. Not yet
+tried on this machine.
+
 ## Known behaviours
 
 From [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality):
@@ -137,7 +234,9 @@ From [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality):
   slot. There is no manual save.
 - **Game options reset on every run.**
 - Hold **F10** in game to view the control scheme.
-- DirectDraw is the only Windows API; Glide 1 in DOS; software renderer otherwise.
+- DirectDraw is the only Windows API; Glide in DOS; software renderer otherwise.
+  (PCGamingWiki says "Glide 1"; the binary loads `glide2x.ovl` and uses the
+  Glide 2 API — `engine.md`. **[verified]**)
 
 ## Original system requirements
 

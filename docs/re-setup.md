@@ -22,9 +22,9 @@ So the split is:
 | `src/dreams/` | yes | the Python decoding toolkit |
 | `docs/` | yes | findings |
 
-Round trip: annotate in Ghidra → `ExportSymbols.java` → commit the TSV → someone
-else runs `ghidra-import.ps1 -ImportSymbols` and gets your annotated project
-from their own copy of the discs.
+Round trip: annotate in Ghidra → `ExportSymbols.java` → commit the TSV; C layouts
+live in `re/structs/*.h`. A fresh project runs `ghidra-import.ps1 -ImportSymbols
+-ImportStructs` to restore both kinds of analysis from the discs and text sources.
 
 ## Installed on this machine
 
@@ -44,6 +44,7 @@ For anything reproducible, prefer headless over the GUI:
 ```powershell
 .\tools\ghidra-import.ps1                     # create project, import, analyse
 .\tools\ghidra-import.ps1 -ImportSymbols      # …and re-apply saved names
+.\tools\ghidra-import.ps1 -ImportSymbols -ImportStructs # restore symbols and C layouts
 .\tools\ghidra-import.ps1 -Analyze:$false     # skip auto-analysis
 ```
 
@@ -58,8 +59,10 @@ extra loader, and since Cryo compiled one portable Watcom core three ways, what
 you learn transfers to the DOS builds. See [engine.md](engine.md).
 
 `DREAMS.EXE` and `DREAMSFX.EXE` are LE (DOS/4GW) and need a loader extension
-Ghidra does not ship. Worth it later — the DOS builds carry richer symbol
-residue — but not the place to start.
+Ghidra does not ship; see [LE loader for the DOS builds](#le-loader-for-the-dos-builds).
+`DREAMSFX.EXE` is imported and analysed in the local project. Use the DOS
+builds to answer DOS-specific questions (hardware access, the 3dfx path) and
+as a cross-check; `WINDREAM.EXE` stays the main target.
 
 `CRYO.DLL` is a **debug build with 165 named exports**. It is a different
 codebase from the game (see [cryolib.md](cryolib.md)), but it is the best
@@ -103,6 +106,76 @@ reads the embedded `F3DC` chunk rather than by its own loader.
 String anchors additionally implicate `FUN_0041c666` (4 xrefs), `FUN_00456038`,
 `FUN_00427f11`, `FUN_0041020f` and `FUN_00426143` — the file I/O and disc-check
 layer.
+
+### LE loader for the DOS builds
+
+[yetmorecode/ghidra-lx-loader](https://github.com/yetmorecode/ghidra-lx-loader)
+loads DOS/4GW LE executables and ships a Watcom language
+(`watcom:LE:32:default`). Its newest release targets Ghidra 12.0.1, so build it
+from source; at commit `60bae51` it compiles against 12.1.3 unchanged.
+
+```powershell
+git clone https://github.com/yetmorecode/ghidra-lx-loader E:\tools\src\ghidra-lx-loader
+Copy-Item tools\lx-loader-watcom.cspec E:\tools\src\ghidra-lx-loader\data\languages\watcom.cspec
+$g = Get-DreamsSetting DREAMS_GHIDRA_ROOT   # after . .\tools\dreams-env.ps1
+Push-Location E:\tools\src\ghidra-lx-loader
+& "$g\support\gradle\gradlew.bat" "-PGHIDRA_INSTALL_DIR=$g" buildExtension
+Pop-Location
+Expand-Archive E:\tools\src\ghidra-lx-loader\dist\*.zip "$g\Ghidra\Extensions" -Force
+.\tools\ghidra-import.ps1 -Binaries (Join-Path (Get-DreamsSetting DREAMS_DISC1) DREAMSFX.EXE)
+```
+
+`-Binaries` imports only the listed files, so the existing programs are left
+alone. Restart Ghidra afterwards.
+
+**Replace the loader's `watcom.cspec`** with `tools/lx-loader-watcom.cspec`, as
+above. Upstream's `__watcall` has a fixed `extrapop`, no `ST0` float return and
+no `EBX` clobber. The replacement uses the prototype from
+`tools/watcall-cspec.patch`, so the DOS and Windows builds decompile under the
+same contract. It is the loader's default prototype, so `ApplyWatcall.java` is
+not needed for the calling convention. The bespoke-register runtime helpers are
+still wrong until a DOS equivalent of `sigs/windream.csv` exists. The file also
+adds a `__stdcall` model for the Glide stubs.
+
+LE addresses are the loader's object bases (code at `0x20000` in
+`DREAMSFX.EXE`), not file offsets.
+
+### `ApplyGlideImports.java` — Glide 2 on `DREAMSFX.EXE`
+
+Run after importing `DREAMSFX.EXE`, against a checkout of the released Glide
+source. The headers are 3dfx-licensed and stay outside the repo; the parsed
+archive goes to `out/ghidra/glide2x.gdt`.
+
+```powershell
+git clone --depth 1 https://github.com/sezero/glide E:\tools\src\glide
+$env:DREAMS_REPO = (Get-Location).Path
+& (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') `
+  ghidra dreams -process DREAMSFX.EXE -noanalysis `
+  -scriptPath ghidra_scripts -postScript ApplyGlideImports.java E:\tools\src\glide
+```
+
+It parses `glide2x/sst1` (Voodoo Graphics) with `__WATCOMC__`/`__DOS__`
+defined so `FX_CALL` becomes `__stdcall`, then finds the `glimport.asm` tables
+and applies a name, prototype and `@N` stack purge to each of the 130 stubs.
+Three auto-analysis artefacts had to be undone, and the script does so every
+run:
+
+- **No-return.** `__loadme` leaves by jumping into `glide2x.ovl`, so analysis
+  marks it and every stub no-return and cuts each caller at its first Glide
+  call. The script clears the flags and `CALL_RETURN` overrides, disassembles
+  the lost code, regrows the truncated callers and creates functions for
+  routines reached only by pointer.
+- **Thunks.** Each 5-byte stub becomes a thunk of `__loadme`, and a thunk
+  shares its target's signature, so every prototype landed on `__loadme`. The
+  script unlinks them first.
+- **Name table.** The list ends with `_CONVERTANDDOWNLOADRLE@64`, not a
+  `_GR`/`_GU` name; stopping early shifted every name by one stub. Check a
+  known call's argument count (`grBufferClear` pushes 3) after any change.
+
+121 of 130 get prototypes; the other 9 (`grSstConfigPipeline`, `grSstVidMode`,
+`guMovie*`, `guMp*`) are not declared in the final `sst1` headers and keep their
+decorated names. `ImportSymbols.java` restores names only, so re-run this
+script on a fresh project.
 
 ### `ApplyWatcall.java` — run this on any fresh project
 
@@ -153,6 +226,15 @@ so a rebased project still matches. The export records the binary's SHA-256 and
 the import warns on mismatch. Ghidra's auto-generated `FUN_xxxxxxxx` names are
 skipped so re-analysis does not churn the diff.
 
+### `ImportStructs.java`
+
+`re/structs/windream.h` is the source for verified format records and the
+partial runtime actor layout. The script parses it into the WINDREAM/GDI DREAM
+program's Data Type Manager. Unknown spans stay byte arrays. The `DREAMS.DAT`
+records are external decoded buffers, so their types are not applied to arbitrary
+executable addresses. The active actor pointer at `DAT_004fbb48` is typed when
+that BSS location is present in the loaded program.
+
 ## Not losing work
 
 ### How Ghidra saves
@@ -171,9 +253,10 @@ skipped so re-analysis does not churn the diff.
 |---|---|---|
 | `ghidra/dreams.rep` | the saved project | durable on disk, but **gitignored** — binary, unmergeable, embeds the game executables |
 | `re/symbols/*.tsv` | exported names + comments | **durable and in git** — the record that outlives everything |
+| `re/structs/*.h` | parsed C layouts | **durable and in git** — imported by `ImportStructs.java` |
 
 `re/` is the source of truth. The Ghidra project is disposable and rebuildable
-from the discs with `ghidra-import.ps1 -ImportSymbols`.
+from the discs with `ghidra-import.ps1 -ImportSymbols -ImportStructs`.
 
 ### The project lock
 

@@ -74,7 +74,7 @@ bytes and a low byte of unknown purpose. The parser reconstructs absolute
 positions by detecting wraps of that 24-bit field; all 178 records then abut
 exactly through EOF. At runtime `FUN_00410928` reads one selected record,
 `FUN_00446e01` submits its WAVE data to the sound buffer, and the same entry's
-575 total text lines are drawn on the timed-caption path. See
+589 total text lines are drawn on the timed-caption path. See
 [`sprites-ui-dialog.md`](sprites-ui-dialog.md).
 
 Every clip: **PCM, mono, 11025 Hz, 8-bit**.

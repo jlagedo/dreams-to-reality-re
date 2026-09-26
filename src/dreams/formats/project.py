@@ -126,7 +126,7 @@ class Box:
 class LinkAdvent:
     name: str
     target_object: int = -1  #: +0x14 index into OBJET array
-    condition_stage: int = 0  #: +0x1C adventure / quest progression stage
+    condition_stage: int = 0  #: +0x1C 1-based DRD ID for opcode 0x40; stage otherwise
     event_opcode: int = 0  #: +0x20 event type / trigger opcode
     action_param: int = 0  #: +0x24 action parameter
     cutscene_video: str = ""  #: +0x2C cutscene video (.HNM / .UBB)

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Replacement for data/languages/watcom.cspec in yetmorecode/ghidra-lx-loader
+     (built at 60bae51). Upstream's __watcall has a fixed extrapop, no ST0 float
+     return and no EBX clobber; this default_proto is the prototype from
+     tools/watcall-cspec.patch, so the DOS and Windows builds decompile under
+     the same contract. Keep the two in sync. A __stdcall model is added for
+     the Glide import stubs. See docs/re-setup.md. -->
+<compiler_spec>
+  <data_organization>
+    <integer_size value="4"/>
+    <pointer_size value="4"/>
+  </data_organization>
+
+  <global>
+    <range space="ram"/>
+  </global>
+
+  <stackpointer register="ESP" space="ram"/>
+
+  <default_proto>
+    <!-- Watcom C/C++ register calling convention (__watcall).
+
+         Ghidra ships no Watcom compiler spec. Added for Dreams to Reality, whose
+         four game executables are all Watcom C/C++ 10.6 builds: integer and
+         pointer arguments go in EAX, EDX, EBX, ECX in that order and then the
+         stack; the return value is EAX, EDX:EAX for 8-byte types, ST0 for float;
+         the callee cleans the stack. The four argument registers are volatile,
+         which is why EBX is killedbycall here but unaffected in __fastcall. -->
+    <prototype name="__watcall" extrapop="unknown" stackshift="4">
+      <input>
+        <pentry minsize="1" maxsize="4">
+          <register name="EAX"/>
+        </pentry>
+        <pentry minsize="1" maxsize="4">
+          <register name="EDX"/>
+        </pentry>
+        <pentry minsize="1" maxsize="4">
+          <register name="EBX"/>
+        </pentry>
+        <pentry minsize="1" maxsize="4">
+          <register name="ECX"/>
+        </pentry>
+        <pentry minsize="1" maxsize="500" align="4">
+          <addr offset="4" space="stack"/>
+        </pentry>
+      </input>
+      <output killedbycall="true">
+        <pentry minsize="4" maxsize="10" metatype="float" extension="float">
+          <register name="ST0"/>
+        </pentry>
+        <pentry minsize="1" maxsize="4">
+          <register name="EAX"/>
+        </pentry>
+        <pentry minsize="5" maxsize="8">
+          <addr space="join" piece1="EDX" piece2="EAX"/>
+        </pentry>
+      </output>
+      <unaffected>
+        <varnode space="ram" offset="0" size="4"/>
+        <register name="ESP"/>
+        <register name="EBP"/>
+        <register name="ESI"/>
+        <register name="EDI"/>
+        <register name="DF"/>
+        <register name="FS_OFFSET"/>
+      </unaffected>
+      <killedbycall>
+        <register name="EAX"/>
+        <register name="EDX"/>
+        <register name="EBX"/>
+        <register name="ECX"/>
+        <register name="ST0"/>
+        <register name="ST1"/>
+      </killedbycall>
+    </prototype>
+  </default_proto>
+
+  <!-- __stdcall, copied from Ghidra's x86win.cspec. The Glide 2 import stubs
+       in DREAMSFX.EXE are __stdcall (_NAME@argbytes decoration). -->
+  <prototype name="__stdcall" extrapop="unknown" stackshift="4">
+    <input>
+      <pentry minsize="1" maxsize="500" align="4">
+        <addr offset="4" space="stack"/>
+      </pentry>
+    </input>
+    <output killedbycall="true">
+      <pentry minsize="4" maxsize="10" metatype="float" extension="float">
+        <register name="ST0"/>
+      </pentry>
+      <pentry minsize="1" maxsize="4">
+        <register name="EAX"/>
+      </pentry>
+      <pentry minsize="5" maxsize="8">
+        <addr space="join" piece1="EDX" piece2="EAX"/>
+      </pentry>
+    </output>
+    <unaffected>
+      <varnode space="ram" offset="0" size="4"/>
+      <register name="ESP"/>
+      <register name="EBP"/>
+      <register name="ESI"/>
+      <register name="EDI"/>
+      <register name="EBX"/>
+      <register name="DF"/>
+      <register name="FS_OFFSET"/>
+    </unaffected>
+    <killedbycall>
+      <register name="ECX"/>
+      <register name="EDX"/>
+      <register name="ST0"/>
+      <register name="ST1"/>
+    </killedbycall>
+    <likelytrash>
+      <register name="ECX"/>
+    </likelytrash>
+  </prototype>
+</compiler_spec>

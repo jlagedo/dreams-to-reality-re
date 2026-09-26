@@ -542,7 +542,7 @@ def test_dialogue_carries_script_and_audio():
         pytest.skip("DIALOG.DRD not present")
     entries = dialog.read(drd)
     assert len(entries) == 178
-    assert sum(len(entry.lines) for entry in entries) == 575
+    assert sum(len(entry.lines) for entry in entries) == 589
     assert sum(1 for e in entries if e.wave) >= 177
     assert all(e.wave[:4] == b"RIFF" for e in entries if e.wave)
     first = entries[0]

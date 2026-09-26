@@ -40,7 +40,7 @@ param(
     [string]$Ghidra,
     [string]$ProjectDir = "$PSScriptRoot\..\ghidra",
     [string]$ProjectName = "dreams",
-    [string[]]$Programs = @("WINDREAM.EXE", "GDIDREAM.EXE", "SETUP.EXE", "CRYO.DLL")
+    [string[]]$Programs = @("WINDREAM.EXE", "GDIDREAM.EXE", "SETUP.EXE", "CRYO.DLL", "DREAMSFX.EXE")
 )
 
 $ErrorActionPreference = "Stop"

@@ -6,7 +6,8 @@
   The Ghidra project is a BUILD ARTEFACT. It is binary, unmergeable, and embeds
   copies of the game executables, so it never goes into git. This script
   regenerates it from your local discs, runs auto-analysis, and re-applies the
-  symbol names stored in re/symbols/.
+  symbol names stored in re/symbols/. Use -ImportStructs to parse the checked-in
+  C layouts under re/structs/ into the game program's Data Type Manager.
 
   Run it once to set up, and again whenever you want a clean slate.
 
@@ -18,8 +19,12 @@
 
 .PARAMETER Binaries
   Which executables to import. Defaults to the Windows build (PE32, loads
-  cleanly in Ghidra) plus CryoLib. The DOS builds are LE/DOS4GW and need a
-  loader extension - import them only if you have one.
+  cleanly in Ghidra) plus CryoLib. The DOS builds are LE/DOS4GW and need the
+  LE loader extension; see docs/re-setup.md, "LE loader for the DOS builds".
+  Only the listed binaries are imported; other programs in the project stay.
+
+.PARAMETER ImportStructs
+  Parse re/structs/windream.h into the WINDREAM/GDI DREAM program Data Type Manager.
 
 .EXAMPLE
   .\tools\ghidra-import.ps1
@@ -34,7 +39,8 @@ param(
     [string]$Disc2,
     [string[]]$Binaries = @(),
     [switch]$Analyze = $true,
-    [switch]$ImportSymbols
+    [switch]$ImportSymbols,
+    [switch]$ImportStructs
 )
 
 $ErrorActionPreference = "Stop"
@@ -94,6 +100,7 @@ foreach ($bin in $Binaries) {
     )
     if (-not $Analyze)      { $args += "-noanalysis" }
     if ($ImportSymbols)     { $args += @("-postScript", "ImportSymbols.java") }
+    if ($ImportStructs)     { $args += @("-postScript", "ImportStructs.java") }
 
     & $headless @args 2>&1 | Where-Object {
         $_ -notmatch 'INFO|WARN\s+Unable to|^\s*$' -or $_ -match 'ERROR|Exception'
@@ -106,3 +113,4 @@ Write-Host "`nNext:"
 Write-Host "  1. Window > Script Manager > Dreams > FindFormatParsers.java"
 Write-Host "  2. Rename what you identify"
 Write-Host "  3. Script Manager > ExportSymbols.java  (persists names to re/symbols/)"
+Write-Host "  4. Use -ImportStructs to load re/structs/windream.h into the game program"
