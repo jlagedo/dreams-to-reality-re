@@ -748,3 +748,27 @@ def test_collision_triangles_carry_planes_edges_and_boxes():
     assert k["n"] == 152_536
     assert k["unit"] >= 0.99 * k["n"] and k["box"] >= 0.99 * k["n"]
     assert k["plane"] >= 0.97 * k["n"] and k["edges"] >= 0.94 * k["n"]
+
+
+@needs_discs
+def test_3dm_files_are_texture_banks():
+    """``.3DM`` is a texture bank: 32-row palette ramp plus a 256x256 page.
+
+    ``GRILLE`` is the prop atlas and uses most of its palette; ``OMBRE2``, the
+    shadow, is one flat index.
+    """
+    base = next(
+        (
+            d / "DATA" / "3DC"
+            for d in (paths.disc(1), paths.disc(2))
+            if (d / "DATA" / "3DC").exists()
+        ),
+        None,
+    )
+    if base is None or not (base / "GRILLE.3DM").exists():
+        pytest.skip("GRILLE.3DM not present")
+    palette, page = node.read_3dm(base / "GRILLE.3DM")
+    assert len(palette) == 256 and len(page) == 256 * 256
+    assert len(set(page)) > 200
+    _, shadow = node.read_3dm(base / "OMBRE2.3DM")
+    assert len(set(shadow)) == 1

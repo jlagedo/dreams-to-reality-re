@@ -16,7 +16,7 @@ marked otherwise.
 | **Scenes / levels** | `DATA\3DC\*.DSN` | 98 | **157 MB** | ~3% | **header + record chain + textures decoded**; only tags 1-2 packed |
 | **Models + animation** | `DATA\3DC\*.DAN` | 191 | 23.4 MB | **yes** | **solved** — 159 models, 1,886 parts, 41,614 triangles, texture pages; animation partly read. [models.md](models.md) |
 | **Props / weapons** | `DATA\3DC\*.3DC` | 32 | ~0.5 MB | no | **geometry solved** — raw `F3DC`, same node, 165 nodes over 16 files; only `ARC` still open |
-| **Shading LUTs** | `DATA\3DC\*.3DM` | 8 | 0.8 MB | no | 3×32 KB blocks — **not** textures, see below |
+| **Prop textures** | `DATA\3DC\*.3DM` | 8 | 0.8 MB | no | **decoded** — one texture bank each (32-row palette ramp + 256×256 page), `dreams.formats.node.read_3dm`; see below |
 | **Model archive** | `DATA\OBJET\*.PAK` | 2 | 62 KB | no | one `F3DC` chunk at `0x0C` |
 | **Sprites / fonts** | `*.SPR` | 16 | 0.9 MB | no | **pixel data decoded** — indexed sheets, 256-glyph fonts, and menu `TABLE` sprites |
 | **Menu/cursor sprites** | `ICONES.BF` members, `OBJET\SOUR.ALP` | 5/6 banks + 2 cursor copies | ~0.5 MB | no | **decoded** — indexed colors with per-pixel blend; `.ALP` is not an alpha-map format |
@@ -250,17 +250,16 @@ This is where the level textures are, and they are not stored raw.
 texture directory. The `DATA\TGA\` folder holds only 7 leftover JPEGs in a
 `TEMP\` subdirectory — reference renders, not assets.
 
-**The `.3DM` texture hypothesis was tested and killed.** Rendered as 128×128
-RGB555 it is noise; the files are shading lookup tables, and all four names are
-`.3DC` material names including `OMBRE` (shadow).
-
-**They are not RGB555 data either.** The support for that reading was a clear
-unused top bit in `ESSAI.3DM`, and it does not generalise: across all four
-files **8 of the 12 blocks have bit 15 set** — `GRILLE` at 5,202/3,385/3,208
-words and `SPRITE` at 5,297/4,150/6,621, against 366/0/0 for `ESSAI` and
-32/0/0 for `OMBRE2`. The two clean blocks are the ones that were sampled. So
-the PNGs the `tiles` group writes are a diagnostic rendering of bytes, not an
-image in any format we have established. **[verified]**
+**Correction (2026-09-26): the `.3DM` files are textures.** The earlier test
+read them as 128×128 RGB555 and called them shading tables. They are the same
+**texture bank** as `.DAN` tag 2: after two u32s that `RES_ReadFile` (`0x41c666`) skips,
+98,324 bytes of a 20-byte header, a 32-row × 256-entry RGB565 palette ramp
+(the ramp *is* the shading: the rasterizer picks row `31 − shade`) and a
+256×256 8-bit page, which `MDL_LoadMaterials` (`0x456038`) binds at `+0x8014`. Decoded
+(`dreams.formats.node.read_3dm`), `GRILLE` is the prop atlas — the sword
+blade, bubbles, a leaf, a rabbit, wood — `SPRITE` a sandy ground, `ESSAI` a
+blue glow, and `OMBRE2`, the shadow, a single flat index. The four names are
+`.3DC` material names because the props sample them. **[verified]**
 
 What this leaves:
 

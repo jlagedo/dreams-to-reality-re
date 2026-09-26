@@ -1253,6 +1253,20 @@ ground controller (`ENT_TickPlayerGround` (`0x421717`), traced with item 5).
   `GAME_SaveThumbnail` (`0x40fd54`), `GAME_SortSaveIndex` (`0x40ef1f`). The INI loader (`0x433cfa`) is not named: Ghidra
   has not disassembled its body, so there is no decompilation to review.
 
+## 2026-09-26 — `.3DM` files are textures; lighting inputs
+
+- **Correction**: the four `.3DM` files are texture banks (20-byte header,
+  32-row RGB565 palette ramp, 256x256 indexed page), the same as `.DAN` tag 2,
+  not shading lookup tables. `GRILLE` is the prop atlas (sword, bubbles, leaf,
+  wood); `SPRITE` a ground, `ESSAI` a glow, `OMBRE2` a flat shadow. New
+  `dreams.formats.node.read_3dm`. The previous test read them as 128x128
+  RGB555.
+- **Lighting** ([engine.md](engine.md), *Lighting inputs*): shade 0-31 picks a
+  palette row (`31 - shade`); unlit nodes use one shade (`+0xd0`), lit nodes
+  sum up to their listed lights per face or per corner; at most 100 lights.
+  How the level record's ambient and day/night values reach the level
+  texture ramps is left open (look-only item).
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)

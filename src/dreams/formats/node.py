@@ -420,16 +420,41 @@ def texture_pages(path: str | Path) -> list[tuple[list[tuple[int, int, int]], by
             continue
         if len(buf) < TEX_TOTAL:
             continue
-        row = neutral_row(buf)
-        palette = []
-        for i in range(256):
-            v = struct.unpack_from("<H", buf, TEX_HEADER + 4 * (row * 256 + i) + 2)[0]
-            palette.append(
-                (((v >> 11) & 31) * 255 // 31, ((v >> 5) & 63) * 255 // 63, (v & 31) * 255 // 31)
-            )
-        start = TEX_HEADER + TEX_PALETTES
-        out.append((palette, buf[start : start + TEX_PAGE]))
+        out.append(decode_bank(buf))
     return out
+
+
+def decode_bank(buf: bytes) -> tuple[list[tuple[int, int, int]], bytes]:
+    """``(palette, page)`` of one texture bank, palette from :func:`neutral_row`."""
+    row = neutral_row(buf)
+    palette = []
+    for i in range(256):
+        v = struct.unpack_from("<H", buf, TEX_HEADER + 4 * (row * 256 + i) + 2)[0]
+        palette.append(
+            (((v >> 11) & 31) * 255 // 31, ((v >> 5) & 63) * 255 // 63, (v & 31) * 255 // 31)
+        )
+    start = TEX_HEADER + TEX_PALETTES
+    return palette, buf[start : start + TEX_PAGE]
+
+
+#: A ``.3DM`` file is two u32s the loader skips, then one texture bank.
+TEX_3DM_SKIP = 8
+
+
+def read_3dm(path: str | Path) -> tuple[list[tuple[int, int, int]], bytes]:
+    """Decode a ``.3DM`` file: the same texture bank as ``.DAN`` tag 2.
+
+    ``RES_ReadFile`` (``0x41c666``) reads two u32s and then the remaining
+    ``size - 8`` bytes, which for all four files is exactly :data:`TEX_TOTAL`;
+    ``MDL_LoadMaterials`` (``0x456038``) takes the page at ``+0x8014``. The four
+    files are textures, not shading tables: ``GRILLE`` is the prop atlas (the
+    sword blade, bubbles, a leaf, wood), ``SPRITE`` a sandy ground, ``ESSAI`` a
+    blue glow and ``OMBRE2`` one flat index.
+    """
+    buf = Path(path).read_bytes()[TEX_3DM_SKIP:]
+    if len(buf) != TEX_TOTAL:
+        raise ValueError(f"{Path(path).name}: {len(buf)} bytes, expected {TEX_TOTAL}")
+    return decode_bank(buf)
 
 
 RAMP_ROWS = 32  #: brightness steps in a bank's light ramp

@@ -448,6 +448,31 @@ exactly as `README.TXT` §6 documents (also in-game F10 help). Camera views
 are `Alt+5..0`, not mouse-driven. See [boot-sequence.md](boot-sequence.md)
 for the frame pump that drives all of this.
 
+### Lighting inputs (2026-09-26, look only)
+
+- **Shading is palette-row selection, not colour modulation.** Every texture
+  bank (`.DAN` tag 2, `.3DM`, and the pages `DSN_Create3DM` (`0x417a07`) builds for levels)
+  carries 32 rows of the same 256-entry RGB565 palette at falling brightness;
+  the rasterizers pick row `31 − shade` (`0x46c8ec`: `local_34 = 0x1f − shade`).
+  **[verified]**
+- **Unlit nodes** (light count `+0xc4 == 0`) use one shade for every face,
+  node `+0xd0`, and `SW_DrawObjectFaces` (`0x473014`) turns the Gouraud block types
+  `0x16`/`0x19` into flat `0x18`. **[verified]**
+- **Lit nodes**: `REND_LightObject` (`0x47b7e0`) sums, for the lights listed at node `+0xc8`,
+  a shade per face (flat types; clamped at −31) or per corner at face
+  `+0x41..+0x43` from the corner normals (Gouraud `0x16`/`0x17`/`0x19`/`0x1a`).
+  **[verified]**
+- **Lights**: at most 100 records of 0x94 bytes at `0x672700` — `+0x00` type
+  (1 directional, 2 point), `+0x88`/`+0x8c` inner/outer radius, `+0x90`
+  intensity — added and removed by `0x477cb0`/`0x477d78` from gameplay code
+  (`0x42bcb9`, `0x42bfa9`), moved into view space each frame by `0x477ee0` and into
+  each node's space by `REND_TransformLights` (`0x47b3d0`). **[verified]**
+- **Level inputs**: the level record's light directions (`+0x18`, `+0x24`),
+  ambient RGB (`+0x30`) and day/night mode (`+0x138`, which sets biases
+  ±`0x40`/±`0x80` in `SCENE_LoadLevel` (`0x41f9db`)) are read at level load. That they build
+  the 32-row ramps of the level textures in `DSN_LoadTextures` (`0x417afd`) is the obvious
+  reading but **[unverified]**.
+
 ## Camera and projection **[verified]**
 
 Traced 2026-09-26 in `WINDREAM.EXE` (names in `re/names/WINDREAM.EXE.tsv`,
