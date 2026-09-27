@@ -27,6 +27,7 @@ docs do.
 | [dsn-loader.md](dsn-loader.md) | **`.DSN` loader decompiled** — header reader, and how `__watcall` was fixed |
 | [scene-geometry.md](scene-geometry.md) | **`.DSN` to glTF** — vertex pool, face records, the stale-pointer problem, how to check a decode |
 | [models.md](models.md) | **`.DAN` character and prop models** — the scene-graph node, skeletons, bridging faces, texture pages |
+| [CAISSE retail render chain](reviews/cai-prop-retail-chain.md) | Project 71 `OBJET2` → `CAI.DAN` model/resource load → spawn transform → Windows frame draw |
 | [animation-validation.md](animation-validation.md) | **Animation hypothesis harness** — named track bindings, translation fingerprints, elbow/knee limits, remaining uncertainties |
 | [animation-timing.md](animation-timing.md) | **Original timing trace** — 200 Hz clock, 30 animation frames/second, actor modifiers and timer quirks |
 | [animation-subsystem.md](animation-subsystem.md) | **Shared runtime** — NPC/player animation, complete rig exports, inspector, playback and lifecycle |
