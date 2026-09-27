@@ -641,4 +641,59 @@ bool Image::read_at(FileId file, uint64_t offset, void* buffer, size_t length,
     return true;
 }
 
+bool Image::audio_track_size(unsigned number, uint64_t& size, Error& error) const {
+    clear(error);
+    size = 0;
+    const Track* selected = nullptr;
+    for (const auto& track : impl_->tracks)
+        if (track.number == number) { selected = &track; break; }
+    if (!selected || selected->mode != TrackMode::audio ||
+        selected->status != TrackStatus::available) {
+        fail(error, ErrorCode::not_found, "selected CUE audio track is unavailable");
+        return false;
+    }
+    uint64_t sectors = selected->program_sectors;
+    for (const auto& other : impl_->tracks) {
+        if (other.number <= number || other.backing_path != selected->backing_path ||
+            other.index01_frames <= selected->index01_frames) continue;
+        sectors = std::min<uint64_t>(sectors,
+            other.index01_frames - selected->index01_frames);
+    }
+    size = sectors * raw_sector_size;
+    return true;
+}
+
+bool Image::read_audio_track_at(unsigned number, uint64_t offset, void* buffer,
+                                size_t length, Error& error) const {
+    uint64_t size = 0;
+    if (!audio_track_size(number,size,error)) return false;
+    if (offset > size || length > size-offset || (length && !buffer) ||
+        length > static_cast<size_t>(std::numeric_limits<std::streamsize>::max())) {
+        fail(error, ErrorCode::out_of_range, "read exceeds selected audio track bounds");
+        return false;
+    }
+    if (!length) return true;
+    const Track* selected = nullptr;
+    for (const auto& track : impl_->tracks)
+        if (track.number == number) { selected = &track; break; }
+    const uint64_t absolute = static_cast<uint64_t>(selected->index01_frames) *
+        raw_sector_size + offset;
+    if (absolute > static_cast<uint64_t>(std::numeric_limits<std::streamoff>::max())) {
+        fail(error, ErrorCode::out_of_range, "audio track offset exceeds host file limit");
+        return false;
+    }
+    std::ifstream input(selected->backing_path,std::ios::binary);
+    if (!input) {
+        fail(error, ErrorCode::data_io, "cannot open selected CUE audio backing file");
+        return false;
+    }
+    input.seekg(static_cast<std::streamoff>(absolute),std::ios::beg);
+    input.read(static_cast<char*>(buffer),static_cast<std::streamsize>(length));
+    if (input.gcount()!=static_cast<std::streamsize>(length)) {
+        fail(error, ErrorCode::data_io, "selected CUE audio track has a short read");
+        return false;
+    }
+    return true;
+}
+
 } // namespace od::disc

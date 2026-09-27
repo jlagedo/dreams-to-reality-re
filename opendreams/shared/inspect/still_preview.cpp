@@ -318,4 +318,22 @@ bool load_still_image(const Source& source, const Row& row,
     return fail(error,"selected row has no static image decoder");
 }
 
+bool portrait_still_image(const port::PortraitSprite& portrait,
+                          StillImage& image, std::string& error) {
+    image={}; error.clear();
+    const size_t count=static_cast<size_t>(portrait.width)*portrait.height;
+    if (!count || portrait.indices.size()!=count || portrait.coverage.size()!=count)
+        return fail(error,"dialogue portrait has no complete indexed image");
+    image.width=portrait.width;
+    image.height=portrait.height;
+    image.indices=portrait.indices;
+    image.coverage=portrait.coverage;
+    image.colors.resize(256);
+    image.transparent_zero=true;
+    image.note="Dialogue portrait: RGB555 palette and per-pixel coverage";
+    for (size_t i=0; i<256; ++i)
+        image.colors[i]=rgb555(portrait.palette_rgb555[i]);
+    return true;
+}
+
 } // namespace od::inspect

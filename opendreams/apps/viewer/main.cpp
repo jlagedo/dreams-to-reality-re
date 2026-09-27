@@ -1,5 +1,6 @@
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL_main.h>
+#include "audio/audio_preview.h"
 #include "inspect/catalog.h"
 #include "inspect/still_preview.h"
 #include "inspect/viewer_prefs.h"
@@ -45,6 +46,10 @@ struct ViewerUi {
     od::VideoPreview video_preview;
     od::inspect::StillImage still_image;
     od::StillPreview still_preview;
+    od::AudioPreview audio_preview;
+    od::inspect::StillImage portrait_image;
+    od::StillPreview portrait_preview;
+    size_t audio_row = SIZE_MAX;
     size_t still_row = SIZE_MAX;
     uint32_t palette_row = 0;
     bool transparent_zero = false;
@@ -86,6 +91,10 @@ void clear_preview(ViewerUi& state) {
     state.still_preview.clear();
     state.still_image = {};
     state.still_row = SIZE_MAX;
+    state.audio_preview.stop();
+    state.portrait_preview.clear();
+    state.portrait_image = {};
+    state.audio_row = SIZE_MAX;
     state.preview_level.reset();
     state.preview_error.clear();
 }
@@ -98,6 +107,57 @@ void load_selected_preview(ViewerUi& state) {
     if (row->kind == "HNM6/HNS6 movie" || row->kind == "UBB2/UBS2 movie" ||
         row->kind == "HNM4 animated texture") {
         state.video_preview.open(source->image,row->path,state.preview_error);
+        return;
+    }
+    const bool audio_parent = row->kind == "Sound bank" ||
+        row->kind == "Dialogue bank";
+    const bool audio_leaf = row->kind == "Sound effect" ||
+        row->kind == "Dialogue entry" || row->kind == "Audio track";
+    if (audio_parent || audio_leaf) {
+        const od::inspect::Row* chosen = row;
+        if (audio_parent) {
+            for (size_t child : source->children[row->id]) {
+                const auto& candidate=source->rows[child];
+                if (candidate.status==od::inspect::Status::available &&
+                    (candidate.kind=="Sound effect" || candidate.kind=="Dialogue entry")) {
+                    chosen=&candidate;
+                    break;
+                }
+            }
+            if (chosen==row) {
+                state.preview_error="selected sound bank has no playable entries";
+                return;
+            }
+        }
+        state.audio_row=chosen->id;
+        const size_t colon=chosen->key.find(':');
+        if (colon==std::string::npos) {
+            state.preview_error="selected audio row has no source index";
+            return;
+        }
+        char* end=nullptr;
+        const unsigned long index=std::strtoul(chosen->key.c_str()+colon+1,&end,10);
+        if (!end || *end || index>UINT_MAX) {
+            state.preview_error="selected audio row index is invalid";
+            return;
+        }
+        if (chosen->kind=="Sound effect")
+            state.audio_preview.open_sound(source->image,chosen->path,
+                                            static_cast<size_t>(index),state.preview_error);
+        else if (chosen->kind=="Dialogue entry") {
+            if (state.audio_preview.open_dialogue(source->image,chosen->path,
+                          static_cast<size_t>(index),state.preview_error) &&
+                state.audio_preview.has_portrait()) {
+                std::string portrait_error;
+                if (od::inspect::portrait_still_image(state.audio_preview.portrait(),
+                       state.portrait_image,portrait_error)) {
+                    if (!state.portrait_preview.load(state.portrait_image,0,true,
+                                                     portrait_error))
+                        state.preview_error=portrait_error;
+                } else state.preview_error=portrait_error;
+            }
+        } else state.audio_preview.open_track(source->image,
+                    static_cast<unsigned>(index),state.preview_error);
         return;
     }
     const bool image_parent = row->kind == "Font" || row->kind == "Sprite set" ||
@@ -474,6 +534,105 @@ void details_pane(ViewerUi& state) {
     }
 }
 
+void audio_preview_pane(ViewerUi& state, const od::inspect::Source& source) {
+    if (state.audio_row>=source.rows.size()) return;
+    const auto& shown=source.rows[state.audio_row];
+    ImGui::Text("%s  |  %s",shown.name.c_str(),
+                od::inspect::identity_name(source.image->identity()));
+    if (shown.parent!=SIZE_MAX && shown.parent<source.children.size()) {
+        std::vector<size_t> siblings;
+        for (size_t child : source.children[shown.parent]) {
+            const auto& candidate=source.rows[child];
+            if (candidate.kind==shown.kind &&
+                candidate.status==od::inspect::Status::available)
+                siblings.push_back(child);
+        }
+        if (siblings.size()>1) {
+            const auto at=std::find(siblings.begin(),siblings.end(),state.audio_row);
+            const size_t position=static_cast<size_t>(at-siblings.begin());
+            if (position<siblings.size() && ImGui::Button("Previous")) {
+                select(state,state.selected_slot,siblings[(position+siblings.size()-1)%siblings.size()]);
+                return;
+            }
+            ImGui::SameLine();
+            if (position<siblings.size() && ImGui::Button("Next")) {
+                select(state,state.selected_slot,siblings[(position+1)%siblings.size()]);
+                return;
+            }
+            ImGui::SameLine();
+            ImGui::Text("%zu / %zu",position+1,siblings.size());
+        }
+    }
+    if (!state.audio_preview.active()) {
+        if (!state.preview_error.empty()) ImGui::TextWrapped("%s",state.preview_error.c_str());
+        if (ImGui::Button("Open audio")) load_selected_preview(state);
+        return;
+    }
+    std::string playback_error;
+    if (!state.audio_preview.tick(playback_error)) {
+        state.preview_error=playback_error;
+        ImGui::TextWrapped("%s",state.preview_error.c_str());
+        return;
+    }
+    if (ImGui::Button(state.audio_preview.ended() ? "Replay" :
+                       state.audio_preview.paused() ? "Play" : "Pause")) {
+        if (state.audio_preview.ended()) {
+            if (!state.audio_preview.restart(playback_error))
+                state.preview_error=playback_error;
+        } else state.audio_preview.set_paused(!state.audio_preview.paused());
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Restart") && !state.audio_preview.restart(playback_error))
+        state.preview_error=playback_error;
+    ImGui::SameLine();
+    if (ImGui::Button("Stop")) {
+        state.audio_preview.stop();
+        state.portrait_preview.clear();
+        state.portrait_image={};
+        return;
+    }
+    const double duration=state.audio_preview.duration_seconds();
+    const double position=state.audio_preview.position_seconds();
+    const float fraction=duration>0 ? static_cast<float>(std::clamp(position/duration,0.0,1.0)) : 0.0f;
+    ImGui::ProgressBar(fraction,ImVec2(-1,0));
+    ImGui::Text("%.1f / %.1f s  |  %u Hz, %u ch, %u-bit",position,duration,
+                state.audio_preview.rate(),state.audio_preview.channels(),
+                state.audio_preview.bits());
+    if (state.audio_preview.repaired_header())
+        ImGui::TextDisabled("Retail clip has an invalid float tag; playing its PCM samples.");
+    if (!state.preview_error.empty())
+        ImGui::TextWrapped("%s",state.preview_error.c_str());
+    const auto& waveform=state.audio_preview.waveform();
+    if (!waveform.empty())
+        ImGui::PlotLines("##waveform",waveform.data(),static_cast<int>(waveform.size()),
+                         0,nullptr,0.0f,1.0f,ImVec2(-1,55));
+    if (state.audio_preview.kind()!=od::AudioPreview::Kind::dialogue) return;
+    if (state.portrait_preview.has_image()) {
+        const float side=std::min(128.0f,std::max(64.0f,ImGui::GetContentRegionAvail().y*0.55f));
+        ImGui::Image(simgui_imtextureid(state.portrait_preview.image_view()),
+                     ImVec2(side,side));
+        ImGui::SameLine();
+    } else if (!state.audio_preview.portrait_note().empty()) {
+        ImGui::TextDisabled("Portrait: %s",state.audio_preview.portrait_note().c_str());
+    }
+    const auto& lines=state.audio_preview.captions();
+    const size_t current=state.audio_preview.current_caption_index();
+    ImGui::BeginGroup();
+    ImGui::Text("Dialogue: %zu lines",lines.size());
+    if (current!=SIZE_MAX && current<lines.size())
+        ImGui::TextWrapped("%s",lines[current].text.c_str());
+    else ImGui::TextDisabled("Waiting for the first caption");
+    ImGui::EndGroup();
+    if (ImGui::TreeNode("Script and timing")) {
+        for (size_t i=0; i<lines.size(); ++i) {
+            if (i==current) ImGui::TextColored(ImVec4(1,0.86f,0.45f,1),
+                "%u: %s",lines[i].start_tick,lines[i].text.c_str());
+            else ImGui::Text("%u: %s",lines[i].start_tick,lines[i].text.c_str());
+        }
+        ImGui::TreePop();
+    }
+}
+
 void still_preview_pane(ViewerUi& state, const od::inspect::Source& source) {
     if (state.still_row >= source.rows.size()) return;
     const auto& shown = source.rows[state.still_row];
@@ -554,6 +713,11 @@ void preview_pane(ViewerUi& state) {
     ImGui::TextUnformatted("Preview");
     ImGui::Separator();
     const auto* row = selection(state);
+    if (state.audio_row!=SIZE_MAX) {
+        const auto* source=state.catalog.source(state.selected_slot);
+        if (source) audio_preview_pane(state,*source);
+        return;
+    }
     if (state.still_preview.has_image()) {
         const auto* source = state.catalog.source(state.selected_slot);
         if (source) still_preview_pane(state,*source);
@@ -709,7 +873,8 @@ void draw_ui(void* user) {
 
 bool parse_args(int argc, char** argv, int& frames,
                 std::array<const char*, 2>& cues, bool& preview_cai,
-                bool& preview_movie, std::string& preview_still) {
+                bool& preview_movie, std::string& preview_still,
+                std::string& preview_audio) {
     for (int i = 1; i < argc;) {
         if (std::strcmp(argv[i], "--preview-cai") == 0) {
             preview_cai = true;
@@ -724,6 +889,12 @@ bool parse_args(int argc, char** argv, int& frames,
         if (std::strcmp(argv[i], "--preview-still") == 0) {
             if (i+1>=argc) return false;
             preview_still=argv[i+1];
+            i+=2;
+            continue;
+        }
+        if (std::strcmp(argv[i], "--preview-audio") == 0) {
+            if (i+1>=argc) return false;
+            preview_audio=argv[i+1];
             i+=2;
             continue;
         }
@@ -749,10 +920,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
     bool preview_cai = false;
     bool preview_movie = false;
     std::string preview_still;
+    std::string preview_audio;
     if (!parse_args(argc, argv, frames, cues, preview_cai, preview_movie,
-                    preview_still)) {
+                    preview_still, preview_audio)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-movie] [--preview-still font|icon|vga|bank|material|scene]");
+                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-movie] [--preview-still font|icon|vga|bank|material|scene] [--preview-audio effect|effect12|dialogue|track]");
         return SDL_APP_FAILURE;
     }
     if (!shell.init({"ODViewer", draw_ui, &ui, frames, 18.0f, 1.2f,
@@ -874,6 +1046,44 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
             return SDL_APP_FAILURE;
         }
     }
+    if (!preview_audio.empty()) {
+        ui.catalog.tick(10000);
+        struct Target { const char* mode; const char* kind; const char* path; const char* key; };
+        constexpr Target targets[] = {
+            {"effect","Sound effect","DATA/SOUND/FSB.DAT","clip:0"},
+            {"effect12","Sound effect","DATA/SOUND/FSB.DAT","clip:12"},
+            {"dialogue","Dialogue entry","DATA/3DC/DIALOG.DRD","entry:0"},
+            {"track","Audio track","","track:2"},
+        };
+        const Target* target=nullptr;
+        for (const auto& option : targets)
+            if (preview_audio==option.mode) target=&option;
+        bool found=false;
+        if (target) for (size_t slot=0;slot<2 && !found;++slot) {
+            const auto* source=ui.catalog.source(slot);
+            if (!source || source->image->identity()!=od::disc::Identity::disc1) continue;
+            for (const auto& row : source->rows) {
+                if (row.kind!=target->kind || row.key!=target->key ||
+                    (target->path[0] && row.path!=target->path)) continue;
+                select(ui,slot,row.id);
+                found=true;
+                break;
+            }
+        }
+        if (!found || !ui.audio_preview.active() ||
+            (preview_audio=="dialogue" && !ui.portrait_preview.has_image())) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,"audio preview load failed: %s",
+                ui.preview_error.empty() ? "requested Disc 1 audio row is unavailable"
+                                         : ui.preview_error.c_str());
+            ui.audio_preview.stop();
+            ui.portrait_preview.clear();
+            ui.still_preview.clear();
+            ui.video_preview.shutdown();
+            ui.model_preview.shutdown();
+            shell.shutdown();
+            return SDL_APP_FAILURE;
+        }
+    }
     return SDL_APP_CONTINUE;
 }
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
@@ -887,6 +1097,8 @@ void SDL_AppQuit(void* appstate, SDL_AppResult) {
         ui.model_preview.shutdown();
         ui.video_preview.shutdown();
         ui.still_preview.clear();
+        ui.audio_preview.stop();
+        ui.portrait_preview.clear();
         static_cast<od::Shell*>(appstate)->shutdown();
     }
 }

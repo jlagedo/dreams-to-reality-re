@@ -6,7 +6,8 @@ owns its asset previews and playback. Its first implemented slice previews
 DAN models from selected archive rows through a partial shared level-load
 port; HNM5/HNM6 movies now play from a selected disc row with SDL3 sound.
 Sprites, fonts and static texture pages also preview from the selected disc.
-Animation and the other viewer previews remain in progress.
+FSB effects, DRD voices with portraits/captions and CUE audio tracks now play.
+Animation and the remaining viewer previews are in progress.
 `ODRuntime` retains its foundation screen. Both use one static `ODShared` library.
 
 ## Application icons
@@ -246,8 +247,9 @@ walkers. It uses the retail stream's 68-byte peek, six-magic dispatch and
 kind/sound-selection bits. `hnm5.cpp`, `hnm6.cpp` and `video_audio.cpp` decode
 movie pixels and SD stereo PCM; `render/glide_compat.cpp` and
 `render/video_preview.cpp` present them in the ODViewer pane and queue SDL3
-audio. All 95 physical HNM5/6 files and 25,450 frames in the configured
-two-disc corpus decode to completion; HNM4 animated textures and full pixel
+audio through the shared `AudioOutput`. All 95 physical HNM5/6 files and
+25,450 frames in the configured two-disc corpus decode to completion; HNM4
+animated textures and full pixel
 parity across the corpus remain. The catalog
 classifies 115 physical video files from the original discs.
 
@@ -258,6 +260,14 @@ to sokol for the preview pane. Palette rows and index-0 transparency are
 inspectable; HNM4 animated textures remain a later slice. With Disc 2 mounted,
 `--preview-still font|icon|vga|bank|material|scene` opens repeatable image
 checks, and `ODStillPreviewTests` compares seven images with the Python oracle.
+
+`shared/port/wave.cpp` adapts the retail WAVE buffer-fill boundary to checked
+PCM, including the shipped FSB clip-12 header defect. `shared/audio/` owns one
+SDL playback channel for selected FSB effects, DRD voices and streamed CUE
+audio tracks; `DRD_GetLineDuration` and `SPR_LoadPortrait` provide timed text
+and a portrait in the viewer pane. `--preview-audio effect|effect12|dialogue|track`
+opens repeatable Disc 1 checks. `ODAudioPreviewTests` validates all 24 effects,
+178 voices, 169 portraits and a CD-DA track read against local references.
 
 ## Shared disc access (spec 002 foundation)
 

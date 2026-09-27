@@ -311,4 +311,38 @@ void TEXT_FreeFont(SpriteState& state, size_t slot) {
     state.fonts_[slot] = {};
 }
 
+bool SPR_LoadPortrait(const uint8_t* blob, size_t size,
+                      PortraitSprite& portrait, SpriteError& error) {
+    error = {};
+    portrait = {};
+    if (!blob || size < 0x200u + 0x1c09u)
+        return fail(error, SpriteErrorCode::invalid_table,
+                    "dialogue portrait lacks its palette and TABLE descriptor");
+    const size_t descriptor_at = size - 0x1c04u;
+    if (descriptor_at < 5 || std::memcmp(blob + descriptor_at - 5,"TABLE",5)!=0)
+        return fail(error, SpriteErrorCode::invalid_table,
+                    "dialogue portrait has no TABLE marker");
+    const uint8_t* descriptor = blob + descriptor_at;
+    const uint32_t width = little32(descriptor + 4);
+    const uint32_t height = little32(descriptor + 8);
+    const uint32_t offset = little32(descriptor + 24);
+    if (!width || !height || width > 4096 || height > 4096 ||
+        offset < 0x200 || offset >= descriptor_at - 5 ||
+        static_cast<uint64_t>(width)*height*2 > descriptor_at - 5 - offset)
+        return fail(error, SpriteErrorCode::invalid_table,
+                    "dialogue portrait dimensions or pixel extent are invalid");
+    portrait.width=width;
+    portrait.height=height;
+    for (size_t i=0; i<256; ++i)
+        portrait.palette_rgb555[i]=little16(blob+i*2);
+    const size_t pixels=static_cast<size_t>(width)*height;
+    portrait.indices.resize(pixels);
+    portrait.coverage.resize(pixels);
+    for (size_t i=0; i<pixels; ++i) {
+        portrait.indices[i]=blob[offset+i*2];
+        portrait.coverage[i]=blob[offset+i*2+1];
+    }
+    return true;
+}
+
 } // namespace od::port

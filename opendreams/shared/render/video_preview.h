@@ -1,6 +1,7 @@
 #pragma once
 
 #include "disc/image.h"
+#include "audio/audio_output.h"
 #include "port/video.h"
 #include "render/glide_compat.h"
 
@@ -47,8 +48,7 @@ private:
     std::unique_ptr<port::VfsContext> vfs_;
     std::unique_ptr<port::VideoState> video_;
     GlideCompat glide_;
-    SDL_AudioStream* audio_ = nullptr;
-    bool audio_subsystem_ready_ = false;
+    AudioOutput audio_;
     sg_image texture_{};
     sg_view texture_view_{};
     std::vector<uint8_t> rgba_;

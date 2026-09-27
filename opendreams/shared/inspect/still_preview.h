@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+namespace od::port { struct PortraitSprite; }
+
 namespace od::inspect {
 
 // Source-scoped decoded pixels for one selected sprite, glyph or texture.
@@ -30,5 +32,7 @@ struct StillImage {
 
 bool load_still_image(const Source& source, const Row& row,
                       StillImage& image, std::string& error);
+bool portrait_still_image(const port::PortraitSprite& portrait,
+                          StillImage& image, std::string& error);
 
 } // namespace od::inspect

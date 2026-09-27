@@ -64,6 +64,13 @@ struct FontState {
     std::array<int32_t, 256> advances{};
 };
 
+struct PortraitSprite {
+    uint32_t width = 0, height = 0;
+    std::array<uint16_t, 256> palette_rgb555{};
+    std::vector<uint8_t> indices;
+    std::vector<uint8_t> coverage;
+};
+
 struct IconLookup {
     int table_index = -1;
     int bank = -1;
@@ -124,5 +131,7 @@ const std::array<IconNameMapping, 72>& ICON_NameTable();
 bool TEXT_LoadFont(SpriteState& state, size_t slot, std::string_view path,
                    uint32_t style, SpriteError& error);
 void TEXT_FreeFont(SpriteState& state, size_t slot);
+bool SPR_LoadPortrait(const uint8_t* blob, size_t size,
+                      PortraitSprite& portrait, SpriteError& error);
 
 } // namespace od::port

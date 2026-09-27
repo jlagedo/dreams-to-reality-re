@@ -48,20 +48,7 @@ bool VideoPreview::open(std::shared_ptr<const disc::Image> image,
         return false;
     }
     if (video_->sound_variant_selected()) {
-        if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
-            error = std::string("movie audio initialization failed: ") + SDL_GetError();
-            close();
-            return false;
-        }
-        audio_subsystem_ready_ = true;
-        SDL_AudioSpec spec{};
-        spec.format = SDL_AUDIO_S16LE;
-        spec.channels = 2;
-        spec.freq = 22050;
-        audio_ = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
-                                            &spec, nullptr, nullptr);
-        if (!audio_) {
-            error = std::string("movie audio output failed: ") + SDL_GetError();
+        if (!audio_.start_pcm_stream(22050,2,16,error)) {
             close();
             return false;
         }
@@ -74,10 +61,7 @@ bool VideoPreview::open(std::shared_ptr<const disc::Image> image,
 
 void VideoPreview::close() {
     playing_ = false;
-    if (audio_) SDL_DestroyAudioStream(audio_);
-    audio_ = nullptr;
-    if (audio_subsystem_ready_) SDL_QuitSubSystem(SDL_INIT_AUDIO);
-    audio_subsystem_ready_ = false;
+    audio_.stop();
     video_.reset();
     vfs_.reset();
     image_.reset();
@@ -166,14 +150,11 @@ bool VideoPreview::single_step(std::string& error) {
         return false;
     }
     if (!step.caption.empty()) caption_ = std::move(step.caption);
-    if (audio_ && !step.pcm.empty() &&
-        !SDL_PutAudioStreamData(audio_,step.pcm.data(),
-                                static_cast<int>(step.pcm.size()*sizeof(int16_t)))) {
-        error = std::string("movie audio queue failed: ") + SDL_GetError();
+    if (audio_.active() && !step.pcm.empty() &&
+        !audio_.queue_pcm(step.pcm.data(),step.pcm.size()*sizeof(int16_t),error)) {
         close();
         return false;
     }
-    if (audio_ && playing_) SDL_ResumeAudioStreamDevice(audio_);
     if (step.ended) playing_ = false;
     return true;
 }
@@ -197,10 +178,7 @@ bool VideoPreview::restart(std::string& error) {
 void VideoPreview::set_playing(bool value) {
     playing_ = value && video_ && !video_->ended();
     if (playing_) next_tick_ns_ = SDL_GetTicksNS() + 1000000000ull/15ull;
-    if (audio_) {
-        if (playing_) SDL_ResumeAudioStreamDevice(audio_);
-        else SDL_PauseAudioStreamDevice(audio_);
-    }
+    if (audio_.active()) audio_.set_paused(!playing_);
 }
 
 } // namespace od

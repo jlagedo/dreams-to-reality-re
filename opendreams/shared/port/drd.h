@@ -55,6 +55,7 @@ public:
     uint64_t entry_size(size_t index) const;
     DrdBytes wave() const;
     const std::vector<DrdLine>& lines() const { return lines_; }
+    uint32_t entry_duration_ticks() const { return entry_duration_ticks_; }
     std::string_view line_text(size_t index) const;
     std::string_view path() const { return path_; }
 
@@ -70,6 +71,7 @@ private:
     size_t wave_size_ = 0;
     size_t portrait_offset_ = 0;
     size_t portrait_size_ = 0;
+    uint32_t entry_duration_ticks_ = 0;
     std::string path_;
     int current_index_ = -1;
     bool open_ = false;
@@ -77,13 +79,18 @@ private:
     friend bool DRD_Open(DrdBank&, std::string_view, DrdError&);
     friend bool DRD_LoadEntry(DrdBank&, size_t, DrdError&);
     friend size_t DRD_GetLineCount(const DrdBank&);
+    friend uint32_t DRD_GetEntryDuration(const DrdBank&);
+    friend uint32_t DRD_GetLineDuration(const DrdBank&, size_t);
     friend DrdBytes DRD_GetPortrait(const DrdBank&);
     friend void DRD_Close(DrdBank&);
 };
 
 bool DRD_Open(DrdBank& bank, std::string_view relative_path, DrdError& error);
 bool DRD_LoadEntry(DrdBank& bank, size_t index, DrdError& error);
+bool DRD_SelectEntry(DrdBank& bank, size_t index, DrdError& error);
 size_t DRD_GetLineCount(const DrdBank& bank);
+uint32_t DRD_GetEntryDuration(const DrdBank& bank);
+uint32_t DRD_GetLineDuration(const DrdBank& bank, size_t index);
 DrdBytes DRD_GetPortrait(const DrdBank& bank);
 void DRD_Close(DrdBank& bank);
 

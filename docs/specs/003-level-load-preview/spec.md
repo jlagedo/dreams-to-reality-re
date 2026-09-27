@@ -1,6 +1,6 @@
 # 003 — ODViewer asset previews and playback
 
-Status: **CAI model, HNM5/HNM6 movie, and static image slices implemented; expanded viewer scope in progress**
+Status: **CAI model, movie, static image, and audio/dialogue viewer slices implemented; expanded viewer scope in progress**
 
 Date: 2026-09-27
 
@@ -35,7 +35,7 @@ are validated in their own runtime milestones.
 | Sprites, fonts and static textures | Display indexed pixels, palette rows and transparency from shared decoded data. | Selected sprite slots, font glyphs, VGA sheets, standalone/DAN material banks and assembled DSN object textures render in ODViewer with a palette swatch and transparency control. Animated materials and exact dynamic sprite composition remain. |
 | Animated textures | Decode and show HNM4/HNS4 frame sequences; reuse the GPU material update path when a scene binds them. | Header classification exists; frame decode remains. |
 | Movies | Decode HNM5 (`UBB2`/`UBS2`) and HNM6 (`HNM6`/`HNS6`) from the selected disc; play, pause, step, restart and show captions. | HNM5/HNM6 playback, SD audio and ST captions are wired in ODViewer; all 95 physical HNM5/6 files decode to the end. Seek, audio-clock scheduling, full corpus pixel parity and HNM4 remain. |
-| Sound and dialogue | Play the selected supported sample or dialogue with shared audio output; movie `SD` sound stays synchronized with video. | Movie SD audio uses SDL3; standalone sample/dialogue playback and audio-clock scheduling remain. |
+| Sound and dialogue | Play the selected supported sample or dialogue with shared audio output; movie `SD` sound stays synchronized with video. | FSB effects, DRD voices with timed captions/portraits, and selected CUE audio tracks play in ODViewer through SDL3. Retail spatial voice mixing, exact caption fades, hardware listening checks and movie audio-clock scheduling remain. |
 
 Each row is a slice of Spec 003, not a separate proposal/spec. The completed
 CAI slice stays available while later slices are added. A selected asset whose
@@ -249,9 +249,10 @@ real Disc 1 `INTRO.HNM`, an `UBS2` sound movie and an HNM4 texture.
   material readers into an indexed-pixel preview with the selected palette,
   transparency and source metadata. HNM4 frames can feed the same texture
   upload path when the material is animated.
-- **Audio and dialogue:** selected supported FSB samples, voice/dialogue and
-  disc audio tracks play through an SDL3 service with stop/pause and source
-  lifetime. Dialogue timed text/portrait remains tied to its selected entry.
+- **Audio and dialogue:** the implemented viewer service plays selected FSB
+  samples, DRD voice with its own timed text/portrait and disc audio tracks
+  through SDL3. Runtime spatial mixing, retail text fading and movie audio-clock
+  scheduling remain separate work.
 
 The viewer controls and diagnostics are new UI code. Their data and behavior
 come from shared ports wherever retail has a counterpart. Each slice should
@@ -370,7 +371,8 @@ original-binary or external-tool dependency.
 `render/glide_compat.cpp` implements the five movie-reachable Glide operations
 on a 640×480 RGB565 staging surface. `render/video_preview.cpp` copies the
 retail 3dfx 640×300 picture at row 90, freezes the frame on swap, uploads one
-RGBA8 sokol image per Shell frame, and queues 22050 Hz stereo PCM through SDL3.
+RGBA8 sokol image per Shell frame, and queues 22050 Hz stereo PCM through the
+shared SDL `AudioOutput` service.
 ODViewer selects the physical row and disc, offers play/pause/step/restart,
 shows `ST` text within the pane and closes source, audio and GPU state on a
 selection or mount change. `--cue2 <path> --preview-movie` selects Disc 2's
@@ -419,6 +421,37 @@ the malformed HI320 glyph 37 stays an explicit error. All six image types
 also pass ODViewer GPU startup smokes. HNM4 animated textures, scene palette
 lighting updates, a shared runtime/viewer render target and whole-bank visual
 galleries remain separate slices.
+
+## Sound and dialogue implementation record — 2026-09-27
+
+`FSB_Load`/`FSB_GetSample`, `DRD_Open`/`DRD_SelectEntry`/`DRD_GetPortrait`
+remain the source-scoped retail entry points. `DSOUND_LoadWav` now validates
+their RIFF chunks and supplies PCM to the SDL output service. The known FSB
+clip-12 IEEE-float/16-bit header error is interpreted as PCM, as retail's
+44-byte-skip playback path does. `DSOUND_PlaySound`, `DSOUND_PlayVoice`,
+`DRD_PlayVoice`/`DRD_StopVoice`, and `CD_PlayTrack`/`CD_StopAudio` are portable
+viewer adaptations with their remaining runtime behaviors recorded in the
+port map. `DRD_LoadEntry` now captures the original 15 Hz WAVE duration, and
+`DRD_GetLineDuration` uses the recovered differences between caption starts.
+`SPR_LoadPortrait` reads the selected entry's TABLE palette, descriptor and
+two-byte indexed texels; the existing still-image GPU path shows it beside
+the voice transcript.
+
+The `AudioOutput` service plays FSB and DRD PCM in their source format,
+accepts movie SD PCM, and streams raw 44.1 kHz stereo CD-DA from a bounded
+INDEX 01 range of the selected CUE track. ODViewer offers play/pause, stop,
+restart, progress,
+effect waveforms and the selected dialogue's timed text. Replacing or
+unmounting a source closes the SDL stream and releases the source snapshot.
+
+The two-disc source remains distinct. A Disc 1 corpus check parses all 24 FSB
+clips, 178 DRD voices and 169 portraits. The first effect PCM, first voice
+PCM, portrait RGBA, 15 Hz entry duration and distinct non-silent CD track 2
+sectors from both discs match the independent Python/backing-file oracle; the known malformed WAVE
+and truncated portrait fail bounded checks. SDL dummy-device and native
+viewer startup checks cover effect, repaired effect, dialogue and track
+selection. Physical-speaker listening, exact DirectSound voice allocation,
+positional pan/volume and retail caption fade presentation are not claimed.
 
 This spec does not require a serialized synthetic `.DSN`, ODRuntime gameplay,
 or original retail menu flow in ODViewer. Full level and media preview are

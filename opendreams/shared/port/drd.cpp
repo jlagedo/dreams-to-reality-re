@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <cmath>
+#include <limits>
 #include <utility>
 
 namespace od::port {
@@ -73,6 +75,7 @@ void DRD_Close(DrdBank& bank) {
     bank.lines_.clear();
     bank.wave_offset_ = bank.wave_size_ = 0;
     bank.portrait_offset_ = bank.portrait_size_ = 0;
+    bank.entry_duration_ticks_ = 0;
     bank.path_.clear();
     bank.current_index_ = -1;
     bank.open_ = false;
@@ -164,6 +167,7 @@ bool DRD_LoadEntry(DrdBank& bank, size_t index, DrdError& error) {
     bank.current_index_ = -1;
     bank.lines_.clear();
     bank.wave_size_ = bank.portrait_size_ = 0;
+    bank.entry_duration_ticks_ = 0;
     VfsError source;
     uint64_t position = 0;
     if (!VFS_Seek(*bank.vfs_, bank.handle_, bank.offsets_[index], 0,
@@ -196,6 +200,23 @@ bool DRD_LoadEntry(DrdBank& bank, size_t index, DrdError& error) {
                     "DRDF RIFF length exceeds its WAVE block");
     bank.wave_offset_ = 5;
     bank.wave_size_ = static_cast<size_t>(riff_size);
+    const uint8_t* wave = bytes + bank.wave_offset_;
+    if (riff_size < 44 || std::memcmp(wave+12,"fmt ",4)!=0 ||
+        std::memcmp(wave+36,"data",4)!=0)
+        return fail(error, DrdErrorCode::invalid_entry,
+                    "DRDF voice lacks the retail 44-byte WAVE layout");
+    const uint32_t byte_rate = little32(wave+28);
+    const uint16_t block_align = static_cast<uint16_t>(wave[32] | (wave[33]<<8));
+    const uint32_t data_bytes = little32(wave+40);
+    if (!byte_rate || !block_align || data_bytes > riff_size-44)
+        return fail(error, DrdErrorCode::invalid_entry,
+                    "DRDF voice duration fields exceed its WAVE block");
+    const double entry_ticks = static_cast<double>(data_bytes) * 15.0 /
+        (static_cast<double>(byte_rate) * block_align);
+    if (entry_ticks > std::numeric_limits<uint32_t>::max())
+        return fail(error, DrdErrorCode::invalid_entry,
+                    "DRDF voice duration exceeds the retail counter");
+    bank.entry_duration_ticks_ = static_cast<uint32_t>(std::nearbyint(entry_ticks));
     const size_t text_at = wave_block;
     if (bytes[text_at] != 3)
         return fail(error, DrdErrorCode::invalid_entry,
@@ -244,6 +265,22 @@ bool DRD_LoadEntry(DrdBank& bank, size_t index, DrdError& error) {
 
 size_t DRD_GetLineCount(const DrdBank& bank) {
     return bank.current_index_ >= 0 ? bank.lines_.size() : 0;
+}
+
+bool DRD_SelectEntry(DrdBank& bank, size_t index, DrdError& error) {
+    return DRD_LoadEntry(bank,index,error);
+}
+
+uint32_t DRD_GetEntryDuration(const DrdBank& bank) {
+    return bank.current_index_ >= 0 ? bank.entry_duration_ticks_ : 0;
+}
+
+uint32_t DRD_GetLineDuration(const DrdBank& bank, size_t index) {
+    if (bank.current_index_ < 0 || index >= bank.lines_.size()) return 0;
+    const uint32_t start = bank.lines_[index].ticks_15hz;
+    const uint32_t end = index+1 < bank.lines_.size()
+        ? bank.lines_[index+1].ticks_15hz : DRD_GetEntryDuration(bank);
+    return end >= start ? end-start : 0;
 }
 
 DrdBytes DRD_GetPortrait(const DrdBank& bank) {

@@ -91,6 +91,11 @@ public:
     // An exact bounded read. A zero-byte read at EOF succeeds. On an I/O error,
     // bytes copied before the failed sector may already be in the buffer.
     bool read_at(FileId file, uint64_t offset, void* buffer, size_t length, Error& error) const;
+    // Byte range of one CUE audio track's INDEX 01 program area. The image
+    // identity chooses the backing file; a shared BIN stops at the next track.
+    bool audio_track_size(unsigned number, uint64_t& size, Error& error) const;
+    bool read_audio_track_at(unsigned number, uint64_t offset, void* buffer,
+                             size_t length, Error& error) const;
 
 private:
     struct Impl;

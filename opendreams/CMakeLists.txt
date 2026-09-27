@@ -100,6 +100,10 @@ add_library(ODShared STATIC
     shared/port/hnm6.cpp
     shared/port/hnm5.cpp
     shared/port/video_audio.cpp
+    shared/port/wave.cpp
+    shared/port/sound.cpp
+    shared/audio/audio_output.cpp
+    shared/audio/audio_preview.cpp
     shared/shell.cpp
     shared/render/background.cpp
     shared/render/glide_compat.cpp
@@ -185,6 +189,13 @@ if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
 endif()
 
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
+    add_executable(ODAudioPreviewTests tests/audio_preview_tests.cpp)
+    target_link_libraries(ODAudioPreviewTests PRIVATE ODShared)
+    od_project_options(ODAudioPreviewTests)
+    add_test(NAME ODAudioPreview COMMAND ODAudioPreviewTests)
+    set_tests_properties(ODAudioPreview PROPERTIES LABELS "audio;corpus" TIMEOUT 60
+        SKIP_RETURN_CODE 77 ENVIRONMENT "SDL_AUDIODRIVER=dummy")
+
     add_executable(ODStillPreviewTests tests/still_preview_tests.cpp)
     target_link_libraries(ODStillPreviewTests PRIVATE ODShared)
     od_project_options(ODStillPreviewTests)
