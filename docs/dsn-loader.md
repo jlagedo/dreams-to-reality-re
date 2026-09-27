@@ -92,8 +92,12 @@ they travel in EDX — and they are what pins the body offset:
 int DSN_LoadHeader(void)
 {
     __CHK(frame);                           // FUN_00454feb — stack probe
-    /* ... open + path/string build ... */
+    DSN_ResetState();
+    MEM_ResetStack(g_scratch_stack);         // top = base
     if (!open(g_file, path)) return 0;      // STRM_Open
+    fill(g_file);                            // STRM_Fill
+    derive_path(g_3dc_path, path, ".3DC");
+    derive_path(g_3di_path, path, ".3DI");
 
     hdr = peek(g_file, 9);                  // magic + u8 + u32 size
     if (!hdr) return 0;
@@ -145,7 +149,14 @@ Note also that **`A` is never read.** The loader derives everything from `B`, so
 | `_DAT_005df494` | `u32` from header offset 5 — the file size |
 | `_DAT_005df498` | `u16` — the object/name count |
 | `_DAT_005df49c` | set to 1 on success — "scene header loaded" |
-| `0x5dfa84` | written by a string op before the read — likely the path buffer |
+| `0x5df980` | input `.DSN` path with its final four bytes replaced by `.3DC` after the stream opens |
+| `0x5dfa84` | input `.DSN` path with its final four bytes replaced by `.3DI` after the stream opens |
+
+The instructions at `0x0041761e`–`0x0041766b` establish both paths: `strcpy_`
+copies the input, then another `strcpy_` writes the extension at
+`base + strlen(input) - 4`. The literals are `.3DC` at `0x004c4214` and
+`.3DI` at `0x004c4219`. `.3DM` is a separate resource produced in memory by
+`DSN_Create3DM`; it is not one of these two derived paths.
 
 Cross-reference [file-formats.md](file-formats.md): we measured `name_count` as
 26 / 25 / 29 on three scenes and confirmed the name table holds exactly that

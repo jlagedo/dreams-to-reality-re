@@ -15,7 +15,7 @@ remaining work. On this audit: 28 `complete`, 7 `partial`, and 15
 |---|---|
 | `VFS_Open` | Writable/install-source modes. |
 | `BF_Mount` | The retail requested-path existence check, literal `Z:\` fallback, and per-member path flag. |
-| `DSN_LoadHeader` | MEM stack reset and derived `.3DI`/`.3DM` path state. |
+| `DSN_LoadHeader` | MEM stack reset and derived `.3DC`/`.3DI` path state. |
 | `DAN_ReadAnimChunks` | The `DAN_Read3DC` / `DAN_ReadTextureChunks` call sequence and its `LZ_Unpack` dependency before type-3 reads. |
 | `DRD_LoadEntry` | The WAVE length/duration global and remaining entry side effects. |
 | `VID_Open` | Codec initializers and sound setup beneath the six-magic dispatch. |

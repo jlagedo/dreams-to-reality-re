@@ -26,6 +26,10 @@ peeks and commits 9, 5 and 2 header bytes followed by `B * 11` name bytes and
 offset 5, takes `B` from the `u16` at offset 14 and leaves the stream at body
 offset `16 + 31B`. The five `u32` words per object are copied from the retail
 record bytes; their semantic labels remain a separate research question.
+Before opening, retail calls `MEM_ResetStack` on its shared scratch arena. Once
+the stream opens, it also derives `.3DC` and `.3DI` paths from the input `.DSN`
+path by replacing the final four bytes. These side effects are not yet in the
+portable `DsnState`; `.3DM` is synthesized by a separate resource loader.
 
 ## Portable boundary
 
