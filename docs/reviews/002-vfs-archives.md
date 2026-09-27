@@ -38,6 +38,14 @@ BF_Mount has one direct caller in the analyzed call graph: UI_InitIcons
 their contents. That caller does not enumerate arbitrary members. The recovered
 VFS is therefore an icon-bank loading path, not a general asset browser.
 
+Before opening the archive, BF_Mount calls `FILE_Exists` on the requested path.
+If it exists, the function opens that path and sets its path-selection flag to
+zero. Otherwise it prefixes the literal `Z:\` (bytes at `0x004c550d`), opens
+that alternate path, and sets the flag to one. This is a fixed drive-root
+fallback, not the install-root getter. The flag is copied into each runtime
+member row at `+0x114`; no use of that field has been confirmed in the VFS
+open/read/seek path.
+
 ## Container and runtime table
 
 BF_Mount reads a 16-byte header, checks only the four-byte UBIK magic, seeks to

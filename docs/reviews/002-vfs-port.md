@@ -31,8 +31,10 @@ unsupported write modes and missing files return errors instead of invoking
 the retail fatal-error path. BF table and payload ranges are checked before
 registration. The empty-member seek underflow is mapped to position zero.
 
-`BF_Mount` takes an explicit disc path instead of the original OS alternate-root
-search and closes its temporary positive VFS handle after parsing. Members
+`BF_Mount` takes an explicit disc path instead of the original `FILE_Exists`
+check and literal `Z:\` fallback, and closes its temporary positive VFS handle
+after parsing. The original per-member path-selection flag at `+0x114` is not
+represented. Members
 retain the owning ISO file ID, so no leaked backing descriptor is needed.
 The returned row snapshot retains physical row indices even if the retail
 lookup table replaces a duplicate name. A separate context is needed for each
