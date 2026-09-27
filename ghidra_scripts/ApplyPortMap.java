@@ -28,13 +28,15 @@ import ghidra.program.model.listing.Listing;
 public class ApplyPortMap extends GhidraScript {
 
     private static final String HEADER = "program\taddress\tchecked_name\tsource_block\t"
-        + "cpp_file\tcpp_symbol\tstatus\tevidence\tadaptation";
+        + "cpp_file\tcpp_symbol\tstatus\tevidence\tadaptation\tcoverage\tremaining_work";
 
     private static class Row {
         Function function;
         String cppFile;
         String cppSymbol;
         String status;
+        String coverage;
+        String remainingWork;
     }
 
     private String repoRoot() {
@@ -83,9 +85,9 @@ public class ApplyPortMap extends GhidraScript {
                 continue;
             }
             String[] f = line.split("\t", -1);
-            if (f.length != 9) {
+            if (f.length != 11) {
                 throw new IllegalArgumentException("port map line " + (i + 1) + " has "
-                    + f.length + " columns, expected 9");
+                    + f.length + " columns, expected 11");
             }
             if (!f[0].equalsIgnoreCase(currentProgram.getName())) {
                 continue;
@@ -105,11 +107,22 @@ public class ApplyPortMap extends GhidraScript {
             if (!f[6].equals("omitted") && (f[4].isEmpty() || f[5].isEmpty())) {
                 throw new IllegalArgumentException("missing C++ location on line " + (i + 1));
             }
+            if (!Set.of("complete", "partial", "unverified", "none").contains(f[9]) ||
+                (f[6].equals("omitted") != f[9].equals("none"))) {
+                throw new IllegalArgumentException("invalid coverage on port map line " + (i + 1));
+            }
+            if ((f[9].equals("complete") && !f[10].equals("-")) ||
+                (!f[9].equals("complete") && (f[10].isBlank() || f[10].equals("-")))) {
+                throw new IllegalArgumentException("remaining_work disagrees with coverage on line "
+                    + (i + 1));
+            }
             Row row = new Row();
             row.function = function;
             row.cppFile = f[4];
             row.cppSymbol = f[5];
             row.status = f[6];
+            row.coverage = f[9];
+            row.remainingWork = f[10];
             rows.add(row);
         }
         return rows;
@@ -126,7 +139,7 @@ public class ApplyPortMap extends GhidraScript {
             if (monitor.isCancelled()) {
                 throw new InterruptedException("port map update cancelled");
             }
-            for (FunctionTag tag : fn.getTags()) {
+            for (FunctionTag tag : new ArrayList<>(fn.getTags())) {
                 if (tag.getName().startsWith("PORT:")) {
                     fn.removeTag(tag.getName());
                     cleared++;
@@ -143,10 +156,13 @@ public class ApplyPortMap extends GhidraScript {
         }
         for (Row row : rows) {
             row.function.addTag("PORT:" + row.status);
-            String block = "[PORT_MAP] " + row.status;
+            row.function.addTag("PORT:" + row.coverage);
+            if (!row.coverage.equals("complete")) row.function.addTag("PORT:needs-work");
+            String block = "[PORT_MAP] " + row.status + " | " + row.coverage;
             if (!row.status.equals("omitted")) {
                 block += "\n" + row.cppFile + " :: " + row.cppSymbol;
             }
+            if (!row.remainingWork.equals("-")) block += "\nRemaining: " + row.remainingWork;
             Address address = row.function.getEntryPoint();
             String previous = listing.getComment(CodeUnit.PLATE_COMMENT, address);
             listing.setComment(address, CodeUnit.PLATE_COMMENT,

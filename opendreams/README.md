@@ -125,6 +125,9 @@ is read-only, validates archive extents and reports recoverable errors.
 `port-map.tsv` records both Windows binaries' source addresses and C++ symbols;
 `ghidra_scripts/ApplyPortMap.java` generates Function Tags and implementation
 location plate comments in Ghidra.
+Run `uv run python tools/check_port_map.py` from the repository root to check
+the distinct `complete`, `partial` and `unverified` behavior coverage labels;
+`adapted` alone does not mean the original call closure is finished.
 
 `shared/port/ddat.cpp` now ports `DDAT_Load`, `DDAT_LoadRecord`,
 `DDAT_InitEmptyRecords` and `RLE_UnpackZeros`. The bank reads `DREAMS.DAT`
