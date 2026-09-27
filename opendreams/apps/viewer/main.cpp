@@ -1,9 +1,11 @@
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL_main.h>
 #include "inspect/catalog.h"
+#include "inspect/still_preview.h"
 #include "inspect/viewer_prefs.h"
 #include "port/scene.h"
 #include "render/model_preview.h"
+#include "render/still_preview.h"
 #include "render/video_preview.h"
 #include "shell.h"
 #include <imgui.h>
@@ -41,6 +43,11 @@ struct ViewerUi {
     std::unique_ptr<od::port::PreviewLevelContext> preview_level;
     od::ModelPreview model_preview;
     od::VideoPreview video_preview;
+    od::inspect::StillImage still_image;
+    od::StillPreview still_preview;
+    size_t still_row = SIZE_MAX;
+    uint32_t palette_row = 0;
+    bool transparent_zero = false;
     std::string preview_error;
     od::inspect::ViewerPrefs preferences;
     std::string preferences_file, preferences_error;
@@ -76,6 +83,9 @@ const od::inspect::Row* selection(const ViewerUi& state) {
 void clear_preview(ViewerUi& state) {
     state.model_preview.clear_model();
     state.video_preview.close();
+    state.still_preview.clear();
+    state.still_image = {};
+    state.still_row = SIZE_MAX;
     state.preview_level.reset();
     state.preview_error.clear();
 }
@@ -88,6 +98,40 @@ void load_selected_preview(ViewerUi& state) {
     if (row->kind == "HNM6/HNS6 movie" || row->kind == "UBB2/UBS2 movie" ||
         row->kind == "HNM4 animated texture") {
         state.video_preview.open(source->image,row->path,state.preview_error);
+        return;
+    }
+    const bool image_parent = row->kind == "Font" || row->kind == "Sprite set" ||
+        row->kind == "Icon bank" || row->kind == "VGA sprite sheet";
+    const bool image_leaf = row->kind == "Sprite slot" || row->kind == "Font glyph" ||
+        row->kind == "VGA sprite" || row->kind == "Material texture" ||
+        row->kind == "Scene texture" || row->kind == "Texture bank" ||
+        row->kind == "Palette tag" || row->kind == "Texture tile tag";
+    if (image_parent || image_leaf) {
+        const od::inspect::Row* display = row;
+        if (image_parent) {
+            size_t first = SIZE_MAX;
+            for (size_t child : source->children[row->id]) {
+                const auto& candidate = source->rows[child];
+                if (candidate.status != od::inspect::Status::available) continue;
+                if (first == SIZE_MAX) first = child;
+                if (row->kind == "Font" && candidate.key == "slot:65") {
+                    first = child;
+                    break;
+                }
+            }
+            if (first == SIZE_MAX) {
+                state.preview_error = "selected image set has no renderable slot";
+                return;
+            }
+            display = &source->rows[first];
+        }
+        state.still_row = display->id;
+        if (!od::inspect::load_still_image(*source,*display,state.still_image,
+                                           state.preview_error)) return;
+        state.palette_row = state.still_image.default_row;
+        state.transparent_zero = state.still_image.transparent_zero;
+        state.still_preview.load(state.still_image,state.palette_row,
+                                 state.transparent_zero,state.preview_error);
         return;
     }
     auto preview = std::make_unique<od::port::PreviewLevelContext>(source->image);
@@ -430,10 +474,91 @@ void details_pane(ViewerUi& state) {
     }
 }
 
+void still_preview_pane(ViewerUi& state, const od::inspect::Source& source) {
+    if (state.still_row >= source.rows.size()) return;
+    const auto& shown = source.rows[state.still_row];
+    ImGui::Text("%s  |  %u x %u", shown.name.c_str(),
+                state.still_image.width,state.still_image.height);
+    if (shown.parent != SIZE_MAX && shown.parent < source.children.size()) {
+        std::vector<size_t> siblings;
+        for (size_t child : source.children[shown.parent]) {
+            const auto& candidate = source.rows[child];
+            if (candidate.kind == shown.kind &&
+                candidate.status == od::inspect::Status::available)
+                siblings.push_back(child);
+        }
+        if (siblings.size() > 1) {
+            const auto at = std::find(siblings.begin(),siblings.end(),state.still_row);
+            const size_t position = static_cast<size_t>(at-siblings.begin());
+            if (ImGui::Button("Previous") && position < siblings.size()) {
+                select(state,state.selected_slot,siblings[(position+siblings.size()-1)%siblings.size()]);
+                return;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Next") && position < siblings.size()) {
+                select(state,state.selected_slot,siblings[(position+1)%siblings.size()]);
+                return;
+            }
+            ImGui::SameLine();
+            ImGui::Text("%zu / %zu",position+1,siblings.size());
+        }
+    }
+    bool changed = false;
+    if (state.still_image.palette_rows() > 1) {
+        int row = static_cast<int>(state.palette_row);
+        if (ImGui::SliderInt("Palette row",&row,0,
+                              static_cast<int>(state.still_image.palette_rows()-1))) {
+            state.palette_row = static_cast<uint32_t>(row);
+            changed = true;
+        }
+    }
+    if (ImGui::Checkbox("Index 0 transparent",&state.transparent_zero)) changed = true;
+    if (changed && !state.still_preview.load(state.still_image,state.palette_row,
+                                               state.transparent_zero,state.preview_error)) {
+        ImGui::TextWrapped("%s",state.preview_error.c_str());
+        return;
+    }
+    ImGui::TextWrapped("%s",state.still_image.note.c_str());
+    if (!state.still_preview.has_image()) {
+        ImGui::TextWrapped("%s",state.preview_error.c_str());
+        return;
+    }
+    const ImVec2 available = ImGui::GetContentRegionAvail();
+    if (available.x < 50 || available.y < 30) return;
+    const float palette_side = std::min(150.0f,std::max(64.0f,available.x*0.25f));
+    const float picture_space = std::max(1.0f,available.x-palette_side-12.0f);
+    const float scale = std::min({8.0f,picture_space/state.still_image.width,
+                                  available.y/state.still_image.height});
+    if (scale <= 0) return;
+    const ImVec2 picture(state.still_image.width*scale,state.still_image.height*scale);
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    draw->PushClipRect(origin,ImVec2(origin.x+picture.x,origin.y+picture.y),true);
+    for (int y=0; y<static_cast<int>(picture.y); y+=16)
+        for (int x=0; x<static_cast<int>(picture.x); x+=16)
+            draw->AddRectFilled(ImVec2(origin.x+x,origin.y+y),
+                ImVec2(origin.x+x+16,origin.y+y+16),
+                ((x+y)/16)&1 ? IM_COL32(54,60,68,255) : IM_COL32(31,36,43,255));
+    draw->PopClipRect();
+    ImGui::Image(simgui_imtextureid(state.still_preview.image_view()),picture);
+    ImGui::SameLine();
+    ImGui::BeginGroup();
+    ImGui::TextUnformatted("Source palette");
+    ImGui::Image(simgui_imtextureid(state.still_preview.palette_view()),
+                 ImVec2(palette_side,palette_side));
+    ImGui::Text("Row %u",state.palette_row);
+    ImGui::EndGroup();
+}
+
 void preview_pane(ViewerUi& state) {
     ImGui::TextUnformatted("Preview");
     ImGui::Separator();
     const auto* row = selection(state);
+    if (state.still_preview.has_image()) {
+        const auto* source = state.catalog.source(state.selected_slot);
+        if (source) still_preview_pane(state,*source);
+        return;
+    }
     if (state.video_preview.has_video()) {
         std::string playback_error;
         if (!state.video_preview.tick(playback_error)) state.preview_error = playback_error;
@@ -584,7 +709,7 @@ void draw_ui(void* user) {
 
 bool parse_args(int argc, char** argv, int& frames,
                 std::array<const char*, 2>& cues, bool& preview_cai,
-                bool& preview_movie) {
+                bool& preview_movie, std::string& preview_still) {
     for (int i = 1; i < argc;) {
         if (std::strcmp(argv[i], "--preview-cai") == 0) {
             preview_cai = true;
@@ -594,6 +719,12 @@ bool parse_args(int argc, char** argv, int& frames,
         if (std::strcmp(argv[i], "--preview-movie") == 0) {
             preview_movie = true;
             ++i;
+            continue;
+        }
+        if (std::strcmp(argv[i], "--preview-still") == 0) {
+            if (i+1>=argc) return false;
+            preview_still=argv[i+1];
+            i+=2;
             continue;
         }
         if (i + 1 >= argc) return false;
@@ -617,9 +748,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
     std::array<const char*, 2> cues{};
     bool preview_cai = false;
     bool preview_movie = false;
-    if (!parse_args(argc, argv, frames, cues, preview_cai, preview_movie)) {
+    std::string preview_still;
+    if (!parse_args(argc, argv, frames, cues, preview_cai, preview_movie,
+                    preview_still)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-movie]");
+                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-movie] [--preview-still font|icon|vga|bank|material|scene]");
         return SDL_APP_FAILURE;
     }
     if (!shell.init({"ODViewer", draw_ui, &ui, frames, 18.0f, 1.2f,
@@ -671,6 +804,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
                                                   : ui.preview_error.c_str());
             ui.model_preview.shutdown();
             ui.video_preview.shutdown();
+            ui.still_preview.clear();
             shell.shutdown();
             return SDL_APP_FAILURE;
         }
@@ -696,6 +830,46 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
                                                   : ui.preview_error.c_str());
             ui.video_preview.shutdown();
             ui.model_preview.shutdown();
+            ui.still_preview.clear();
+            shell.shutdown();
+            return SDL_APP_FAILURE;
+        }
+    }
+    if (!preview_still.empty()) {
+        ui.catalog.tick(10000);
+        struct Target { const char* mode; const char* kind; const char* path; const char* key; };
+        constexpr Target targets[] = {
+            {"font","Font glyph","DATA/FONT/HI640.SPR","slot:65"},
+            {"icon","Sprite slot","DATA/ICONE/ICONES.BF","slot:0"},
+            {"vga","VGA sprite","DATA/OBJET/ALPHABET.SPR","slot:2"},
+            {"bank","Texture bank","DATA/3DC/ESSAI.3DM",""},
+            {"material","Material texture","DATA/3DC/CAI.DAN","material:0"},
+            {"scene","Scene texture","DATA/3DC/E29USINE.DSN","texture:0"},
+        };
+        const Target* target=nullptr;
+        for (const auto& option : targets)
+            if (preview_still==option.mode) target=&option;
+        bool found=false;
+        if (target) for (size_t slot=0; slot<2 && !found; ++slot) {
+            const auto* source=ui.catalog.source(slot);
+            if (!source || source->image->identity()!=od::disc::Identity::disc2) continue;
+            for (const auto& row : source->rows) {
+                if (row.kind!=target->kind || row.path!=target->path ||
+                    (!std::string_view(target->key).empty() && row.key!=target->key)) continue;
+                if (preview_still=="icon" && (row.parent==SIZE_MAX ||
+                    source->rows[row.parent].name!="MAGIE.ALP")) continue;
+                select(ui,slot,row.id);
+                found=true;
+                break;
+            }
+        }
+        if (!found || !ui.still_preview.has_image()) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,"still preview load failed: %s",
+                ui.preview_error.empty() ? "requested Disc 2 image row is unavailable"
+                                         : ui.preview_error.c_str());
+            ui.still_preview.clear();
+            ui.video_preview.shutdown();
+            ui.model_preview.shutdown();
             shell.shutdown();
             return SDL_APP_FAILURE;
         }
@@ -712,6 +886,7 @@ void SDL_AppQuit(void* appstate, SDL_AppResult) {
     if (appstate) {
         ui.model_preview.shutdown();
         ui.video_preview.shutdown();
+        ui.still_preview.clear();
         static_cast<od::Shell*>(appstate)->shutdown();
     }
 }

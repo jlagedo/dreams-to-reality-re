@@ -1,8 +1,10 @@
 #include "port/resource.h"
 
 #include "port/dan.h"
+#include "port/vfs.h"
 
 #include <algorithm>
+#include <array>
 #include <utility>
 
 namespace od::port {
@@ -21,6 +23,45 @@ bool fail(std::string& error, const char* message) {
 }
 
 } // namespace
+
+bool RES_ReadFile(VfsContext& vfs, std::string_view physical_path,
+                  std::vector<uint8_t>& bytes, std::string& error) {
+    error.clear();
+    bytes.clear();
+    VfsError source;
+    int32_t handle = 0;
+    if (!VFS_Open(vfs,physical_path,0x200,handle,source)) {
+        error = source.message;
+        return false;
+    }
+    const auto close = [&]() {
+        VfsError ignored;
+        VFS_Close(vfs,handle,ignored);
+    };
+    uint64_t size = 0;
+    if (!VFS_GetSize(vfs,handle,size,source)) {
+        error=source.message; close(); return false;
+    }
+    if (size<8 || size>64u*1024u*1024u) {
+        error="physical resource is outside the supported retail read size";
+        close(); return false;
+    }
+    std::array<uint8_t,8> header{};
+    size_t read=0;
+    if (!VFS_Read(vfs,handle,header.data(),header.size(),read,source) ||
+        read!=header.size()) {
+        error=source ? source.message : "physical resource has no complete 8-byte header";
+        close(); return false;
+    }
+    bytes.resize(static_cast<size_t>(size-8));
+    if (!VFS_Read(vfs,handle,bytes.data(),bytes.size(),read,source) ||
+        read!=bytes.size()) {
+        error=source ? source.message : "physical resource body is truncated";
+        bytes.clear(); close(); return false;
+    }
+    close();
+    return true;
+}
 
 bool RES_ReadFile(DanArchive& archive, std::string_view logical_name,
                   std::vector<uint8_t>& bytes, std::string& error) {

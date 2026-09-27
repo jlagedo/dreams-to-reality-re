@@ -1,6 +1,6 @@
 # 003 — ODViewer asset previews and playback
 
-Status: **CAI model and HNM5/HNM6 movie slices implemented; expanded viewer scope in progress**
+Status: **CAI model, HNM5/HNM6 movie, and static image slices implemented; expanded viewer scope in progress**
 
 Date: 2026-09-27
 
@@ -32,7 +32,7 @@ are validated in their own runtime milestones.
 | DAN model and project-object preview | Load the selected archive/object through shared resource and scene paths; render its materials and face modes. | CAI/Project 71 proof implemented; the current preview handles one material and face types 2/3. |
 | Model animation | Select and play the bound DAN animation clips on the preview rig at the recovered 30 Hz rate, with pause/step and the selected source retained. | DAN chunk readers exist; rig evaluation and visual playback remain. |
 | Scene and level preview | Render selected `.DSN`/project geometry and placed assets with the common renderer and a viewer camera; keep source identity. | Payload and Project 71 validation exist; general visual preview remains. |
-| Sprites, fonts and static textures | Display indexed pixels, palette rows and transparency from shared decoded data. | Readers/index exist; visual panes remain. |
+| Sprites, fonts and static textures | Display indexed pixels, palette rows and transparency from shared decoded data. | Selected sprite slots, font glyphs, VGA sheets, standalone/DAN material banks and assembled DSN object textures render in ODViewer with a palette swatch and transparency control. Animated materials and exact dynamic sprite composition remain. |
 | Animated textures | Decode and show HNM4/HNS4 frame sequences; reuse the GPU material update path when a scene binds them. | Header classification exists; frame decode remains. |
 | Movies | Decode HNM5 (`UBB2`/`UBS2`) and HNM6 (`HNM6`/`HNS6`) from the selected disc; play, pause, step, restart and show captions. | HNM5/HNM6 playback, SD audio and ST captions are wired in ODViewer; all 95 physical HNM5/6 files decode to the end. Seek, audio-clock scheduling, full corpus pixel parity and HNM4 remain. |
 | Sound and dialogue | Play the selected supported sample or dialogue with shared audio output; movie `SD` sound stays synchronized with video. | Movie SD audio uses SDL3; standalone sample/dialogue playback and audio-clock scheduling remain. |
@@ -390,6 +390,35 @@ HNM4 animated textures, bounded seek, audio-clock scheduling, full corpus
 pixel parity and hardware-speaker listening checks are still open. The current
 viewer draws the movie image as an ImGui texture within the preview pane; the
 shared renderer's general destination seam remains separate work.
+
+## Static image implementation record — 2026-09-27
+
+`inspect/still_preview.cpp` selects one physical source and uses the existing
+`SPR_LoadSet`, `TEXT_LoadFont`, `DAN_ReadTextureChunks`/`DAN_Load3DM`, and VFS
+ports. The loose `.3DM` branch of `RES_ReadFile` now skips its two original
+header words and returns the texture bank. `DSN_LoadTextures` and
+`DSN_BlitTileToPage` assemble a selected scene object's 256×256 page from tag
+3 and all 64 tag-4 planes in one viewer call. Their map entries remain partial
+or unverified where retail progressive scheduling, bank registration and the
+assembly tile-dispatch closure are not yet accounted for.
+
+The catalog exposes DAN material and DSN object texture rows. ODViewer shows
+the selected sprite, glyph or texture within the preview pane with a 256-color
+source palette, nearest sampling, a checkerboard behind transparency, sibling
+navigation, and a palette-row slider for 32-row texture banks. PYRAM's live
+layer references have distinct diagnostic colors; their final gameplay
+composition is still a separate UI behavior. Index-0 transparency for the
+viewer-derived VGA sprite family remains an explicit toggle because its
+retail draw semantics have not been established.
+
+Seven representative images match the independent Python RGBA results byte
+for byte: HI640 glyph 65, SOUR.ALP slot 0, MAGIE.ALP slot 0, ALPHABET.SPR slot
+2, ESSAI.3DM, CAISSE's DAN material, and E29USINE's first scene texture.
+Another 186 first/last scene and DAN texture selections render across Disc 2;
+the malformed HI320 glyph 37 stays an explicit error. All six image types
+also pass ODViewer GPU startup smokes. HNM4 animated textures, scene palette
+lighting updates, a shared runtime/viewer render target and whole-bank visual
+galleries remain separate slices.
 
 This spec does not require a serialized synthetic `.DSN`, ODRuntime gameplay,
 or original retail menu flow in ODViewer. Full level and media preview are

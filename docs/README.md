@@ -10,7 +10,7 @@ docs do.
 | [north-star.md](north-star.md) | **OpenDreams, the engine we are building**: goal, decisions (C++17, SDL3, sokol_gfx, native loaders), the original game code ported as a fixed-step loop with a free GPU renderer, milestones, the RE work it depends on |
 | [Spec 001 — project initialization](specs/001-project-init/spec.md) | C/C++ foundation, build/dependencies and two runnable Hello World applications through SDL3, sokol and Dear ImGui |
 | [Spec 002 — disc and source-asset navigation](specs/002-disc-navigation/spec.md) | Browser requirements for cue/bin images, source files, indexed entries, project references and tracks; no media previews or playback |
-| [Spec 003 — ODViewer asset previews and playback](specs/003-level-load-preview/spec.md) | Single viewer implementation spec for models, scenes, animation, sprites/textures, movies and audio; CAI/Project 71 and HNM5/HNM6 movie slices are implemented |
+| [Spec 003 — ODViewer asset previews and playback](specs/003-level-load-preview/spec.md) | Single viewer implementation spec; CAI/Project 71, HNM5/HNM6 movies and static sprite/font/texture previews are implemented |
 | [ODViewer browser implementation](reviews/002-viewer-browser.md) | Inspection layer versus retail ports, provenance of indexed fields, corpus validation and remaining navigation checks |
 | [re-status.md](re-status.md) | **Current RE status and priorities**: recovered behavior, checked coverage, remaining gaps, field corrections and validation commands |
 | [glide-renderer.md](glide-renderer.md) | **Faithful GPU contract**: complete face dispatch, clamp/wrap, deferred alpha, depth, texture uploads, palette cache and fog |

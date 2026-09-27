@@ -5,6 +5,7 @@ browser to `ODViewer`. [Spec 003](../docs/specs/003-level-load-preview/spec.md)
 owns its asset previews and playback. Its first implemented slice previews
 DAN models from selected archive rows through a partial shared level-load
 port; HNM5/HNM6 movies now play from a selected disc row with SDL3 sound.
+Sprites, fonts and static texture pages also preview from the selected disc.
 Animation and the other viewer previews remain in progress.
 `ODRuntime` retains its foundation screen. Both use one static `ODShared` library.
 
@@ -249,6 +250,14 @@ audio. All 95 physical HNM5/6 files and 25,450 frames in the configured
 two-disc corpus decode to completion; HNM4 animated textures and full pixel
 parity across the corpus remain. The catalog
 classifies 115 physical video files from the original discs.
+
+`shared/inspect/still_preview.cpp` loads selected sprite slots, font glyphs,
+VGA sheets and material/scene texture pages through the shared retail ports.
+`shared/render/still_preview.cpp` uploads the RGBA image and source palette
+to sokol for the preview pane. Palette rows and index-0 transparency are
+inspectable; HNM4 animated textures remain a later slice. With Disc 2 mounted,
+`--preview-still font|icon|vga|bank|material|scene` opens repeatable image
+checks, and `ODStillPreviewTests` compares seven images with the Python oracle.
 
 ## Shared disc access (spec 002 foundation)
 

@@ -36,6 +36,12 @@ struct DsnObject {
     std::array<uint32_t, 5> words{};
 };
 
+struct DsnTexturePage {
+    std::string object_name;
+    std::array<uint16_t, 256> palette_rgb565{};
+    std::vector<uint8_t> indices; // 256x256 page, assembled from 64 planes.
+};
+
 // Retail's 0x6fc-byte mutable DSN header state, with its stream reference and
 // copied name/object tables exposed as source-scoped values.
 class DsnState {
@@ -75,6 +81,13 @@ bool DSN_LoadHeader(DsnState& state, std::string_view path, DsnError& error);
 bool DSN_LoadMaterialsAndFaces(DsnState& state, std::vector<uint8_t>& geometry,
                                DsnError& error);
 bool DSN_LoadVertexPool(DsnState& state, std::vector<uint8_t>& collision,
+                        DsnError& error);
+// Viewer adaptation of the retail 32-step loader: consume the palette and
+// all 64 planes for one selected scene object in one bounded call.
+bool DSN_LoadTextures(DsnState& state, size_t object_index,
+                      DsnTexturePage& page, DsnError& error);
+bool DSN_BlitTileToPage(const uint8_t* plane, size_t plane_size,
+                        unsigned record, std::vector<uint8_t>& page,
                         DsnError& error);
 
 } // namespace od::port

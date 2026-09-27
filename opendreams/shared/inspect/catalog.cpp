@@ -74,6 +74,7 @@ bool has_indexer(std::string_view path) {
     return name == "DREAMS.DAT" || name == "FSB.DAT" ||
         ends(name, ".BF") || ends(name, ".DSN") || ends(name, ".DAN") ||
         ends(name, ".DRD") || ends(name, ".SPR") || ends(name, ".ALP") ||
+        ends(name, ".3DM") ||
         ends(name, ".HNM") || ends(name, ".UBB") || ends(name, ".FSB");
 }
 
@@ -453,6 +454,18 @@ struct Catalog::State : Source {
                 row.detail = "Header record " + std::to_string(i);
                 row.provenance = "retail DSN_LoadHeader";
                 add(*this, std::move(row));
+                Row texture;
+                texture.parent = index;
+                texture.group = Group::textures;
+                texture.status = Status::available;
+                texture.name = dsn.objects()[i].name + " texture";
+                texture.kind = "Scene texture";
+                texture.path = path;
+                texture.key = "texture:" + std::to_string(i);
+                texture.detail = "Object " + std::to_string(i) +
+                    "; 256 x 256 indexed page assembled from DSN tags 3/4";
+                texture.provenance = "viewer-selected object via retail DSN_LoadTextures";
+                add(*this, std::move(texture));
             }
             const uint64_t body_offset = dsn.body_offset();
             port::StreamError ignored;
@@ -480,6 +493,17 @@ struct Catalog::State : Source {
                 row.key = "name:" + std::to_string(i);
                 row.provenance = "retail DAN_OpenArchive";
                 add(*this, std::move(row));
+                Row texture;
+                texture.parent = index;
+                texture.group = Group::textures;
+                texture.status = Status::available;
+                texture.name = dan.names()[i].text + ".3DM";
+                texture.kind = "Material texture";
+                texture.path = path;
+                texture.key = "material:" + std::to_string(i);
+                texture.detail = "Indexed 256 x 256 page with 32 palette rows";
+                texture.provenance = "retail DAN_ReadTextureChunks / DAN_Load3DM";
+                add(*this, std::move(texture));
             }
             const bool chunks_ok = port::DAN_ReadAnimChunks(dan, error);
             for (size_t i = 0; i < port::DAN_GetAnimCount(dan); ++i) {
@@ -500,6 +524,12 @@ struct Catalog::State : Source {
                 add(*this, std::move(row));
             }
             if (!chunks_ok) invalid(rows[index], error.message);
+            return;
+        }
+        if (ends(name, ".3DM")) {
+            rows[index].kind = "Texture bank";
+            rows[index].status = Status::available;
+            rows[index].provenance = "retail RES_ReadFile loose .3DM route";
             return;
         }
         if (ends(name, ".DRD")) {

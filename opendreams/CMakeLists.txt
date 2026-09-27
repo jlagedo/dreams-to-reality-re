@@ -81,6 +81,7 @@ od_generate_shader(OD_MODEL_PREVIEW_SHADER shared/render/model_preview.glsl)
 add_library(ODShared STATIC
     shared/disc/image.cpp
     shared/inspect/catalog.cpp
+    shared/inspect/still_preview.cpp
     shared/inspect/viewer_prefs.cpp
     shared/port/file_roots.cpp
     shared/port/vfs.cpp
@@ -104,6 +105,7 @@ add_library(ODShared STATIC
     shared/render/glide_compat.cpp
     shared/render/video_preview.cpp
     shared/render/model_preview.cpp
+    shared/render/still_preview.cpp
     shared/render/sokol_impl.cpp
     ${OD_BACKEND_SOURCE}
     ${OD_BACKGROUND_SHADER}
@@ -183,6 +185,12 @@ if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
 endif()
 
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
+    add_executable(ODStillPreviewTests tests/still_preview_tests.cpp)
+    target_link_libraries(ODStillPreviewTests PRIVATE ODShared)
+    od_project_options(ODStillPreviewTests)
+    add_test(NAME ODStillPreview COMMAND ODStillPreviewTests)
+    set_tests_properties(ODStillPreview PROPERTIES LABELS "preview;corpus" TIMEOUT 60 SKIP_RETURN_CODE 77)
+
     add_executable(ODGlideCompatTests tests/glide_compat_tests.cpp)
     target_link_libraries(ODGlideCompatTests PRIVATE ODShared)
     od_project_options(ODGlideCompatTests)

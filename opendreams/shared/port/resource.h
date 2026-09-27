@@ -10,10 +10,15 @@
 namespace od::port {
 
 class DanArchive;
+class VfsContext;
 
 // The first adapted RES source is an active DAN archive. DSN and loose-file
 // routes remain explicit future branches of the same retail entry points.
 bool RES_ReadFile(DanArchive& archive, std::string_view logical_name,
+                  std::vector<uint8_t>& bytes, std::string& error);
+// Retail's no-container physical-file branch: skip two u32 header words and
+// return the remaining body. The selected VFS context supplies the source.
+bool RES_ReadFile(VfsContext& vfs, std::string_view physical_path,
                   std::vector<uint8_t>& bytes, std::string& error);
 bool MDL_BindFaceMaterials(ModelGraph& graph, std::string& error);
 bool MDL_BindTreeMaterials(ModelGraph& graph, std::string& error);

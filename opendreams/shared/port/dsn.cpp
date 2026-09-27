@@ -200,4 +200,64 @@ bool DSN_LoadVertexPool(DsnState& state, std::vector<uint8_t>& collision,
     return unpack_next(state, 2, collision, error);
 }
 
+bool DSN_BlitTileToPage(const uint8_t* plane, size_t plane_size,
+                        unsigned record, std::vector<uint8_t>& page,
+                        DsnError& error) {
+    error = {};
+    if (!plane || plane_size != 1024 || record >= 64 || page.size() != 256u * 256u)
+        return fail(error, DsnErrorCode::invalid_chunk,
+                    "DSN texture plane or destination has an invalid size");
+    const unsigned row = ((record & 1u) << 2) | ((record & 4u) >> 1) |
+                         ((record & 0x10u) >> 4);
+    const unsigned col = ((record & 2u) << 1) | ((record & 8u) >> 2) |
+                         ((record & 0x20u) >> 5);
+    const unsigned h = record < 2 ? 8 : record < 8 ? 4 : record < 16 ? 2 : 1;
+    const unsigned v = record < 1 ? 8 : record < 4 ? 4 : record < 16 ? 2 : 1;
+    for (unsigned y = 0; y < 32; ++y) for (unsigned x = 0; x < 32; ++x) {
+        const uint8_t index = plane[y * 32 + x];
+        const unsigned left = col + x * 8, top = row + y * 8;
+        for (unsigned dy = 0; dy < v && top + dy < 256; ++dy)
+            for (unsigned dx = 0; dx < h && left + dx < 256; ++dx)
+                page[(top + dy) * 256 + left + dx] = index;
+    }
+    return true;
+}
+
+bool DSN_LoadTextures(DsnState& state, size_t object_index,
+                      DsnTexturePage& page, DsnError& error) {
+    error = {};
+    page = {};
+    if (!state.loaded() || !state.geometry_loaded() || !state.stream())
+        return fail(error, DsnErrorCode::invalid_state,
+                    "DSN header and packed geometry must load before textures");
+    if (object_index >= state.objects().size())
+        return fail(error, DsnErrorCode::invalid_state,
+                    "DSN texture object index exceeds the scene directory");
+    Stream& stream = *state.stream();
+    const size_t expected = state.objects().size() * 1024u;
+    std::vector<uint8_t> header, payload;
+    const auto read_tag = [&](uint8_t tag) -> bool {
+        if (!take_body(stream, 5, header, error)) return false;
+        const uint32_t span = little32(header.data() + 1);
+        if (header[0] != tag || span != expected + 5)
+            return fail(error, DsnErrorCode::invalid_chunk,
+                        "DSN texture tag type or per-object size is invalid");
+        return take_body(stream, expected, payload, error);
+    };
+    if (!read_tag(3)) return false;
+    DsnTexturePage decoded;
+    decoded.object_name = state.objects()[object_index].name;
+    const size_t start = object_index * 1024u;
+    for (size_t i = 0; i < decoded.palette_rgb565.size(); ++i)
+        decoded.palette_rgb565[i] = little16(payload.data() + start + i * 4 + 2);
+    decoded.indices.assign(256u * 256u, 0);
+    for (unsigned record = 0; record < 64; ++record) {
+        if (!read_tag(4) ||
+            !DSN_BlitTileToPage(payload.data() + start, 1024, record,
+                                decoded.indices, error)) return false;
+    }
+    page = std::move(decoded);
+    return true;
+}
+
 } // namespace od::port
