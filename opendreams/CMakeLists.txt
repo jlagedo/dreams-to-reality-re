@@ -96,8 +96,13 @@ add_library(ODShared STATIC
     shared/port/fsb.cpp
     shared/port/sprite.cpp
     shared/port/video.cpp
+    shared/port/hnm6.cpp
+    shared/port/hnm5.cpp
+    shared/port/video_audio.cpp
     shared/shell.cpp
     shared/render/background.cpp
+    shared/render/glide_compat.cpp
+    shared/render/video_preview.cpp
     shared/render/model_preview.cpp
     shared/render/sokol_impl.cpp
     ${OD_BACKEND_SOURCE}
@@ -178,6 +183,30 @@ if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
 endif()
 
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
+    add_executable(ODGlideCompatTests tests/glide_compat_tests.cpp)
+    target_link_libraries(ODGlideCompatTests PRIVATE ODShared)
+    od_project_options(ODGlideCompatTests)
+    add_test(NAME ODGlideCompat COMMAND ODGlideCompatTests)
+    set_tests_properties(ODGlideCompat PROPERTIES LABELS video TIMEOUT 30)
+
+    add_executable(ODHnm6Tests tests/hnm6_tests.cpp)
+    target_link_libraries(ODHnm6Tests PRIVATE ODShared)
+    od_project_options(ODHnm6Tests)
+    add_test(NAME ODHnm6 COMMAND ODHnm6Tests)
+    set_tests_properties(ODHnm6 PROPERTIES LABELS video TIMEOUT 30 SKIP_RETURN_CODE 77)
+
+    add_executable(ODVideoPlaybackTests tests/video_playback_tests.cpp)
+    target_link_libraries(ODVideoPlaybackTests PRIVATE ODShared)
+    od_project_options(ODVideoPlaybackTests)
+    add_test(NAME ODVideoPlayback COMMAND ODVideoPlaybackTests)
+    set_tests_properties(ODVideoPlayback PROPERTIES LABELS video TIMEOUT 30 SKIP_RETURN_CODE 77)
+
+    add_executable(ODVideoCorpusTests tests/video_corpus_tests.cpp)
+    target_link_libraries(ODVideoCorpusTests PRIVATE ODShared)
+    od_project_options(ODVideoCorpusTests)
+    add_test(NAME ODVideoCorpus COMMAND ODVideoCorpusTests)
+    set_tests_properties(ODVideoCorpus PROPERTIES LABELS "video;corpus" TIMEOUT 300 SKIP_RETURN_CODE 77)
+
     add_executable(ODViewerPrefsTests tests/viewer_prefs_tests.cpp)
     target_link_libraries(ODViewerPrefsTests PRIVATE ODShared)
     od_project_options(ODViewerPrefsTests)

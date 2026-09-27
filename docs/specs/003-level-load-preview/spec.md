@@ -1,6 +1,6 @@
 # 003 — ODViewer asset previews and playback
 
-Status: **CAI model slice implemented; expanded viewer scope in progress**
+Status: **CAI model and HNM5/HNM6 movie slices implemented; expanded viewer scope in progress**
 
 Date: 2026-09-27
 
@@ -34,8 +34,8 @@ are validated in their own runtime milestones.
 | Scene and level preview | Render selected `.DSN`/project geometry and placed assets with the common renderer and a viewer camera; keep source identity. | Payload and Project 71 validation exist; general visual preview remains. |
 | Sprites, fonts and static textures | Display indexed pixels, palette rows and transparency from shared decoded data. | Readers/index exist; visual panes remain. |
 | Animated textures | Decode and show HNM4/HNS4 frame sequences; reuse the GPU material update path when a scene binds them. | Header classification exists; frame decode remains. |
-| Movies | Decode HNM5 (`UBB2`/`UBS2`) and HNM6 (`HNM6`/`HNS6`) from the selected disc; play, pause, step, restart and show captions. | `VID_Open`/`VID_Close` metadata path exists; frame decode, presentation and playback remain. |
-| Sound and dialogue | Play the selected supported sample or dialogue with shared audio output; movie `SD` sound stays synchronized with video. | Container readers exist; playback remains. |
+| Movies | Decode HNM5 (`UBB2`/`UBS2`) and HNM6 (`HNM6`/`HNS6`) from the selected disc; play, pause, step, restart and show captions. | HNM5/HNM6 playback, SD audio and ST captions are wired in ODViewer; all 95 physical HNM5/6 files decode to the end. Seek, audio-clock scheduling, full corpus pixel parity and HNM4 remain. |
+| Sound and dialogue | Play the selected supported sample or dialogue with shared audio output; movie `SD` sound stays synchronized with video. | Movie SD audio uses SDL3; standalone sample/dialogue playback and audio-clock scheduling remain. |
 
 Each row is a slice of Spec 003, not a separate proposal/spec. The completed
 CAI slice stays available while later slices are added. A selected asset whose
@@ -350,13 +350,46 @@ Use `coverage=partial` wherever a retail branch, side effect or callee remains
 deferred, and list it in `remaining_work`. The `reviewed` field remains `no`
 until the project owner explicitly reviews that entry.
 
-`GlideCompat` and ODViewer controls are new infrastructure/UI, with no retail
-map row of their own. The current map checker accepts only WINDREAM/GDIDREAM
-twins; before marking DOS-only `GLIDE_*` wrappers ported, extend that policy
-and Ghidra application path without inventing a Windows twin. Use 3dfx
+`GlideCompat` and ODViewer controls are new infrastructure/UI. Their mapped
+retail `GLIDE_*` entry points have `DREAMSFX.EXE` rows in the port map; the
+checker validates those against the DOS name registry without inventing a
+Windows twin. Use 3dfx
 function calls and [the full inventory](../../glide-call-inventory.md) as
 behavioral evidence for the Windows-base GPU replacement. No separate Glide
 library, original executable, `na_game_tool` or ffmpeg is required at runtime.
+
+## Movie implementation record — 2026-09-27
+
+`shared/port/video.cpp` keeps the retail 68-byte stream handoff and steps
+HNM5/6 outer and inner chunks with bounded reads. `hnm5.cpp` ports indexed
+strip/motion frames and palette updates; `hnm6.cpp` ports the quality, DCT,
+motion and double-frame path. `video_audio.cpp` holds the SD delta table and
+two persistent 16-bit stereo predictors. The decoder has no SDL, sokol,
+original-binary or external-tool dependency.
+
+`render/glide_compat.cpp` implements the five movie-reachable Glide operations
+on a 640×480 RGB565 staging surface. `render/video_preview.cpp` copies the
+retail 3dfx 640×300 picture at row 90, freezes the frame on swap, uploads one
+RGBA8 sokol image per Shell frame, and queues 22050 Hz stereo PCM through SDL3.
+ODViewer selects the physical row and disc, offers play/pause/step/restart,
+shows `ST` text within the pane and closes source, audio and GPU state on a
+selection or mount change. `--cue2 <path> --preview-movie` selects Disc 2's
+`GENERIC.HNM` for repeatable startup checks.
+
+The first four decoded `GENERIC.HNM` HNS6 and `HNMFR2.UBB` UBS2 frames match
+the independent NihAV RGB output exactly after RGB565 quantization; the first
+SD PCM batches match the Python oracle byte for byte. Both files also decode
+through their final frame using the selected-disc VFS. A two-disc corpus sweep
+decodes all 95 HNM5/6 files and 25,450 frames with no failures; the 20 HNM4
+animated textures are separately identified. The demo variants at 512×408
+and 640×480 use their header dimensions and are centered in the viewer canvas.
+Native viewer
+smokes for `--preview-movie` and the existing `--preview-cai` path exit cleanly.
+The retail function map and Ghidra tags record the remaining coverage audits.
+HNM4 animated textures, bounded seek, audio-clock scheduling, full corpus
+pixel parity and hardware-speaker listening checks are still open. The current
+viewer draws the movie image as an ImGui texture within the preview pane; the
+shared renderer's general destination seam remains separate work.
 
 This spec does not require a serialized synthetic `.DSN`, ODRuntime gameplay,
 or original retail menu flow in ODViewer. Full level and media preview are

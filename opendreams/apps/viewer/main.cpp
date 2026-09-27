@@ -4,6 +4,7 @@
 #include "inspect/viewer_prefs.h"
 #include "port/scene.h"
 #include "render/model_preview.h"
+#include "render/video_preview.h"
 #include "shell.h"
 #include <imgui.h>
 #include <util/sokol_imgui.h>
@@ -39,6 +40,7 @@ struct ViewerUi {
     bool sort_ascending = true;
     std::unique_ptr<od::port::PreviewLevelContext> preview_level;
     od::ModelPreview model_preview;
+    od::VideoPreview video_preview;
     std::string preview_error;
     od::inspect::ViewerPrefs preferences;
     std::string preferences_file, preferences_error;
@@ -73,6 +75,7 @@ const od::inspect::Row* selection(const ViewerUi& state) {
 
 void clear_preview(ViewerUi& state) {
     state.model_preview.clear_model();
+    state.video_preview.close();
     state.preview_level.reset();
     state.preview_error.clear();
 }
@@ -82,6 +85,11 @@ void load_selected_preview(ViewerUi& state) {
     const auto* row = selection(state);
     const auto* source = state.catalog.source(state.selected_slot);
     if (!row || !source) return;
+    if (row->kind == "HNM6/HNS6 movie" || row->kind == "UBB2/UBS2 movie" ||
+        row->kind == "HNM4 animated texture") {
+        state.video_preview.open(source->image,row->path,state.preview_error);
+        return;
+    }
     auto preview = std::make_unique<od::port::PreviewLevelContext>(source->image);
     if (row->kind == "Model name" || row->kind == "Model archive") {
         const std::string_view name = row->kind == "Model name"
@@ -426,6 +434,58 @@ void preview_pane(ViewerUi& state) {
     ImGui::TextUnformatted("Preview");
     ImGui::Separator();
     const auto* row = selection(state);
+    if (state.video_preview.has_video()) {
+        std::string playback_error;
+        if (!state.video_preview.tick(playback_error)) state.preview_error = playback_error;
+        if (!state.video_preview.has_video()) {
+            ImGui::TextWrapped("%s", state.preview_error.c_str());
+            return;
+        }
+        if (ImGui::Button(state.video_preview.playing() ? "Pause" : "Play"))
+            state.video_preview.set_playing(!state.video_preview.playing());
+        ImGui::SameLine();
+        if (ImGui::Button("Step")) {
+            state.video_preview.set_playing(false);
+            if (!state.video_preview.single_step(playback_error))
+                state.preview_error = playback_error;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Restart") && !state.video_preview.restart(playback_error))
+            state.preview_error = playback_error;
+        ImGui::SameLine();
+        ImGui::Text("%u / %u", state.video_preview.decoded_frames(),
+                    state.video_preview.total_frames());
+        if (!state.preview_error.empty())
+            ImGui::TextWrapped("%s", state.preview_error.c_str());
+        if (state.video_preview.has_image()) {
+            state.video_preview.upload();
+            const ImVec2 available = ImGui::GetContentRegionAvail();
+            const float width = std::min(available.x, available.y * (4.0f/3.0f));
+            const float height = width * (3.0f/4.0f);
+            const float inset = std::max(0.0f,(available.x-width)*0.5f);
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX()+inset);
+            const ImVec2 origin = ImGui::GetCursorScreenPos();
+            ImGui::Image(simgui_imtextureid(state.video_preview.texture_view()),
+                         ImVec2(width,height));
+            if (!state.video_preview.caption().empty()) {
+                ImDrawList* draw = ImGui::GetWindowDrawList();
+                const auto& caption = state.video_preview.caption();
+                const float wrap = std::max(0.0f,width-24.0f);
+                const ImVec2 text_size = ImGui::CalcTextSize(caption.c_str(),nullptr,false,wrap);
+                const float top = std::max(origin.y,
+                    origin.y+height-text_size.y-12.0f);
+                draw->PushClipRect(origin,ImVec2(origin.x+width,origin.y+height),true);
+                draw->AddRectFilled(ImVec2(origin.x,top-4),
+                                    ImVec2(origin.x+width,origin.y+height),
+                                    IM_COL32(0,0,0,210));
+                draw->AddText(ImGui::GetFont(),ImGui::GetFontSize(),
+                              ImVec2(origin.x+12.0f,top),IM_COL32(255,255,255,255),
+                              caption.c_str(),nullptr,wrap);
+                draw->PopClipRect();
+            }
+        }
+        return;
+    }
     std::string title = "Select a model or prop";
     std::string subtitle = "3D preview is not ready yet.";
     if (row) {
@@ -523,10 +583,16 @@ void draw_ui(void* user) {
 }
 
 bool parse_args(int argc, char** argv, int& frames,
-                std::array<const char*, 2>& cues, bool& preview_cai) {
+                std::array<const char*, 2>& cues, bool& preview_cai,
+                bool& preview_movie) {
     for (int i = 1; i < argc;) {
         if (std::strcmp(argv[i], "--preview-cai") == 0) {
             preview_cai = true;
+            ++i;
+            continue;
+        }
+        if (std::strcmp(argv[i], "--preview-movie") == 0) {
+            preview_movie = true;
             ++i;
             continue;
         }
@@ -550,9 +616,10 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
     int frames = 0;
     std::array<const char*, 2> cues{};
     bool preview_cai = false;
-    if (!parse_args(argc, argv, frames, cues, preview_cai)) {
+    bool preview_movie = false;
+    if (!parse_args(argc, argv, frames, cues, preview_cai, preview_movie)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai]");
+                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-movie]");
         return SDL_APP_FAILURE;
     }
     if (!shell.init({"ODViewer", draw_ui, &ui, frames, 18.0f, 1.2f,
@@ -563,6 +630,12 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
     std::string preview_error;
     if (!ui.model_preview.init(preview_error)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", preview_error.c_str());
+        shell.shutdown();
+        return SDL_APP_FAILURE;
+    }
+    if (!ui.video_preview.init(preview_error)) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", preview_error.c_str());
+        ui.model_preview.shutdown();
         shell.shutdown();
         return SDL_APP_FAILURE;
     }
@@ -597,6 +670,32 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
                          ui.preview_error.empty() ? "Disc 2 CAISSE in CAI.DAN is unavailable"
                                                   : ui.preview_error.c_str());
             ui.model_preview.shutdown();
+            ui.video_preview.shutdown();
+            shell.shutdown();
+            return SDL_APP_FAILURE;
+        }
+    }
+    if (preview_movie) {
+        ui.catalog.tick(10000);
+        bool found = false;
+        for (size_t slot = 0; slot < 2 && !found; ++slot) {
+            const auto* source = ui.catalog.source(slot);
+            if (!source || source->image->identity() != od::disc::Identity::disc2)
+                continue;
+            for (const auto& row : source->rows) {
+                if (row.name != "GENERIC.HNM" || row.path != "DATA/HNM/GENERIC.HNM")
+                    continue;
+                select(ui, slot, row.id);
+                found = true;
+                break;
+            }
+        }
+        if (!found || !ui.video_preview.has_image()) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "movie preview load failed: %s",
+                         ui.preview_error.empty() ? "Disc 2 GENERIC.HNM is unavailable"
+                                                  : ui.preview_error.c_str());
+            ui.video_preview.shutdown();
+            ui.model_preview.shutdown();
             shell.shutdown();
             return SDL_APP_FAILURE;
         }
@@ -612,6 +711,7 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
 void SDL_AppQuit(void* appstate, SDL_AppResult) {
     if (appstate) {
         ui.model_preview.shutdown();
+        ui.video_preview.shutdown();
         static_cast<od::Shell*>(appstate)->shutdown();
     }
 }

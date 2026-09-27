@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PORT_MAP = ROOT / "opendreams" / "port-map.tsv"
-REGISTRY = ROOT / "re" / "names" / "WINDREAM.EXE.tsv"
+REGISTRY_ROOT = ROOT / "re" / "names"
 FIELDS = [
     "program",
     "address",
@@ -34,9 +34,9 @@ COVERAGE = {"complete", "partial", "unverified", "none"}
 REVIEWED = {"yes", "no"}
 
 
-def checked_names() -> dict[str, str]:
+def checked_names(program: str) -> dict[str, str]:
     names: dict[str, str] = {}
-    with REGISTRY.open(encoding="utf-8", newline="") as source:
+    with (REGISTRY_ROOT / f"{program}.tsv").open(encoding="utf-8", newline="") as source:
         for row in csv.DictReader(
             (line for line in source if not line.startswith("#")), delimiter="\t"
         ):
@@ -45,7 +45,11 @@ def checked_names() -> dict[str, str]:
 
 
 def validate() -> int:
-    names = checked_names()
+    registries = {
+        program: checked_names(program)
+        for program in ("WINDREAM.EXE", "DREAMSFX.EXE")
+    }
+    registries["GDIDREAM.EXE"] = registries["WINDREAM.EXE"]
     errors: list[str] = []
     counts: dict[str, Counter[str]] = defaultdict(Counter)
     review_counts: Counter[str] = Counter()
@@ -66,9 +70,9 @@ def validate() -> int:
             if identity in seen:
                 errors.append(f"{prefix} duplicate program/address")
             seen.add(identity)
-            if row["program"] not in {"WINDREAM.EXE", "GDIDREAM.EXE"}:
+            if row["program"] not in registries:
                 errors.append(f"{prefix} unexpected program")
-            if names.get(address) != row["checked_name"]:
+            if registries.get(row["program"], {}).get(address) != row["checked_name"]:
                 errors.append(f"{prefix} name/address differs from the checked registry")
             if row["status"] not in STATUSES:
                 errors.append(f"{prefix} invalid status {row['status']!r}")
@@ -108,7 +112,8 @@ def validate() -> int:
             counts[row["program"]][row["coverage"]] += 1
             if row["reviewed"] == "yes":
                 review_counts[row["program"]] += 1
-            twins[(address, row["checked_name"])].append(row)
+            if row["program"] in {"WINDREAM.EXE", "GDIDREAM.EXE"}:
+                twins[(address, row["checked_name"])].append(row)
     for (address, name), rows in twins.items():
         if {row["program"] for row in rows} != {"WINDREAM.EXE", "GDIDREAM.EXE"}:
             errors.append(f"{address} {name}: Windows twin mapping is missing")

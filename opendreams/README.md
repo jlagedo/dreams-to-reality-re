@@ -4,7 +4,8 @@ Spec 001 built the shared application shell. Spec 002 adds a read-only disc
 browser to `ODViewer`. [Spec 003](../docs/specs/003-level-load-preview/spec.md)
 owns its asset previews and playback. Its first implemented slice previews
 DAN models from selected archive rows through a partial shared level-load
-port; movie, animation and other viewer previews remain in progress.
+port; HNM5/HNM6 movies now play from a selected disc row with SDL3 sound.
+Animation and the other viewer previews remain in progress.
 `ODRuntime` retains its foundation screen. Both use one static `ODShared` library.
 
 ## Application icons
@@ -239,11 +240,15 @@ visible as an invalid slot while the other 255 load. Corpus checks cover the
 five icon banks, `SOUR.ALP`, all three fonts and Disc 2's supplemental
 `TITRES.SPR` member.
 
-`shared/port/video.cpp` ports the metadata-facing `VID_Open`/`VID_Close`
-path. It uses the retail stream's 68-byte peek, six-magic dispatch and
-kind/sound-selection bits, and closes the stream on replacement or failure.
-Frame decode and sound playback remain separate runtime work. The corpus
-check classifies 115 physical video files from the original discs.
+`shared/port/video.cpp` ports `VID_Open`/`VID_Close` and the HNM5/HNM6 frame
+walkers. It uses the retail stream's 68-byte peek, six-magic dispatch and
+kind/sound-selection bits. `hnm5.cpp`, `hnm6.cpp` and `video_audio.cpp` decode
+movie pixels and SD stereo PCM; `render/glide_compat.cpp` and
+`render/video_preview.cpp` present them in the ODViewer pane and queue SDL3
+audio. All 95 physical HNM5/6 files and 25,450 frames in the configured
+two-disc corpus decode to completion; HNM4 animated textures and full pixel
+parity across the corpus remain. The catalog
+classifies 115 physical video files from the original discs.
 
 ## Shared disc access (spec 002 foundation)
 

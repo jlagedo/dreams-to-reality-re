@@ -9,7 +9,7 @@ per original function and program with these tab-separated columns:
 `cpp_symbol`, `status`, `evidence`, `adaptation`, `coverage`, `remaining_work`,
 `reviewed`.
 
-`checked_name` must match the checked registry in `../re/names/`; this map does
+`checked_name` must match the program's checked registry in `../re/names/`; this map does
 not create names. `source_block` cites the report or research note and says
 whether the boundary is proven, candidate or unknown. `status` is one of
 `ported`, `adapted`, `replaced` or `omitted`; explain deviations and the original
@@ -47,6 +47,8 @@ so the owner's prior review is not mistaken for review of the new state.
 Run `uv run python tools/check_port_map.py` before committing a map change;
 it validates these rules, checked names, C++ locations and Windows twin rows,
 including matching owner-review state. Its summary reports the reviewed count.
+`DREAMSFX.EXE` rows are checked against its own registry and have no Windows
+twin requirement. Their Ghidra tags are applied to `DREAMSFX.EXE` as well.
 
 ## Show the map inside Ghidra
 
@@ -74,6 +76,7 @@ the map, or run it through headless Ghidra without `-readOnly`:
 $ghidra = Get-DreamsSetting DREAMS_GHIDRA_ROOT
 & (Join-Path $ghidra 'support\analyzeHeadless.bat') ghidra dreams -process WINDREAM.EXE -noanalysis -scriptPath ghidra_scripts -postScript ApplyPortMap.java
 & (Join-Path $ghidra 'support\analyzeHeadless.bat') ghidra dreams -process GDIDREAM.EXE -noanalysis -scriptPath ghidra_scripts -postScript ApplyPortMap.java
+& (Join-Path $ghidra 'support\analyzeHeadless.bat') ghidra dreams -process DREAMSFX.EXE -noanalysis -scriptPath ghidra_scripts -postScript ApplyPortMap.java
 ```
 
 `tools/ghidra-import.ps1 -ImportSymbols` also runs `ApplyPortMap.java` after
