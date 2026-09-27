@@ -8,6 +8,7 @@
 #include <sokol_log.h>
 #include <util/sokol_imgui.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <new>
 
@@ -28,7 +29,8 @@ struct Shell::Impl {
 bool Shell::init(const ShellOptions& options) {
     error_.clear();
     if (!options.title || !options.draw_ui || options.max_frames < 0 ||
-        options.ui_font_pixels < 0.0f || options.ui_size_scale <= 0.0f) {
+        options.ui_font_pixels < 0.0f || options.ui_size_scale <= 0.0f ||
+        options.window_width <= 0 || options.window_height <= 0) {
         error_ = "invalid OpenDreams shell options";
         return false;
     }
@@ -49,7 +51,14 @@ bool Shell::init(const ShellOptions& options) {
     }
     const SDL_WindowFlags flags = static_cast<SDL_WindowFlags>(
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | GraphicsBackend::window_flags());
-    impl_->window = SDL_CreateWindow(options.title, 1024, 640, flags);
+    int window_width = options.window_width;
+    int window_height = options.window_height;
+    SDL_Rect usable{};
+    if (SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &usable)) {
+        window_width = std::min(window_width, usable.w);
+        window_height = std::min(window_height, usable.h);
+    }
+    impl_->window = SDL_CreateWindow(options.title, window_width, window_height, flags);
     if (!impl_->window) {
         error_ = std::string("SDL window creation failed: ") + SDL_GetError();
         shutdown();

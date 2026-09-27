@@ -37,6 +37,7 @@ struct ViewerUi {
     std::vector<std::string> kinds;
     std::array<size_t, 2> kind_counts{{SIZE_MAX, SIZE_MAX}};
     bool include_extras = false;
+    bool focus_workspace = false;
     size_t selected_slot = SIZE_MAX, selected_row = SIZE_MAX, reveal_slot = SIZE_MAX;
     uint64_t selected_mount = 0;
     int sort_column = 0;
@@ -76,6 +77,7 @@ void select(ViewerUi& state, size_t slot, size_t row) {
     state.selected_slot = slot;
     state.selected_row = row;
     state.selected_mount = source->image->mount_id();
+    state.focus_workspace = true;
     load_selected_preview(state);
 }
 
@@ -240,73 +242,87 @@ void mount(ViewerUi& state, size_t slot) {
 }
 #endif
 
-void source_strip(ViewerUi& state) {
-    for (size_t slot = 0; slot < 2; ++slot) {
-        ImGui::PushID(static_cast<int>(slot));
-        const auto* source = state.catalog.source(slot);
-        ImGui::TextUnformatted(source ? od::inspect::identity_name(source->image->identity())
-                                      : slot ? "Source B" : "Source A");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(300);
-        ImGui::InputText("##cue", state.paths[slot].data(), state.paths[slot].size());
+void source_card(ViewerUi& state, size_t slot) {
+    ImGui::PushID(static_cast<int>(slot));
+    const auto* source = state.catalog.source(slot);
+    ImGui::Text("Source %c  |  %s", slot ? 'B' : 'A',
+                source ? od::inspect::identity_name(source->image->identity()) : "Not mounted");
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputTextWithHint("##cue", "Path to a .cue file", state.paths[slot].data(),
+                             state.paths[slot].size());
 #ifndef __EMSCRIPTEN__
+    if (ImGui::Button("Choose .cue")) {
+        static const SDL_DialogFileFilter filters[] = {{"CUE sheets", "cue"}};
+        SDL_ShowOpenFileDialog(selected_cue, new DialogRequest{&state, slot},
+                               nullptr, filters, 1, nullptr, false);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(source ? "Replace" : "Mount")) {
+        mount(state, slot);
+        source = state.catalog.source(slot);
+    }
+    if (source) {
         ImGui::SameLine();
-        if (ImGui::Button("Choose .cue")) {
-            static const SDL_DialogFileFilter filters[] = {{"CUE sheets", "cue"}};
-            SDL_ShowOpenFileDialog(selected_cue, new DialogRequest{&state, slot},
-                                   nullptr, filters, 1, nullptr, false);
-        }
-        ImGui::SameLine();
-        if (ImGui::Button(source ? "Replace" : "Mount")) {
-            mount(state, slot);
-            source = state.catalog.source(slot);
-        }
-        if (source) {
-            ImGui::SameLine();
-            if (ImGui::Button("Unmount")) {
-                state.catalog.unmount(slot);
-                source = nullptr;
-                state.preferences.cue_paths[slot].clear();
-                if (!state.preferences_file.empty())
-                    od::inspect::save_viewer_prefs(state.preferences_file,
-                                                   state.preferences,
-                                                   state.preferences_error);
-                if (state.selected_slot == slot) {
-                    clear_preview(state);
-                    state.selected_slot = SIZE_MAX;
-                }
+        if (ImGui::Button("Unmount")) {
+            state.catalog.unmount(slot);
+            source = nullptr;
+            state.preferences.cue_paths[slot].clear();
+            if (!state.preferences_file.empty())
+                od::inspect::save_viewer_prefs(state.preferences_file,
+                                               state.preferences,
+                                               state.preferences_error);
+            if (state.selected_slot == slot) {
+                clear_preview(state);
+                state.selected_slot = SIZE_MAX;
             }
         }
+    }
 #endif
-        if (source) {
-            ImGui::Text("%zu files, %zu/%zu formats indexed%s", source->total_files,
-                source->indexed_files, source->indexable_files,
-                source->complete ? " (complete)" : " (partial search)");
-            if (source->image->identity() == od::disc::Identity::unknown ||
-                source->image->identity() == od::disc::Identity::ambiguous)
-                ImGui::TextDisabled("Identity unresolved; raw source remains browseable.");
-            const auto* other = state.catalog.source(1 - slot);
-            if (other && other->image->identity() == source->image->identity() &&
-                (source->image->identity() == od::disc::Identity::disc1 ||
-                 source->image->identity() == od::disc::Identity::disc2))
-                ImGui::TextDisabled("Duplicate game-disc identity; both sources remain separate.");
-            for (const auto& track : source->image->tracks())
-                if (track.status != od::disc::TrackStatus::available)
-                    ImGui::TextDisabled("Track %u: %s", track.number, track.note.c_str());
+    if (source) {
+        ImGui::Text("%zu files, %zu/%zu formats indexed%s", source->total_files,
+            source->indexed_files, source->indexable_files,
+            source->complete ? " (complete)" : " (partial search)");
+        if (source->image->identity() == od::disc::Identity::unknown ||
+            source->image->identity() == od::disc::Identity::ambiguous)
+            ImGui::TextDisabled("Identity unresolved; raw source remains browseable.");
+        const auto* other = state.catalog.source(1 - slot);
+        if (other && other->image->identity() == source->image->identity() &&
+            (source->image->identity() == od::disc::Identity::disc1 ||
+             source->image->identity() == od::disc::Identity::disc2))
+            ImGui::TextDisabled("Duplicate game-disc identity; both sources remain separate.");
+        for (const auto& track : source->image->tracks())
+            if (track.status != od::disc::TrackStatus::available)
+                ImGui::TextDisabled("Track %u: %s", track.number, track.note.c_str());
+    }
+    if (!state.errors[slot].empty())
+        ImGui::TextColored(ImVec4(1, 0.45f, 0.35f, 1), "%s", state.errors[slot].c_str());
+    ImGui::PopID();
+}
+
+void source_strip(ViewerUi& state) {
+    const int mounted = static_cast<int>(state.catalog.source(0) != nullptr) +
+                        static_cast<int>(state.catalog.source(1) != nullptr);
+    ImGui::SetNextItemOpen(mounted == 0, ImGuiCond_Once);
+    const std::string heading = "Game discs (" + std::to_string(mounted) + "/2 mounted)##sources";
+    if (!ImGui::CollapsingHeader(heading.c_str())) return;
+    const bool side_by_side = ImGui::GetContentRegionAvail().x >= 800.0f;
+    if (ImGui::BeginTable(side_by_side ? "source cards wide" : "source cards stacked",
+                          side_by_side ? 2 : 1,
+                          ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchSame)) {
+        for (size_t slot = 0; slot < 2; ++slot) {
+            ImGui::TableNextColumn();
+            source_card(state, slot);
         }
-        if (!state.errors[slot].empty())
-            ImGui::TextColored(ImVec4(1, 0.45f, 0.35f, 1), "%s", state.errors[slot].c_str());
-        ImGui::PopID();
+        ImGui::EndTable();
     }
     if (!state.preferences_error.empty())
         ImGui::TextColored(ImVec4(1, 0.45f, 0.35f, 1), "Settings: %s",
                            state.preferences_error.c_str());
-    if (!state.catalog.source(0) && !state.catalog.source(1)) {
+    if (mounted == 0) {
 #ifdef __EMSCRIPTEN__
         ImGui::TextUnformatted("Disc-image opening is currently desktop-only.");
 #else
-        ImGui::TextUnformatted("Open game discs: choose one or two .cue files.");
-        if (ImGui::Button("Mount selected discs")) { mount(state, 0); mount(state, 1); }
+        ImGui::TextDisabled("Choose one or two original game-disc .cue files to begin browsing.");
 #endif
     }
 }
@@ -348,13 +364,20 @@ void source_tree(ViewerUi& state, size_t slot) {
 }
 
 void left_pane(ViewerUi& state) {
+    ImGui::SeparatorText("Browse assets");
+    ImGui::TextUnformatted("Search");
+    ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##search", "Search names, keys, paths", state.query,
                              sizeof(state.query));
     static constexpr const char* discs[] = {"Both discs", "Disc 1", "Disc 2"};
-    ImGui::Combo("Disc", &state.disc_filter, discs, 3);
+    ImGui::TextUnformatted("Disc");
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::Combo("##disc", &state.disc_filter, discs, 3);
     static constexpr const char* statuses[] = {"All statuses", "Indexing", "Available",
         "Missing", "Ambiguous", "Invalid", "Unindexed"};
-    ImGui::Combo("Status", &state.status_filter, statuses, 7);
+    ImGui::TextUnformatted("Status");
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::Combo("##status", &state.status_filter, statuses, 7);
     std::array<size_t, 2> counts{};
     for (size_t slot = 0; slot < 2; ++slot)
         counts[slot] = state.catalog.source(slot) ? state.catalog.source(slot)->rows.size() : 0;
@@ -367,14 +390,17 @@ void left_pane(ViewerUi& state) {
         state.kinds.erase(std::unique(state.kinds.begin(), state.kinds.end()), state.kinds.end());
         state.kind_counts = counts;
     }
-    if (ImGui::BeginCombo("Kind", state.kind_filter.empty() ? "All kinds" : state.kind_filter.c_str())) {
+    ImGui::TextUnformatted("Kind");
+    ImGui::SetNextItemWidth(-1.0f);
+    if (ImGui::BeginCombo("##kind", state.kind_filter.empty() ? "All kinds" :
+                                              state.kind_filter.c_str())) {
         if (ImGui::Selectable("All kinds", state.kind_filter.empty())) state.kind_filter.clear();
         for (const auto& kind : state.kinds)
             if (ImGui::Selectable(kind.c_str(), kind == state.kind_filter)) state.kind_filter = kind;
         ImGui::EndCombo();
     }
     ImGui::Checkbox("Include extras", &state.include_extras);
-    ImGui::SeparatorText("Game assets");
+    ImGui::SeparatorText("Collections");
     for (int i = 0; i <= static_cast<int>(od::inspect::Group::extras); ++i) {
         if (i == static_cast<int>(od::inspect::Group::extras) && !state.include_extras) continue;
         if (ImGui::Selectable(od::inspect::group_name(static_cast<od::inspect::Group>(i)),
@@ -435,14 +461,18 @@ void results_pane(ViewerUi& state) {
     for (const auto& item : found) names.push_back(state.catalog.row(item.slot, item.row)->name);
     std::sort(names.begin(), names.end());
     const size_t logical_count = static_cast<size_t>(std::unique(names.begin(), names.end()) - names.begin());
-    ImGui::Text("%s: %zu sources, %zu names", global_search ? "Search results" :
+    ImGui::Text("%s  |  %zu sources, %zu names", global_search ? "Search results" :
                 od::inspect::group_name(section),
                 found.size(), logical_count);
     if (ImGui::BeginTable("assets", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-        ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Sortable)) {
-        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_DefaultSort);
-        ImGui::TableSetupColumn("Kind"); ImGui::TableSetupColumn("Source");
-        ImGui::TableSetupColumn("Parent / path"); ImGui::TableSetupColumn("Status");
+        ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY |
+        ImGuiTableFlags_Sortable | ImGuiTableFlags_SizingFixedFit)) {
+        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_DefaultSort |
+                                ImGuiTableColumnFlags_WidthFixed, 220.0f);
+        ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+        ImGui::TableSetupColumn("Source", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+        ImGui::TableSetupColumn("Parent / path", ImGuiTableColumnFlags_WidthFixed, 300.0f);
+        ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed, 120.0f);
         ImGui::TableHeadersRow();
         if (auto* specs = ImGui::TableGetSortSpecs(); specs && specs->SpecsDirty && specs->SpecsCount) {
             state.sort_column = specs->Specs[0].ColumnIndex;
@@ -473,21 +503,30 @@ void results_pane(ViewerUi& state) {
 }
 
 void details_pane(ViewerUi& state) {
+    ImGui::SeparatorText("Details");
     const auto* row = selection(state);
     if (!row) { ImGui::TextDisabled("Select an asset or source file."); return; }
     const auto* source = state.catalog.source(state.selected_slot);
-    ImGui::TextWrapped("%s", row->name.c_str()); ImGui::Separator();
-    ImGui::Text("%s | %s", row->kind.c_str(), od::inspect::status_name(row->status));
+    ImGui::TextWrapped("%s", row->name.c_str());
+    ImGui::TextDisabled("%s  |  %s", row->kind.c_str(), od::inspect::status_name(row->status));
+    ImGui::SeparatorText("Source");
     ImGui::Text("Source: %s", od::inspect::identity_name(source->image->identity()));
-    ImGui::TextWrapped("CUE: %s", source->image->cue_path().u8string().c_str());
-    ImGui::TextWrapped("Physical path: %s", row->path.c_str());
-    if (!row->key.empty()) ImGui::TextWrapped("Internal key: %s", row->key.c_str());
+    ImGui::TextDisabled("CUE file");
+    ImGui::TextWrapped("%s", source->image->cue_path().u8string().c_str());
+    ImGui::TextDisabled("Physical path");
+    ImGui::TextWrapped("%s", row->path.c_str());
+    ImGui::SeparatorText("Asset data");
+    if (!row->key.empty()) {
+        ImGui::TextDisabled("Internal key");
+        ImGui::TextWrapped("%s", row->key.c_str());
+    }
     ImGui::Text("Size: %llu bytes", static_cast<unsigned long long>(row->size));
     if (row->has_extent)
         ImGui::Text("%s: %llu", row->physical ? "ISO logical offset" : "Offset in physical file",
                     static_cast<unsigned long long>(row->offset));
     if (!row->detail.empty()) ImGui::TextWrapped("%s", row->detail.c_str());
-    ImGui::TextWrapped("Derived from: %s", row->provenance.c_str());
+    ImGui::TextDisabled("Derived from");
+    ImGui::TextWrapped("%s", row->provenance.c_str());
     if (row->parent != SIZE_MAX && ImGui::Button("Open parent"))
         select(state, state.selected_slot, row->parent);
     if (!row->physical) {
@@ -710,8 +749,7 @@ void still_preview_pane(ViewerUi& state, const od::inspect::Source& source) {
 }
 
 void preview_pane(ViewerUi& state) {
-    ImGui::TextUnformatted("Preview");
-    ImGui::Separator();
+    ImGui::SeparatorText("Preview");
     const auto* row = selection(state);
     if (state.audio_row!=SIZE_MAX) {
         const auto* source=state.catalog.source(state.selected_slot);
@@ -841,6 +879,42 @@ void preview_pane(ViewerUi& state) {
                   IM_COL32(155, 170, 190, 255), subtitle.c_str());
 }
 
+void workspace_pane(ViewerUi& state) {
+    const ImVec2 available = ImGui::GetContentRegionAvail();
+    const float upper_height = std::clamp(available.y * 0.55f, 190.0f,
+                                          std::max(190.0f, available.y - 190.0f));
+    ImGui::BeginChild("inspection", ImVec2(0, upper_height), ImGuiChildFlags_None);
+    if (available.x >= 900.0f) {
+        const float preview_width = (ImGui::GetContentRegionAvail().x -
+                                     ImGui::GetStyle().ItemSpacing.x) * 0.62f;
+        ImGui::BeginChild("preview", ImVec2(preview_width, 0), ImGuiChildFlags_Borders);
+        preview_pane(state);
+        ImGui::EndChild();
+        ImGui::SameLine();
+        ImGui::BeginChild("details", ImVec2(0, 0), ImGuiChildFlags_Borders);
+        details_pane(state);
+        ImGui::EndChild();
+    } else if (ImGui::BeginTabBar("inspection tabs")) {
+        if (ImGui::BeginTabItem("Preview")) {
+            ImGui::BeginChild("preview", ImVec2(0, 0), ImGuiChildFlags_Borders);
+            preview_pane(state);
+            ImGui::EndChild();
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Details")) {
+            ImGui::BeginChild("details", ImVec2(0, 0), ImGuiChildFlags_Borders);
+            details_pane(state);
+            ImGui::EndChild();
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+    ImGui::EndChild();
+    ImGui::BeginChild("results", ImVec2(0, 0), ImGuiChildFlags_Borders);
+    results_pane(state);
+    ImGui::EndChild();
+}
+
 void draw_ui(void* user) {
     auto& state = *static_cast<ViewerUi*>(user);
     {
@@ -855,20 +929,42 @@ void draw_ui(void* user) {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos); ImGui::SetNextWindowSize(viewport->WorkSize);
     ImGui::Begin("ODViewer - game assets", nullptr,
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
-    source_strip(state); ImGui::Separator();
-    const float width = ImGui::GetContentRegionAvail().x;
-    ImGui::BeginChild("sections", ImVec2(width * 0.24f, 0), ImGuiChildFlags_Borders);
-    left_pane(state); state.reveal_slot = SIZE_MAX; ImGui::EndChild(); ImGui::SameLine();
-    ImGui::BeginChild("workspace", ImVec2(width * 0.48f, 0), ImGuiChildFlags_None);
-    const float preview_height = ImGui::GetContentRegionAvail().y * 0.55f;
-    ImGui::BeginChild("preview", ImVec2(0, preview_height), ImGuiChildFlags_Borders);
-    preview_pane(state); ImGui::EndChild();
-    ImGui::BeginChild("results", ImVec2(0, 0), ImGuiChildFlags_Borders);
-    results_pane(state); ImGui::EndChild();
-    ImGui::EndChild(); ImGui::SameLine();
-    ImGui::BeginChild("details", ImVec2(0, 0), ImGuiChildFlags_Borders);
-    details_pane(state); ImGui::EndChild(); ImGui::End();
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
+    ImGui::TextUnformatted("ODViewer");
+    ImGui::SameLine();
+    ImGui::TextDisabled("/  Browse and preview original game assets");
+    source_strip(state);
+    ImGui::Spacing();
+    const ImVec2 available = ImGui::GetContentRegionAvail();
+    if (available.x < 950.0f) {
+        if (ImGui::BeginTabBar("main tabs")) {
+            if (ImGui::BeginTabItem("Browse")) {
+                ImGui::BeginChild("sections", ImVec2(0, 0), ImGuiChildFlags_Borders);
+                left_pane(state);
+                ImGui::EndChild();
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("Workspace", nullptr,
+                                    state.focus_workspace ? ImGuiTabItemFlags_SetSelected : 0)) {
+                workspace_pane(state);
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
+        }
+    } else {
+        const float navigation_width = std::clamp(available.x * 0.22f, 260.0f, 320.0f);
+        ImGui::BeginChild("sections", ImVec2(navigation_width, 0), ImGuiChildFlags_Borders);
+        left_pane(state);
+        ImGui::EndChild();
+        ImGui::SameLine();
+        ImGui::BeginChild("workspace", ImVec2(0, 0), ImGuiChildFlags_None);
+        workspace_pane(state);
+        ImGui::EndChild();
+    }
+    state.focus_workspace = false;
+    state.reveal_slot = SIZE_MAX;
+    ImGui::End();
 }
 
 bool parse_args(int argc, char** argv, int& frames,
@@ -927,11 +1023,19 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
                      "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-movie] [--preview-still font|icon|vga|bank|material|scene] [--preview-audio effect|effect12|dialogue|track]");
         return SDL_APP_FAILURE;
     }
-    if (!shell.init({"ODViewer", draw_ui, &ui, frames, 18.0f, 1.2f,
-                     "ODViewer-window.rgba"})) {
+    if (!shell.init({"ODViewer", draw_ui, &ui, frames, 20.0f, 1.2f,
+                     "ODViewer-window.rgba", 1440, 900})) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", shell.error().c_str());
         return SDL_APP_FAILURE;
     }
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowPadding = ImVec2(16.0f, 16.0f);
+    style.FramePadding = ImVec2(10.0f, 7.0f);
+    style.ItemSpacing = ImVec2(10.0f, 9.0f);
+    style.ItemInnerSpacing = ImVec2(8.0f, 6.0f);
+    style.CellPadding = ImVec2(10.0f, 7.0f);
+    style.IndentSpacing = 22.0f;
+    style.ScrollbarSize = 16.0f;
     std::string preview_error;
     if (!ui.model_preview.init(preview_error)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", preview_error.c_str());

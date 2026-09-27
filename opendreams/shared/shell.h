@@ -16,6 +16,8 @@ struct ShellOptions {
     float ui_font_pixels = 0.0f; // 0 keeps the Dear ImGui default.
     float ui_size_scale = 1.0f;
     const char* icon_rgba = nullptr;
+    int window_width = 1024;
+    int window_height = 640;
 };
 
 class Shell {
