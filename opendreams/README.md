@@ -5,6 +5,23 @@ browser to `ODViewer`. Spec 003 adds DAN model previews from selected archive
 rows through a partial shared level-load port; `ODRuntime` retains its foundation
 screen. Both use one static `ODShared` library.
 
+## Application icons
+
+`assets/icons/ODViewer.png` and `assets/icons/ODRuntime.png` are original
+application artwork inspired by the game's cover and Duncan. The generated
+`.ico`, `.icns`, 512-pixel PNG and 64-pixel RGBA files are checked in so normal
+builds do not need an image tool. To regenerate them after changing the source
+artwork, run from the repository root:
+
+```powershell
+uv run --with pillow python opendreams/tools/make_app_icons.py
+```
+
+Windows embeds each `.ico` in its executable. macOS places each `.icns` in its
+`.app` bundle. Linux installs the 512-pixel PNG and matching `.desktop` launcher
+with `cmake --install build/<preset>`. SDL uses the 64-pixel RGBA export for the
+running window icon on desktop builds.
+
 ## ODViewer disc browser
 
 Launch `ODViewer` and choose one or two original `.cue` files in the source
@@ -109,6 +126,11 @@ drawable; `sg_commit` schedules presentation.
 cmake --preset macos-clang-arm64-debug
 cmake --build --preset macos-clang-arm64-debug --target ODViewer ODRuntime
 ```
+
+The macOS targets are app bundles: launch
+`build/macos-clang-arm64-debug/ODViewer.app` or
+`build/macos-clang-arm64-debug/ODRuntime.app` from Finder, or run their
+executables under `Contents/MacOS/`.
 
 `macos-clang-arm64-relwithdebinfo` is also available. This path is awaiting a
 build on the separate Mac; it is not recorded as validated.

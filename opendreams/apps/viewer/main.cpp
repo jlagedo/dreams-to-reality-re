@@ -555,7 +555,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
                      "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai]");
         return SDL_APP_FAILURE;
     }
-    if (!shell.init({"ODViewer", draw_ui, &ui, frames, 18.0f, 1.2f})) {
+    if (!shell.init({"ODViewer", draw_ui, &ui, frames, 18.0f, 1.2f,
+                     "ODViewer-window.rgba"})) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", shell.error().c_str());
         return SDL_APP_FAILURE;
     }

@@ -54,7 +54,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "usage: ODRuntime [--frames positive-integer]");
         return SDL_APP_FAILURE;
     }
-    if (!shell.init({"ODRuntime", draw_ui, &ui, frames})) {
+    if (!shell.init({"ODRuntime", draw_ui, &ui, frames, 0.0f, 1.0f,
+                     "ODRuntime-window.rgba"})) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", shell.error().c_str());
         return SDL_APP_FAILURE;
     }

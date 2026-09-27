@@ -55,6 +55,35 @@ bool Shell::init(const ShellOptions& options) {
         shutdown();
         return false;
     }
+#ifndef __EMSCRIPTEN__
+    if (options.icon_rgba) {
+        const char* base_path = SDL_GetBasePath();
+        std::string icon_path = base_path ? base_path : "";
+#if defined(__APPLE__)
+        icon_path += "../Resources/";
+#endif
+        icon_path += options.icon_rgba;
+        size_t pixel_bytes = 0;
+        void* pixels = SDL_LoadFile(icon_path.c_str(), &pixel_bytes);
+        if (pixels && pixel_bytes == 64u * 64u * 4u) {
+            SDL_Surface* icon = SDL_CreateSurfaceFrom(64, 64, SDL_PIXELFORMAT_RGBA32,
+                                                      pixels, 64 * 4);
+            if (icon) {
+                if (!SDL_SetWindowIcon(impl_->window, icon))
+                    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                                "could not set window icon: %s", SDL_GetError());
+                SDL_DestroySurface(icon);
+            } else {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                            "could not create window icon: %s", SDL_GetError());
+            }
+        } else {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                        "could not load window icon: %s", icon_path.c_str());
+        }
+        SDL_free(pixels);
+    }
+#endif
     if (!impl_->graphics.init(impl_->window, error_)) {
         shutdown();
         return false;

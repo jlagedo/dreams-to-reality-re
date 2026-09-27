@@ -137,6 +137,11 @@ Thumbs.db
 !docs/**/*.md
 !tests/data/*.hex
 
+# Original OpenDreams application icons (not extracted game media).
+!opendreams/assets/
+!opendreams/assets/icons/
+!opendreams/assets/icons/*
+
 # ---------------------------------------------------------------------------
 # Ghidra / reverse engineering
 #

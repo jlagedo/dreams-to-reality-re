@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.28)
 project(OpenDreams VERSION 0.1.0 LANGUAGES C CXX)
 
+if(WIN32)
+    enable_language(RC)
+endif()
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -126,6 +130,30 @@ foreach(app IN ITEMS ODViewer ODRuntime)
         set(app_source apps/runtime/main.cpp)
     endif()
     add_executable(${app} ${app_source})
+    if(WIN32)
+        set(ICON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/${app}.ico")
+        configure_file(cmake/AppIcon.rc.in
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/${app}.rc" @ONLY)
+        target_sources(${app} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/${app}.rc")
+    elseif(APPLE)
+        set(app_icon "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/${app}.icns")
+        set_source_files_properties(${app_icon} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+        target_sources(${app} PRIVATE ${app_icon})
+        set_target_properties(${app} PROPERTIES
+            MACOSX_BUNDLE TRUE
+            MACOSX_BUNDLE_ICON_FILE "${app}.icns")
+    endif()
+    if(NOT EMSCRIPTEN)
+        set(window_icon "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/${app}-window.rgba")
+        if(APPLE)
+            set_source_files_properties(${window_icon} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+            target_sources(${app} PRIVATE ${window_icon})
+        else()
+            add_custom_command(TARGET ${app} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${window_icon}
+                    "$<TARGET_FILE_DIR:${app}>/${app}-window.rgba")
+        endif()
+    endif()
     target_link_libraries(${app} PRIVATE ODShared)
     target_include_directories(${app} PRIVATE ${imgui_SOURCE_DIR} ${sokol_SOURCE_DIR})
     target_compile_definitions(${app} PRIVATE SOKOL_IMGUI_NO_SOKOL_APP)
@@ -135,6 +163,19 @@ foreach(app IN ITEMS ODViewer ODRuntime)
         target_link_options(${app} PRIVATE "-sUSE_WEBGL2=1" "-sMIN_WEBGL_VERSION=2" "-sMAX_WEBGL_VERSION=2" "-sALLOW_MEMORY_GROWTH=1")
     endif()
 endforeach()
+
+if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+    install(TARGETS ODViewer ODRuntime RUNTIME DESTINATION bin)
+    foreach(app IN ITEMS ODViewer ODRuntime)
+        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/${app}-512.png"
+            DESTINATION share/icons/hicolor/512x512/apps
+            RENAME "${app}.png")
+        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/${app}-window.rgba"
+            DESTINATION bin)
+        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/${app}.desktop"
+            DESTINATION share/applications)
+    endforeach()
+endif()
 
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
     add_executable(ODViewerPrefsTests tests/viewer_prefs_tests.cpp)

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=OpenDreams Viewer
+Comment=Explore Dreams to Reality disc contents
+Exec=ODViewer
+Icon=ODViewer
+Categories=Game;Graphics;
+Terminal=false
