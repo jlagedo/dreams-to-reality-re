@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "disc/image.h"
+#include "port/dan.h"
 #include "port/dsn.h"
 #include "port/stream.h"
 #include "port/vfs.h"
@@ -82,6 +83,7 @@ struct Options {
     bool unicode_data_name = false;
     bool bf_archives = false;
     bool dsn_header = false;
+    bool dan_archive = false;
 };
 
 struct Fixture {
@@ -139,6 +141,7 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
         pos = record(root, pos, 30, 598, 0, "TWO.BF;1");
     }
     if (options.dsn_header) record(root, pos, 31, 128, 0, "TEST.DSN;1");
+    if (options.dan_archive) record(root, pos, 31, 94, 0, "TEST.DAN;1");
     auto* root_second = iso.data() + 21 * 2048;
     pos = record(root_second, 0, 26, 4, 0, "EXTRA.TXT;1");
     if (options.duplicate_name)
@@ -195,6 +198,21 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
             little32(dsn + 58 + word * 4, word + 10);
         }
         dsn[78] = 1; // First packed-body tag after the two header tables.
+    }
+    if (options.dan_archive) {
+        auto* dan = iso.data() + 31 * 2048;
+        std::memcpy(dan, "DANF", 4);
+        little32(dan + 5, 94);
+        little32(dan + 10, 46); // 55-byte body offset minus nine.
+        little16(dan + 14, 1);
+        std::memcpy(dan + 16, "MODEL", 5);
+        little16(dan + 27, 2);
+        std::memcpy(dan + 29, "CLIP000.3DA", 11);
+        std::memcpy(dan + 42, "CLIP002.3DA", 11);
+        dan[55] = 1; little32(dan + 56, 9); std::memcpy(dan + 60, "modl", 4);
+        dan[64] = 2; little32(dan + 65, 9); std::memcpy(dan + 69, "tex0", 4);
+        dan[73] = 3; little32(dan + 74, 10); std::memcpy(dan + 78, "first", 5);
+        dan[83] = 3; little32(dan + 84, 11); std::memcpy(dan + 88, "second", 6);
     }
 
     const std::string data_name = options.unicode_data_name ? u8"Träck 01.bin" :
@@ -503,6 +521,55 @@ bool test_stream_and_dsn(const fs::path& base) {
     return true;
 }
 
+bool test_dan_archive(const fs::path& base) {
+    Options options;
+    options.dan_archive = true;
+    const auto fixture = make_fixture(base / "dan-archive", options);
+    Error disc_error;
+    auto opened = Image::open(fixture.cue, disc_error);
+    CHECK(opened != nullptr);
+    std::shared_ptr<const Image> image(std::move(opened));
+    od::port::VfsContext vfs(image);
+    od::port::DanArchive dan(vfs);
+    od::port::DanError error;
+    CHECK(od::port::DAN_OpenArchive(dan, "test.dan", error));
+    CHECK(dan.is_open() && dan.declared_size() == 94 && dan.span() == 46);
+    CHECK(dan.body_offset() == 55 && dan.names().size() == 1);
+    CHECK(dan.names()[0].text == "MODEL");
+    CHECK(od::port::DAN_GetAnimCount(dan) == 2);
+    CHECK(od::port::DAN_GetAnimName(dan, 0) == "CLIP000.3DA");
+    CHECK(od::port::DAN_GetAnimName(dan, 1) == "CLIP002.3DA");
+    CHECK(od::port::DAN_GetAnimName(dan, 2).empty());
+    CHECK(od::port::DAN_ReadAnimChunks(dan, error));
+    CHECK(dan.animations_loaded() && dan.animation_chunks().size() == 2);
+    CHECK(dan.animation_chunks()[0].file_offset == 73);
+    CHECK(dan.animation_chunks()[0].payload_size == 5);
+    CHECK(dan.animation_chunks()[1].file_offset == 83);
+    CHECK(dan.animation_chunks()[1].payload_size == 6);
+    CHECK(std::memcmp(dan.animation_work().data(), "firstsecond", 11) == 0);
+    od::port::DAN_CloseArchive(dan);
+    CHECK(!dan.is_open() && od::port::DAN_GetAnimCount(dan) == 0);
+    CHECK(!od::port::DAN_OpenArchive(dan, "MISSING.DAN", error));
+    CHECK(error.code == od::port::DanErrorCode::missing_file);
+
+    const auto bad = make_fixture(base / "bad-dan-chunk", options);
+    {
+        std::fstream raw(bad.data, std::ios::binary | std::ios::in | std::ios::out);
+        raw.seekp(31 * 2352 + 16 + 74); // First tag-3 chunk size.
+        const std::array<char, 4> outside{'\xff', '\xff', '\xff', '\x7f'};
+        raw.write(outside.data(), outside.size());
+    }
+    auto bad_image = Image::open(bad.cue, disc_error);
+    CHECK(bad_image != nullptr);
+    od::port::VfsContext invalid(std::shared_ptr<const Image>(std::move(bad_image)));
+    od::port::DanArchive bad_dan(invalid);
+    CHECK(od::port::DAN_OpenArchive(bad_dan, "TEST.DAN", error));
+    CHECK(!od::port::DAN_ReadAnimChunks(bad_dan, error));
+    CHECK(error.code == od::port::DanErrorCode::invalid_chunk);
+    CHECK(!bad_dan.animations_loaded());
+    return true;
+}
+
 bool test_markers_and_offsets(const fs::path& base) {
     Error error;
     Options options;
@@ -636,6 +703,81 @@ std::string uppercase_path(std::string path) {
     return path;
 }
 
+bool validate_dan_corpus(const Image& source, od::port::VfsContext& vfs,
+                         size_t disc_index) {
+    std::vector<const od::disc::Entry*> files;
+    for (const auto& entry : source.entries()) {
+        const std::string path = uppercase_path(entry.path);
+        if (entry.kind == EntryKind::file && path.size() >= 4 &&
+            path.substr(path.size() - 4) == ".DAN") files.push_back(&entry);
+    }
+    std::sort(files.begin(), files.end(), [](const auto* a, const auto* b) {
+        return uppercase_path(a->path) < uppercase_path(b->path);
+    });
+    const size_t expected_files = disc_index == 0 ? 111 : 80;
+    const size_t expected_names = disc_index == 0 ? 170 : 142;
+    const size_t expected_frames = disc_index == 0 ? 550 : 498;
+    const size_t expected_payload_bytes = disc_index == 0 ? 1939827 : 1754479;
+    const uint32_t expected_metadata_crc = disc_index == 0 ? 0x05c1a513u : 0xc9215b67u;
+    const uint32_t expected_payload_crc = disc_index == 0 ? 0x38fec8d1u : 0xa25c1768u;
+    if (files.size() != expected_files) return false;
+    od::port::DanArchive dan(vfs);
+    od::port::DanError error;
+    uint32_t metadata_crc = 0xffffffffu, payload_crc = 0xffffffffu;
+    size_t names = 0, frames = 0, payload_bytes = 0;
+    for (const auto* file : files) {
+        if (!od::port::DAN_OpenArchive(dan, file->path, error) ||
+            dan.declared_size() != file->byte_size ||
+            dan.body_offset() != 9u + dan.span() ||
+            !od::port::DAN_ReadAnimChunks(dan, error) || !dan.animations_loaded() ||
+            dan.animation_chunks().size() != od::port::DAN_GetAnimCount(dan)) {
+            std::cerr << "DAN " << file->path << ": " << error.message << "\n";
+            return false;
+        }
+        names += dan.names().size();
+        frames += dan.clips().size();
+        const std::string path = uppercase_path(file->path);
+        metadata_crc = crc32_update(metadata_crc, path.data(), path.size());
+        const uint8_t zero = 0;
+        metadata_crc = crc32_update(metadata_crc, &zero, 1);
+        std::array<uint8_t, 12> fields{};
+        little32(fields.data(), dan.declared_size());
+        little32(fields.data() + 4, dan.span());
+        little16(fields.data() + 8, static_cast<uint16_t>(dan.names().size()));
+        little16(fields.data() + 10, static_cast<uint16_t>(dan.clips().size()));
+        metadata_crc = crc32_update(metadata_crc, fields.data(), fields.size());
+        for (const auto& name : dan.names())
+            metadata_crc = crc32_update(metadata_crc, name.raw.data(), name.raw.size());
+        std::array<uint8_t, 2> frame_count{};
+        little16(frame_count.data(), static_cast<uint16_t>(dan.clips().size()));
+        metadata_crc = crc32_update(metadata_crc, frame_count.data(), frame_count.size());
+        for (size_t i = 0; i < dan.clips().size(); ++i) {
+            if (od::port::DAN_GetAnimName(dan, i) != dan.clips()[i].text) return false;
+            metadata_crc = crc32_update(metadata_crc, dan.clips()[i].raw.data(),
+                                        dan.clips()[i].raw.size());
+        }
+        for (const auto& chunk : dan.animation_chunks()) {
+            if (chunk.work_offset + chunk.payload_size > dan.animation_work().size())
+                return false;
+            payload_crc = crc32_update(payload_crc,
+                dan.animation_work().data() + chunk.work_offset, chunk.payload_size);
+            payload_bytes += chunk.payload_size;
+        }
+    }
+    od::port::DAN_CloseArchive(dan);
+    metadata_crc ^= 0xffffffffu;
+    payload_crc ^= 0xffffffffu;
+    if (names != expected_names || frames != expected_frames ||
+        payload_bytes != expected_payload_bytes ||
+        metadata_crc != expected_metadata_crc || payload_crc != expected_payload_crc) {
+        std::cerr << "Disc " << disc_index + 1 << " DAN values differ from Python oracle\n";
+        return false;
+    }
+    std::cout << "Disc " << disc_index + 1 << ": " << files.size()
+              << " DAN archives, " << frames << " animation chunks\n";
+    return true;
+}
+
 int corpus() {
     const char* one = std::getenv("DREAMS_CUE1");
     const char* two = std::getenv("DREAMS_CUE2");
@@ -681,6 +823,7 @@ int corpus() {
         std::shared_ptr<const Image> source(std::move(image));
         od::port::VfsContext vfs(source);
         od::port::VfsError vfs_error;
+        if (!validate_dan_corpus(*source, vfs, i)) return 1;
         int32_t handle = 0;
         if (!od::port::VFS_Open(vfs, "X:\\DREAMS.DAT", 0x200, handle, vfs_error))
             return 1;
@@ -816,7 +959,8 @@ int main(int argc, char** argv) {
     const bool mount_okay = test_mount_and_read(base);
     const bool vfs_okay = mount_okay && test_vfs_and_bf(base);
     const bool stream_okay = vfs_okay && test_stream_and_dsn(base);
-    const bool markers_okay = stream_okay && test_markers_and_offsets(base);
+    const bool dan_okay = stream_okay && test_dan_archive(base);
+    const bool markers_okay = dan_okay && test_markers_and_offsets(base);
     const bool okay = markers_okay && test_failures(base);
     std::error_code ignored;
     fs::remove_all(base, ignored);

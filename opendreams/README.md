@@ -141,6 +141,14 @@ leaves the stream at the first packed-body tag and exposes the copied 11-byte
 name and 20-byte object records. The corpus test checks all 98 physical `.DSN`
 headers across both discs against the Python header parser.
 
+`shared/port/dan.cpp` ports the DAN archive opener, type-3 animation-chunk
+reader, count/name getters and close path. The copied 11-byte name slots and
+13-byte clip slots are source-scoped logical children of each physical `.DAN`.
+The shared reader keeps the retail `0x96000` compressed-work buffer and maps
+each declared clip to its type-3 payload; it skips earlier type-1/2 ranges by
+their recorded lengths during metadata indexing. The corpus test validates
+all 191 physical DAN archives against the Python directory and payload oracle.
+
 ## Shared disc access (spec 002 foundation)
 
 `shared/disc/image.h` is the portable source boundary for both applications and
