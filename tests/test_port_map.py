@@ -1,4 +1,4 @@
-"""The versioned port map must distinguish complete and unfinished behavior."""
+"""The versioned port map tracks behavior coverage and owner review separately."""
 
 from __future__ import annotations
 
@@ -54,3 +54,38 @@ def test_partial_port_requires_remaining_work(tmp_path, monkeypatch) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     monkeypatch.setattr(check_port_map, "PORT_MAP", path)
     assert check_port_map.validate() == 1
+
+
+def test_owner_review_must_match_across_windows_twins(tmp_path, monkeypatch) -> None:
+    source = check_port_map.PORT_MAP.read_text(encoding="utf-8")
+    lines = source.splitlines()
+    for index, line in enumerate(lines):
+        fields = line.split("\t")
+        if fields[0] == "WINDREAM.EXE" and fields[2] == "VFS_Open":
+            fields[11] = "yes"
+            lines[index] = "\t".join(fields)
+            break
+    else:
+        raise AssertionError("VFS_Open row missing")
+    path = tmp_path / "port-map.tsv"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    monkeypatch.setattr(check_port_map, "PORT_MAP", path)
+    assert check_port_map.validate() == 1
+
+
+def test_partial_port_can_be_owner_reviewed(tmp_path, monkeypatch) -> None:
+    source = check_port_map.PORT_MAP.read_text(encoding="utf-8")
+    lines = source.splitlines()
+    changed = 0
+    for index, line in enumerate(lines):
+        fields = line.split("\t")
+        if fields[2] == "VFS_Open":
+            assert fields[9] == "partial"
+            fields[11] = "yes"
+            lines[index] = "\t".join(fields)
+            changed += 1
+    assert changed == 2
+    path = tmp_path / "port-map.tsv"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    monkeypatch.setattr(check_port_map, "PORT_MAP", path)
+    assert check_port_map.validate() == 0

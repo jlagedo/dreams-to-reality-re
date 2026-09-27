@@ -27,9 +27,11 @@ FIELDS = [
     "adaptation",
     "coverage",
     "remaining_work",
+    "reviewed",
 ]
 STATUSES = {"ported", "adapted", "replaced", "omitted"}
 COVERAGE = {"complete", "partial", "unverified", "none"}
+REVIEWED = {"yes", "no"}
 
 
 def checked_names() -> dict[str, str]:
@@ -46,6 +48,7 @@ def validate() -> int:
     names = checked_names()
     errors: list[str] = []
     counts: dict[str, Counter[str]] = defaultdict(Counter)
+    review_counts: Counter[str] = Counter()
     twins: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
     seen: set[tuple[str, str]] = set()
     with PORT_MAP.open(encoding="utf-8", newline="") as source:
@@ -71,6 +74,8 @@ def validate() -> int:
                 errors.append(f"{prefix} invalid status {row['status']!r}")
             if row["coverage"] not in COVERAGE:
                 errors.append(f"{prefix} invalid coverage {row['coverage']!r}")
+            if row["reviewed"] not in REVIEWED:
+                errors.append(f"{prefix} reviewed must be yes or no")
             if (row["status"] == "omitted") != (row["coverage"] == "none"):
                 errors.append(f"{prefix} omitted status requires coverage=none")
             remaining = row["remaining_work"].strip()
@@ -101,6 +106,8 @@ def validate() -> int:
                     ):
                         errors.append(f"{prefix} C++ symbol is missing from {row['cpp_file']}")
             counts[row["program"]][row["coverage"]] += 1
+            if row["reviewed"] == "yes":
+                review_counts[row["program"]] += 1
             twins[(address, row["checked_name"])].append(row)
     for (address, name), rows in twins.items():
         if {row["program"] for row in rows} != {"WINDREAM.EXE", "GDIDREAM.EXE"}:
@@ -108,19 +115,26 @@ def validate() -> int:
         elif (
             len(
                 {
-                    (row["cpp_symbol"], row["status"], row["coverage"], row["remaining_work"])
+                    (
+                        row["cpp_symbol"],
+                        row["status"],
+                        row["coverage"],
+                        row["remaining_work"],
+                        row["reviewed"],
+                    )
                     for row in rows
                 }
             )
             != 1
         ):
-            errors.append(f"{address} {name}: Windows twin coverage differs")
+            errors.append(f"{address} {name}: Windows twin mapping or review differs")
     for program in sorted(counts):
         coverage = counts[program]
         print(
             f"{program}: {sum(coverage.values())} mapped; "
             f"{coverage['complete']} complete, {coverage['partial']} partial, "
-            f"{coverage['unverified']} unverified, {coverage['none']} none"
+            f"{coverage['unverified']} unverified, {coverage['none']} none; "
+            f"{review_counts[program]} reviewed"
         )
     for error in errors:
         print(error, file=sys.stderr)

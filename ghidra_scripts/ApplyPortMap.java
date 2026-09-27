@@ -1,5 +1,6 @@
-/* Rebuild PORT:* Function Tags and [PORT_MAP] plate comments from the versioned
- * opendreams/port-map.tsv. Run after importing symbols into a fresh project.
+/* Rebuild PORT:* Function Tags, including owner-review state, and [PORT_MAP]
+ * plate comments from the versioned opendreams/port-map.tsv. Run after importing
+ * symbols into a fresh project.
  * Existing [NAME], [DOCS_SYNC], manual plate text and unrelated tags survive.
  *
  * Usage (Script Manager, or headless without -readOnly):
@@ -28,7 +29,7 @@ import ghidra.program.model.listing.Listing;
 public class ApplyPortMap extends GhidraScript {
 
     private static final String HEADER = "program\taddress\tchecked_name\tsource_block\t"
-        + "cpp_file\tcpp_symbol\tstatus\tevidence\tadaptation\tcoverage\tremaining_work";
+        + "cpp_file\tcpp_symbol\tstatus\tevidence\tadaptation\tcoverage\tremaining_work\treviewed";
 
     private static class Row {
         Function function;
@@ -37,6 +38,7 @@ public class ApplyPortMap extends GhidraScript {
         String status;
         String coverage;
         String remainingWork;
+        String reviewed;
     }
 
     private String repoRoot() {
@@ -85,9 +87,9 @@ public class ApplyPortMap extends GhidraScript {
                 continue;
             }
             String[] f = line.split("\t", -1);
-            if (f.length != 11) {
+            if (f.length != 12) {
                 throw new IllegalArgumentException("port map line " + (i + 1) + " has "
-                    + f.length + " columns, expected 11");
+                    + f.length + " columns, expected 12");
             }
             if (!f[0].equalsIgnoreCase(currentProgram.getName())) {
                 continue;
@@ -116,6 +118,9 @@ public class ApplyPortMap extends GhidraScript {
                 throw new IllegalArgumentException("remaining_work disagrees with coverage on line "
                     + (i + 1));
             }
+            if (!Set.of("yes", "no").contains(f[11])) {
+                throw new IllegalArgumentException("reviewed must be yes or no on line " + (i + 1));
+            }
             Row row = new Row();
             row.function = function;
             row.cppFile = f[4];
@@ -123,6 +128,7 @@ public class ApplyPortMap extends GhidraScript {
             row.status = f[6];
             row.coverage = f[9];
             row.remainingWork = f[10];
+            row.reviewed = f[11];
             rows.add(row);
         }
         return rows;
@@ -158,11 +164,13 @@ public class ApplyPortMap extends GhidraScript {
             row.function.addTag("PORT:" + row.status);
             row.function.addTag("PORT:" + row.coverage);
             if (!row.coverage.equals("complete")) row.function.addTag("PORT:needs-work");
+            row.function.addTag(row.reviewed.equals("yes") ? "PORT:reviewed" : "PORT:review-pending");
             String block = "[PORT_MAP] " + row.status + " | " + row.coverage;
             if (!row.status.equals("omitted")) {
                 block += "\n" + row.cppFile + " :: " + row.cppSymbol;
             }
             if (!row.remainingWork.equals("-")) block += "\nRemaining: " + row.remainingWork;
+            block += "\nOwner reviewed: " + row.reviewed;
             Address address = row.function.getEntryPoint();
             String previous = listing.getComment(CodeUnit.PLATE_COMMENT, address);
             listing.setComment(address, CodeUnit.PLATE_COMMENT,

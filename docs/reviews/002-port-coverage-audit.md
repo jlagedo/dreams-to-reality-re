@@ -1,7 +1,8 @@
 # 002 retail-function behavior coverage
 
 `opendreams/port-map.tsv` now separates implementation method (`status`) from
-retail behavior coverage (`coverage`). `adapted` describes the portable C++
+retail behavior coverage (`coverage`) and the project owner's personal review
+(`reviewed`). `adapted` describes the portable C++
 boundary; it is not a claim of complete retail behavior. The map has 50
 distinct checked functions, mirrored in WINDREAM.EXE and GDIDREAM.EXE.
 Run `uv run python tools/check_port_map.py` for the current counts and exact

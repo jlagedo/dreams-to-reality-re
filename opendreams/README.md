@@ -127,7 +127,8 @@ is read-only, validates archive extents and reports recoverable errors.
 location plate comments in Ghidra.
 Run `uv run python tools/check_port_map.py` from the repository root to check
 the distinct `complete`, `partial` and `unverified` behavior coverage labels;
-`adapted` alone does not mean the original call closure is finished.
+`adapted` alone does not mean the original call closure is finished. The separate
+`reviewed` column tracks the project owner's explicit review of each function.
 
 `shared/port/ddat.cpp` now ports `DDAT_Load`, `DDAT_LoadRecord`,
 `DDAT_InitEmptyRecords` and `RLE_UnpackZeros`. The bank reads `DREAMS.DAT`

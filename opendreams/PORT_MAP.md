@@ -6,7 +6,8 @@ functions are the file-root getters used by the upcoming VFS port. Use one row
 per original function and program with these tab-separated columns:
 
 `program`, `address`, `checked_name`, `source_block`, `cpp_file`,
-`cpp_symbol`, `status`, `evidence`, `adaptation`, `coverage`, `remaining_work`.
+`cpp_symbol`, `status`, `evidence`, `adaptation`, `coverage`, `remaining_work`,
+`reviewed`.
 
 `checked_name` must match the checked registry in `../re/names/`; this map does
 not create names. `source_block` cites the report or research note and says
@@ -35,8 +36,17 @@ prove `complete`. Before changing a row to `complete`, inspect every relevant
 return path and transitive callee in Ghidra, check mutable state and cleanup,
 compare outputs against independent evidence, and remove the listed work.
 An `adapted` implementation may be either `complete` or `partial`.
+`reviewed` is a separate `yes`/`no` sign-off by the project owner. Set it to
+`yes` only after the owner has personally reviewed the function, understands
+its `status`, `coverage`, and any `remaining_work`, and explicitly confirms that
+review. New rows start at `no`. A `partial` or `unverified` port can still be
+reviewed; review does not change coverage. Do not infer `yes` from tests, an
+AI review, or discussion of the function. Reset it to `no` when the
+implementation, `status`, `coverage`, or `remaining_work` changes materially,
+so the owner's prior review is not mistaken for review of the new state.
 Run `uv run python tools/check_port_map.py` before committing a map change;
-it validates these rules, checked names, C++ locations and Windows twin rows.
+it validates these rules, checked names, C++ locations and Windows twin rows,
+including matching owner-review state. Its summary reports the reviewed count.
 
 ## Show the map inside Ghidra
 
@@ -45,8 +55,10 @@ gitignored and disposable. For each mapped function, mirror its `status` as one
 Ghidra Function Tag (`PORT:ported`, `PORT:adapted`, `PORT:replaced` or
 `PORT:omitted`) plus a coverage tag (`PORT:complete`, `PORT:partial`,
 `PORT:unverified` or `PORT:none`). Partial and unverified rows also get
-`PORT:needs-work`. The generated `[PORT_MAP]` plate comment includes status,
-coverage, C++ location and remaining work. That puts the answer beside the
+`PORT:needs-work`. Owner review adds `PORT:reviewed` or
+`PORT:review-pending`, independent of coverage. The generated `[PORT_MAP]`
+plate comment includes status, coverage, C++ location, remaining work and
+owner-review state. That puts the answer beside the
 decompilation and lets Ghidra's Function Tags window list incomplete ports.
 Do not encode the changing
 source path in tag names or edit a second copy of the status by hand.
@@ -83,7 +95,8 @@ not `opendreams/`.
    observable results with the decompilation and corpus or Python oracle.
 4. Add the row only when the C++ symbol exists and has been tested. Set
    `coverage` conservatively; a deferred leaf makes it `partial`, and an
-   incomplete closure audit makes it `unverified`. Apply the map in Ghidra and
+   incomplete closure audit makes it `unverified`. Initialize `reviewed=no`
+   until the owner explicitly signs off. Apply the map in Ghidra and
    verify both tags and the implementation-location plate comment.
 5. Run `uv run python tools/check_port_map.py`, then commit the implementation,
    test, map and documentation together.

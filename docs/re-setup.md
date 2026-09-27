@@ -514,7 +514,7 @@ that BSS location is present in the loaded program.
 | `ghidra/dreams.rep` | the saved project | durable on disk, but **gitignored** — binary, unmergeable, embeds the game executables |
 | `re/symbols/*.tsv` | exported names + comments | **durable and in git** — the record that outlives everything |
 | `re/structs/*.h` | parsed C layouts | **durable and in git** — imported by `ImportStructs.java` |
-| `opendreams/port-map.tsv` | retail implementation status, behavior coverage and C++ locations | **durable and in git** — applied by `ApplyPortMap.java` |
+| `opendreams/port-map.tsv` | retail implementation status, behavior coverage, owner review and C++ locations | **durable and in git** — applied by `ApplyPortMap.java` |
 
 `re/` is the source of truth for recovered symbols and types. The Ghidra
 project is disposable and rebuildable from the discs with

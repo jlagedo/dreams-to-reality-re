@@ -9,6 +9,7 @@ completed functions in
 [`PORT_MAP.md`](../../../opendreams/PORT_MAP.md) only when code is implemented.
 Its separate `coverage` column marks complete, partial or unverified retail
 behavior; `adapted` alone does not mean the original call closure is finished.
+The `reviewed` column records the project owner's explicit personal review.
 
 This map starts from the checked
 [`WINDREAM.EXE` name registry](../../../re/names/WINDREAM.EXE.tsv),

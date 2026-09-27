@@ -14,6 +14,8 @@
 | `web/` | Babylon.js viewer; `web/src/` contains its source; `web/src/content.ts` owns every data URL |
 | `docs/README.md` | Research documentation index |
 | `docs/re-setup.md` | Ghidra setup and workflow |
+| `opendreams/PORT_MAP.md` | Retail function porting rules, including behavior coverage and Ghidra tags |
+| `opendreams/port-map.tsv` | Authoritative function-to-C++ mapping, coverage, remaining work and owner review |
 | `re/symbols/*.tsv` | Saved Ghidra symbols and comments |
 | `re/names/*.tsv` | Function-name registry: each name's kind, sources and machine-checked facts (`tools/check_names.py`) |
 | `re/structs/` | C layouts and typed-global lists for Ghidra (`windream.h`, `directx.h`, `windream-globals.tsv`) |
@@ -21,6 +23,14 @@
 | `tools/` | Ghidra import and checkpoint PowerShell scripts; `lx-loader-watcom.cspec` for the DOS-build LE loader; `match_functions.py` cross-build function matcher; `match_identical.py` byte-identical code shared between binaries (CryoLib in the game); `find_modules.py` source-file blocks; `check_names.py` checks and applies the name registry; `sync_doc_comments.py` copies doc text into Ghidra comments |
 | `ghidra/` | Local Ghidra project (gitignored) |
 | `out/` | Default toolkit output (gitignored) |
+
+Before porting or marking a retail function complete, follow
+`opendreams/PORT_MAP.md`. Update `opendreams/port-map.tsv` with the C++ change,
+run `uv run python tools/check_port_map.py`, and apply the map to both Windows
+programs in Ghidra as described there. `status` records the port method;
+`coverage` records whether all retail behavior has been accounted for.
+`reviewed` records the project owner's explicit personal review; never infer it
+from tests or an agent's analysis.
 
 ## Local paths
 
