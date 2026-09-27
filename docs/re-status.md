@@ -19,9 +19,9 @@ layouts and algorithms live in the linked subsystem pages. Dated entries in
 | Saves and language | Retail save index, world/player/inventory payload and thumbnail layouts are traced. The English executable skips its INI parser and uses compiled-in English strings. | Save/load round trips and native integration. French INI labels are research metadata, not the English runtime's text source. [game-content.md](game-content.md) |
 
 A decoded format, a named function, a documented algorithm and behavior
-reproduced in a running port are separate claims. There is currently no
-`opendreams/` implementation; the Python toolkit and Babylon viewer are the
-existing test and inspection tools.
+reproduced in a running port are separate claims. `opendreams/` currently has
+the spec 001 application shells but no disc or game-asset loader. The Python
+toolkit and Babylon viewer remain the content inspection tools.
 
 ## Naming coverage
 
@@ -38,8 +38,10 @@ not need a full port or naming sweep.
 
 ## Remaining work, in dependency order
 
-1. **Native asset browser and renderer (milestones 2–3).** Implement the
-   recovered render graph, signed UVs, material/state and palette contracts
+1. **Native asset browser and renderer (milestones 2–3).** First implement the
+   [disc and source-asset navigation](specs/002-disc-navigation/spec.md) using
+   the [recovered access map](asset-access.md). Then implement the recovered
+   render graph, signed UVs, material/state and palette contracts
    against the Python oracle. ARC's open edges are source topology. Compare
    original-game screenshots and settle the bounded runtime questions in
    [glide-renderer.md](glide-renderer.md) and [lighting.md](lighting.md).

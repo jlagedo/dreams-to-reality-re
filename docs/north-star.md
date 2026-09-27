@@ -41,7 +41,7 @@ Requirements, from the owner:
 | Music | **Read straight from the images' audio tracks** (raw 44.1 kHz PCM sectors) | The original plays CD audio through MCI; the image already holds it, so nothing is ripped or transcoded on desktop |
 | Web pack | **Parked (desktop first).** When taken up: the only preprocessing; `opendreams pack` reads the images and writes a chunked, versioned pack: the loaders' structs serialized, music and voice as **Vorbis** (stb_vorbis), video in a browser-friendly form | The browser cannot fetch 1.4 GB or decode raw HNM fast enough; made by the same loaders, so there is no second format world |
 | Repository | **This repository**, new top-level `opendreams/` directory; the Python toolkit stays as the reference decoder and test oracle; the Babylon.js viewer is frozen and retired once ODViewer covers its inspection workflows and browser use | Cross-checking C++ loaders against the Python decoders is a local test, not a cross-repo chore |
-| Applications | **ODShared**, the reconstructed engine shared by **ODRuntime**, the game, and **ODViewer**, the asset browser | One implementation of loaders and presentation; gameplay debugging stays in ODRuntime |
+| Applications | **ODShared**, the reconstructed engine shared by **ODRuntime**, the game, and **ODViewer**, the asset browser and port-validation tool | One retail-function port for game asset access and presentation; both applications consume it, and gameplay debugging stays in ODRuntime |
 | Fidelity | **Port the original code, fixed step, free renderer** (below) | The only option where the result is recognisably the same game |
 | Licence | MIT, like the rest of the repository; no game data in the repository, ever | |
 
@@ -204,6 +204,16 @@ runs the game and owns its optional gameplay debugging overlay. The initial
 structure below distinguishes reconstructed code from new supporting code;
 these directory names do not claim to reproduce Cryo's original paths.
 
+ODViewer is a consumer and validation harness for the ported retail functions.
+For any game-format or asset-lookup behavior with a retail counterpart, trace
+and port that function and its required call path in ODShared, then use the same
+implementation from ODViewer and ODRuntime. After an asset is obtained through
+that path, ODViewer may add read-only decoders or presentation for information
+the retail game did not compute. These extensions must not replace a retail
+function or become the runtime's source of game behavior. New CUE/BIN and ISO
+access, SDL/GPU integration, catalog search and ImGui controls are supporting
+code because the retail game had no equivalent.
+
 ```text
 opendreams/
   shared/              ODShared library
@@ -233,10 +243,13 @@ Rules:
   fixed-step policy and known renderer feedback described above. Tests may run
   selected paths headlessly with test services; headless execution does not
   require removing all platform libraries from the link.
-- **Preview the same implementation.** ODViewer uses recovered loaders and
-  playback functions with their required setup. It does not host a game session
-  or duplicate gameplay to display an asset. Investigate gameplay-dependent
-  state through ODRuntime's overlay or focused tests.
+- **Browse and preview the same retail implementation.** ODViewer uses recovered
+  lookup, loader and playback functions with their required setup. Catalog
+  adapters expose their results for search and provenance; viewer-specific
+  interpretation may enrich already loaded assets where no retail function
+  supplies the desired detail. ODRuntime uses the same ported functions, never
+  a duplicate viewer loader. Investigate gameplay-dependent state through
+  ODRuntime's overlay or focused tests; ODViewer does not host a game session.
 - **Restore the original development tools first.** Start ODRuntime debugging
   with the surviving object HUD (`DBG_DrawObjectInfo`), collision wireframe
   (`DBG_DrawCollisionMesh`) and free-camera mode. Keep recovered routines in
@@ -323,13 +336,17 @@ and still compiles for the browser.
    sokol and Dear ImGui integration, with working input and presentation. Exercise
    shader generation with a procedural background. CI for Windows/macOS/Linux
    plus Emscripten compile checks for both applications. No game-data loading.
-2. **Asset browser, in stages.** **[Spec 002](specs/002-disc-navigation/spec.md)** mounts the two disc images and
-   builds ODViewer directory/file navigation, showing basic metadata only.
-   No asset previews or playback in 002. **Subsequent specs** add native format
-   loaders and previews: models, skeletons, animation at the original 30 frames
-   per second, props, level geometry/textures, sprites/fonts, sounds, music,
-   voice/captions and videos. Check each loader against Python and match the
-   renderer's material modes against the 3dfx build as previews arrive.
+2. **Asset browser, in stages.** **[Spec 002](specs/002-disc-navigation/spec.md)** mounts the two disc images,
+   ports the retail lookup/open functions needed for asset navigation into
+   ODShared, and makes ODViewer consume them across both sources. It presents
+   physical files, supported indexed entries and project references, with
+   viewer-only detail allowed where no retail function supplies it. No media
+   previews or playback are required in 002. **Subsequent specs** extend the
+   same ported paths through full decoding and previews: models, skeletons,
+   animation at the original 30 frames per second, props, level geometry and
+   textures, sprites/fonts, sounds, music, voice/captions and videos. Check each
+   loader against Python and match the renderer's material modes against the
+   3dfx build as previews arrive.
 3. **Level viewer and projection.** ODViewer previews levels with materials for
    all 95 scenes (including the former collision-vote fallbacks), with the projection
    reference test. Gameplay-dependent camera behaviour is exercised in

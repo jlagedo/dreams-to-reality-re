@@ -384,7 +384,8 @@ table and one reusable record buffer, then seeks and reads a requested entry;
 it does not load the full bank into memory.
 
 The header stores `DRDF`, the physical file size, and 178 entries. A 178-word
-packed offset table starts at `0x14`; the first entry starts at `0x2EB`. The
+packed offset table starts at `0x14`; the first entry starts at `0x2DD` and
+its RIFF payload at `0x2EB`. The
 upper three bytes of each word hold a wrapping 24-bit offset field and the
 low-byte role is unknown. Reconstructing positions by detecting wraps yields
 all 178 adjacent records through EOF. Each record carries a RIFF/WAVE block,

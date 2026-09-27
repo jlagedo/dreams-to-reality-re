@@ -27,6 +27,7 @@
 | Variable | Path |
 |---|---|
 | `DREAMS_DISC1`, `DREAMS_DISC2` | Extracted game discs |
+| `DREAMS_INSTALL_ROOT` | Optional retail installation/cache tree for local comparisons; never a disc source |
 | `DREAMS_WATCOM` | Watcom reference files |
 | `DREAMS_WORK_ROOT` | Scratch and generated content; the pipeline defaults to its `extract/`, `baked/` and `releases/` subdirectories |
 | `DREAMS_GHIDRA_ROOT` | Ghidra installation |

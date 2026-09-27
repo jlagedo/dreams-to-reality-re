@@ -17,8 +17,8 @@ not satisfy this spec. Dear ImGui is a selected dependency of 001.
 | Scope | Deliverable |
 |---|---|
 | **001 — foundation** | Reproducible builds, dependencies and framework integration; both applications run and display an interactive Hello World UI. No game data is needed. |
-| **002 — disc navigation** | Load/mount the original disc images and let ODViewer navigate their contents. Show directory/file listings and basic metadata, with no asset previews or playback. |
-| **Subsequent specs** | Decode and display individual asset formats, add model/map/animation previews and media playback, then rebuild gameplay. |
+| **002 — retail asset access and game asset navigation** | Port the retail lookup/open paths into ODShared, mount both original images, and browse searchable asset-kind groups and complete per-disc source trees. No media previews or playback. |
+| **Subsequent specs** | Extend the shared retail-function port to full asset presentation, add model/map/animation previews and media playback, then rebuild gameplay. |
 
 001 includes no disc-image parser, asset enumeration, game-format decoding,
 asset rendering/playback or gameplay. The long-term application responsibilities
@@ -75,6 +75,11 @@ splits must serve these priorities, not become requirements of their own.
   It does not host a game session or provide gameplay inspection.
 - Put gameplay debugging in an optional overlay inside ODRuntime.
 - Keep the Python decoders as reference implementations and test oracles.
+- Make ODViewer call the same ported retail lookup and loader functions in
+  ODShared that ODRuntime uses. Viewer-specific read-only decoding is allowed
+  after those functions load an asset when no retail function supplies the
+  additional information the viewer needs. New disc-image access and browser UI
+  are supporting code.
 - Read original disc images directly on desktop. Do not introduce an extraction
   or bake requirement for either native application.
 - Work desktop first while keeping both applications compiling for Emscripten.
@@ -124,18 +129,29 @@ against accidental dependence on the desktop pointer width.
 ## Products and responsibilities (long-term context)
 
 The following describes the eventual applications. In 001 both are Hello World
-shells; in 002 ODViewer gains disc navigation only.
+shells; in 002 ODViewer gains a searchable game asset catalog and source-disc
+navigation.
 
 | Component | Responsibility |
 |---|---|
 | **ODShared** | The reconstructed game/engine implementation and required modern replacements. Includes original gameplay, loaders, animation, presentation and platform services, organized by recovered source evidence. |
 | **ODRuntime** | The player-facing application. Starts the original boot/game flow, runs the simulation, and optionally exposes debugging controls and overlays. |
-| **ODViewer** | An asset browser. Selects and previews original content using the same loaders and presentation code as ODRuntime. |
+| **ODViewer** | The inspection and validation application for the ported game engine. Its browser and later previews consume the same recovered ODShared loaders and presentation functions that ODRuntime uses. |
 
 ODShared contains the ported game logic as well as the infrastructure. It is
 specific to Dreams to Reality; making it a general-purpose engine is out of scope.
 The applications own their entry points and application-specific interfaces.
 Neither application depends on the other.
+
+**There is one implementation of each retail game function.** When retail code
+opens, indexes, loads or decodes an asset, port that function and its needed call
+path into ODShared from Ghidra evidence. ODViewer calls that shared port;
+ODRuntime later calls the same implementation. Once the asset has been obtained
+through that path, ODViewer may add read-only interpretation or display data for
+which no retail function exists. Such viewer extensions are identified as new
+tooling and must not replace or reimplement a retail loader. File dialogs,
+CUE/BIN and ISO access, catalog grouping/search and ImGui controls are also
+support code because the retail executable has no corresponding feature.
 
 ### ODViewer: source asset browser
 
@@ -592,8 +608,8 @@ runtime dependency.
 ## Initialization work plan
 
 This spec ends with two runnable Hello World applications exercising the full
-foundation stack. The next spec introduces disc navigation; this spec does not
-load or preview game assets.
+foundation stack. The next spec introduces disc access and a searchable asset
+browser; this spec does not load or preview game assets.
 
 | Step | Work | Completion evidence |
 |---|---|---|
@@ -641,16 +657,20 @@ application feature scope for this foundation.
 
 ## Work after initialization
 
-1. **[Spec 002 — disc-image loading and navigation](../002-disc-navigation/spec.md):** mount the original images
-   using shared cue/bin and ISO 9660 access. ODViewer uses the existing ImGui
-   integration to navigate directories/files and display names, sizes and disc
-   origin where available. This is navigation only: no model/map/image display,
-   animation, sound or video playback. Disc-container parsing is included;
-   decoding the game asset payloads is deferred. ODRuntime need not gain game
-   loading merely because the shared disc access becomes available.
-2. **Later asset preview specs:** bring up game-format decoders and previews
-   incrementally, comparing loaders with Python. Models, maps, props, animations,
-   sprites/fonts, sounds, voice/captions, music and movies use the shared code.
+1. **[Spec 002 — retail asset access and game asset navigation](../002-disc-navigation/spec.md):**
+   mount both original images using shared cue/bin and ISO 9660 access. ODViewer
+   uses ImGui for a searchable, filterable browser grouped by game asset kind,
+   alongside complete per-disc source trees. It consumes selected retail
+   lookup/loader functions ported into ODShared, which ODRuntime will use too;
+   viewer-only inspection may enrich their loaded results where retail has no
+   matching function.
+   Model/map/image display, animation and audio/video playback are deferred.
+   ODRuntime need not start game loading merely because these shared functions
+   are available.
+2. **Later asset preview specs:** extend the same ported loaders through full
+   asset decoding and presentation, comparing them with Python. Models, maps,
+   props, animations, sprites/fonts, sounds, voice/captions, music and movies
+   continue to use the shared code.
 3. **ODViewer scene validation:** verify placement, materials, lighting and
    projection through map previews and reference tests. A fly camera is a
    preview control; exercising gameplay-dependent camera behaviour belongs to

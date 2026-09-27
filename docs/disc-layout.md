@@ -174,6 +174,32 @@ Other useful keys:
 
 The disc-swap prompts are French even in the English release.
 
+### Observed installed tree versus the discs
+
+On 2026-09-26, the local `E:\games\dreams\CRYO\DREAMS\` tree (recorded as
+`DREAMS_INSTALL_ROOT` in `.dreams.local.env`) contained 190
+files (102,002,579 bytes). Comparing every installed file by relative path
+against both extracted disc trees, then checking SHA-256 for same-size files,
+gave:
+
+| Installed files | Result |
+|---:|---|
+| 178 | Byte-identical to a file at the same relative path on at least one disc. |
+| 3 | Present at the same path on Disc 2, but locally changed: `DATA\GAME\GAME.DAT`, `GAME0.DAT`, `GAME0.ICO` (save index, state and thumbnail). |
+| 9 | No file at the same relative path on either disc: `GLIDE2X.OVL`, `DATA\LEVEL.ID`, `DATA\GAME\GAME1.DAT`, `GAME1.ICO`, `GAME2.DAT`, `GAME2.ICO`, `DATA\SOUND\DIG.INI`, `DATA\UNIVBE\UNIVBE.DRV`, `UVCONFIG.DAT`. |
+
+`DATA\LEVEL.ID` is the four-byte current-level cache marker written by
+`CD_PrepareLevel`; the `GAME1`/`GAME2` files are local save slots. `GLIDE2X.OVL`
+is not a loose ISO file: Disc 1's `3DFX\GRTVGR.EXE` archive contains it. The
+origin of the installed sound and UNIVBE configuration/driver files was not
+established by this comparison. The tree also contains many disc-origin files
+outside the Mini/Maxi installer copy lists, so it does not establish which
+install, cache or manual-copy action placed each file there.
+
+The installed tree is a selective and mutable destination, not a source-disc
+inventory. Disc navigation should enumerate each image's ISO directory records;
+the installed files are useful for checking installer, cache and save behavior.
+
 ## Disc check
 
 The game locates itself by probing for small marker files in `DATA\`. **[verified]**

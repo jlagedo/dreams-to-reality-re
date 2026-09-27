@@ -9,7 +9,7 @@ docs do.
 |---|---|
 | [north-star.md](north-star.md) | **OpenDreams, the engine we are building**: goal, decisions (C++17, SDL3, sokol_gfx, native loaders), the original game code ported as a fixed-step loop with a free GPU renderer, milestones, the RE work it depends on |
 | [Spec 001 — project initialization](specs/001-project-init/spec.md) | C/C++ foundation, build/dependencies and two runnable Hello World applications through SDL3, sokol and Dear ImGui |
-| [Spec 002 — disc navigation](specs/002-disc-navigation/spec.md) | Draft for opening the original cue/bin images and navigating each disc's files and track metadata; no asset previews or playback |
+| [Spec 002 — disc and source-asset navigation](specs/002-disc-navigation/spec.md) | Draft for opening cue/bin images and browsing each disc's files, indexed game-container entries, project references and track metadata; no media previews or playback |
 | [re-status.md](re-status.md) | **Current RE status and priorities**: recovered behavior, checked coverage, remaining gaps, field corrections and validation commands |
 | [glide-renderer.md](glide-renderer.md) | **Faithful GPU contract**: complete face dispatch, clamp/wrap, deferred alpha, depth, texture uploads, palette cache and fog |
 | [lighting.md](lighting.md) | **Palette and object lighting**: project RGB fields, row generation, actor binding, shared RNG, light records and remaining limits |
@@ -36,6 +36,9 @@ docs do.
 | [hnm-video.md](hnm-video.md) | HNM inventory **and how to decode it** — all 113 videos decode |
 | [hnm6-spec.md](hnm6-spec.md) | Full HNM6 container + codec specification (MultimediaWiki, mirrored) |
 | [disc-layout.md](disc-layout.md) | Both discs inventoried, install manifest, disc-check mechanism, merge map |
+| [libcdio Windows spike](reviews/002-libcdio-windows-spike.md) | MSVC build and direct comparison: original split-track CUEs fail to expose ISO files; one-track CUEs list both discs completely |
+| [ISO-reader options](reviews/002-iso-reader-options.md) | MSVC/lib9660 reads original data-track BINs and matches both file counts; libarchive lists both derived ISOs; integration gaps and hardening findings |
+| [asset-access.md](asset-access.md) | **Recovered asset lookup and file access**: disc/install roots, UBIK VFS, project and DSN/DAN resource paths, dialogue and sound banks; contract for spec 002 |
 | [running.md](running.md) | How to actually run the game, ranked by difficulty; **3dfx build verified** under DOSBox Staging; controllers |
 | [pipeline.md](pipeline.md) | **Extract → bake → pack**: the data root the web app reads, its JSON, releases for static hosting |
 | [research-log.md](research-log.md) | Findings log, corrections, dead ends, open questions |

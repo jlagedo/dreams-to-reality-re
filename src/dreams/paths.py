@@ -15,6 +15,7 @@ LOCAL_ENV = REPO_ROOT / ".dreams.local.env"
 VARIABLES = {
     "disc1": "DREAMS_DISC1",
     "disc2": "DREAMS_DISC2",
+    "install_root": "DREAMS_INSTALL_ROOT",
     "watcom": "DREAMS_WATCOM",
     "work_root": "DREAMS_WORK_ROOT",
     "extract": "DREAMS_EXTRACT",
@@ -101,6 +102,7 @@ def describe() -> list[tuple[str, Path | None, bool]]:
     keys = (
         "disc1",
         "disc2",
+        "install_root",
         "watcom",
         "work_root",
         "extract",

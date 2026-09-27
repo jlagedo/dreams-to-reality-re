@@ -66,8 +66,8 @@ char[4]   "DRDF"
 u32       total file size   = 0x01774238 = 24,592,952   (exact, at offset 4)
 u32       count             = 178
 0x014  u32[178] packed entry offsets
---- 0x2eb ---
-entry records × 178: WAVE, timed text, optional auxiliary block
+--- 0x2dd ---
+entry records × 178: header, WAVE, timed text, optional portrait
 ```
 
 The size field sits at offset **4**, unlike `DSNF`/`DANF` which place it at
@@ -78,6 +78,8 @@ exactly through EOF. At runtime `DRD_LoadEntry` (`0x410928`) reads one selected 
 `DSOUND_PlayVoice` (`0x446e01`) submits its WAVE data to the sound buffer, and the same entry's
 589 total text lines are drawn on the timed-caption path. See
 [`sprites-ui-dialog.md`](sprites-ui-dialog.md).
+The first record's RIFF payload begins at `0x2eb`, 14 bytes after its `0x2dd`
+entry header.
 
 Every clip: **PCM, mono, 11025 Hz, 8-bit**.
 
