@@ -1,9 +1,11 @@
 # OpenDreams
 
 Spec 001 built the shared application shell. Spec 002 adds a read-only disc
-browser to `ODViewer`. Spec 003 adds DAN model previews from selected archive
-rows through a partial shared level-load port; `ODRuntime` retains its foundation
-screen. Both use one static `ODShared` library.
+browser to `ODViewer`. [Spec 003](../docs/specs/003-level-load-preview/spec.md)
+owns its asset previews and playback. Its first implemented slice previews
+DAN models from selected archive rows through a partial shared level-load
+port; movie, animation and other viewer previews remain in progress.
+`ODRuntime` retains its foundation screen. Both use one static `ODShared` library.
 
 ## Application icons
 

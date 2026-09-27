@@ -27,6 +27,11 @@ Requirements, from the owner:
    resolution, real perspective 3D, a renderer that runs at the display's
    rate. The rendering is improved; the game is not reworked. The game logic
    is ported from the original, not redesigned.
+4. **One renderer, two destinations**: ODRuntime renders into the entire
+   drawable window or fullscreen target. ODViewer renders the same scene or
+   movie rules into an offscreen target sized to its preview content region.
+   Windows retail code is the game and traversal base; the 3dfx build is the
+   reference for replacing the software renderer at the paired backend cuts.
 
 ## Decisions
 
@@ -342,15 +347,14 @@ and still compiles for the browser.
    physical files, supported indexed entries and project references, with
    viewer-only detail allowed where no retail function supplies it. No media
    previews or playback are required in 002. **[Spec 003](specs/003-level-load-preview/spec.md)**
-   first exercises a selected DAN model through an in-memory preview project,
-   adapted level-load path and native GPU drawing; Project 71 checks the real
-   record path. Subsequent specs extend the same ported paths through
-   full decoding and previews: models, skeletons,
-   animation at the original 30 frames per second, props, level geometry and
-   textures, sprites/fonts, sounds, music, voice/captions and videos. Check each
-   loader against Python and match the renderer's material modes against the
+   owns the viewer preview slices. It first exercises a selected DAN model
+   through an in-memory preview project, adapted level-load path and native
+   GPU drawing; Project 71 checks the real record path. The same spec extends
+   the ported paths through models, animation, props, level geometry,
+   textures, sprites/fonts, sounds, music, voice/captions and videos. Check
+   each loader against Python and match renderer material modes against the
    3dfx build as previews arrive.
-3. **Level viewer and projection.** ODViewer previews levels with materials for
+3. **Level viewer and projection (Spec 003 slice).** ODViewer previews levels with materials for
    all 95 scenes (including the former collision-vote fallbacks), with the projection
    reference test. Gameplay-dependent camera behaviour is exercised in
    ODRuntime or focused tests, not a game session embedded in ODViewer.
