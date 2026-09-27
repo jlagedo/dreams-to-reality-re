@@ -4,6 +4,7 @@
 #include "port/drd.h"
 #include "port/fsb.h"
 #include "port/sprite.h"
+#include "port/video.h"
 #include "port/dsn.h"
 #include "port/stream.h"
 #include "port/vfs.h"
@@ -90,6 +91,7 @@ struct Options {
     bool drd_bank = false;
     bool fsb_bank = false;
     bool sprite_set = false;
+    bool video_headers = false;
 };
 
 struct Fixture {
@@ -115,7 +117,7 @@ bool raw_sector(l9660_fs* fs, void* output, uint32_t sector) {
 
 Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
     fs::create_directories(directory);
-    const uint32_t sectors = options.sprite_set ? 40 : 32;
+    const uint32_t sectors = options.sprite_set || options.video_headers ? 40 : 32;
     std::vector<uint8_t> iso(static_cast<size_t>(sectors) * 2048);
     const unsigned pvd_sector = options.boot_before_pvd ? 17 : 16;
     if (options.boot_before_pvd) {
@@ -152,6 +154,14 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
     if (options.drd_bank) record(root, pos, 31, 128, 0, "TEST.DRD;1");
     if (options.fsb_bank) record(root, pos, 31, 56, 0, "TEST.FSB;1");
     if (options.sprite_set) record(root, pos, 32, 7705, 0, "TEST.ALP;1");
+    if (options.video_headers) {
+        constexpr std::array<const char*, 8> names{
+            "V4.HNM;1", "VS4.HNM;1", "V5.UBB;1", "VS5.UBB;1",
+            "V6.HNM;1", "VS6.HNM;1", "BAD.HNM;1", "SHORT.HNM;1"};
+        for (size_t i = 0; i < names.size(); ++i)
+            pos = record(root, pos, 32 + static_cast<uint32_t>(i),
+                         i == 7 ? 64 : 128, 0, names[i]);
+    }
     auto* root_second = iso.data() + 21 * 2048;
     pos = record(root_second, 0, 26, 4, 0, "EXTRA.TXT;1");
     if (options.duplicate_name)
@@ -275,6 +285,18 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
         little32(table + 28 + 4, 2); little32(table + 28 + 8, 2);
         little32(table + 28 + 24, 520);
         little32(sprite + 7701, 2);
+    }
+    if (options.video_headers) {
+        constexpr std::array<const char*, 8> magics{
+            "HNM4", "HNS4", "UBB2", "UBS2", "HNM6", "HNS6", "NOPE", "HNM4"};
+        for (size_t i = 0; i < magics.size(); ++i) {
+            auto* video = iso.data() + (32 + i) * 2048;
+            std::memcpy(video, magics[i], 4);
+            little16(video + 8, 320);
+            little16(video + 10, 200);
+            little32(video + 16, 3);
+            little32(video + 64, 0x12345678u);
+        }
     }
 
     const std::string data_name = options.unicode_data_name ? u8"Träck 01.bin" :
@@ -779,6 +801,49 @@ bool test_sprite_set(const fs::path& base) {
     return true;
 }
 
+bool test_video_open_close(const fs::path& base) {
+    Options options;
+    options.video_headers = true;
+    const auto fixture = make_fixture(base / "video-open", options);
+    Error disc_error;
+    auto opened = Image::open(fixture.cue, disc_error);
+    CHECK(opened != nullptr);
+    std::shared_ptr<const Image> image(std::move(opened));
+    od::port::VfsContext vfs(image);
+    od::port::VideoState video(vfs, true);
+    od::port::VideoError error;
+    struct Case { const char* path; od::port::VideoFamily family; uint8_t flags; int result; };
+    const std::array<Case, 6> cases{{
+        {"V4.HNM",od::port::VideoFamily::hnm4,1,1},
+        {"VS4.HNM",od::port::VideoFamily::hnm4,9,2},
+        {"V5.UBB",od::port::VideoFamily::hnm5,2,1},
+        {"VS5.UBB",od::port::VideoFamily::hnm5,10,2},
+        {"V6.HNM",od::port::VideoFamily::hnm6,4,1},
+        {"VS6.HNM",od::port::VideoFamily::hnm6,12,2}
+    }};
+    for (const auto& example : cases) {
+        CHECK(od::port::VID_Open(video, example.path, error) == example.result);
+        CHECK(video.family() == example.family && video.kind_flags() == example.flags);
+        CHECK(video.source_size() == 128 && video.next_word()[0] == 0x78);
+        CHECK(video.sound_variant_selected() == (example.result == 2));
+        od::port::VID_Close(video);
+        CHECK(video.family() == od::port::VideoFamily::none &&
+              video.kind_flags() == 0 && !video.sound_variant_selected() &&
+              !video.stream_open());
+    }
+    video.set_sound_enabled(false);
+    CHECK(od::port::VID_Open(video, "VS6.HNM", error) == 1);
+    CHECK(video.family() == od::port::VideoFamily::hnm6 && video.kind_flags() == 4);
+    CHECK(!video.sound_variant_selected());
+    CHECK(od::port::VID_Open(video, "BAD.HNM", error) == 0);
+    CHECK(error.code == od::port::VideoErrorCode::unsupported_magic);
+    CHECK(video.family() == od::port::VideoFamily::none && !video.stream_open());
+    CHECK(od::port::VID_Open(video, "SHORT.HNM", error) == 0);
+    CHECK(error.code == od::port::VideoErrorCode::truncated_header);
+    CHECK(video.family() == od::port::VideoFamily::none && !video.stream_open());
+    return true;
+}
+
 bool test_markers_and_offsets(const fs::path& base) {
     Error error;
     Options options;
@@ -1218,6 +1283,81 @@ bool validate_sprite_corpus(od::port::VfsContext& vfs, size_t disc_index) {
     return true;
 }
 
+bool validate_video_corpus(const Image& source, od::port::VfsContext& vfs,
+                           size_t disc_index) {
+    std::vector<const od::disc::Entry*> files;
+    for (const auto& entry : source.entries()) {
+        const std::string path = uppercase_path(entry.path);
+        if (entry.kind == EntryKind::file && path.size() >= 4 &&
+            (path.substr(path.size() - 4) == ".HNM" ||
+             path.substr(path.size() - 4) == ".UBB")) files.push_back(&entry);
+    }
+    std::sort(files.begin(), files.end(), [](const auto* a, const auto* b) {
+        return uppercase_path(a->path) < uppercase_path(b->path);
+    });
+    const size_t expected_files = disc_index == 0 ? 55 : 60;
+    const uint32_t expected_crc = disc_index == 0 ? 0xd048626fu : 0x155c2fe9u;
+    if (files.size() != expected_files) return false;
+    const std::array<std::string_view, 6> magics{
+        "HNM4", "HNS4", "UBB2", "UBS2", "HNM6", "HNS6"};
+    const std::array<size_t, 6> expected_disc1{6, 0, 3, 8, 0, 38};
+    const std::array<size_t, 6> expected_disc2{14, 0, 1, 8, 2, 35};
+    std::array<size_t, 6> counts{};
+    od::port::VideoState video(vfs, true);
+    od::port::VideoError error;
+    uint32_t crc = 0xffffffffu;
+    bool checked_sound_disabled = false;
+    for (const auto* file : files) {
+        const int status = od::port::VID_Open(video, file->path, error);
+        if (status == 0 || video.source_size() != file->byte_size) {
+            std::cerr << "Video " << file->path << ": " << error.message << "\n";
+            return false;
+        }
+        const std::string magic(reinterpret_cast<const char*>(video.header().data()), 4);
+        const auto found = std::find(magics.begin(), magics.end(), magic);
+        if (found == magics.end()) return false;
+        const size_t index = static_cast<size_t>(found - magics.begin());
+        ++counts[index];
+        const bool has_sound_variant = magic == "HNS4" || magic == "UBS2" ||
+                                       magic == "HNS6";
+        const uint8_t family = index < 2 ? 1 : index < 4 ? 2 : 4;
+        if (status != (has_sound_variant ? 2 : 1) ||
+            video.kind_flags() != family + (has_sound_variant ? 8 : 0) ||
+            video.sound_variant_selected() != has_sound_variant) return false;
+        const std::string path = uppercase_path(file->path);
+        crc = crc32_update(crc, path.data(), path.size());
+        const uint8_t zero = 0;
+        crc = crc32_update(crc, &zero, 1);
+        std::array<uint8_t, 4> size_bytes{};
+        little32(size_bytes.data(), static_cast<uint32_t>(file->byte_size));
+        crc = crc32_update(crc, size_bytes.data(), size_bytes.size());
+        crc = crc32_update(crc, video.header().data(), video.header().size());
+        crc = crc32_update(crc, video.next_word().data(), video.next_word().size());
+        od::port::VID_Close(video);
+        if (video.family() != od::port::VideoFamily::none ||
+            video.kind_flags() != 0 || video.sound_variant_selected() ||
+            video.stream_open()) return false;
+        if (has_sound_variant && !checked_sound_disabled) {
+            video.set_sound_enabled(false);
+            if (od::port::VID_Open(video, file->path, error) != 1 ||
+                video.kind_flags() != family || video.sound_variant_selected())
+                return false;
+            od::port::VID_Close(video);
+            video.set_sound_enabled(true);
+            checked_sound_disabled = true;
+        }
+    }
+    crc ^= 0xffffffffu;
+    if (!checked_sound_disabled || crc != expected_crc ||
+        counts != (disc_index == 0 ? expected_disc1 : expected_disc2)) {
+        std::cerr << "Disc " << disc_index + 1 << " video inventory differs\n";
+        return false;
+    }
+    std::cout << "Disc " << disc_index + 1 << ": " << files.size()
+              << " retail video headers\n";
+    return true;
+}
+
 int corpus() {
     const char* one = std::getenv("DREAMS_CUE1");
     const char* two = std::getenv("DREAMS_CUE2");
@@ -1266,6 +1406,7 @@ int corpus() {
         if (!validate_dan_corpus(*source, vfs, i)) return 1;
         if (!validate_drd_corpus(vfs, i)) return 1;
         if (!validate_fsb_corpus(vfs, i)) return 1;
+        if (!validate_video_corpus(*source, vfs, i)) return 1;
         int32_t handle = 0;
         if (!od::port::VFS_Open(vfs, "X:\\DREAMS.DAT", 0x200, handle, vfs_error))
             return 1;
@@ -1406,7 +1547,8 @@ int main(int argc, char** argv) {
     const bool drd_okay = dan_okay && test_drd_bank(base);
     const bool fsb_okay = drd_okay && test_fsb_bank(base);
     const bool sprite_okay = fsb_okay && test_sprite_set(base);
-    const bool markers_okay = sprite_okay && test_markers_and_offsets(base);
+    const bool video_okay = sprite_okay && test_video_open_close(base);
+    const bool markers_okay = video_okay && test_markers_and_offsets(base);
     const bool okay = markers_okay && test_failures(base);
     std::error_code ignored;
     fs::remove_all(base, ignored);

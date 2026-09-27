@@ -170,6 +170,12 @@ visible as an invalid slot while the other 255 load. Corpus checks cover the
 five icon banks, `SOUR.ALP`, all three fonts and Disc 2's supplemental
 `TITRES.SPR` member.
 
+`shared/port/video.cpp` ports the metadata-facing `VID_Open`/`VID_Close`
+path. It uses the retail stream's 68-byte peek, six-magic dispatch and
+kind/sound-selection bits, and closes the stream on replacement or failure.
+Frame decode and sound playback remain separate runtime work. The corpus
+check classifies 115 physical video files from the original discs.
+
 ## Shared disc access (spec 002 foundation)
 
 `shared/disc/image.h` is the portable source boundary for both applications and

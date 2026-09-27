@@ -2,8 +2,8 @@
 
 Status: **planning map, not an implementation record**. The file-root getters,
 VFS/BF, DDAT/RLE, STRM/DSN header, DAN directory, DRD entry, FSB and
-sprite/font paths have been adapted in `opendreams/`; video and other asset
-paths below remain to be ported. Record
+sprite/font and video open/close paths have been adapted in `opendreams/`.
+Conditional resource/model paths and viewer integration remain. Record
 completed functions in
 `port-map.tsv` under the policy in
 [`PORT_MAP.md`](../../../opendreams/PORT_MAP.md) only when code is implemented.
