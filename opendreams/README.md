@@ -114,17 +114,22 @@ adaptations are recorded. Do not infer Cryo's original filenames from these
 directories. The detailed mapping policy is in [PORT_MAP.md](PORT_MAP.md).
 No game functions were ported in spec 001.
 
-The first spec 002 ports are the `FILE_GetInstallRoot` and `FILE_GetDataRoot`
-getters in `shared/port/file_roots.cpp`. They use caller-owned root state in
-place of retail globals. `port-map.tsv` records both Windows binaries' source
-addresses and the C++ symbols; `ghidra_scripts/ApplyPortMap.java` generates
-Function Tags and implementation-location plate comments in Ghidra. The VFS
-open/read/seek/close path is next and is not yet ported.
+The spec 002 file-root getters in `shared/port/file_roots.cpp` use caller-owned
+state in place of retail globals. `shared/port/vfs.cpp` now ports the VFS
+open/read/seek/close path and BF archive registration and member access. Each
+`VfsContext` owns one selected disc source and its own handle and archive table.
+Loose ISO files take precedence over registered BF members, as in retail;
+later BF mounts replace same-name members in the retail table while `BF_Mount`
+also returns every physical row for the viewer catalog. The disc-image boundary
+is read-only, validates archive extents and reports recoverable errors.
+`port-map.tsv` records both Windows binaries' source addresses and C++ symbols;
+`ghidra_scripts/ApplyPortMap.java` generates Function Tags and implementation
+location plate comments in Ghidra.
 
 ## Shared disc access (spec 002 foundation)
 
 `shared/disc/image.h` is the portable source boundary for both applications and
-the later retail VFS port. `od::disc::Image::open(cue, error)` owns one CUE/BIN
+the retail VFS port. `od::disc::Image::open(cue, error)` owns one CUE/BIN
 mount. It reports every track's mode, file-relative indexes and backing-file
 status; lists ISO entries with their original identifiers and source-scoped
 `FileId`; and identifies Disc 1/2 from `DATA/1CD.ID` and `DATA/2CD.ID`. `find`
@@ -139,11 +144,13 @@ file-relative `INDEX 00/01`. Missing audio remains visible in track status and
 does not hide a readable data track. CUE/sector access is new portability code;
 the [vendored lib9660](third_party/lib9660/README.md) reads ISO directory
 records. Neither code path uses the installed `CRYO` cache, an extracted tree,
-or Python at runtime. Retail `VFS_*` functions can later use `find` and
+or Python at runtime. The adapted retail `VFS_*` functions use `find` and
 `read_at` without duplicating ISO parsing.
 
 Native data-free tests run with
 `ctest --test-dir build/<preset> -R ODDiscFixtures --output-on-failure`.
+These include loose-file and BF member reads, member replacement, seek/close
+behavior, root aliases and malformed BF bounds.
 For an optional original-disc comparison, set `DREAMS_CUE1` and `DREAMS_CUE2`
 to the original `.cue` paths in the process environment, then run
 `ctest --test-dir build/<preset> -R ODDiscCorpus --output-on-failure`.
@@ -151,7 +158,9 @@ These settings are distinct from the Python toolkit's `DREAMS_DISC1/2`
 extracted-directory paths. When those extracted paths are also exported to the
 test process, the corpus check compares full `DREAMS.DAT` and `ICONES.BF` bytes
 with each mounted image. The CTest case reports a skip when CUE paths are
-absent. Disc-image opening in the Emscripten apps remains deferred by spec 002;
+absent. The corpus check also mounts both shipping `ICONES.BF` files through
+the VFS path and verifies every member's name and payload against its physical
+archive extent. Disc-image opening in the Emscripten apps remains deferred by spec 002;
 the shared source still compiles there.
 
 Downloaded sources, tools and generated shader headers remain under ignored

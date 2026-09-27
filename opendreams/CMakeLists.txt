@@ -76,6 +76,7 @@ od_generate_shader(OD_BACKGROUND_SHADER shared/render/background.glsl)
 add_library(ODShared STATIC
     shared/disc/image.cpp
     shared/port/file_roots.cpp
+    shared/port/vfs.cpp
     shared/shell.cpp
     shared/render/background.cpp
     shared/render/sokol_impl.cpp

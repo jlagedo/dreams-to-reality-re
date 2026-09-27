@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "disc/image.h"
+#include "port/vfs.h"
 #include <lib9660.h>
 
 #include <algorithm>
@@ -72,6 +73,7 @@ struct Options {
     bool missing_audio = false;
     bool invalid_audio = false;
     bool unicode_data_name = false;
+    bool bf_archives = false;
 };
 
 struct Fixture {
@@ -123,7 +125,11 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
     pos = record(root, pos, 20, 4096, 2, std::string(1, '\1'));
     pos = record(root, pos, 22, 2048, 2, "DATA");
     pos = record(root, pos, options.bad_extent ? 40 : 23, 2300, 0, "DREAMS.DAT;1");
-    record(root, pos, 27, 2048, 2, "EMPTY");
+    pos = record(root, pos, 27, 2048, 2, "EMPTY");
+    if (options.bf_archives) {
+        pos = record(root, pos, 29, 598, 0, "ONE.BF;1");
+        record(root, pos, 30, 598, 0, "TWO.BF;1");
+    }
     auto* root_second = iso.data() + 21 * 2048;
     pos = record(root_second, 0, 26, 4, 0, "EXTRA.TXT;1");
     if (options.duplicate_name)
@@ -146,6 +152,27 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
     std::memcpy(iso.data() + 25 * 2048, "kjk\r\n", 5);
     std::memcpy(iso.data() + 26 * 2048, "more", 4);
     std::memcpy(iso.data() + 28 * 2048, "kjk\r\n", 5);
+
+    if (options.bf_archives) {
+        const auto write_bf = [&](size_t sector, const char* first_payload,
+                                  const char* second_payload, const char* second_name) {
+            auto* bf = iso.data() + sector * 2048;
+            std::memcpy(bf, "UBIK", 4);
+            bf[4] = 2;
+            bf[8] = 64; // Table offset.
+            bf[12] = 2; // Two 267-byte rows.
+            std::memcpy(bf + 16, first_payload, 5);
+            std::memcpy(bf + 32, second_payload, 6);
+            std::memcpy(bf + 64, "ONE.TXT", 7);
+            bf[64 + 259] = 16;
+            bf[64 + 263] = 5;
+            std::memcpy(bf + 64 + 267, second_name, std::strlen(second_name));
+            bf[64 + 267 + 259] = 32;
+            bf[64 + 267 + 263] = 6;
+        };
+        write_bf(29, "first", "second", "TWO.TXT");
+        write_bf(30, "new!!", "third!", "THREE.TXT");
+    }
 
     const std::string data_name = options.unicode_data_name ? u8"Träck 01.bin" :
         "Track 01.bin";
@@ -261,6 +288,113 @@ bool test_mount_and_read(const fs::path& base) {
     return true;
 }
 
+bool test_vfs_and_bf(const fs::path& base) {
+    Options options;
+    options.bf_archives = true;
+    const auto fixture = make_fixture(base / "vfs-and-bf", options);
+    Error disc_error;
+    auto opened = Image::open(fixture.cue, disc_error);
+    CHECK(opened != nullptr);
+    std::shared_ptr<const Image> image(std::move(opened));
+    od::port::VfsContext vfs(image);
+    od::port::VfsError error;
+    int32_t handle = 0;
+    CHECK(od::port::VFS_Open(vfs, "x:\\dreams.dat", 0x200, handle, error));
+    CHECK(handle > 0);
+    uint64_t position = 0;
+    CHECK(od::port::VFS_Seek(vfs, handle, 2040, 0, position, error));
+    CHECK(position == 2040);
+    std::array<uint8_t, 32> bytes{};
+    size_t count = 0;
+    CHECK(od::port::VFS_Read(vfs, handle, bytes.data(), bytes.size(), count, error));
+    CHECK(count == bytes.size());
+    for (size_t i = 0; i < bytes.size(); ++i)
+        CHECK(bytes[i] == static_cast<uint8_t>((2040 + i) % 251));
+    CHECK(od::port::VFS_Seek(vfs, handle, -10, 2, position, error));
+    CHECK(position == 2290);
+    CHECK(od::port::VFS_Read(vfs, handle, bytes.data(), bytes.size(), count, error));
+    CHECK(count == 10);
+    CHECK(od::port::VFS_Close(vfs, handle, error));
+    CHECK(!od::port::VFS_Read(vfs, handle, bytes.data(), 1, count, error));
+    CHECK(error.code == od::port::VfsErrorCode::invalid_handle);
+    CHECK(!od::port::VFS_Open(vfs, "DREAMS.DAT", 0x20, handle, error));
+    CHECK(error.code == od::port::VfsErrorCode::invalid_mode);
+    CHECK(od::port::VFS_Open(vfs, "X:\\CRYO\\DREAMS\\DATA\\1CD.ID", 0x200,
+                             handle, error));
+    CHECK(od::port::VFS_Read(vfs, handle, bytes.data(), 5, count, error));
+    CHECK(count == 5 && std::memcmp(bytes.data(), "kjk\r\n", 5) == 0);
+    CHECK(od::port::VFS_Close(vfs, handle, error));
+
+    std::vector<od::port::BfEntry> rows;
+    CHECK(od::port::BF_Mount(vfs, "ONE.BF", rows, error));
+    CHECK(rows.size() == 2 && vfs.registered_member_count() == 2);
+    CHECK(rows[0].row == 0 && rows[0].name == "ONE.TXT");
+    CHECK(rows[1].row == 1 && rows[1].name == "TWO.TXT");
+    CHECK(od::port::VFS_Open(vfs, "one.txt", 0x200, handle, error));
+    CHECK(handle == -1);
+    CHECK(od::port::VFS_Read(vfs, handle, bytes.data(), bytes.size(), count, error));
+    CHECK(count == 5 && std::memcmp(bytes.data(), "first", 5) == 0);
+    CHECK(od::port::VFS_Seek(vfs, handle, 0, 2, position, error));
+    CHECK(position == 4); // Retail member seek clamps to length - 1.
+    CHECK(od::port::VFS_Read(vfs, handle, bytes.data(), 1, count, error));
+    CHECK(count == 1 && bytes[0] == 't');
+    CHECK(od::port::VFS_Close(vfs, handle, error));
+    CHECK(od::port::VFS_Open(vfs, "TWO.TXT", 0x200, handle, error));
+    CHECK(handle == -2);
+    CHECK(od::port::VFS_Read(vfs, handle, bytes.data(), bytes.size(), count, error));
+    CHECK(count == 6 && std::memcmp(bytes.data(), "second", 6) == 0);
+
+    CHECK(od::port::BF_Mount(vfs, "TWO.BF", rows, error));
+    CHECK(rows.size() == 2 && vfs.registered_member_count() == 3);
+    CHECK(rows[0].name == "ONE.TXT" && rows[1].name == "THREE.TXT");
+    CHECK(od::port::VFS_Open(vfs, "ONE.TXT", 0x200, handle, error));
+    CHECK(handle == -1); // Later mount replaces the same table slot.
+    CHECK(od::port::VFS_Read(vfs, handle, bytes.data(), bytes.size(), count, error));
+    CHECK(count == 5 && std::memcmp(bytes.data(), "new!!", 5) == 0);
+    CHECK(od::port::VFS_Open(vfs, "THREE.TXT", 0x200, handle, error));
+    CHECK(handle == -3);
+    CHECK(od::port::VFS_Read(vfs, handle, bytes.data(), bytes.size(), count, error));
+    CHECK(count == 6 && std::memcmp(bytes.data(), "third!", 6) == 0);
+    od::port::VFS_FreeArchives(vfs);
+    CHECK(vfs.registered_member_count() == 0);
+    CHECK(!od::port::VFS_Read(vfs, handle, bytes.data(), 1, count, error));
+    CHECK(error.code == od::port::VfsErrorCode::invalid_handle);
+    od::port::VfsContext independent(image);
+    CHECK(!od::port::VFS_Open(independent, "ONE.TXT", 0x200, handle, error));
+    CHECK(error.code == od::port::VfsErrorCode::missing_file);
+    od::port::VfsContext precedence(image);
+    od::port::VFS_AddArchiveEntries(precedence,
+                                    {{0, "EXTRA.TXT", 16, 5, rows[0].archive_file}});
+    CHECK(od::port::VFS_Open(precedence, "EXTRA.TXT", 0x200, handle, error));
+    CHECK(handle > 0); // A loose ISO file wins over a member with the same name.
+    CHECK(od::port::VFS_Read(precedence, handle, bytes.data(), 4, count, error));
+    CHECK(count == 4 && std::memcmp(bytes.data(), "more", 4) == 0);
+    CHECK(od::port::VFS_Close(precedence, handle, error));
+    od::port::VFS_AddArchiveEntries(precedence,
+                                    {{1, "EMPTY.DAT", 0, 0, rows[0].archive_file}});
+    CHECK(od::port::VFS_Open(precedence, "EMPTY.DAT", 0x200, handle, error));
+    CHECK(handle < 0);
+    CHECK(od::port::VFS_Seek(precedence, handle, 0, 2, position, error));
+    CHECK(position == 0);
+    CHECK(od::port::VFS_Read(precedence, handle, bytes.data(), 1, count, error));
+    CHECK(count == 0);
+
+    const auto bad = make_fixture(base / "bad-bf", options);
+    {
+        std::fstream raw(bad.data, std::ios::binary | std::ios::in | std::ios::out);
+        raw.seekp(29 * 2352 + 16 + 8); // UBIK table offset in the ISO payload.
+        const std::array<char, 4> outside{'\xff', '\xff', '\xff', '\x7f'};
+        raw.write(outside.data(), outside.size());
+    }
+    auto bad_image = Image::open(bad.cue, disc_error);
+    CHECK(bad_image != nullptr);
+    od::port::VfsContext invalid(std::shared_ptr<const Image>(std::move(bad_image)));
+    CHECK(!od::port::BF_Mount(invalid, "ONE.BF", rows, error));
+    CHECK(error.code == od::port::VfsErrorCode::malformed_archive);
+    CHECK(rows.empty() && invalid.registered_member_count() == 0);
+    return true;
+}
+
 bool test_markers_and_offsets(const fs::path& base) {
     Error error;
     Options options;
@@ -354,7 +488,7 @@ bool test_failures(const fs::path& base) {
     return true;
 }
 
-bool compare_reference(Image& image, const fs::path& root, const char* path) {
+bool compare_reference(const Image& image, const fs::path& root, const char* path) {
     Error error;
     FileId file;
     if (!image.find(path, file, error)) return false;
@@ -390,7 +524,7 @@ int corpus() {
     const std::array<size_t, 2> directories{27, 26};
     const std::array<size_t, 2> tracks{12, 14};
     const std::array<uint64_t, 2> dreams_sizes{138879, 138835};
-    std::array<std::unique_ptr<Image>, 2> images;
+    std::array<std::shared_ptr<const Image>, 2> images;
     for (size_t i = 0; i < cues.size(); ++i) {
         Error error;
         auto image = Image::open(fs::u8path(cues[i]), error);
@@ -420,10 +554,64 @@ int corpus() {
                 return 1;
             }
         }
-        std::cout << "Disc " << i + 1 << ": " << image->file_count() << " files, "
-                  << image->directory_count() << " directories, "
-                  << image->tracks().size() << " tracks\n";
-        images[i] = std::move(image);
+        std::shared_ptr<const Image> source(std::move(image));
+        od::port::VfsContext vfs(source);
+        od::port::VfsError vfs_error;
+        int32_t handle = 0;
+        if (!od::port::VFS_Open(vfs, "X:\\DREAMS.DAT", 0x200, handle, vfs_error))
+            return 1;
+        size_t count = 0;
+        if (!od::port::VFS_Read(vfs, handle, bytes.data(), bytes.size(), count,
+                                vfs_error) || count != bytes.size() ||
+            bytes != std::array<uint8_t, 8>{0, 0, 0, 0, 0x44, 0x08, 0, 0} ||
+            !od::port::VFS_Close(vfs, handle, vfs_error)) return 1;
+        std::vector<od::port::BfEntry> members;
+        if (!od::port::BF_Mount(vfs, "DATA/ICONE/ICONES.BF", members, vfs_error) ||
+            members.size() != (i == 0 ? 5u : 6u)) {
+            std::cerr << "Disc " << i + 1 << " BF mount failed: "
+                      << vfs_error.message << "\n";
+            return 1;
+        }
+        const std::array<const char*, 5> common_names{
+            "MAGIE.ALP", "ANIM.ALP", "PYRAM.ALP", "TOUCHES.SPR", "INTERF.ALP"};
+        const std::array<uint64_t, 5> disc1_offsets{
+            16, 116505, 156962, 251723, 265748};
+        const std::array<uint64_t, 6> disc2_offsets{
+            16, 116505, 156962, 251723, 319127, 333152};
+        const std::array<uint64_t, 5> disc1_sizes{
+            116489, 40457, 94761, 14025, 105275};
+        const std::array<uint64_t, 6> disc2_sizes{
+            116489, 40457, 94761, 67404, 14025, 105275};
+        for (size_t j = 0; j < members.size(); ++j) {
+            const char* expected_name = i == 1 && j == 3 ? "TITRES.SPR" :
+                common_names[j - (i == 1 && j > 3 ? 1 : 0)];
+            const uint64_t expected_offset = i == 0 ? disc1_offsets[j] : disc2_offsets[j];
+            const uint64_t expected_size = i == 0 ? disc1_sizes[j] : disc2_sizes[j];
+            if (members[j].row != j || members[j].name != expected_name ||
+                members[j].offset != expected_offset ||
+                members[j].byte_size != expected_size ||
+                !od::port::VFS_Open(vfs, members[j].name, 0x200, handle, vfs_error))
+                return 1;
+            std::array<uint8_t, 4096> actual{}, expected{};
+            uint64_t offset = 0;
+            while (offset < members[j].byte_size) {
+                const size_t needed = static_cast<size_t>(std::min<uint64_t>(
+                    actual.size(), members[j].byte_size - offset));
+                if (!od::port::VFS_Read(vfs, handle, actual.data(), needed, count,
+                                        vfs_error) || count != needed ||
+                    !source->read_at(members[j].archive_file,
+                                     members[j].offset + offset,
+                                     expected.data(), needed, error) ||
+                    std::memcmp(actual.data(), expected.data(), needed) != 0)
+                    return 1;
+                offset += needed;
+            }
+            if (!od::port::VFS_Close(vfs, handle, vfs_error)) return 1;
+        }
+        std::cout << "Disc " << i + 1 << ": " << source->file_count() << " files, "
+                  << source->directory_count() << " directories, "
+                  << source->tracks().size() << " tracks\n";
+        images[i] = std::move(source);
     }
     Error error;
     FileId intro1, intro2;
@@ -447,7 +635,8 @@ int main(int argc, char** argv) {
         ("opendreams-disc-tests-" + std::to_string(stamp));
     fs::create_directories(base);
     const bool mount_okay = test_mount_and_read(base);
-    const bool markers_okay = mount_okay && test_markers_and_offsets(base);
+    const bool vfs_okay = mount_okay && test_vfs_and_bf(base);
+    const bool markers_okay = vfs_okay && test_markers_and_offsets(base);
     const bool okay = markers_okay && test_failures(base);
     std::error_code ignored;
     fs::remove_all(base, ignored);
