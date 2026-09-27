@@ -2,6 +2,7 @@
 #include "disc/image.h"
 #include "port/dan.h"
 #include "port/drd.h"
+#include "port/fsb.h"
 #include "port/dsn.h"
 #include "port/stream.h"
 #include "port/vfs.h"
@@ -86,6 +87,7 @@ struct Options {
     bool dsn_header = false;
     bool dan_archive = false;
     bool drd_bank = false;
+    bool fsb_bank = false;
 };
 
 struct Fixture {
@@ -145,6 +147,7 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
     if (options.dsn_header) record(root, pos, 31, 128, 0, "TEST.DSN;1");
     if (options.dan_archive) record(root, pos, 31, 94, 0, "TEST.DAN;1");
     if (options.drd_bank) record(root, pos, 31, 128, 0, "TEST.DRD;1");
+    if (options.fsb_bank) record(root, pos, 31, 56, 0, "TEST.FSB;1");
     auto* root_second = iso.data() + 21 * 2048;
     pos = record(root_second, 0, 26, 4, 0, "EXTRA.TXT;1");
     if (options.duplicate_name)
@@ -241,6 +244,17 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
         std::memcpy(second + 22, "WAVE", 4);
         second[30] = 3; little32(second + 31, 14);
         second[39] = 4; std::memcpy(second + 40, "Bye", 3);
+    }
+    if (options.fsb_bank) {
+        auto* fsb = iso.data() + 31 * 2048;
+        std::memcpy(fsb, "DREAMS FSB  ", 12);
+        little32(fsb + 12, 2);
+        little32(fsb + 16, 16);
+        little32(fsb + 20, 16);
+        std::memcpy(fsb + 24, "RIFF", 4); little32(fsb + 28, 8);
+        std::memcpy(fsb + 32, "WAVE", 4); fsb[39] = 'A';
+        std::memcpy(fsb + 40, "RIFF", 4); little32(fsb + 44, 8);
+        std::memcpy(fsb + 48, "WAVE", 4); fsb[55] = 'B';
     }
 
     const std::string data_name = options.unicode_data_name ? u8"Träck 01.bin" :
@@ -643,6 +657,49 @@ bool test_drd_bank(const fs::path& base) {
     return true;
 }
 
+bool test_fsb_bank(const fs::path& base) {
+    Options options;
+    options.fsb_bank = true;
+    const auto fixture = make_fixture(base / "fsb-bank", options);
+    Error disc_error;
+    auto opened = Image::open(fixture.cue, disc_error);
+    CHECK(opened != nullptr);
+    std::shared_ptr<const Image> image(std::move(opened));
+    od::port::VfsContext vfs(image);
+    od::port::FsbBank fsb(vfs);
+    od::port::FsbError error;
+    CHECK(od::port::FSB_Load(fsb, "TEST.FSB", error));
+    CHECK(fsb.loaded() && fsb.clips().size() == 2);
+    CHECK(fsb.clips()[0].file_offset == 24 && fsb.clips()[0].byte_size == 16);
+    CHECK(fsb.clips()[1].file_offset == 40 && fsb.clips()[1].byte_size == 16);
+    const auto first = od::port::FSB_GetSample(fsb, 0);
+    const auto second = od::port::FSB_GetSample(fsb, 1);
+    CHECK(first.size == 16 && second.size == 16);
+    CHECK(std::memcmp(first.data, "RIFF", 4) == 0 && first.data[15] == 'A');
+    CHECK(std::memcmp(second.data, "RIFF", 4) == 0 && second.data[15] == 'B');
+    CHECK(od::port::FSB_GetSample(fsb, 2).size == 0);
+    od::port::FSB_Free(fsb);
+    CHECK(!fsb.loaded() && fsb.clips().empty());
+    CHECK(!od::port::FSB_Load(fsb, "MISSING.FSB", error));
+    CHECK(error.code == od::port::FsbErrorCode::missing_file);
+
+    const auto bad = make_fixture(base / "bad-fsb", options);
+    {
+        std::fstream raw(bad.data, std::ios::binary | std::ios::in | std::ios::out);
+        raw.seekp(31 * 2352 + 16 + 16);
+        const std::array<char, 4> outside{'\xff', '\xff', '\xff', '\x7f'};
+        raw.write(outside.data(), outside.size());
+    }
+    auto bad_image = Image::open(bad.cue, disc_error);
+    CHECK(bad_image != nullptr);
+    od::port::VfsContext invalid(std::shared_ptr<const Image>(std::move(bad_image)));
+    od::port::FsbBank bad_fsb(invalid);
+    CHECK(!od::port::FSB_Load(bad_fsb, "TEST.FSB", error));
+    CHECK(error.code == od::port::FsbErrorCode::invalid_table);
+    CHECK(!bad_fsb.loaded());
+    return true;
+}
+
 bool test_markers_and_offsets(const fs::path& base) {
     Error error;
     Options options;
@@ -917,6 +974,40 @@ bool validate_drd_corpus(od::port::VfsContext& vfs, size_t disc_index) {
     return true;
 }
 
+bool validate_fsb_corpus(od::port::VfsContext& vfs, size_t disc_index) {
+    od::port::FsbBank fsb(vfs);
+    od::port::FsbError error;
+    if (!od::port::FSB_Load(fsb, "DATA/SOUND/FSB.DAT", error) ||
+        fsb.clips().size() != 24) {
+        std::cerr << "Disc " << disc_index + 1 << " FSB: " << error.message << "\n";
+        return false;
+    }
+    uint32_t table_crc = 0xffffffffu, payload_crc = 0xffffffffu;
+    uint64_t payload_bytes = 0;
+    for (size_t i = 0; i < fsb.clips().size(); ++i) {
+        const auto& clip = fsb.clips()[i];
+        const auto sample = od::port::FSB_GetSample(fsb, i);
+        if (clip.index != i || sample.size != clip.byte_size ||
+            sample.size < 12 || std::memcmp(sample.data, "RIFF", 4) != 0)
+            return false;
+        std::array<uint8_t, 8> fields{};
+        little32(fields.data(), static_cast<uint32_t>(clip.file_offset));
+        little32(fields.data() + 4, clip.byte_size);
+        table_crc = crc32_update(table_crc, fields.data(), fields.size());
+        payload_crc = crc32_update(payload_crc, sample.data, sample.size);
+        payload_bytes += sample.size;
+    }
+    table_crc ^= 0xffffffffu;
+    payload_crc ^= 0xffffffffu;
+    if (payload_bytes != 741258 || table_crc != 0x6b8c8d72u ||
+        payload_crc != 0x0b02b576u ||
+        fsb.clips().back().file_offset + fsb.clips().back().byte_size != 741370)
+        return false;
+    od::port::FSB_Free(fsb);
+    std::cout << "Disc " << disc_index + 1 << ": 24 FSB sound clips\n";
+    return true;
+}
+
 int corpus() {
     const char* one = std::getenv("DREAMS_CUE1");
     const char* two = std::getenv("DREAMS_CUE2");
@@ -964,6 +1055,7 @@ int corpus() {
         od::port::VfsError vfs_error;
         if (!validate_dan_corpus(*source, vfs, i)) return 1;
         if (!validate_drd_corpus(vfs, i)) return 1;
+        if (!validate_fsb_corpus(vfs, i)) return 1;
         int32_t handle = 0;
         if (!od::port::VFS_Open(vfs, "X:\\DREAMS.DAT", 0x200, handle, vfs_error))
             return 1;
@@ -1101,7 +1193,8 @@ int main(int argc, char** argv) {
     const bool stream_okay = vfs_okay && test_stream_and_dsn(base);
     const bool dan_okay = stream_okay && test_dan_archive(base);
     const bool drd_okay = dan_okay && test_drd_bank(base);
-    const bool markers_okay = drd_okay && test_markers_and_offsets(base);
+    const bool fsb_okay = drd_okay && test_fsb_bank(base);
+    const bool markers_okay = fsb_okay && test_markers_and_offsets(base);
     const bool okay = markers_okay && test_failures(base);
     std::error_code ignored;
     fs::remove_all(base, ignored);

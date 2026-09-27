@@ -156,6 +156,12 @@ the current entry's WAVE, timed-line and portrait extents. The corpus test
 checks all 178 Disc 1 entries against the corrected Python decoder; Disc 2
 reports the bank absent.
 
+`shared/port/fsb.cpp` ports the sound-bank load, indexed sample getter and
+free path. It preserves the retail contiguous sample allocation and clip
+order for one selected disc, with checked table/EOF ranges. The two original
+images contain the same 24-clip bank; the corpus test compares every sample
+byte and table extent with the Python decoder.
+
 ## Shared disc access (spec 002 foundation)
 
 `shared/disc/image.h` is the portable source boundary for both applications and

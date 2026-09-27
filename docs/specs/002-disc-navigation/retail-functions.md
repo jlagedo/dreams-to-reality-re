@@ -1,7 +1,7 @@
 # 002 — initial retail-function port map
 
 Status: **planning map, not an implementation record**. The file-root getters,
-VFS/BF, DDAT/RLE, STRM/DSN header, DAN directory and DRD entry paths have
+VFS/BF, DDAT/RLE, STRM/DSN header, DAN directory, DRD entry and FSB paths have
 been adapted in `opendreams/`; the other asset paths below remain to be ported. Record
 completed functions in
 `port-map.tsv` under the policy in
