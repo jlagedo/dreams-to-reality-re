@@ -83,6 +83,7 @@ add_library(ODShared STATIC
     shared/port/dan.cpp
     shared/port/drd.cpp
     shared/port/fsb.cpp
+    shared/port/sprite.cpp
     shared/shell.cpp
     shared/render/background.cpp
     shared/render/sokol_impl.cpp

@@ -76,6 +76,7 @@ private:
     friend bool VFS_Read(VfsContext&, int32_t, void*, size_t, size_t&, VfsError&);
     friend bool VFS_Seek(VfsContext&, int32_t, int64_t, unsigned, uint64_t&, VfsError&);
     friend bool VFS_Close(VfsContext&, int32_t, VfsError&);
+    friend bool VFS_GetSize(VfsContext&, int32_t, uint64_t&, VfsError&);
     friend int32_t VFS_FindMember(const VfsContext&, std::string_view);
     friend int32_t VFS_OpenMember(VfsContext&, std::string_view);
     friend void VFS_AddArchiveEntries(VfsContext&, const std::vector<BfEntry>&);
@@ -93,6 +94,10 @@ bool VFS_Read(VfsContext& context, int32_t handle, void* buffer, size_t requeste
 bool VFS_Seek(VfsContext& context, int32_t handle, int64_t offset, unsigned whence,
               uint64_t& position, VfsError& error);
 bool VFS_Close(VfsContext& context, int32_t handle, VfsError& error);
+// New portable source query; retail VFS_Seek on a member clamps SEEK_END to
+// length - 1, so callers that need the physical length use this boundary.
+bool VFS_GetSize(VfsContext& context, int32_t handle, uint64_t& size,
+                 VfsError& error);
 
 int32_t VFS_FindMember(const VfsContext& context, std::string_view name);
 int32_t VFS_OpenMember(VfsContext& context, std::string_view name);

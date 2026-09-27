@@ -616,7 +616,10 @@ these commands because the final composite depends on live UI state.
 Sprite **names are not in the files**. The engine carries a 72-entry name
 table at `0x49db12` (stride 9) mapping to `(bank, slot)` at `0x49dd9a`; the
 bank filenames live at `0x49dacc` (stride 13). The mapping is reproduced in
-`dreams.formats.image.MENU_SPRITE_NAMES`. Decoded: **[verified]**
+`dreams.formats.image.MENU_SPRITE_NAMES` for one primary label per slot; the
+separate `MENU_SPRITE_ALIASES` preserves `infosta` as another name for MAGIE
+slot 26. The complete retail table also has `block` at MAGIE slot 34, whose
+shipping descriptor is empty. Decoded: **[verified]**
 
 | Bank | Size | Contents |
 |---|---|---|

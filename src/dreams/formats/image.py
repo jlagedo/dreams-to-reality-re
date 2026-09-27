@@ -215,6 +215,7 @@ MENU_SPRITE_NAMES: dict[tuple[str, int], str] = {
     ("magie", 31): "infosne",
     ("magie", 32): "mcombat",
     ("magie", 33): "infosde",
+    ("magie", 34): "block",
     ("anim", 0): "nothing",
     ("pyram", 0): "pyrambo",
     ("pyram", 1): "pyrcurs",
@@ -253,6 +254,10 @@ MENU_SPRITE_NAMES: dict[tuple[str, int], str] = {
     ("interf", 12): "Desc3",
     ("interf", 13): "Desc4",
 }
+
+# The executable's 72-name lookup also has an alias for MAGIE slot 26.
+# MENU_SPRITE_NAMES remains a one-label-per-slot display map.
+MENU_SPRITE_ALIASES: dict[str, tuple[str, int]] = {"infosta": ("magie", 26)}
 
 
 def _rgb555(value: int) -> tuple[int, int, int]:

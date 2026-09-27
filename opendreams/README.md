@@ -162,6 +162,14 @@ order for one selected disc, with checked table/EOF ranges. The two original
 images contain the same 24-clip bank; the corpus test compares every sample
 byte and table extent with the Python decoder.
 
+`shared/port/sprite.cpp` ports the general sprite-set and font loaders, the
+five fixed BF icon-bank loaders and cleanup, multiply tables and the
+executable's 72-name icon lookup. It keeps raw palette/descriptor records and
+the pixels read by the retail calls. One malformed `HI320` glyph remains
+visible as an invalid slot while the other 255 load. Corpus checks cover the
+five icon banks, `SOUR.ALP`, all three fonts and Disc 2's supplemental
+`TITRES.SPR` member.
+
 ## Shared disc access (spec 002 foundation)
 
 `shared/disc/image.h` is the portable source boundary for both applications and

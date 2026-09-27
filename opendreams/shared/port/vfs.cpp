@@ -246,6 +246,29 @@ bool VFS_Close(VfsContext& context, int32_t handle, VfsError& error) {
     return true;
 }
 
+bool VFS_GetSize(VfsContext& context, int32_t handle, uint64_t& size,
+                 VfsError& error) {
+    error = {};
+    size = 0;
+    if (!context.image_)
+        return fail(error, VfsErrorCode::source_error, "no disc source selected");
+    if (handle < 0) {
+        auto* member = context.member(handle);
+        if (!member)
+            return fail(error, VfsErrorCode::invalid_handle, "invalid BF member handle");
+        size = member->entry.byte_size;
+        return true;
+    }
+    auto* physical = context.physical(handle);
+    if (!physical)
+        return fail(error, VfsErrorCode::invalid_handle, "invalid VFS file handle");
+    const auto* entry = context.image_->entry(physical->file);
+    if (!entry)
+        return fail(error, VfsErrorCode::invalid_handle, "stale VFS file handle");
+    size = entry->byte_size;
+    return true;
+}
+
 int32_t VFS_FindMember(const VfsContext& context, std::string_view name) {
     const std::string key = upper_name(name);
     for (size_t i = 0; i < context.members_.size(); ++i)

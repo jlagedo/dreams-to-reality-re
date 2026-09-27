@@ -3,6 +3,7 @@
 #include "port/dan.h"
 #include "port/drd.h"
 #include "port/fsb.h"
+#include "port/sprite.h"
 #include "port/dsn.h"
 #include "port/stream.h"
 #include "port/vfs.h"
@@ -88,6 +89,7 @@ struct Options {
     bool dan_archive = false;
     bool drd_bank = false;
     bool fsb_bank = false;
+    bool sprite_set = false;
 };
 
 struct Fixture {
@@ -113,7 +115,8 @@ bool raw_sector(l9660_fs* fs, void* output, uint32_t sector) {
 
 Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
     fs::create_directories(directory);
-    std::vector<uint8_t> iso(32 * 2048);
+    const uint32_t sectors = options.sprite_set ? 40 : 32;
+    std::vector<uint8_t> iso(static_cast<size_t>(sectors) * 2048);
     const unsigned pvd_sector = options.boot_before_pvd ? 17 : 16;
     if (options.boot_before_pvd) {
         auto* boot = iso.data() + 16 * 2048;
@@ -126,7 +129,7 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
     std::memcpy(pvd + 1, "CD001", 5);
     pvd[6] = 1;
     std::memcpy(pvd + 40, "TEST_DISC", 9);
-    dual32(pvd + 80, 32);
+    dual32(pvd + 80, sectors);
     dual16(pvd + 128, 2048);
     record(pvd, 156, 20, 4096, 2, std::string(1, '\0'));
     auto* terminator = iso.data() + (pvd_sector + 1) * 2048;
@@ -148,6 +151,7 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
     if (options.dan_archive) record(root, pos, 31, 94, 0, "TEST.DAN;1");
     if (options.drd_bank) record(root, pos, 31, 128, 0, "TEST.DRD;1");
     if (options.fsb_bank) record(root, pos, 31, 56, 0, "TEST.FSB;1");
+    if (options.sprite_set) record(root, pos, 32, 7705, 0, "TEST.ALP;1");
     auto* root_second = iso.data() + 21 * 2048;
     pos = record(root_second, 0, 26, 4, 0, "EXTRA.TXT;1");
     if (options.duplicate_name)
@@ -256,6 +260,22 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
         std::memcpy(fsb + 40, "RIFF", 4); little32(fsb + 44, 8);
         std::memcpy(fsb + 48, "WAVE", 4); fsb[55] = 'B';
     }
+    if (options.sprite_set) {
+        auto* sprite = iso.data() + 32 * 2048;
+        little16(sprite, 0x1c1f);
+        little16(sprite + 2, 0x7fff);
+        const std::array<uint8_t, 16> pixels{
+            1, 63, 1, 31, 1, 15, 0, 0,
+            1, 63, 0, 0, 1, 31, 1, 15};
+        std::memcpy(sprite + 512, pixels.data(), pixels.size());
+        std::memcpy(sprite + 528, "TABLE", 5);
+        auto* table = sprite + 533;
+        little32(table + 4, 2); little32(table + 8, 2);
+        little32(table + 24, 512);
+        little32(table + 28 + 4, 2); little32(table + 28 + 8, 2);
+        little32(table + 28 + 24, 520);
+        little32(sprite + 7701, 2);
+    }
 
     const std::string data_name = options.unicode_data_name ? u8"Träck 01.bin" :
         "Track 01.bin";
@@ -266,7 +286,7 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
         const std::array<char, 2352> empty{};
         for (uint32_t i = 0; i < options.data_index; ++i)
             out.write(empty.data(), empty.size());
-        for (size_t i = 0; i < 32; ++i) {
+        for (size_t i = 0; i < sectors; ++i) {
             std::array<char, 2352> raw{};
             std::memcpy(raw.data() + 16, iso.data() + i * 2048, 2048);
             out.write(raw.data(), raw.size());
@@ -384,6 +404,8 @@ bool test_vfs_and_bf(const fs::path& base) {
     int32_t handle = 0;
     CHECK(od::port::VFS_Open(vfs, "x:\\dreams.dat", 0x200, handle, error));
     CHECK(handle > 0);
+    uint64_t size = 0;
+    CHECK(od::port::VFS_GetSize(vfs, handle, size, error) && size == 2300);
     uint64_t position = 0;
     CHECK(od::port::VFS_Seek(vfs, handle, 2040, 0, position, error));
     CHECK(position == 2040);
@@ -415,6 +437,7 @@ bool test_vfs_and_bf(const fs::path& base) {
     CHECK(rows[1].row == 1 && rows[1].name == "TWO.TXT");
     CHECK(od::port::VFS_Open(vfs, "one.txt", 0x200, handle, error));
     CHECK(handle == -1);
+    CHECK(od::port::VFS_GetSize(vfs, handle, size, error) && size == 5);
     CHECK(od::port::VFS_Read(vfs, handle, bytes.data(), bytes.size(), count, error));
     CHECK(count == 5 && std::memcmp(bytes.data(), "first", 5) == 0);
     CHECK(od::port::VFS_Seek(vfs, handle, 0, 2, position, error));
@@ -697,6 +720,62 @@ bool test_fsb_bank(const fs::path& base) {
     CHECK(!od::port::FSB_Load(bad_fsb, "TEST.FSB", error));
     CHECK(error.code == od::port::FsbErrorCode::invalid_table);
     CHECK(!bad_fsb.loaded());
+    return true;
+}
+
+bool test_sprite_set(const fs::path& base) {
+    Options options;
+    options.sprite_set = true;
+    const auto fixture = make_fixture(base / "sprite-set", options);
+    Error disc_error;
+    auto opened = Image::open(fixture.cue, disc_error);
+    CHECK(opened != nullptr);
+    std::shared_ptr<const Image> image(std::move(opened));
+    od::port::VfsContext vfs(image);
+    od::port::SpriteState state(vfs, true);
+    od::port::SpriteError error;
+    CHECK(od::port::SPR_LoadSet(state, 0, "TEST.ALP", error));
+    const auto* set = state.set(0);
+    CHECK(set != nullptr && set->footer_count == 2 && set->descriptors.size() == 256);
+    CHECK(set->table_offset == 533 && set->bytes_per_pixel == 2);
+    CHECK(set->invalid_slots == 0 && set->palette[0] ==
+          static_cast<uint16_t>(((0x1c1f & 0x7fe0) * 2) | 0x1f));
+    const auto* first = od::port::SPR_GetDescriptor(state, 0, 0);
+    const auto* second = od::port::SPR_GetDescriptor(state, 0, 1);
+    CHECK(first && second && first->status == od::port::SpriteSlotStatus::loaded);
+    CHECK(second->status == od::port::SpriteSlotStatus::loaded);
+    CHECK(first->source_pixel_bytes == 8 && first->retail_read_bytes == 8);
+    CHECK(first->retail_buffer[0] == 1 && first->retail_buffer[1] == 63);
+    CHECK(second->pixel_offset == 520 && second->retail_buffer[0] == 1);
+    CHECK(state.mul32(31, 31) == 961 && state.mul64(63, 63) == 3969);
+    CHECK(state.mul64(1, 63) == 0); // Retail's 64-row table uses stride 63.
+    const auto alias = od::port::ICON_FindByName("INFOSTA");
+    const auto piece = od::port::ICON_FindByName("piece");
+    CHECK(alias.table_index == 33 && alias.bank == 0 && alias.slot == 26);
+    CHECK(piece.table_index == 27 && piece.bank == alias.bank && piece.slot == alias.slot);
+    CHECK(od::port::ICON_FindByName("block").slot == 34);
+    CHECK(od::port::ICON_FindByName("unknown").table_index == -1);
+    CHECK(od::port::ICON_NameTable().size() == 72);
+    od::port::SPR_FreeSet(state, 0);
+    CHECK(state.set(0) == nullptr);
+
+    const auto bad = make_fixture(base / "bad-sprite-slot", options);
+    {
+        std::fstream raw(bad.data, std::ios::binary | std::ios::in | std::ios::out);
+        raw.seekp(32 * 2352 + 16 + 533 + 28 + 4);
+        const std::array<char, 4> excessive{'\xff', '\xff', '\xff', '\x7f'};
+        raw.write(excessive.data(), excessive.size());
+    }
+    auto bad_image = Image::open(bad.cue, disc_error);
+    CHECK(bad_image != nullptr);
+    od::port::VfsContext invalid(std::shared_ptr<const Image>(std::move(bad_image)));
+    od::port::SpriteState partial(invalid);
+    CHECK(od::port::SPR_LoadSet(partial, 0, "TEST.ALP", error));
+    CHECK(partial.set(0)->invalid_slots == 1);
+    CHECK(od::port::SPR_GetDescriptor(partial, 0, 0)->status ==
+          od::port::SpriteSlotStatus::loaded);
+    CHECK(od::port::SPR_GetDescriptor(partial, 0, 1)->status ==
+          od::port::SpriteSlotStatus::invalid);
     return true;
 }
 
@@ -1008,6 +1087,137 @@ bool validate_fsb_corpus(od::port::VfsContext& vfs, size_t disc_index) {
     return true;
 }
 
+struct ExpectedSpriteSet {
+    const char* name;
+    uint32_t footer;
+    size_t active;
+    size_t valid;
+    uint8_t bpp;
+    uint32_t palette_crc;
+    uint32_t table_crc;
+    uint32_t pixel_crc;
+};
+
+bool validate_sprite_set(const od::port::SpriteSet* set,
+                         const ExpectedSpriteSet& expected) {
+    if (!set || set->footer_count != expected.footer ||
+        set->descriptors.size() != 256 || set->bytes_per_pixel != expected.bpp)
+        return false;
+    uint32_t palette_crc = crc32_update(0xffffffffu,
+        set->raw_palette.data(), set->raw_palette.size()) ^ 0xffffffffu;
+    uint32_t table_crc = 0xffffffffu, pixel_crc = 0xffffffffu;
+    size_t active = 0, valid = 0;
+    for (const auto& descriptor : set->descriptors) {
+        table_crc = crc32_update(table_crc, descriptor.raw.data(), descriptor.raw.size());
+        if (descriptor.pixel_offset == 0) continue;
+        ++active;
+        if (descriptor.status != od::port::SpriteSlotStatus::loaded) continue;
+        ++valid;
+        if (descriptor.retail_buffer.size() < descriptor.source_pixel_bytes) return false;
+        pixel_crc = crc32_update(pixel_crc, descriptor.retail_buffer.data(),
+                                 descriptor.source_pixel_bytes);
+    }
+    table_crc ^= 0xffffffffu;
+    pixel_crc ^= 0xffffffffu;
+    if (active != expected.active || valid != expected.valid ||
+        palette_crc != expected.palette_crc || table_crc != expected.table_crc ||
+        pixel_crc != expected.pixel_crc) {
+        std::cerr << expected.name << " sprite set differs: active " << active
+                  << ", valid " << valid << ", CRCs " << std::hex << palette_crc
+                  << ' ' << table_crc << ' ' << pixel_crc << std::dec << "\n";
+        return false;
+    }
+    return true;
+}
+
+bool validate_sprite_corpus(od::port::VfsContext& vfs, size_t disc_index) {
+    const std::array<ExpectedSpriteSet, 5> icons{{
+        {"MAGIE.ALP",34,34,34,2,0xe5ec33bau,0xfc791e1du,0x6c1fd562u},
+        {"ANIM.ALP",16,16,16,2,0xafebf40fu,0x1db1e008u,0x86baf01fu},
+        {"PYRAM.ALP",11,11,11,2,0xcaf97f0du,0x8bf7b2fau,0x21c99166u},
+        {"TOUCHES.SPR",11,11,11,1,0x34e63a5eu,0x3dd9b328u,0xfad0aab4u},
+        {"INTERF.ALP",14,14,14,2,0x06079b23u,0xf79258u,0xdb5cf23du}
+    }};
+    od::port::SpriteState state(vfs);
+    od::port::SpriteError error;
+    if (!od::port::SPR_LoadIconBanks(state, error)) {
+        std::cerr << "Icon banks: " << error.message << "\n";
+        return false;
+    }
+    for (size_t i = 0; i < icons.size(); ++i) {
+        if (!validate_sprite_set(state.icon_bank(i), icons[i])) return false;
+        for (const auto& descriptor : state.icon_bank(i)->descriptors)
+            if (descriptor.status == od::port::SpriteSlotStatus::loaded &&
+                descriptor.retail_read_bytes !=
+                    static_cast<uint64_t>(descriptor.width) * descriptor.height * 2)
+                return false;
+    }
+    const auto block = od::port::ICON_FindByName("block");
+    if (block.bank != 0 || block.slot != 34 ||
+        state.icon_bank(0)->descriptors[34].status !=
+            od::port::SpriteSlotStatus::empty) return false;
+    od::port::SPR_FreeIconBanks(state);
+    for (size_t i = 0; i < icons.size(); ++i)
+        if (state.icon_bank(i) != nullptr) return false;
+
+    const ExpectedSpriteSet cursor{
+        "SOUR.ALP",2,2,2,2,0xf03a1fd4u,0x2bd415d6u,0xb45d33abu};
+    if (!od::port::SPR_LoadSet(state, 3, "DATA/OBJET/SOUR.ALP", error) ||
+        !validate_sprite_set(state.set(3), cursor)) return false;
+    od::port::SPR_FreeSet(state, 3);
+    const std::array<ExpectedSpriteSet, 3> fonts{{
+        {"HI320.SPR",256,256,255,1,0x1258af9au,0x91f2ace9u,0x5d5b99d8u},
+        {"HI480.SPR",256,256,256,1,0x64d6f102u,0x41955b04u,0x0bcb3430u},
+        {"HI640.SPR",256,256,256,1,0x64d6f102u,0x307d1c3eu,0x9f628fe3u}
+    }};
+    const std::array<uint32_t, 3> expected_advances{
+        0x5a629a22u, 0x4899ef30u, 0x12aa95edu};
+    for (size_t i = 0; i < fonts.size(); ++i) {
+        const std::string path = std::string("DATA/FONT/") + fonts[i].name;
+        if (!od::port::TEXT_LoadFont(state, i, path, 0, error) ||
+            !validate_sprite_set(state.set(i), fonts[i])) {
+            std::cerr << path << ": " << error.message << "\n";
+            return false;
+        }
+        const auto* font = state.font(i);
+        if (!font || !font->active || font->advances[0x20] != font->advances[0x30])
+            return false;
+        uint32_t advance_crc = 0xffffffffu;
+        for (int32_t advance : font->advances) {
+            std::array<uint8_t, 4> word{};
+            little32(word.data(), static_cast<uint32_t>(advance));
+            advance_crc = crc32_update(advance_crc, word.data(), word.size());
+        }
+        if ((advance_crc ^ 0xffffffffu) != expected_advances[i]) return false;
+        if (i == 0 && (state.set(i)->invalid_slots != 1 ||
+                       od::port::SPR_GetDescriptor(state, i, 37)->status !=
+                           od::port::SpriteSlotStatus::invalid)) return false;
+        od::port::TEXT_FreeFont(state, i);
+        if (state.set(i) != nullptr || state.font(i)->active) return false;
+    }
+    if (disc_index == 1) {
+        const ExpectedSpriteSet titres{
+            "TITRES.SPR",12,12,12,1,0x6e9b6317u,0x6ed45a1au,0x73dddd97u};
+        if (!od::port::SPR_LoadSet(state, 4, "TITRES.SPR", error) ||
+            !validate_sprite_set(state.set(4), titres)) return false;
+        od::port::SPR_FreeSet(state, 4);
+    }
+    uint32_t names_crc = 0xffffffffu;
+    for (const auto& item : od::port::ICON_NameTable()) {
+        std::array<uint8_t, 17> row{};
+        if (item.name.size() > 8) return false;
+        std::memcpy(row.data(), item.name.data(), item.name.size());
+        little32(row.data() + 9, static_cast<uint32_t>(item.bank));
+        little32(row.data() + 13, static_cast<uint32_t>(item.slot));
+        names_crc = crc32_update(names_crc, row.data(), row.size());
+    }
+    if ((names_crc ^ 0xffffffffu) != 0xfe4b8254u) return false;
+    std::cout << "Disc " << disc_index + 1 << ": five icon banks, cursor and three fonts";
+    if (disc_index == 1) std::cout << ", plus TITRES.SPR";
+    std::cout << "\n";
+    return true;
+}
+
 int corpus() {
     const char* one = std::getenv("DREAMS_CUE1");
     const char* two = std::getenv("DREAMS_CUE2");
@@ -1071,6 +1281,7 @@ int corpus() {
                       << vfs_error.message << "\n";
             return 1;
         }
+        if (!validate_sprite_corpus(vfs, i)) return 1;
         const std::array<const char*, 5> common_names{
             "MAGIE.ALP", "ANIM.ALP", "PYRAM.ALP", "TOUCHES.SPR", "INTERF.ALP"};
         const std::array<uint64_t, 5> disc1_offsets{
@@ -1194,7 +1405,8 @@ int main(int argc, char** argv) {
     const bool dan_okay = stream_okay && test_dan_archive(base);
     const bool drd_okay = dan_okay && test_drd_bank(base);
     const bool fsb_okay = drd_okay && test_fsb_bank(base);
-    const bool markers_okay = fsb_okay && test_markers_and_offsets(base);
+    const bool sprite_okay = fsb_okay && test_sprite_set(base);
+    const bool markers_okay = sprite_okay && test_markers_and_offsets(base);
     const bool okay = markers_okay && test_failures(base);
     std::error_code ignored;
     fs::remove_all(base, ignored);

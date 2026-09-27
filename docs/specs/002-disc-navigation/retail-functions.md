@@ -1,8 +1,9 @@
 # 002 — initial retail-function port map
 
 Status: **planning map, not an implementation record**. The file-root getters,
-VFS/BF, DDAT/RLE, STRM/DSN header, DAN directory, DRD entry and FSB paths have
-been adapted in `opendreams/`; the other asset paths below remain to be ported. Record
+VFS/BF, DDAT/RLE, STRM/DSN header, DAN directory, DRD entry, FSB and
+sprite/font paths have been adapted in `opendreams/`; video and other asset
+paths below remain to be ported. Record
 completed functions in
 `port-map.tsv` under the policy in
 [`PORT_MAP.md`](../../../opendreams/PORT_MAP.md) only when code is implemented.
