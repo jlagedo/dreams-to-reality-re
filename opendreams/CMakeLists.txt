@@ -72,11 +72,18 @@ else()
 endif()
 
 od_generate_shader(OD_BACKGROUND_SHADER shared/render/background.glsl)
+od_generate_shader(OD_MODEL_PREVIEW_SHADER shared/render/model_preview.glsl)
 
 add_library(ODShared STATIC
     shared/disc/image.cpp
+    shared/inspect/catalog.cpp
+    shared/inspect/viewer_prefs.cpp
     shared/port/file_roots.cpp
     shared/port/vfs.cpp
+    shared/port/lz.cpp
+    shared/port/model.cpp
+    shared/port/resource.cpp
+    shared/port/scene.cpp
     shared/port/ddat.cpp
     shared/port/stream.cpp
     shared/port/dsn.cpp
@@ -87,9 +94,11 @@ add_library(ODShared STATIC
     shared/port/video.cpp
     shared/shell.cpp
     shared/render/background.cpp
+    shared/render/model_preview.cpp
     shared/render/sokol_impl.cpp
     ${OD_BACKEND_SOURCE}
     ${OD_BACKGROUND_SHADER}
+    ${OD_MODEL_PREVIEW_SHADER}
     third_party/lib9660/lib9660.c
 )
 target_include_directories(ODShared
@@ -118,7 +127,8 @@ foreach(app IN ITEMS ODViewer ODRuntime)
     endif()
     add_executable(${app} ${app_source})
     target_link_libraries(${app} PRIVATE ODShared)
-    target_include_directories(${app} PRIVATE ${imgui_SOURCE_DIR})
+    target_include_directories(${app} PRIVATE ${imgui_SOURCE_DIR} ${sokol_SOURCE_DIR})
+    target_compile_definitions(${app} PRIVATE SOKOL_IMGUI_NO_SOKOL_APP)
     od_project_options(${app})
     if(EMSCRIPTEN)
         set_target_properties(${app} PROPERTIES SUFFIX ".html")
@@ -127,6 +137,42 @@ foreach(app IN ITEMS ODViewer ODRuntime)
 endforeach()
 
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
+    add_executable(ODViewerPrefsTests tests/viewer_prefs_tests.cpp)
+    target_link_libraries(ODViewerPrefsTests PRIVATE ODShared)
+    od_project_options(ODViewerPrefsTests)
+    add_test(NAME ODViewerPrefs COMMAND ODViewerPrefsTests)
+    set_tests_properties(ODViewerPrefs PROPERTIES LABELS prefs TIMEOUT 30)
+
+    add_executable(ODLzTests tests/lz_tests.cpp)
+    target_link_libraries(ODLzTests PRIVATE ODShared)
+    od_project_options(ODLzTests)
+    add_test(NAME ODLzFixtures COMMAND ODLzTests)
+    set_tests_properties(ODLzFixtures PROPERTIES LABELS lz TIMEOUT 30)
+
+    add_executable(ODDanPayloadTests tests/dan_payload_tests.cpp)
+    target_link_libraries(ODDanPayloadTests PRIVATE ODShared)
+    od_project_options(ODDanPayloadTests)
+    add_test(NAME ODDanPayloadCorpus COMMAND ODDanPayloadTests)
+    set_tests_properties(ODDanPayloadCorpus PROPERTIES LABELS "dan;corpus" SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+    add_executable(ODDsnPayloadTests tests/dsn_payload_tests.cpp)
+    target_link_libraries(ODDsnPayloadTests PRIVATE ODShared)
+    od_project_options(ODDsnPayloadTests)
+    add_test(NAME ODDsnPayloadCorpus COMMAND ODDsnPayloadTests)
+    set_tests_properties(ODDsnPayloadCorpus PROPERTIES LABELS "dsn;corpus" SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+    add_executable(ODPreviewLevelTests tests/preview_level_tests.cpp)
+    target_link_libraries(ODPreviewLevelTests PRIVATE ODShared)
+    od_project_options(ODPreviewLevelTests)
+    add_test(NAME ODPreviewLevelCorpus COMMAND ODPreviewLevelTests)
+    set_tests_properties(ODPreviewLevelCorpus PROPERTIES LABELS "preview;corpus" SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+    add_executable(ODCatalogTests tests/catalog_tests.cpp)
+    target_link_libraries(ODCatalogTests PRIVATE ODShared)
+    od_project_options(ODCatalogTests)
+    add_test(NAME ODCatalogCorpus COMMAND ODCatalogTests)
+    set_tests_properties(ODCatalogCorpus PROPERTIES LABELS "catalog;corpus" SKIP_RETURN_CODE 77 TIMEOUT 180)
+
     add_executable(ODDdatTests tests/ddat_tests.cpp)
     target_link_libraries(ODDdatTests PRIVATE ODShared)
     od_project_options(ODDdatTests)

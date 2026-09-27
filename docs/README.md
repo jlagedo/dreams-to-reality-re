@@ -9,7 +9,9 @@ docs do.
 |---|---|
 | [north-star.md](north-star.md) | **OpenDreams, the engine we are building**: goal, decisions (C++17, SDL3, sokol_gfx, native loaders), the original game code ported as a fixed-step loop with a free GPU renderer, milestones, the RE work it depends on |
 | [Spec 001 — project initialization](specs/001-project-init/spec.md) | C/C++ foundation, build/dependencies and two runnable Hello World applications through SDL3, sokol and Dear ImGui |
-| [Spec 002 — disc and source-asset navigation](specs/002-disc-navigation/spec.md) | Draft for opening cue/bin images and browsing each disc's files, indexed game-container entries, project references and track metadata; no media previews or playback |
+| [Spec 002 — disc and source-asset navigation](specs/002-disc-navigation/spec.md) | Browser requirements for cue/bin images, source files, indexed entries, project references and tracks; no media previews or playback |
+| [Spec 003 — level-load object preview](specs/003-level-load-preview/spec.md) | ODViewer selected DAN model preview through an in-memory project/scene and adapted `SCENE_LoadLevel`; Project 71 is the real-record check |
+| [ODViewer browser implementation](reviews/002-viewer-browser.md) | Inspection layer versus retail ports, provenance of indexed fields, corpus validation and remaining navigation checks |
 | [re-status.md](re-status.md) | **Current RE status and priorities**: recovered behavior, checked coverage, remaining gaps, field corrections and validation commands |
 | [glide-renderer.md](glide-renderer.md) | **Faithful GPU contract**: complete face dispatch, clamp/wrap, deferred alpha, depth, texture uploads, palette cache and fog |
 | [lighting.md](lighting.md) | **Palette and object lighting**: project RGB fields, row generation, actor binding, shared RNG, light records and remaining limits |

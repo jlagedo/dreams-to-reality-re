@@ -3,7 +3,8 @@
 Status: **planning map, not an implementation record**. The file-root getters,
 VFS/BF, DDAT/RLE, STRM/DSN header, DAN directory, DRD entry, FSB and
 sprite/font and video open/close paths have been adapted in `opendreams/`.
-Conditional resource/model paths and viewer integration remain. Record
+Conditional resource/model paths remain; the navigation catalog is now in
+`opendreams/shared/inspect/`. Record
 completed functions in
 `port-map.tsv` under the policy in
 [`PORT_MAP.md`](../../../opendreams/PORT_MAP.md) only when code is implemented.

@@ -13,6 +13,8 @@ struct ShellOptions {
     DrawUi draw_ui;
     void* user;
     int max_frames;
+    float ui_font_pixels = 0.0f; // 0 keeps the Dear ImGui default.
+    float ui_size_scale = 1.0f;
 };
 
 class Shell {

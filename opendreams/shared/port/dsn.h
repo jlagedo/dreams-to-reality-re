@@ -14,9 +14,11 @@ namespace od::port {
 enum class DsnErrorCode {
     none,
     no_stream,
+    invalid_state,
     missing_file,
     truncated_header,
     invalid_header,
+    invalid_chunk,
     stream_error,
 };
 
@@ -39,6 +41,7 @@ struct DsnObject {
 class DsnState {
 public:
     bool loaded() const { return loaded_; }
+    bool geometry_loaded() const { return geometry_loaded_; }
     uint32_t declared_size() const { return declared_size_; }
     uint32_t span() const { return span_; }
     uint16_t name_count() const { return name_count_; }
@@ -56,15 +59,22 @@ private:
     uint16_t name_count_ = 0;
     size_t body_offset_ = 0;
     bool loaded_ = false;
+    bool geometry_loaded_ = false;
 
     friend bool DSN_InitState(DsnState&, Stream&);
     friend void DSN_ResetState(DsnState&);
     friend bool DSN_LoadHeader(DsnState&, std::string_view, DsnError&);
+    friend bool DSN_LoadMaterialsAndFaces(DsnState&, std::vector<uint8_t>&, DsnError&);
+    friend bool DSN_LoadVertexPool(DsnState&, std::vector<uint8_t>&, DsnError&);
 };
 
 bool DSN_InitState(DsnState& state, Stream& stream);
 void DSN_ResetState(DsnState& state);
 // Leaves the retail stream positioned at the first packed-body tag on success.
 bool DSN_LoadHeader(DsnState& state, std::string_view path, DsnError& error);
+bool DSN_LoadMaterialsAndFaces(DsnState& state, std::vector<uint8_t>& geometry,
+                               DsnError& error);
+bool DSN_LoadVertexPool(DsnState& state, std::vector<uint8_t>& collision,
+                        DsnError& error);
 
 } // namespace od::port

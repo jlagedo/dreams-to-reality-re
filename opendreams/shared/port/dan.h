@@ -61,6 +61,7 @@ public:
     const std::vector<DanName>& names() const { return names_; }
     const std::vector<DanClip>& clips() const { return clips_; }
     const std::vector<DanChunk>& animation_chunks() const { return chunks_; }
+    const std::vector<DanChunk>& texture_chunks() const { return texture_chunks_; }
     const std::vector<uint8_t>& animation_work() const { return work_; }
     std::string_view path() const { return path_; }
 
@@ -75,12 +76,19 @@ private:
     std::vector<DanName> names_;
     std::vector<DanClip> clips_;
     std::vector<DanChunk> chunks_;
+    std::vector<DanChunk> texture_chunks_;
     std::vector<uint8_t> work_;
+    std::vector<uint8_t> texture_work_;
+    uint64_t model_chunk_end_ = 0;
     bool open_ = false;
     bool animations_loaded_ = false;
+    bool textures_loaded_ = false;
 
     friend bool DAN_OpenArchive(DanArchive&, std::string_view, DanError&);
     friend bool DAN_ReadAnimChunks(DanArchive&, DanError&);
+    friend bool DAN_Read3DC(DanArchive&, std::string_view, std::vector<uint8_t>&, DanError&);
+    friend bool DAN_ReadTextureChunks(DanArchive&, DanError&);
+    friend bool DAN_Load3DM(DanArchive&, std::string_view, std::vector<uint8_t>&, DanError&);
     friend size_t DAN_GetAnimCount(const DanArchive&);
     friend std::string_view DAN_GetAnimName(const DanArchive&, size_t);
     friend void DAN_CloseArchive(DanArchive&);
@@ -88,6 +96,11 @@ private:
 
 bool DAN_OpenArchive(DanArchive& archive, std::string_view path, DanError& error);
 bool DAN_ReadAnimChunks(DanArchive& archive, DanError& error);
+bool DAN_Read3DC(DanArchive& archive, std::string_view logical_name,
+                 std::vector<uint8_t>& model, DanError& error);
+bool DAN_ReadTextureChunks(DanArchive& archive, DanError& error);
+bool DAN_Load3DM(DanArchive& archive, std::string_view name,
+                 std::vector<uint8_t>& bank, DanError& error);
 size_t DAN_GetAnimCount(const DanArchive& archive);
 std::string_view DAN_GetAnimName(const DanArchive& archive, size_t index);
 void DAN_CloseArchive(DanArchive& archive);

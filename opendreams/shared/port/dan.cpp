@@ -1,4 +1,5 @@
 #include "port/dan.h"
+#include "port/lz.h"
 
 #include <array>
 #include <cstring>
@@ -54,6 +55,20 @@ std::string slot_text(const uint8_t* data, size_t capacity) {
     return std::string(reinterpret_cast<const char*>(data), used);
 }
 
+std::string upper_ascii(std::string_view value) {
+    std::string result(value);
+    for (char& ch : result)
+        if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - ('a' - 'A'));
+    return result;
+}
+
+std::string_view basename_stem(std::string_view path) {
+    const size_t slash = path.find_last_of("/\\");
+    if (slash != std::string_view::npos) path.remove_prefix(slash + 1);
+    const size_t dot = path.find_last_of('.');
+    return dot == std::string_view::npos ? path : path.substr(0, dot);
+}
+
 } // namespace
 
 DanArchive::~DanArchive() { DAN_CloseArchive(*this); }
@@ -72,9 +87,13 @@ void DAN_CloseArchive(DanArchive& archive) {
     archive.names_.clear();
     archive.clips_.clear();
     archive.chunks_.clear();
+    archive.texture_chunks_.clear();
     archive.work_.clear();
+    archive.texture_work_.clear();
+    archive.model_chunk_end_ = 0;
     archive.open_ = false;
     archive.animations_loaded_ = false;
+    archive.textures_loaded_ = false;
 }
 
 bool DAN_OpenArchive(DanArchive& archive, std::string_view path, DanError& error) {
@@ -213,6 +232,97 @@ bool DAN_ReadAnimChunks(DanArchive& archive, DanError& error) {
                     "DAN animation chunk count differs from its clip directory");
     archive.animations_loaded_ = true;
     return true;
+}
+
+bool DAN_Read3DC(DanArchive& archive, std::string_view logical_name,
+                 std::vector<uint8_t>& model, DanError& error) {
+    error = {};
+    model.clear();
+    archive.model_chunk_end_ = 0;
+    archive.texture_chunks_.clear();
+    archive.texture_work_.clear();
+    archive.textures_loaded_ = false;
+    if (!archive.open_)
+        return fail(error, DanErrorCode::invalid_state, "no DAN archive is open");
+    if (upper_ascii(basename_stem(logical_name)) !=
+        upper_ascii(basename_stem(archive.path_)))
+        return fail(error, DanErrorCode::missing_file,
+                    "logical .3DC name does not match the open DAN archive");
+    if (archive.source_size_ - archive.body_offset_ < 5)
+        return fail(error, DanErrorCode::invalid_chunk,
+                    "DAN model chunk has no complete header");
+    std::array<uint8_t, 5> header{};
+    if (!read_at(*archive.vfs_, archive.handle_, archive.body_offset_,
+                 header.data(), header.size(), error)) return false;
+    const uint32_t size = little32(header.data() + 1);
+    if (header[0] != 1 || size < 5 || size > archive.source_size_ - archive.body_offset_ ||
+        size - 5 > 0x96000)
+        return fail(error, DanErrorCode::invalid_chunk,
+                    "DAN model chunk has an invalid type or length");
+    std::vector<uint8_t> packed(size - 5);
+    if (!read_at(*archive.vfs_, archive.handle_, archive.body_offset_ + 5,
+                 packed.data(), packed.size(), error)) return false;
+    std::string lz_error;
+    if (!LZ_Unpack(packed.data(), packed.size(), model, lz_error))
+        return fail(error, DanErrorCode::invalid_chunk,
+                    "DAN model decompression failed: " + lz_error);
+    archive.model_chunk_end_ = archive.body_offset_ + size;
+    return true;
+}
+
+bool DAN_ReadTextureChunks(DanArchive& archive, DanError& error) {
+    error = {};
+    archive.texture_chunks_.clear();
+    archive.texture_work_.clear();
+    archive.textures_loaded_ = false;
+    if (!archive.open_ || !archive.model_chunk_end_)
+        return fail(error, DanErrorCode::invalid_state,
+                    "read the DAN model before its texture chunks");
+    uint64_t position = archive.model_chunk_end_;
+    for (size_t index = 0; index < archive.names_.size(); ++index) {
+        if (position > archive.source_size_ || archive.source_size_ - position < 5)
+            return fail(error, DanErrorCode::invalid_chunk,
+                        "DAN texture chunk has no complete header");
+        std::array<uint8_t, 5> header{};
+        if (!read_at(*archive.vfs_, archive.handle_, position,
+                     header.data(), header.size(), error)) return false;
+        const uint32_t size = little32(header.data() + 1);
+        if (header[0] != 2 || size < 5 || size > archive.source_size_ - position ||
+            size - 5 > 0x96000 - archive.texture_work_.size())
+            return fail(error, DanErrorCode::invalid_chunk,
+                        "DAN texture chunks exceed the declared directory or work buffer");
+        const size_t offset = archive.texture_work_.size();
+        archive.texture_work_.resize(offset + size - 5);
+        if (!read_at(*archive.vfs_, archive.handle_, position + 5,
+                     archive.texture_work_.data() + offset, size - 5, error)) return false;
+        archive.texture_chunks_.push_back({index, position, size - 5, offset});
+        position += size;
+    }
+    archive.textures_loaded_ = true;
+    return true;
+}
+
+bool DAN_Load3DM(DanArchive& archive, std::string_view name,
+                 std::vector<uint8_t>& bank, DanError& error) {
+    error = {};
+    bank.clear();
+    if (!archive.open_ || !archive.textures_loaded_)
+        return fail(error, DanErrorCode::invalid_state,
+                    "DAN texture chunks are not loaded");
+    const std::string requested = upper_ascii(basename_stem(name));
+    for (size_t index = 0; index < archive.names_.size(); ++index) {
+        if (upper_ascii(basename_stem(archive.names_[index].text)) != requested)
+            continue;
+        const DanChunk& chunk = archive.texture_chunks_[index];
+        std::string lz_error;
+        if (!LZ_Unpack(archive.texture_work_.data() + chunk.work_offset,
+                       chunk.payload_size, bank, lz_error))
+            return fail(error, DanErrorCode::invalid_chunk,
+                        "DAN texture decompression failed: " + lz_error);
+        return true;
+    }
+    return fail(error, DanErrorCode::missing_file,
+                "texture name is absent from the open DAN archive");
 }
 
 size_t DAN_GetAnimCount(const DanArchive& archive) {

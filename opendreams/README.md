@@ -1,8 +1,49 @@
-# OpenDreams foundation
+# OpenDreams
 
-Spec 001 builds two data-free application shells from one static `ODShared`
-library. `ODViewer` and `ODRuntime` each show a Hello World panel over a
-shader-generated background. The applications do not load discs or game assets.
+Spec 001 built the shared application shell. Spec 002 adds a read-only disc
+browser to `ODViewer`. Spec 003 adds DAN model previews from selected archive
+rows through a partial shared level-load port; `ODRuntime` retains its foundation
+screen. Both use one static `ODShared` library.
+
+## ODViewer disc browser
+
+Launch `ODViewer` and choose one or two original `.cue` files in the source
+strip, then mount them. The file dialog and editable UTF-8 path fields are
+available on desktop builds. For a repeatable local launch:
+
+```powershell
+.\build\win-msvc-x64-debug\ODViewer.exe --cue1 "E:\path\disc1.cue" --cue2 "E:\path\disc2.cue"
+```
+
+ODViewer remembers each successfully mounted CUE path and reopens it on the
+next launch. It writes only the two UTF-8 paths to `sources.ini` under the
+per-user directory returned by SDL's `SDL_GetPrefPath("OpenDreams", "ODViewer")`
+(for example, `%APPDATA%\OpenDreams\ODViewer` on Windows). Replacing a source
+updates its saved path; **Unmount** forgets that source. An unavailable saved
+image leaves its path in the field with an error so it can be repaired. A
+`--cue1` or `--cue2` argument overrides the saved path for that source and is
+remembered after a successful mount. Browser image opening remains deferred,
+so this persistence currently applies to desktop builds.
+
+Disc identity comes from ISO marker files, so argument order is not a disc
+assignment. The browser searches and filters physical files, CD audio tracks,
+project records and supported container children; selecting a row shows its
+source path, parent, internal key, extent and provenance. Selecting the
+`CAISSE` **Model name** row under Disc 2's `DATA/3DC/CAI.DAN` builds a small
+project and scene in memory, calls the partial shared `SCENE_LoadLevel` path,
+and draws the textured crate in the GPU preview pane. The exact disc/archive
+row determines the source when names repeat. Other model archives report their
+current support status there. For a repeatable first preview:
+
+```powershell
+.\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-cai
+```
+
+ODViewer uses a larger vector font for readable navigation. The catalog lives in
+`shared/inspect/` and is explicitly new inspection code. Format behavior with a
+retail counterpart is called from `shared/port/`; the navigation layer is not
+a game runtime port. See
+[the implementation review](../docs/reviews/002-viewer-browser.md).
 
 ## Dependencies and build
 

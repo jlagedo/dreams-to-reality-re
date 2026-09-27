@@ -1,4 +1,5 @@
 #include "port/dsn.h"
+#include "port/lz.h"
 
 #include <algorithm>
 #include <cstring>
@@ -38,6 +39,48 @@ bool take(Stream& stream, size_t length, std::vector<uint8_t>& output,
                     "DSN header needs more bytes: " + stream_error.message);
     output.assign(pointer, pointer + length);
     if (!STRM_Commit(stream, stream_error)) return stream_fail(error, stream_error);
+    return true;
+}
+
+bool take_body(Stream& stream, size_t length, std::vector<uint8_t>& output,
+               DsnError& error) {
+    output.clear();
+    if (length > stream.ring_size())
+        return fail(error, DsnErrorCode::invalid_chunk,
+                    "DSN packed chunk exceeds the stream ring");
+    StreamError stream_error;
+    while (stream.available() < length) {
+        const size_t before = stream.available();
+        if (!STRM_Fill(stream, stream_error)) return stream_fail(error, stream_error);
+        if (stream.available() == before)
+            return fail(error, DsnErrorCode::invalid_chunk,
+                        "DSN packed chunk ends before its declared length");
+    }
+    const uint8_t* pointer = nullptr;
+    if (!STRM_Peek(stream, length, pointer, stream_error))
+        return stream_fail(error, stream_error);
+    output.assign(pointer, pointer + length);
+    if (!STRM_Commit(stream, stream_error)) return stream_fail(error, stream_error);
+    return true;
+}
+
+bool unpack_next(DsnState& state, uint8_t expected,
+                 std::vector<uint8_t>& output, DsnError& error) {
+    output.clear();
+    if (!state.loaded() || !state.stream())
+        return fail(error, DsnErrorCode::no_stream, "DSN header is not loaded");
+    Stream& stream = *state.stream();
+    std::vector<uint8_t> header, packed;
+    if (!take_body(stream, 5, header, error)) return false;
+    const uint32_t size = little32(header.data() + 1);
+    if (header[0] != expected || size < 5 || size > state.declared_size())
+        return fail(error, DsnErrorCode::invalid_chunk,
+                    "DSN body tag or packed length is invalid");
+    if (!take_body(stream, size - 5, packed, error)) return false;
+    std::string lz_error;
+    if (!LZ_Unpack(packed.data(), packed.size(), output, lz_error))
+        return fail(error, DsnErrorCode::invalid_chunk,
+                    "DSN body decompression failed: " + lz_error);
     return true;
 }
 
@@ -137,6 +180,24 @@ bool DSN_LoadHeader(DsnState& state, std::string_view path, DsnError& error) {
     state.path_ = std::string(path);
     state.loaded_ = true;
     return true;
+}
+
+bool DSN_LoadMaterialsAndFaces(DsnState& state, std::vector<uint8_t>& geometry,
+                               DsnError& error) {
+    error = {};
+    state.geometry_loaded_ = false;
+    if (!unpack_next(state, 1, geometry, error)) return false;
+    state.geometry_loaded_ = true;
+    return true;
+}
+
+bool DSN_LoadVertexPool(DsnState& state, std::vector<uint8_t>& collision,
+                        DsnError& error) {
+    error = {};
+    if (!state.geometry_loaded_)
+        return fail(error, DsnErrorCode::invalid_state,
+                    "DSN geometry must load before the vertex pool");
+    return unpack_next(state, 2, collision, error);
 }
 
 } // namespace od::port

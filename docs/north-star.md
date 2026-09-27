@@ -341,8 +341,11 @@ and still compiles for the browser.
    ODShared, and makes ODViewer consume them across both sources. It presents
    physical files, supported indexed entries and project references, with
    viewer-only detail allowed where no retail function supplies it. No media
-   previews or playback are required in 002. **Subsequent specs** extend the
-   same ported paths through full decoding and previews: models, skeletons,
+   previews or playback are required in 002. **[Spec 003](specs/003-level-load-preview/spec.md)**
+   first exercises a selected DAN model through an in-memory preview project,
+   adapted level-load path and native GPU drawing; Project 71 checks the real
+   record path. Subsequent specs extend the same ported paths through
+   full decoding and previews: models, skeletons,
    animation at the original 30 frames per second, props, level geometry and
    textures, sprites/fonts, sounds, music, voice/captions and videos. Check each
    loader against Python and match the renderer's material modes against the

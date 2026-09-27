@@ -1,8 +1,11 @@
 # 002 — Retail asset access and game asset navigation
 
-Status: **Draft — planning only**  
+Status: **Implementation under validation**
 Date: 2026-09-26  
 Depends on: [001 — project initialization](../001-project-init/spec.md)
+
+Current browser implementation and its retail/viewer-derived boundary are
+recorded in [the implementation review](../../reviews/002-viewer-browser.md).
 
 ## Goal
 

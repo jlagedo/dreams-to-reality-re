@@ -1,0 +1,24 @@
+#pragma once
+
+#include "port/model.h"
+
+#include <cstdint>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace od::port {
+
+class DanArchive;
+
+// The first adapted RES source is an active DAN archive. DSN and loose-file
+// routes remain explicit future branches of the same retail entry points.
+bool RES_ReadFile(DanArchive& archive, std::string_view logical_name,
+                  std::vector<uint8_t>& bytes, std::string& error);
+bool MDL_BindFaceMaterials(ModelGraph& graph, std::string& error);
+bool MDL_BindTreeMaterials(ModelGraph& graph, std::string& error);
+bool MDL_LoadMaterials(DanArchive& archive, ModelGraph& graph, std::string& error);
+bool RES_Load(DanArchive& archive, std::string_view logical_name,
+              ModelGraph& graph, std::string& error);
+
+} // namespace od::port

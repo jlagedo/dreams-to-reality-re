@@ -27,7 +27,8 @@ struct Shell::Impl {
 
 bool Shell::init(const ShellOptions& options) {
     error_.clear();
-    if (!options.title || !options.draw_ui || options.max_frames < 0) {
+    if (!options.title || !options.draw_ui || options.max_frames < 0 ||
+        options.ui_font_pixels < 0.0f || options.ui_size_scale <= 0.0f) {
         error_ = "invalid OpenDreams shell options";
         return false;
     }
@@ -76,8 +77,16 @@ bool Shell::init(const ShellOptions& options) {
 
     simgui_desc_t ui_desc{};
     ui_desc.logger.func = slog_func;
+    ui_desc.no_default_font = options.ui_font_pixels > 0.0f;
     simgui_setup(&ui_desc); // creates the one ImGui context and its GPU resources
     impl_->imgui_ready = true;
+    if (options.ui_font_pixels > 0.0f) {
+        ImFontConfig font_config;
+        font_config.SizePixels = options.ui_font_pixels;
+        ImGui::GetIO().Fonts->AddFontDefaultVector(&font_config);
+    }
+    if (options.ui_size_scale != 1.0f)
+        ImGui::GetStyle().ScaleAllSizes(options.ui_size_scale);
 #if defined(SOKOL_D3D11)
     impl_->sdl_backend_ready = ImGui_ImplSDL3_InitForD3D(impl_->window);
 #elif defined(SOKOL_METAL)
