@@ -1,7 +1,8 @@
 # 002 — initial retail-function port map
 
-Status: **planning map, not an implementation record**. No retail functions are
-ported in `opendreams/` yet. Add rows to its `port-map.tsv` under the policy in
+Status: **planning map, not an implementation record**. The file-root getters
+have been adapted in `opendreams/`; the VFS and asset paths below remain to be
+ported. Record completed functions in `port-map.tsv` under the policy in
 [`PORT_MAP.md`](../../../opendreams/PORT_MAP.md) only when code is implemented.
 
 This map starts from the checked

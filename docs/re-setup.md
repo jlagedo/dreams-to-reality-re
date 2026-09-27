@@ -507,16 +507,21 @@ that BSS location is present in the loaded program.
   well, but those are *crash* recovery — they will not save you from closing a
   program without saving.
 
-### Two layers of durability
+### Durable research and port records
 
 | Layer | What | Durability |
 |---|---|---|
 | `ghidra/dreams.rep` | the saved project | durable on disk, but **gitignored** — binary, unmergeable, embeds the game executables |
 | `re/symbols/*.tsv` | exported names + comments | **durable and in git** — the record that outlives everything |
 | `re/structs/*.h` | parsed C layouts | **durable and in git** — imported by `ImportStructs.java` |
+| `opendreams/port-map.tsv` | retail function status and C++ locations | **durable and in git** — applied by `ApplyPortMap.java` |
 
-`re/` is the source of truth. The Ghidra project is disposable and rebuildable
-from the discs with `ghidra-import.ps1 -ImportSymbols -ImportStructs`.
+`re/` is the source of truth for recovered symbols and types. The Ghidra
+project is disposable and rebuildable from the discs with
+`ghidra-import.ps1 -ImportSymbols -ImportStructs`.
+For port status, `opendreams/port-map.tsv` is the separate source of truth;
+`-ImportSymbols` runs `ApplyPortMap.java` after restoring names, so Function
+Tags and `[PORT_MAP]` comments are rebuilt from it too.
 
 ### The project lock
 

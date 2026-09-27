@@ -107,12 +107,19 @@ type into the input field, resize the window, minimize and restore it, and
 close it. Build results and visual checks must be recorded separately. A
 successful compile or finite-frame exit does not prove the UI interaction.
 
-The source layout distinguishes new platform/render/UI code from later ported
-game code. `shared/port/` will receive reconstructed functions only after their
+The source layout distinguishes new platform/render/UI code from ported game
+code. `shared/port/` receives reconstructed functions only after their
 program address, checked name, source-block evidence, callers, globals and
 adaptations are recorded. Do not infer Cryo's original filenames from these
 directories. The detailed mapping policy is in [PORT_MAP.md](PORT_MAP.md).
 No game functions were ported in spec 001.
+
+The first spec 002 ports are the `FILE_GetInstallRoot` and `FILE_GetDataRoot`
+getters in `shared/port/file_roots.cpp`. They use caller-owned root state in
+place of retail globals. `port-map.tsv` records both Windows binaries' source
+addresses and the C++ symbols; `ghidra_scripts/ApplyPortMap.java` generates
+Function Tags and implementation-location plate comments in Ghidra. The VFS
+open/read/seek/close path is next and is not yet ported.
 
 ## Shared disc access (spec 002 foundation)
 

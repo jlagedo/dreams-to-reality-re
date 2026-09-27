@@ -101,7 +101,7 @@ foreach ($bin in $Binaries) {
         "-preScript", "FixWatcomBss.java"
     )
     if (-not $Analyze)      { $args += "-noanalysis" }
-    if ($ImportSymbols)     { $args += @("-postScript", "ImportSymbols.java") }
+    if ($ImportSymbols)     { $args += @("-postScript", "ImportSymbols.java", "-postScript", "ApplyPortMap.java") }
     if ($ImportStructs)     { $args += @("-postScript", "ImportStructs.java") }
 
     & $headless @args 2>&1 | Where-Object {

@@ -75,6 +75,7 @@ od_generate_shader(OD_BACKGROUND_SHADER shared/render/background.glsl)
 
 add_library(ODShared STATIC
     shared/disc/image.cpp
+    shared/port/file_roots.cpp
     shared/shell.cpp
     shared/render/background.cpp
     shared/render/sokol_impl.cpp
@@ -117,6 +118,11 @@ foreach(app IN ITEMS ODViewer ODRuntime)
 endforeach()
 
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
+    add_executable(ODPortFileRootsTests tests/port_file_roots_tests.cpp)
+    target_link_libraries(ODPortFileRootsTests PRIVATE ODShared)
+    od_project_options(ODPortFileRootsTests)
+    add_test(NAME ODPortFileRoots COMMAND ODPortFileRootsTests)
+
     add_executable(ODDiscTests tests/disc_tests.cpp)
     target_link_libraries(ODDiscTests PRIVATE ODShared)
     target_include_directories(ODDiscTests PRIVATE third_party/lib9660)
