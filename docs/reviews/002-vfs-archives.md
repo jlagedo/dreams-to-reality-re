@@ -46,6 +46,13 @@ fallback, not the install-root getter. The flag is copied into each runtime
 member row at `+0x114`; no use of that field has been confirmed in the VFS
 open/read/seek path.
 
+This may be leftover diagnostic behavior rather than a needed game path. The
+direct users of the global archive table do not read `+0x114` in the reviewed
+VFS functions. A nearby function at `0x0043afcd` walks the table and calls
+`printf_("%s\n", row)` to print each member name; Ghidra finds no callers for
+it. Neither observation proves why `Z:\` was chosen or that no indirect use of
+the flag exists.
+
 ## Container and runtime table
 
 BF_Mount reads a 16-byte header, checks only the four-byte UBIK magic, seeks to
