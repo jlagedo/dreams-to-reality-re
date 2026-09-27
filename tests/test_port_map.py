@@ -62,7 +62,7 @@ def test_owner_review_must_match_across_windows_twins(tmp_path, monkeypatch) -> 
     for index, line in enumerate(lines):
         fields = line.split("\t")
         if fields[0] == "WINDREAM.EXE" and fields[2] == "VFS_Open":
-            fields[11] = "yes"
+            fields[11] = "no" if fields[11] == "yes" else "yes"
             lines[index] = "\t".join(fields)
             break
     else:
