@@ -114,6 +114,39 @@ adaptations are recorded. Do not infer Cryo's original filenames from these
 directories. The detailed mapping policy is in [PORT_MAP.md](PORT_MAP.md).
 No game functions were ported in spec 001.
 
+## Shared disc access (spec 002 foundation)
+
+`shared/disc/image.h` is the portable source boundary for both applications and
+the later retail VFS port. `od::disc::Image::open(cue, error)` owns one CUE/BIN
+mount. It reports every track's mode, file-relative indexes and backing-file
+status; lists ISO entries with their original identifiers and source-scoped
+`FileId`; and identifies Disc 1/2 from `DATA/1CD.ID` and `DATA/2CD.ID`. `find`
+normalizes game-style case and separators, `children` lists a directory, and
+`read_at` performs checked reads by file ID and byte offset. A file ID from an
+old or different mount is rejected. Callers can build two mounts independently
+and replace either only after a new `open` succeeds.
+
+The initial CUE reader supports the original split-track layout: one
+`MODE1/2352` data BIN followed by separate audio BINs, each with its own
+file-relative `INDEX 00/01`. Missing audio remains visible in track status and
+does not hide a readable data track. CUE/sector access is new portability code;
+the [vendored lib9660](third_party/lib9660/README.md) reads ISO directory
+records. Neither code path uses the installed `CRYO` cache, an extracted tree,
+or Python at runtime. Retail `VFS_*` functions can later use `find` and
+`read_at` without duplicating ISO parsing.
+
+Native data-free tests run with
+`ctest --test-dir build/<preset> -R ODDiscFixtures --output-on-failure`.
+For an optional original-disc comparison, set `DREAMS_CUE1` and `DREAMS_CUE2`
+to the original `.cue` paths in the process environment, then run
+`ctest --test-dir build/<preset> -R ODDiscCorpus --output-on-failure`.
+These settings are distinct from the Python toolkit's `DREAMS_DISC1/2`
+extracted-directory paths. When those extracted paths are also exported to the
+test process, the corpus check compares full `DREAMS.DAT` and `ICONES.BF` bytes
+with each mounted image. The CTest case reports a skip when CUE paths are
+absent. Disc-image opening in the Emscripten apps remains deferred by spec 002;
+the shared source still compiles there.
+
 Downloaded sources, tools and generated shader headers remain under ignored
 `build/` directories. Existing repository ignore rules also exclude original
 disc images and derived game media.

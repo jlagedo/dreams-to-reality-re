@@ -28,10 +28,15 @@ include(cmake/Shaders.cmake)
 
 function(od_project_options target)
     if(MSVC)
-        target_compile_options(${target} PRIVATE /W4 /GR- /EHs- /EHc- /fp:precise)
+        target_compile_options(${target} PRIVATE /W4 /fp:precise
+            $<$<COMPILE_LANGUAGE:CXX>:/GR->
+            $<$<COMPILE_LANGUAGE:CXX>:/EHs->
+            $<$<COMPILE_LANGUAGE:CXX>:/EHc->)
         target_compile_definitions(${target} PRIVATE _HAS_EXCEPTIONS=0)
     else()
-        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -fno-exceptions -fno-rtti -fno-fast-math -ffp-contract=off)
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic
+            -fno-exceptions -fno-fast-math -ffp-contract=off
+            $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
     endif()
 endfunction()
 
@@ -69,15 +74,18 @@ endif()
 od_generate_shader(OD_BACKGROUND_SHADER shared/render/background.glsl)
 
 add_library(ODShared STATIC
+    shared/disc/image.cpp
     shared/shell.cpp
     shared/render/background.cpp
     shared/render/sokol_impl.cpp
     ${OD_BACKEND_SOURCE}
     ${OD_BACKGROUND_SHADER}
+    third_party/lib9660/lib9660.c
 )
 target_include_directories(ODShared
     PUBLIC shared
     PRIVATE ${sokol_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/generated
+            third_party/lib9660
 )
 target_compile_definitions(ODShared PRIVATE ${OD_SOKOL_BACKEND} SOKOL_IMGUI_NO_SOKOL_APP)
 target_link_libraries(ODShared PUBLIC SDL3::SDL3-static ODImGui)
@@ -109,6 +117,15 @@ foreach(app IN ITEMS ODViewer ODRuntime)
 endforeach()
 
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
+    add_executable(ODDiscTests tests/disc_tests.cpp)
+    target_link_libraries(ODDiscTests PRIVATE ODShared)
+    target_include_directories(ODDiscTests PRIVATE third_party/lib9660)
+    od_project_options(ODDiscTests)
+    add_test(NAME ODDiscFixtures COMMAND ODDiscTests)
+    add_test(NAME ODDiscCorpus COMMAND ODDiscTests --corpus)
+    set_tests_properties(ODDiscFixtures PROPERTIES LABELS disc TIMEOUT 30)
+    set_tests_properties(ODDiscCorpus PROPERTIES LABELS "disc;corpus" SKIP_RETURN_CODE 77 TIMEOUT 120)
+
     option(OD_ENABLE_GRAPHICS_TESTS "Register display-dependent finite-frame smoke tests" OFF)
     if(OD_ENABLE_GRAPHICS_TESTS)
         add_test(NAME ODViewerGraphics COMMAND ODViewer --frames 10)
