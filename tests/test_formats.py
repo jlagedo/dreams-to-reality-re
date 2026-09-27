@@ -631,21 +631,12 @@ def test_project_bank_is_the_level_graph():
 # ---------------------------------------------------------- DIALOG.DRD ---
 
 
-def test_drd_table_reconstructs_wrap_in_upper_24_bits():
-    """The low byte lags the wrap and is not a bank number."""
-    words = (0xFF24E000, 0x00EE2800, 0x02BC3B01)
-    bank = 0
-    previous = -1
-    offsets = []
-    for word in words:
-        field = word >> 8
-        if field < previous:
-            bank += 1
-        previous = field
-        offsets.append((bank << 24) | field)
-
-    assert offsets == [0x00FF24E0, 0x0100EE28, 0x0102BC3B]
-    assert (words[1] & 0xFF) == 0 and (words[2] & 0xFF) == 1
+def test_drd_table_uses_absolute_u32_offsets_after_five_byte_header():
+    raw = bytearray(dialog.TABLE + 12)
+    struct.pack_into("<I", raw, 8, 3)
+    struct.pack_into("<BI", raw, 0x10, 0, 17)
+    struct.pack_into("<3I", raw, dialog.TABLE, 0x00FF24E0, 0x0100EE28, 0x0102BC3B)
+    assert dialog.entry_offsets(raw) == (0x00FF24E0, 0x0100EE28, 0x0102BC3B)
 
 
 @needs_discs

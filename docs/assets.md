@@ -65,16 +65,17 @@ memory.
 char[4]   "DRDF"
 u32       total file size   = 0x01774238 = 24,592,952   (exact, at offset 4)
 u32       count             = 178
-0x014  u32[178] packed entry offsets
+0x010  u8       0, followed by u32 table block size (5 + 4*178)
+0x015  u32[178] absolute entry offsets
 --- 0x2dd ---
 entry records × 178: header, WAVE, timed text, optional portrait
 ```
 
 The size field sits at offset **4**, unlike `DSNF`/`DANF` which place it at
-offset 5. Each offset word packs a 24-bit offset field in its upper three
-bytes and a low byte of unknown purpose. The parser reconstructs absolute
-positions by detecting wraps of that 24-bit field; all 178 records then abut
-exactly through EOF. At runtime `DRD_LoadEntry` (`0x410928`) reads one selected record,
+offset 5. The offsets are little-endian `u32` values. An older parser began
+one byte early at `0x14`; shifting those misaligned words and counting apparent
+wraps happened to recover the same positions. The correctly aligned table
+gives all 178 adjacent records through EOF. At runtime `DRD_LoadEntry` (`0x410928`) reads one selected record,
 `DSOUND_PlayVoice` (`0x446e01`) submits its WAVE data to the sound buffer, and the same entry's
 589 total text lines are drawn on the timed-caption path. See
 [`sprites-ui-dialog.md`](sprites-ui-dialog.md).

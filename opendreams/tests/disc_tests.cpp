@@ -1,6 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "disc/image.h"
 #include "port/dan.h"
+#include "port/drd.h"
 #include "port/dsn.h"
 #include "port/stream.h"
 #include "port/vfs.h"
@@ -84,6 +85,7 @@ struct Options {
     bool bf_archives = false;
     bool dsn_header = false;
     bool dan_archive = false;
+    bool drd_bank = false;
 };
 
 struct Fixture {
@@ -142,6 +144,7 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
     }
     if (options.dsn_header) record(root, pos, 31, 128, 0, "TEST.DSN;1");
     if (options.dan_archive) record(root, pos, 31, 94, 0, "TEST.DAN;1");
+    if (options.drd_bank) record(root, pos, 31, 128, 0, "TEST.DRD;1");
     auto* root_second = iso.data() + 21 * 2048;
     pos = record(root_second, 0, 26, 4, 0, "EXTRA.TXT;1");
     if (options.duplicate_name)
@@ -213,6 +216,31 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
         dan[64] = 2; little32(dan + 65, 9); std::memcpy(dan + 69, "tex0", 4);
         dan[73] = 3; little32(dan + 74, 10); std::memcpy(dan + 78, "first", 5);
         dan[83] = 3; little32(dan + 84, 11); std::memcpy(dan + 88, "second", 6);
+    }
+    if (options.drd_bank) {
+        auto* drd = iso.data() + 31 * 2048;
+        std::memcpy(drd, "DRDF", 4);
+        little32(drd + 4, 128);
+        little32(drd + 8, 2);
+        little32(drd + 12, 55);
+        drd[16] = 0; little32(drd + 17, 13);
+        little32(drd + 21, 29); little32(drd + 25, 84);
+        auto* first = drd + 29;
+        first[0] = 1; little32(first + 1, 55); little32(first + 5, 1);
+        first[9] = 2; little32(first + 10, 21);
+        std::memcpy(first + 14, "RIFF", 4); little32(first + 18, 8);
+        std::memcpy(first + 22, "WAVE", 4);
+        first[30] = 3; little32(first + 31, 16);
+        first[39] = 6; std::memcpy(first + 40, "Hello", 5);
+        first[46] = 4; little32(first + 47, 9);
+        std::memcpy(first + 51, "FACE", 4);
+        auto* second = drd + 84;
+        second[0] = 1; little32(second + 1, 44); little32(second + 5, 1);
+        second[9] = 2; little32(second + 10, 21);
+        std::memcpy(second + 14, "RIFF", 4); little32(second + 18, 8);
+        std::memcpy(second + 22, "WAVE", 4);
+        second[30] = 3; little32(second + 31, 14);
+        second[39] = 4; std::memcpy(second + 40, "Bye", 3);
     }
 
     const std::string data_name = options.unicode_data_name ? u8"Träck 01.bin" :
@@ -570,6 +598,51 @@ bool test_dan_archive(const fs::path& base) {
     return true;
 }
 
+bool test_drd_bank(const fs::path& base) {
+    Options options;
+    options.drd_bank = true;
+    const auto fixture = make_fixture(base / "drd-bank", options);
+    Error disc_error;
+    auto opened = Image::open(fixture.cue, disc_error);
+    CHECK(opened != nullptr);
+    std::shared_ptr<const Image> image(std::move(opened));
+    od::port::VfsContext vfs(image);
+    od::port::DrdBank drd(vfs);
+    od::port::DrdError error;
+    CHECK(od::port::DRD_Open(drd, "TEST.DRD", error));
+    CHECK(drd.is_open() && drd.entry_count() == 2);
+    CHECK(drd.entry_offset(0) == 29 && drd.entry_size(0) == 55);
+    CHECK(drd.entry_offset(1) == 84 && drd.entry_size(1) == 44);
+    CHECK(od::port::DRD_LoadEntry(drd, 0, error));
+    CHECK(drd.current_index() == 0 && od::port::DRD_GetLineCount(drd) == 1);
+    CHECK(drd.line_text(0) == "Hello" && drd.lines()[0].ticks_15hz == 0);
+    CHECK(drd.wave().size == 16 && std::memcmp(drd.wave().data, "RIFF", 4) == 0);
+    const uint8_t* reused_wave = drd.wave().data;
+    const auto portrait = od::port::DRD_GetPortrait(drd);
+    CHECK(portrait.size == 4 && std::memcmp(portrait.data, "FACE", 4) == 0);
+    CHECK(od::port::DRD_LoadEntry(drd, 0, error));
+    CHECK(drd.wave().data == reused_wave);
+    CHECK(od::port::DRD_LoadEntry(drd, 1, error));
+    CHECK(drd.wave().data == reused_wave && drd.line_text(0) == "Bye");
+    CHECK(od::port::DRD_GetPortrait(drd).size == 0);
+    od::port::DRD_Close(drd);
+    CHECK(!drd.is_open() && drd.entry_count() == 0);
+
+    const auto bad = make_fixture(base / "bad-drd-table", options);
+    {
+        std::fstream raw(bad.data, std::ios::binary | std::ios::in | std::ios::out);
+        raw.seekp(31 * 2352 + 16 + 21);
+        raw.put(30); // Entry zero must start immediately after the offset table.
+    }
+    auto bad_image = Image::open(bad.cue, disc_error);
+    CHECK(bad_image != nullptr);
+    od::port::VfsContext invalid(std::shared_ptr<const Image>(std::move(bad_image)));
+    od::port::DrdBank bad_drd(invalid);
+    CHECK(!od::port::DRD_Open(bad_drd, "TEST.DRD", error));
+    CHECK(error.code == od::port::DrdErrorCode::invalid_header);
+    return true;
+}
+
 bool test_markers_and_offsets(const fs::path& base) {
     Error error;
     Options options;
@@ -778,6 +851,72 @@ bool validate_dan_corpus(const Image& source, od::port::VfsContext& vfs,
     return true;
 }
 
+bool validate_drd_corpus(od::port::VfsContext& vfs, size_t disc_index) {
+    od::port::DrdBank drd(vfs);
+    od::port::DrdError error;
+    if (disc_index == 1) {
+        if (od::port::DRD_Open(drd, "DATA/3DC/DIALOG.DRD", error) ||
+            error.code != od::port::DrdErrorCode::missing_file) return false;
+        return true;
+    }
+    if (!od::port::DRD_Open(drd, "DATA/3DC/DIALOG.DRD", error) ||
+        drd.entry_count() != 178 || drd.entry_offset(0) != 733 ||
+        drd.entry_offset(122) != 16838184 ||
+        drd.entry_offset(123) != 16956475) {
+        std::cerr << "DRD open: " << error.message << "\n";
+        return false;
+    }
+    uint32_t offset_crc = 0xffffffffu, wave_crc = 0xffffffffu;
+    uint32_t portrait_crc = 0xffffffffu, caption_crc = 0xffffffffu;
+    size_t lines = 0, portrait_count = 0, wave_bytes = 0, portrait_bytes = 0;
+    for (size_t i = 0; i < drd.entry_count(); ++i) {
+        std::array<uint8_t, 8> fields{};
+        little32(fields.data(), static_cast<uint32_t>(drd.entry_offset(i)));
+        little32(fields.data() + 4, static_cast<uint32_t>(drd.entry_size(i)));
+        offset_crc = crc32_update(offset_crc, fields.data(), fields.size());
+        if (!od::port::DRD_LoadEntry(drd, i, error)) {
+            std::cerr << "DRD entry " << i << ": " << error.message << "\n";
+            return false;
+        }
+        const auto wave = drd.wave();
+        if (!wave.data || wave.size < 12 ||
+            std::memcmp(wave.data, "RIFF", 4) != 0) return false;
+        wave_crc = crc32_update(wave_crc, wave.data, wave.size);
+        wave_bytes += wave.size;
+        const auto portrait = od::port::DRD_GetPortrait(drd);
+        portrait_crc = crc32_update(portrait_crc, portrait.data, portrait.size);
+        portrait_bytes += portrait.size;
+        if (portrait.size != 0) ++portrait_count;
+        lines += od::port::DRD_GetLineCount(drd);
+        for (size_t j = 0; j < od::port::DRD_GetLineCount(drd); ++j) {
+            const auto& line = drd.lines()[j];
+            if (line.ticks_15hz != static_cast<uint32_t>(
+                    static_cast<uint64_t>(line.centiseconds) * 15 / 100)) return false;
+            std::array<uint8_t, 4> timing{};
+            little32(timing.data(), line.centiseconds);
+            caption_crc = crc32_update(caption_crc, timing.data(), timing.size());
+            const auto text = drd.line_text(j);
+            caption_crc = crc32_update(caption_crc, text.data(), text.size());
+            const uint8_t zero = 0;
+            caption_crc = crc32_update(caption_crc, &zero, 1);
+        }
+    }
+    offset_crc ^= 0xffffffffu;
+    wave_crc ^= 0xffffffffu;
+    portrait_crc ^= 0xffffffffu;
+    caption_crc ^= 0xffffffffu;
+    if (lines != 589 || portrait_count != 169 || wave_bytes != 17848529 ||
+        portrait_bytes != 6719761 || offset_crc != 0xac7173e2u ||
+        wave_crc != 0x290bc860u || portrait_crc != 0xcdf34aa1u ||
+        caption_crc != 0x0c29112au) {
+        std::cerr << "DRD payloads differ from Python oracle\n";
+        return false;
+    }
+    od::port::DRD_Close(drd);
+    std::cout << "Disc 1: 178 DRD entries, 589 captions, 169 portraits\n";
+    return true;
+}
+
 int corpus() {
     const char* one = std::getenv("DREAMS_CUE1");
     const char* two = std::getenv("DREAMS_CUE2");
@@ -824,6 +963,7 @@ int corpus() {
         od::port::VfsContext vfs(source);
         od::port::VfsError vfs_error;
         if (!validate_dan_corpus(*source, vfs, i)) return 1;
+        if (!validate_drd_corpus(vfs, i)) return 1;
         int32_t handle = 0;
         if (!od::port::VFS_Open(vfs, "X:\\DREAMS.DAT", 0x200, handle, vfs_error))
             return 1;
@@ -960,7 +1100,8 @@ int main(int argc, char** argv) {
     const bool vfs_okay = mount_okay && test_vfs_and_bf(base);
     const bool stream_okay = vfs_okay && test_stream_and_dsn(base);
     const bool dan_okay = stream_okay && test_dan_archive(base);
-    const bool markers_okay = dan_okay && test_markers_and_offsets(base);
+    const bool drd_okay = dan_okay && test_drd_bank(base);
+    const bool markers_okay = drd_okay && test_markers_and_offsets(base);
     const bool okay = markers_okay && test_failures(base);
     std::error_code ignored;
     fs::remove_all(base, ignored);

@@ -10,20 +10,16 @@ only **0.084%** is the 589 timed text lines. **[verified]**
     0x04  u32      file size, equal to the physical length
     0x08  u32      entry count, 178
     0x0c  u32      two further words, meaning unknown
-    0x14  u32[N]   entry table
+    0x10  u8       0
+    0x11  u32      table block size = 5 + 4*N
+    0x15  u32[N]   absolute entry offsets
 
-A table word is **not** a plain offset. The upper three bytes hold a 24-bit
-offset field; the low byte has an unknown role::
-
-offset24 = word >> 8
-absolute_offset = (wrap_count << 24) | offset24
-
-The low byte is 0 for entries 0-122 and 1 for 123-177. Treating the full word
-as a plain offset breaks at the 122/123 boundary. The parser reconstructs the
-absolute position by detecting a wrap in the 24-bit field and incrementing a
-high-byte wrap counter; that reading walks all 178 entries exactly to EOF, with
-``P[i] + entry_size == P[i+1]`` throughout. **[verified]**; the low byte's
-semantic role is still unknown.
+The retail `DRD_Open` function reads the five-byte table-block header at
+`0x10`, then reads the `N` four-byte offsets starting at `0x15`. An older
+reading started at `0x14`, one byte too early. Shifting those misaligned words
+and counting 24-bit wraps happened to reconstruct the same absolute positions,
+but the on-disk table itself is ordinary little-endian `u32` offsets. All 178
+offsets are monotonic and ``P[i] + entry_size == P[i+1]`` through EOF.
 
 Each entry header is 14 bytes, then sub-blocks tagged ``u8 tag, u32 size``.
 The sub-block size includes its own 5-byte header::
@@ -61,7 +57,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 MAGIC = b"DRDF"
-TABLE = 0x14
+TABLE = 0x15
 HEADER = 14
 
 
@@ -76,25 +72,22 @@ class Entry:
     portrait: bytes = b""
 
 
+def entry_offsets(raw: bytes) -> tuple[int, ...]:
+    """Read the retail u32 entry table after its five-byte block header."""
+    count = struct.unpack_from("<I", raw, 8)[0]
+    if len(raw) < TABLE + count * 4:
+        raise ValueError("DIALOG.DRD: truncated entry table")
+    return struct.unpack_from(f"<{count}I", raw, TABLE)
+
+
 def read(path: str | Path) -> list[Entry]:
     """Every dialogue entry, with its WAVE payload and text."""
     raw = Path(path).read_bytes()
     if raw[:4] != MAGIC:
         raise ValueError(f"{Path(path).name}: not DRDF")
-    count = struct.unpack_from("<I", raw, 8)[0]
-    words = struct.unpack_from(f"<{count}I", raw, TABLE)
+    offsets = entry_offsets(raw)
     out: list[Entry] = []
-    bank, prev = 0, -1
-    for i, w in enumerate(words):
-        low24 = w >> 8
-        # Offsets rise monotonically, so a drop means the 24-bit field wrapped.
-        # The low byte is NOT the bank: at entry 122 it is still 0 while the
-        # true offset has already crossed into bank 1, which is why reading it
-        # as the high byte loses exactly that one entry.
-        if low24 < prev:
-            bank += 1
-        prev = low24
-        at = (bank << 24) | low24
+    for i, at in enumerate(offsets):
         if at + HEADER > len(raw):
             continue
         size = struct.unpack_from("<I", raw, at + 1)[0]

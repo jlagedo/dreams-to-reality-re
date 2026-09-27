@@ -383,12 +383,12 @@ it bundles voice audio. It is one of only eight files copied by even the
 table and one reusable record buffer, then seeks and reads a requested entry;
 it does not load the full bank into memory.
 
-The header stores `DRDF`, the physical file size, and 178 entries. A 178-word
-packed offset table starts at `0x14`; the first entry starts at `0x2DD` and
-its RIFF payload at `0x2EB`. The
-upper three bytes of each word hold a wrapping 24-bit offset field and the
-low-byte role is unknown. Reconstructing positions by detecting wraps yields
-all 178 adjacent records through EOF. Each record carries a RIFF/WAVE block,
+The header stores `DRDF`, the physical file size, and 178 entries. A five-byte
+table-block header starts at `0x10` (tag zero, size `5 + 4*N`); the 178 ordinary
+little-endian `u32` absolute offsets start at `0x15`. The first entry starts at
+`0x2DD` and its RIFF payload at `0x2EB`. The older `0x14` table start was one
+byte early and created a false 24-bit-wrap interpretation. The correctly
+aligned offsets give all 178 adjacent records through EOF. Each record carries a RIFF/WAVE block,
 timed text lines, and sometimes a tag-4 portrait. Sub-block sizes include their
 own 5-byte header; tag 2's size is therefore five bytes longer than the WAVE
 payload. The recovered parser finds 589 non-empty text lines total.

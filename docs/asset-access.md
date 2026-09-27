@@ -121,9 +121,10 @@ keeps its offset table. `DRD_LoadEntry` (`0x00410928`) reads one selected entry
 on demand. The bank has 178 zero-based entries. Each can contain tag 2 WAVE,
 tag 3 timed caption lines and tag 4 portrait data. Direct source bytes confirm
 the first entry header starts at `0x2dd`; its RIFF payload starts at `0x2eb`.
-Older format summaries incorrectly used `0x2eb` as the entry start. The packed
-offset table's low-byte role remains unknown; the Python parser reconstructs
-the 24-bit offset wraps and reaches EOF exactly.
+Older format summaries incorrectly used `0x2eb` as the entry start. The table
+starts at `0x15`, after a five-byte tag/size block header, and stores ordinary
+little-endian `u32` absolute offsets. Reading from `0x14` caused the earlier
+false 24-bit-wrap interpretation.
 
 `FSB_Load` (`0x00426143`) opens `DATA\SOUND\FSB.DAT`, checks the 12-byte
 `DREAMS FSB  ` marker, reads the clip count and size table, then reads the
@@ -167,7 +168,7 @@ cursor. Its checked name is also `VFS_OpenMember`.
 These are static and corpus checks; no native asset-browser implementation or
 original-game execution was validated by this review.
 
-The DRD offset-table low byte, the full lifetime of the retail BF backing
+The full lifetime of the retail BF backing
 descriptor, and source-level boundaries of some neighboring loaders remain
 unverified. They do not block the 002 metadata index because it can check
 file extents directly, own its sources and report unsupported records.

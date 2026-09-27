@@ -184,6 +184,13 @@ keeps that table and reads an entry into a reusable buffer on demand; event
 stored line time by `15/100` before display. Details are in
 [sprites-ui-dialog.md](sprites-ui-dialog.md).
 
+**Correction (2026-09-27):** The offset table begins at `0x15`, immediately
+after a five-byte tag/size block header, and contains ordinary absolute `u32`
+offsets. The earlier 24-bit-wrap model came from starting at `0x14`, one byte
+too early. `DRD_Open` reads the five-byte block before the table; all 178
+aligned offsets and record sizes form an exact chain to EOF. See
+[reviews/002-drd-port.md](reviews/002-drd-port.md).
+
 ### `ICONES.BF` is a named-file container
 
 `UBIK` is not an image stream. It is a directory of named members with 267-byte

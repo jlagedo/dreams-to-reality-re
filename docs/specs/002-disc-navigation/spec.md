@@ -309,9 +309,9 @@ runtime namespace; ODViewer's source catalog must not collapse these entries.
   decoded sizes only where the ported path establishes them; do not invent
   lengths for derived resources such as DSN-created `.3DM` textures.
 - **DRD/FSB:** Port `DRD_Open`, `DRD_LoadEntry` and `FSB_Load` with their required
-  offset/size handling. DRD's packed offsets wrap; entry 0's header is at
-  `0x2dd`, while its first RIFF payload is at `0x2eb`. The low byte's meaning
-  is unverified. Expose voice/caption/portrait tag presence and clip extents
+  offset/size handling. DRD's absolute `u32` offsets begin at `0x15`; entry
+  0's header is at `0x2dd`, while its first RIFF payload is at `0x2eb`.
+  Expose voice/caption/portrait tag presence and clip extents
   from the ported results; playback is later work.
 - **Sprite sets and fonts:** Port `SPR_LoadSet`, `SPR_LoadIconBanks`,
   `SPR_GetDescriptor`, `TEXT_LoadFont` and their required tables before exposing
@@ -459,7 +459,7 @@ missing files, invalid ordering/ranges, unsupported layouts, sector-boundary
 reads, truncated sectors, directory padding, multi-sector directories, bounded
 file reads, normalized lookup and invalid record/extent handling. Add focused
 fixtures for BF table/member bounds and duplicate names, DDAT offsets and RLE
-records, DSN/DAN name directories and tag bounds, DRD packed-offset wraps and
+records, DSN/DAN name directories and tag bounds, DRD offset-table bounds and
 entry extents, and FSB size-table bounds. Include sprite/font descriptor bounds
 and aliases, BF-contained sprite sets and video-header classification through
 their ported paths. A bad container must

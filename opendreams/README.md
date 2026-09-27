@@ -149,6 +149,13 @@ each declared clip to its type-3 payload; it skips earlier type-1/2 ranges by
 their recorded lengths during metadata indexing. The corpus test validates
 all 191 physical DAN archives against the Python directory and payload oracle.
 
+`shared/port/drd.cpp` ports the dialogue-bank open, entry read, caption-count,
+portrait and close functions. It reads the retail offset table at `0x15` as
+absolute `u32` file positions, retains one reusable entry buffer, and exposes
+the current entry's WAVE, timed-line and portrait extents. The corpus test
+checks all 178 Disc 1 entries against the corrected Python decoder; Disc 2
+reports the bank absent.
+
 ## Shared disc access (spec 002 foundation)
 
 `shared/disc/image.h` is the portable source boundary for both applications and
