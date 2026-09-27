@@ -25,6 +25,7 @@ public:
     SDL_AppResult iterate();
     void shutdown();
     const std::string& error() const { return error_; }
+    SDL_Window* window() const;
 
 private:
     struct Impl;

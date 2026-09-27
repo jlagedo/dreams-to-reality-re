@@ -25,6 +25,8 @@ struct Shell::Impl {
     bool sdl_backend_ready = false;
 };
 
+SDL_Window* Shell::window() const { return impl_ ? impl_->window : nullptr; }
+
 bool Shell::init(const ShellOptions& options) {
     error_.clear();
     if (!options.title || !options.draw_ui || options.max_frames < 0 ||

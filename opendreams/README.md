@@ -134,8 +134,8 @@ The macOS targets are app bundles: launch
 `build/macos-clang-arm64-debug/ODRuntime.app` from Finder, or run their
 executables under `Contents/MacOS/`.
 
-`macos-clang-arm64-relwithdebinfo` is also available. This path is awaiting a
-build on the separate Mac; it is not recorded as validated.
+`macos-clang-arm64-relwithdebinfo` is also available. The Debug target was
+built on macOS arm64; RelWithDebInfo has not been validated there.
 
 ### WebAssembly
 
@@ -286,15 +286,18 @@ Downloaded sources, tools and generated shader headers remain under ignored
 `build/` directories. Existing repository ignore rules also exclude original
 disc images and derived game media.
 
-## Validation record (2026-09-26)
+## Validation record (2026-09-27)
 
 | Target | Compile/link | Window and input |
 |---|---|---|
 | Windows x64, MSVC 19.51, D3D11 | ODViewer and ODRuntime passed Debug and RelWithDebInfo builds | Both rendered; viewer button and text input worked; resize, minimize/restore and close worked; both finite-frame CTest cases passed |
 | Debian 13 x64 WSL, GCC 14.2, OpenGL | Both passed Debug compile/link | Not required for the Windows-first visual gate; not run |
 | Emscripten SDK 6.0.5, WebGL2 | Both passed Debug compile/link to HTML/JS/Wasm | Browser execution is outside 001 |
-| macOS arm64, Metal | Pending build on the separate Mac | Pending |
+| macOS arm64, Apple Clang 21, Metal | ODViewer and ODRuntime passed Debug compile/link using Unix Makefiles | Both passed `--frames 10`; ODViewer's Choose .cue button opened the native file picker; other manual window and input checks pending |
 
 The Windows shader header regenerated when either its source shader or the
 pinned host tool's timestamp changed. Forcing an invalid SDL video driver
 produced a clear error and exit status 1. No game data was used in these checks.
+The macOS build used the Apple Command Line Tools SDK because the full Xcode
+license was not accepted on that machine. Ninja was unavailable, so the Debug
+preset was configured with `-G 'Unix Makefiles'`.

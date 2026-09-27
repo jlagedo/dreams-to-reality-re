@@ -25,8 +25,9 @@ od::Shell shell;
 struct ViewerUi {
     od::inspect::Catalog catalog;
     std::array<std::array<char, 1024>, 2> paths{};
-    std::array<std::string, 2> errors, dialog_paths;
+    std::array<std::string, 2> errors, dialog_paths, dialog_errors;
     std::mutex dialog_mutex;
+    size_t dialog_request_slot = SIZE_MAX;
     char query[256]{};
     int group = 0, disc_filter = 0, status_filter = 0;
     std::string kind_filter;
@@ -48,8 +49,14 @@ struct ViewerUi {
 struct DialogRequest { ViewerUi* state; size_t slot; };
 void SDLCALL selected_cue(void* user, const char* const* files, int) {
     std::unique_ptr<DialogRequest> request(static_cast<DialogRequest*>(user));
-    if (!files || !files[0]) return;
     std::lock_guard<std::mutex> lock(request->state->dialog_mutex);
+    if (!files) {
+        const char* error = SDL_GetError();
+        request->state->dialog_errors[request->slot] = error && *error
+            ? error : "Could not open the file chooser";
+        return;
+    }
+    if (!files[0]) return;
     request->state->dialog_paths[request->slot] = files[0];
 }
 #endif
@@ -140,9 +147,7 @@ void source_strip(ViewerUi& state) {
 #ifndef __EMSCRIPTEN__
         ImGui::SameLine();
         if (ImGui::Button("Choose .cue")) {
-            static const SDL_DialogFileFilter filters[] = {{"CUE sheets", "cue"}};
-            SDL_ShowOpenFileDialog(selected_cue, new DialogRequest{&state, slot},
-                                   nullptr, filters, 1, nullptr, false);
+            state.dialog_request_slot = slot;
         }
         ImGui::SameLine();
         if (ImGui::Button(source ? "Replace" : "Mount")) {
@@ -496,10 +501,15 @@ void draw_ui(void* user) {
     auto& state = *static_cast<ViewerUi*>(user);
     {
         std::lock_guard<std::mutex> lock(state.dialog_mutex);
+        for (size_t slot = 0; slot < 2; ++slot) if (!state.dialog_errors[slot].empty()) {
+            state.errors[slot] = std::move(state.dialog_errors[slot]);
+            state.dialog_errors[slot].clear();
+        }
         for (size_t slot = 0; slot < 2; ++slot) if (!state.dialog_paths[slot].empty()) {
             SDL_strlcpy(state.paths[slot].data(), state.dialog_paths[slot].c_str(),
                         state.paths[slot].size());
             state.dialog_paths[slot].clear();
+            state.errors[slot].clear();
         }
     }
     state.catalog.tick(2);
@@ -607,6 +617,15 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
     return static_cast<od::Shell*>(appstate)->event(*event);
 }
 SDL_AppResult SDL_AppIterate(void* appstate) {
+#ifndef __EMSCRIPTEN__
+    if (ui.dialog_request_slot != SIZE_MAX) {
+        const size_t slot = ui.dialog_request_slot;
+        ui.dialog_request_slot = SIZE_MAX;
+        static const SDL_DialogFileFilter filters[] = {{"CUE sheets", "cue"}};
+        SDL_ShowOpenFileDialog(selected_cue, new DialogRequest{&ui, slot},
+                               shell.window(), filters, 1, nullptr, false);
+    }
+#endif
     return static_cast<od::Shell*>(appstate)->iterate();
 }
 void SDL_AppQuit(void* appstate, SDL_AppResult) {
