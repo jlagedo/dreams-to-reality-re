@@ -61,6 +61,8 @@ show that error in the preview. Physical scenes and project records also draw
 there, with orbit/zoom/target controls. Project objects show their source disc
 and any unavailable material. Supported DAN archives expose their original
 linear or spline clips at 30 Hz with playback, step, scrub and root controls.
+The **Bones** control overlays posed joint links and coordinates; **Helpers**
+reveals nodes without rendered faces.
 For repeatable checks:
 
 ```powershell
@@ -68,6 +70,7 @@ For repeatable checks:
 .\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-model F74
 .\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-model BA0
 .\build\win-msvc-x64-debug\ODViewer.exe --cue1 "E:\path\disc1.cue" --preview-animation XH_
+.\build\win-msvc-x64-debug\ODViewer.exe --cue1 "E:\path\disc1.cue" --preview-animation XH_:5:9.5 --preview-distance 2.45 --preview-yaw-deg 90 --preview-bones
 .\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-animation BA0
 .\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-scene E29USINE
 .\build\win-msvc-x64-debug\ODViewer.exe --cue1 "E:\path\disc1.cue" --cue2 "E:\path\disc2.cue" --preview-project Project114

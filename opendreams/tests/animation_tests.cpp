@@ -2,10 +2,12 @@
 #include "disc/image.h"
 #include "port/animation.h"
 #include "port/dan.h"
+#include "port/glide_model.h"
 #include "port/scene.h"
 
 #include <cstdlib>
 #include <cmath>
+#include <array>
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -42,6 +44,45 @@ bool check_pose(const char* cue, const char* stem, bool spline) {
     od::port::ModelGraph pose=bind;
     if (clip.tracks.size()!=bind.nodes.size()) return false;
     if (spline) {
+        std::vector<od::port::ModelJoint> joints;
+        if (!od::port::GLIDE_ModelJoints(bind,joints,error) ||
+            joints.size()!=27 || joints[1].name!="ZZZZZ" ||
+            joints[1].render_relevant || !joints[0].render_relevant ||
+            !joints[7].render_relevant || !joints[8].render_relevant) {
+            std::cerr << "XH_ joint overlay should distinguish control nodes\n";
+            return false;
+        }
+        size_t dynamic_faces=0,bridge_faces=0,aligned_rigid=0;
+        for (const auto& face : bind.faces) {
+            if (face.flags&8u) ++dynamic_faces;
+            const bool bridge=face.corners[0].node!=face.corners[1].node ||
+                face.corners[1].node!=face.corners[2].node;
+            if (bridge) {
+                ++bridge_faces;
+                if (!(face.flags&8u)) return false;
+            }
+            if (face.flags&8u) continue;
+            const auto& a=bind.nodes[face.corners[0].node].vertices[face.corners[0].vertex];
+            const auto& b=bind.nodes[face.corners[1].node].vertices[face.corners[1].vertex];
+            const auto& c=bind.nodes[face.corners[2].node].vertices[face.corners[2].vertex];
+            const std::array<int64_t,3> u{{
+                static_cast<int64_t>(b[0])-a[0],
+                static_cast<int64_t>(b[1])-a[1],
+                static_cast<int64_t>(b[2])-a[2]}};
+            const std::array<int64_t,3> v{{
+                static_cast<int64_t>(c[0])-a[0],
+                static_cast<int64_t>(c[1])-a[1],
+                static_cast<int64_t>(c[2])-a[2]}};
+            const int64_t facing=(u[1]*v[2]-u[2]*v[1])*face.normal[0]+
+                (u[2]*v[0]-u[0]*v[2])*face.normal[1]+
+                (u[0]*v[1]-u[1]*v[0])*face.normal[2];
+            if (facing<=0) return false;
+            ++aligned_rigid;
+        }
+        if (dynamic_faces!=369 || bridge_faces!=225 || aligned_rigid!=135) {
+            std::cerr << "XH_ retail face flags or winding changed\n";
+            return false;
+        }
         if (bind.nodes[0].name!="bassin" || clip.duration!=200 ||
             clip.resource_type!=6 ||
             !od::port::ANIM_ApplyModelSpline(clip,21,bind,pose,false,error) ||
@@ -75,7 +116,7 @@ bool check_pose(const char* cue, const char* stem, bool spline) {
 
 bool check_cue(const char* cue, size_t& archives, size_t& clips,
                size_t& tracks, size_t& rotations, size_t& translations,
-               size_t& matched, size_t& unbound) {
+               size_t& applied, size_t& trailing) {
     od::disc::Error source_error;
     auto opened=od::disc::Image::open(std::filesystem::u8path(cue),source_error);
     if (!opened) { std::cerr << source_error.message << '\n'; return false; }
@@ -119,22 +160,33 @@ bool check_cue(const char* cue, size_t& archives, size_t& clips,
                 rotations+=track.rotations.size();
                 translations+=track.translations.size();
             }
-            if (clip.tracks.size()!=graph.nodes.size()) {
-                std::cerr << file.path << " clip " << index << " has "
-                          << clip.tracks.size() << " tracks for "
-                          << graph.nodes.size() << " node slots\n";
-                ++unbound;
-                continue;
+            if (clip.tracks.size()<graph.nodes.size()) {
+                std::cerr << file.path << " clip " << index
+                          << " has fewer tracks than model nodes\n";
+                return false;
             }
-            ++matched;
+            if (clip.tracks.size()>graph.nodes.size()) ++trailing;
+            ++applied;
             for (const float frame : {0.0f,clip.duration/2.0f,
                                       static_cast<float>(clip.duration)}) {
-                const bool applied=clip.resource_type==4 ?
+                const bool posed=clip.resource_type==4 ?
                     od::port::ANIM_ApplyModelLinear(clip,frame,graph,pose,false,error) :
                     od::port::ANIM_ApplyModelSpline(clip,frame,graph,pose,false,error);
-                if (!applied) {
+                if (!posed) {
                     std::cerr << file.path << " clip " << index
                               << " frame " << frame << ": " << error << '\n';
+                    return false;
+                }
+                if (frame==0.0f &&
+                    file.path=="DATA/3DC/F03.DAN" && index==1 &&
+                    pose.nodes[13].local_xyz!=od::port::Vec3{0,0,0}) {
+                    std::cerr << "F03 first 14 tracks differ from source slot order\n";
+                    return false;
+                }
+                if (frame==0.0f &&
+                    file.path=="DATA/3DC/ITO.DAN" && index==2 &&
+                    pose.nodes[10].local_xyz!=od::port::Vec3{-11,2,-1}) {
+                    std::cerr << "ITO first 11 tracks differ from source slot order\n";
                     return false;
                 }
             }
@@ -165,11 +217,11 @@ int main() {
         return 2;
     }
     size_t archives=0,clips=0,tracks=0,rotations=0,translations=0;
-    size_t matched=0,unbound=0;
+    size_t applied=0,trailing=0;
     for (const char* variable : {"DREAMS_CUE1","DREAMS_CUE2"}) {
         const char* cue=std::getenv(variable);
         if (cue && *cue && !check_cue(cue,archives,clips,tracks,
-                                      rotations,translations,matched,unbound)) return 3;
+                                      rotations,translations,applied,trailing)) return 3;
     }
     const char* cue1=std::getenv("DREAMS_CUE1");
     const char* cue2=std::getenv("DREAMS_CUE2");
@@ -178,13 +230,13 @@ int main() {
     if (cue1 && *cue1 && cue2 && *cue2 &&
         (archives!=191 || clips!=1048 || tracks!=21050 ||
          rotations!=197102 || translations!=110418 ||
-         matched!=1037 || unbound!=11)) {
+         applied!=1048 || trailing!=11)) {
         std::cerr << "animation corpus counts differ from Python decoder\n";
         return 6;
     }
     std::cout << archives << " physical DAN archives, " << clips << " clips, "
               << tracks << " tracks, " << rotations << " rotation keys, "
-              << translations << " translation keys; " << matched
-              << " bound clips, " << unbound << " track-count mismatches\n";
+              << translations << " translation keys; " << applied
+              << " retail-prefix poses, " << trailing << " with unused trailing tracks\n";
     return 0;
 }

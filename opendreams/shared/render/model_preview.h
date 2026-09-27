@@ -5,6 +5,7 @@
 
 #include <sokol_gfx.h>
 
+#include <array>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -27,6 +28,8 @@ public:
     bool load(const port::ModelGraph& graph, std::string& error);
     bool update_pose(const port::ModelGraph& graph, std::string& error);
     void draw(const ModelView& view) const;
+    bool project_joint(const std::array<int32_t,3>& world_xyz,
+                       const ModelView& view, float& u, float& v) const;
     void clear_model();
     void shutdown();
     bool has_model() const { return vertices_.id != 0 && !draw_.batches.empty(); }

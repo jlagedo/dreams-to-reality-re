@@ -1,5 +1,9 @@
 # Shared animation subsystem
 
+This page describes the Python export and Babylon.js viewer. Native ODViewer
+now follows the retail model-count apply loop for F03/ITO clips with trailing
+tracks; see [Spec 003](specs/003-level-load-preview/spec.md#dan-rig-animation--2026-09-27).
+
 The viewer now uses one animation runtime for Duncan, scene NPCs, and model
 inspection. Rendering and playback no longer depend on Duncan's hard-coded
 27-node geometry order. Each instance has an independent clock, pose, vertex

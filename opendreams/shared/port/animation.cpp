@@ -217,12 +217,15 @@ bool apply_model(const AnimationClip& clip, float frame,
                  const ModelGraph& bind, ModelGraph& pose,
                  bool follow_root_motion, bool spline, std::string& error) {
     error.clear();
-    if (clip.tracks.size()!=bind.nodes.size() ||
+    // Retail ANIM_ApplyModelLinear/Spline takes the loop count from the model
+    // directory (+0x14), then walks that many clip tracks. F03/ITO carry
+    // additional trailing tracks; those do not address another model node.
+    if (clip.tracks.size()<bind.nodes.size() ||
         pose.nodes.size()!=bind.nodes.size())
-        return fail(error,"animation track count differs from the model node directory");
+        return fail(error,"animation has fewer tracks than model node slots");
     if (!std::isfinite(frame) || frame<0 || frame>clip.duration)
         return fail(error,"animation frame is outside the clip duration");
-    for (size_t slot=0; slot<clip.tracks.size(); ++slot) {
+    for (size_t slot=0; slot<bind.nodes.size(); ++slot) {
         pose.nodes[slot].local_rot=bind.nodes[slot].local_rot;
         pose.nodes[slot].local_xyz=bind.nodes[slot].local_xyz;
         Mat3 rotation{};

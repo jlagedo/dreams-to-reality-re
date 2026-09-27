@@ -32,7 +32,7 @@ are validated in their own runtime milestones.
 | Viewer capability | Spec 003 result | Current state |
 |---|---|---|
 | DAN model and project-object preview | Load the selected archive/object through shared resource and scene paths; render its materials and face modes. | Static preview now composes node hierarchy and draws multiple materials with DAN types 2/3/-5; 178 of 191 physical DAN files load from the two discs. Type 9 is prepared but its only DAN has an unmatched material name. |
-| Model animation | Select and play the bound DAN animation clips on the preview rig at the recovered 30 Hz rate, with pause/step and the selected source retained. | ODViewer plays selected linear and spline clips with pause, step, restart, scrub, loop and root-motion controls. All 1,048 physical clips decode; 1,037 bind directly to node-directory slots. Eleven F03/ITO clips report track-count mismatches. Fixed-table precision, gameplay state selection and clip blending remain. |
+| Model animation | Select and play the bound DAN animation clips on the preview rig at the recovered 30 Hz rate, with pause/step and the selected source retained. | ODViewer plays selected linear and spline clips with pause, step, restart, scrub, loop and root-motion controls. All 1,048 physical clips decode and evaluate against the model node count. Eleven F03/ITO clips carry unused trailing tracks, now labeled in the viewer. Fixed-table precision, gameplay state selection and clip blending remain. |
 | Scene and level preview | Render selected `.DSN`/project geometry and placed assets with the common renderer and a viewer camera; keep source identity. | All 95 distinct DSNs render their 157,433 source faces with 2,059 source texture pages. All 150 project records load; 531 of 560 active placements load, including loose and DAN-backed `.3DC`. The remaining 29 DAN material failures and 54 unmatched scene material names are visible diagnostics. Viewer orbit/zoom/target controls work; dynamic palettes, fog and Runtime output remain. |
 | Sprites, fonts and static textures | Display indexed pixels, palette rows and transparency from shared decoded data. | Selected sprite slots, font glyphs, VGA sheets, standalone/DAN material banks and assembled DSN object textures render in ODViewer with a palette swatch and transparency control. Animated materials and exact dynamic sprite composition remain. |
 | Animated textures | Decode and show HNM4/HNS4 frame sequences; reuse the GPU material update path when a scene binds them. | Header classification exists; frame decode remains. |
@@ -544,9 +544,16 @@ ODViewer exposes clip selection, play/pause, one-frame step, restart, scrub,
 loop and in-place/follow-root display at the recovered 30 Hz base. All 191
 physical DAN archives yield 1,048 clips, 21,050 tracks, 197,102 rotation keys
 and 110,418 translation keys, exactly matching the independent Python decoder.
-The 1,037 clips whose track count matches the model directory evaluate at
-start, midpoint and end. Eleven clips in `F03.DAN` and `ITO.DAN` have extra
-tracks; the viewer reports those bindings instead of guessing a node mapping.
+All 1,048 clips evaluate at start, midpoint and end. Nine clips in `F03.DAN`
+have 16 tracks for 14 model nodes; `ITOAN050.3DA` has 12 tracks for 11 nodes
+on each disc, making 11 physical extra-track cases. Ghidra's
+`ANIM_ApplyModelLinear` and `ANIM_ApplyModelSpline` loops take their bound from
+the model node directory and consume that many clip entries. The native port
+now follows that retail contract and labels unused trailing tracks in the
+viewer. Many F03/ITO prefix translations differ from their model bind pose,
+so the original asset-authoring reason remains unverified; no replacement
+bone names or remapping are inferred.
+
 Stored and interpolated XH_ spline poses and BA0 linear poses have focused
 Python comparisons; finite-frame GPU playback smokes cover both families.
 
@@ -555,3 +562,25 @@ the visual model preview, even though their animation clips parse. Viewer
 root-motion retargeting is an inspection policy. Runtime action selection,
 transition blending, fixed lookup-table quaternion precision, clip-specific
 one-shot behavior, physics consumption and screenshot parity remain open.
+
+### Face facing and bone inspection — 2026-09-27
+
+Ghidra's `REND_CullFaces` rejects back-facing triangles before the Glide object
+hook. Faces with source flag 8 recompute facing from their posed corners; all
+225 of XH_'s bridge faces have that flag. The native preview now enables
+counter-clockwise GPU back-face culling after converting retail Y-down
+coordinates. An independent scan of 254 distinct DAN/DSN render graphs found
+173,341 nondegenerate stored-normal faces aligned with source triangle winding,
+25,103 dynamic-facing faces and no reversed stored normals. XH_AN006 at frame
+9.5 was compared with culling on/off at the same viewer camera. The extra rear
+joint faces disappear with culling.
+
+ODViewer's optional **Bones** overlay projects the same Q15 parent-composed
+node origins as the mesh. It draws links and selectable joints, shows local and
+world coordinates, and can label names. Nonrendering helper nodes are hidden by
+default and exposed by **Helpers**; XH_'s distant `ZZZZZ` node has no rendered
+faces. The remaining very dark shorts/waist pixels in this frame correspond to
+type-2 source faces whose original `XH_IMG_B` palette and UVs include black or
+near-black texels. Their exact appearance in a running retail frame has not
+been compared, so the port does not replace those authored colors or move joints
+to conceal them.

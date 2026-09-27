@@ -17,7 +17,10 @@ struct ModelCorner {
 
 struct ModelFace {
     size_t owner_node = 0;
+    uint32_t flags = 0; // Retail bit 8 recomputes facing from posed corners.
     int32_t type = 0;
+    std::array<int32_t,3> normal{}; // Original Q15 face normal.
+    int32_t plane_distance = 0;
     std::string material_name;
     std::array<ModelCorner, 3> corners{};
     uint8_t shade = 0;

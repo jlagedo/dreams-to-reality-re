@@ -31,6 +31,18 @@ struct GlideModelDraw {
     std::array<float, 3> maximum{};
 };
 
+struct ModelJoint {
+    size_t slot = 0;
+    int parent = -1;
+    std::string name;
+    std::array<int32_t,3> world_xyz{};
+    bool render_relevant = false;
+};
+
+// Inspection view of the same parent-composed Q15 transforms used for faces.
+bool GLIDE_ModelJoints(const ModelGraph& graph, std::vector<ModelJoint>& joints,
+                       std::string& error);
+
 // The DREAMSFX face hook, adapted to emit GPU draw data instead of calling
 // grDrawTriangle. Deferred faces are appended after opaque traversal.
 bool GLIDE_DrawObjectFaces(const ModelGraph& graph, GlideModelDraw& draw,

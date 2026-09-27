@@ -55,6 +55,7 @@ bool synthetic() {
     child.parent=0;
     child.local_rot=yaw;
     child.local_xyz={5,0,0};
+    child.name="hip";
     child.shade=15;
     child.vertices={{2,0,0},{0,2,0},{0,0,2}};
     graph.nodes.push_back(child);
@@ -81,6 +82,12 @@ bool synthetic() {
     if (!GLIDE_DrawObjectFaces(graph,draw,error)) {
         std::cerr << error << '\n'; return false;
     }
+    std::vector<ModelJoint> joints;
+    if (!GLIDE_ModelJoints(graph,joints,error) || joints.size()!=2 ||
+        joints[0].world_xyz!=Vec3{10,20,30} ||
+        joints[1].world_xyz!=Vec3{15,20,30} ||
+        joints[1].parent!=0 || joints[1].name!="hip" ||
+        !joints[0].render_relevant || !joints[1].render_relevant) return false;
     if (draw.vertices.size()!=9 || draw.batches.size()!=3 ||
         draw.batches[0].mode!=GlideFaceMode::clamp ||
         draw.batches[1].mode!=GlideFaceMode::wrap ||

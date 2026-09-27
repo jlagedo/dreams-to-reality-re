@@ -85,8 +85,15 @@ bool MDL_RelocPrimitives(const std::vector<uint8_t>& record, int64_t delta,
                 return fail(error, "model face ends outside its record");
             ModelFace face;
             face.owner_node = owner;
+            face.flags = u32(record,at);
             face.type = type;
             face.material_name = material;
+            size_t normal_offset = 0;
+            if (!address_offset(u32(record,at+0x2c),delta,record,16,normal_offset))
+                return fail(error,"model face normal is outside its record");
+            for (size_t axis=0; axis<3; ++axis)
+                face.normal[axis]=i32(record,normal_offset+axis*4u);
+            face.plane_distance=i32(record,at+0x30);
             if (range(record, at, 0x41)) face.shade = record[at + 0x40];
             constexpr std::array<size_t, 3> vertex_fields{{8, 0x14, 0x20}};
             constexpr std::array<size_t, 3> uv_fields{{0x34, 0x38, 0x3c}};

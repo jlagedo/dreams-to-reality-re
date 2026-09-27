@@ -82,6 +82,11 @@ bool ModelPreview::init(std::string& error) {
     pipeline.depth.pixel_format = SG_PIXELFORMAT_DEPTH;
     pipeline.depth.compare = SG_COMPAREFUNC_LESS_EQUAL;
     pipeline.depth.write_enabled = true;
+    // REND_CullFaces rejects back-facing source triangles before the 3dfx
+    // object hook. Source Y is inverted for the GPU view, making the retained
+    // front-facing triangle winding counter-clockwise in clip space.
+    pipeline.cull_mode = SG_CULLMODE_BACK;
+    pipeline.face_winding = SG_FACEWINDING_CCW;
     pipeline.label = "model preview opaque";
     opaque_pipeline_ = sg_make_pipeline(&pipeline);
     pipeline.colors[0].blend.enabled = true;
@@ -282,6 +287,29 @@ void ModelPreview::draw(const ModelView& view) const {
         sg_draw(static_cast<int>(batch.first),static_cast<int>(batch.count),1);
     }
     sg_end_pass();
+}
+
+bool ModelPreview::project_joint(const std::array<int32_t,3>& world_xyz,
+                                 const ModelView& view, float& u, float& v) const {
+    if (!has_model()) return false;
+    const float point[3]{
+        (static_cast<float>(world_xyz[0])-frame_center_[0])*frame_scale_,
+        (-static_cast<float>(world_xyz[1])-frame_center_[1])*frame_scale_,
+        (static_cast<float>(world_xyz[2])-frame_center_[2])*frame_scale_};
+    float matrix[16]{};
+    preview_matrix(view,matrix);
+    const float x=matrix[0]*point[0]+matrix[4]*point[1]+
+                  matrix[8]*point[2]+matrix[12];
+    const float y=matrix[1]*point[0]+matrix[5]*point[1]+
+                  matrix[9]*point[2]+matrix[13];
+    const float z=matrix[2]*point[0]+matrix[6]*point[1]+
+                  matrix[10]*point[2]+matrix[14];
+    const float w=matrix[3]*point[0]+matrix[7]*point[1]+
+                  matrix[11]*point[2]+matrix[15];
+    if (!(w>0.0f) || z<0.0f || z>w) return false;
+    u=0.5f+0.5f*x/w;
+    v=0.5f-0.5f*y/w;
+    return std::isfinite(u) && std::isfinite(v);
 }
 
 void ModelPreview::clear_model() {

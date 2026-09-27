@@ -47,8 +47,8 @@ bool AnimationPreview::select(size_t index, std::string& error) {
         return false;
     if (!port::ANIM_DecodeClip(bytes,archive_->clips()[index].text,clip_,error))
         return false;
-    if (clip_.tracks.size()!=bind_.nodes.size()) {
-        error="clip track count differs from the model node directory";
+    if (clip_.tracks.size()<bind_.nodes.size()) {
+        error="clip has fewer tracks than the model node directory";
         return false;
     }
     clip_loaded_=true;

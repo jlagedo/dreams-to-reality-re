@@ -41,7 +41,12 @@ public:
     float frame() const { return frame_; }
     uint32_t duration() const { return clip_.duration; }
     size_t track_count() const { return clip_.tracks.size(); }
+    size_t unused_tracks() const {
+        return clip_.tracks.size()>bind_.nodes.size() ?
+            clip_.tracks.size()-bind_.nodes.size() : 0;
+    }
     uint32_t resource_type() const { return clip_.resource_type; }
+    const port::ModelGraph& pose_graph() const { return pose_; }
 
 private:
     std::unique_ptr<port::VfsContext> vfs_;

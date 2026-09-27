@@ -17,6 +17,7 @@
 #include <array>
 #include <cerrno>
 #include <climits>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -48,6 +49,10 @@ struct ViewerUi {
     od::AnimationPreview animation_preview;
     std::string animation_error;
     bool required_animation_smoke = false;
+    bool show_bones = false;
+    bool show_bone_names = false;
+    bool show_helper_bones = false;
+    size_t selected_bone = SIZE_MAX;
     od::ModelView model_view;
     od::VideoPreview video_preview;
     od::inspect::StillImage still_image;
@@ -95,6 +100,7 @@ const od::inspect::Row* selection(const ViewerUi& state) {
 void clear_preview(ViewerUi& state) {
     state.animation_preview.close();
     state.animation_error.clear();
+    state.selected_bone=SIZE_MAX;
     state.model_preview.clear_model();
     state.model_view={};
     state.video_preview.close();
@@ -970,12 +976,67 @@ void preview_pane(ViewerUi& state) {
                 ImGui::TextDisabled("%.1f / %u frames | 30 Hz | %zu tracks | %s",
                     animation.frame(),animation.duration(),animation.track_count(),
                     animation.resource_type()==6 ? "spline" : "linear");
+                if (animation.unused_tracks())
+                    ImGui::TextDisabled("%zu trailing clip tracks unused by the retail model loop",
+                                        animation.unused_tracks());
             }
             if (!state.animation_error.empty())
                 ImGui::TextWrapped("Animation: %s",state.animation_error.c_str());
             if (!state.animation_preview.flush(state.model_preview,animation_error)) {
                 state.animation_preview.set_playing(false);
                 state.animation_error=animation_error;
+            }
+        }
+        std::vector<od::port::ModelJoint> joints;
+        const auto visible_joint=[&](const od::port::ModelJoint& joint) {
+            return joint.render_relevant || state.show_helper_bones;
+        };
+        const od::port::ModelGraph* joint_graph=nullptr;
+        const bool actor_preview=state.preview_level && row &&
+            (row->kind=="Model name" || row->kind=="Model archive" ||
+             row->kind=="Project object");
+        if (actor_preview) {
+            ImGui::Checkbox("Bones",&state.show_bones);
+            if (state.show_bones) {
+                ImGui::SameLine();
+                ImGui::Checkbox("Bone names",&state.show_bone_names);
+                ImGui::SameLine();
+                ImGui::Checkbox("Helpers",&state.show_helper_bones);
+                joint_graph=state.animation_preview.has_clip() ?
+                    &state.animation_preview.pose_graph() :
+                    &state.preview_level->selected_actor().model;
+                std::string joint_error;
+                if (!od::port::GLIDE_ModelJoints(*joint_graph,joints,joint_error))
+                    ImGui::TextWrapped("Bone overlay: %s",joint_error.c_str());
+                if (!joints.empty()) {
+                    if (state.selected_bone<joints.size() &&
+                        !visible_joint(joints[state.selected_bone]))
+                        state.selected_bone=SIZE_MAX;
+                    const std::string chosen=state.selected_bone<joints.size() ?
+                        std::to_string(state.selected_bone)+" "+
+                            joints[state.selected_bone].name : "Select joint";
+                    ImGui::SetNextItemWidth(240.0f);
+                    if (ImGui::BeginCombo("Joint",chosen.c_str())) {
+                        for (const auto& joint : joints) {
+                            if (!visible_joint(joint)) continue;
+                            ImGui::PushID(static_cast<int>(joint.slot));
+                            const std::string label=std::to_string(joint.slot)+" "+joint.name;
+                            if (ImGui::Selectable(label.c_str(),
+                                                   state.selected_bone==joint.slot))
+                                state.selected_bone=joint.slot;
+                            ImGui::PopID();
+                        }
+                        ImGui::EndCombo();
+                    }
+                    if (state.selected_bone<joints.size()) {
+                        const auto& joint=joints[state.selected_bone];
+                        const auto& local=joint_graph->nodes[joint.slot].local_xyz;
+                        ImGui::TextDisabled("slot %zu parent %d | local (%d, %d, %d) | world (%d, %d, %d)",
+                            joint.slot,joint.parent,local[0],local[1],local[2],
+                            joint.world_xyz[0],joint.world_xyz[1],joint.world_xyz[2]);
+                    }
+                    ImGui::TextDisabled("Bone links are visible through the mesh; click a joint to inspect it.");
+                }
             }
         }
         ImGui::SetNextItemWidth(160.0f);
@@ -991,6 +1052,57 @@ void preview_pane(ViewerUi& state) {
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (image_space.x - side) * 0.5f);
         ImGui::Image(simgui_imtextureid(state.model_preview.texture_view()),
                      ImVec2(side, side));
+        if (!joints.empty()) {
+            const ImVec2 origin=ImGui::GetItemRectMin();
+            const ImVec2 extent=ImGui::GetItemRectMax();
+            std::vector<ImVec2> positions(joints.size());
+            std::vector<uint8_t> projected(joints.size());
+            for (const auto& joint : joints) {
+                if (!visible_joint(joint)) continue;
+                float u=0,v=0;
+                if (!state.model_preview.project_joint(joint.world_xyz,
+                        state.model_view,u,v)) continue;
+                positions[joint.slot]=ImVec2(origin.x+u*side,origin.y+v*side);
+                projected[joint.slot]=1;
+            }
+            ImDrawList* draw=ImGui::GetWindowDrawList();
+            draw->PushClipRect(origin,extent,true);
+            for (const auto& joint : joints) {
+                if (joint.parent<0 || !projected[joint.slot] ||
+                    !projected[static_cast<size_t>(joint.parent)]) continue;
+                const bool selected=state.selected_bone==joint.slot ||
+                    state.selected_bone==static_cast<size_t>(joint.parent);
+                draw->AddLine(positions[static_cast<size_t>(joint.parent)],
+                              positions[joint.slot],
+                              selected ? IM_COL32(255,205,55,240) :
+                                         IM_COL32(35,225,245,195),
+                              selected ? 2.5f : 1.5f);
+            }
+            for (const auto& joint : joints) {
+                if (!projected[joint.slot]) continue;
+                const bool selected=state.selected_bone==joint.slot;
+                draw->AddCircleFilled(positions[joint.slot],selected ? 5.0f : 3.0f,
+                    selected ? IM_COL32(255,205,55,255) : IM_COL32(35,225,245,245));
+                if (selected || state.show_bone_names)
+                    draw->AddText(ImVec2(positions[joint.slot].x+6,
+                                         positions[joint.slot].y-8),
+                                  selected ? IM_COL32(255,230,125,255) :
+                                             IM_COL32(210,245,250,230),
+                                  joint.name.c_str());
+            }
+            draw->PopClipRect();
+            if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                const ImVec2 mouse=ImGui::GetIO().MousePos;
+                float best=100.0f;
+                for (const auto& joint : joints) {
+                    if (!projected[joint.slot]) continue;
+                    const float dx=positions[joint.slot].x-mouse.x;
+                    const float dy=positions[joint.slot].y-mouse.y;
+                    const float distance=dx*dx+dy*dy;
+                    if (distance<best) { best=distance; state.selected_bone=joint.slot; }
+                }
+            }
+        }
         if (ImGui::IsItemHovered()) {
             const auto& io=ImGui::GetIO();
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
@@ -1115,13 +1227,20 @@ void draw_ui(void* user) {
 
 bool parse_args(int argc, char** argv, int& frames,
                 std::array<const char*, 2>& cues, bool& preview_cai,
+                bool& preview_bones,
                 std::string& preview_model, std::string& preview_animation,
                 std::string& preview_scene,
                 std::string& preview_project, bool& preview_movie, std::string& preview_still,
-                std::string& preview_audio) {
+                std::string& preview_audio, float& preview_distance,
+                float& preview_yaw_degrees) {
     for (int i = 1; i < argc;) {
         if (std::strcmp(argv[i], "--preview-cai") == 0) {
             preview_cai = true;
+            ++i;
+            continue;
+        }
+        if (std::strcmp(argv[i], "--preview-bones") == 0) {
+            preview_bones=true;
             ++i;
             continue;
         }
@@ -1174,6 +1293,18 @@ bool parse_args(int argc, char** argv, int& frames,
             const long parsed = std::strtol(argv[i + 1], &end, 10);
             if (errno || !end || *end || parsed < 1 || parsed > INT_MAX) return false;
             frames = static_cast<int>(parsed);
+        } else if (std::strcmp(argv[i], "--preview-distance") == 0) {
+            errno=0; char* end=nullptr;
+            const float parsed=std::strtof(argv[i+1],&end);
+            if (errno || !end || *end || !std::isfinite(parsed) ||
+                parsed<1.2f || parsed>10.0f) return false;
+            preview_distance=parsed;
+        } else if (std::strcmp(argv[i], "--preview-yaw-deg") == 0) {
+            errno=0; char* end=nullptr;
+            const float parsed=std::strtof(argv[i+1],&end);
+            if (errno || !end || *end || !std::isfinite(parsed) ||
+                parsed< -180.0f || parsed>180.0f) return false;
+            preview_yaw_degrees=parsed;
         } else return false;
         i += 2;
     }
@@ -1186,6 +1317,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
     int frames = 0;
     std::array<const char*, 2> cues{};
     bool preview_cai = false;
+    bool preview_bones = false;
     std::string preview_model;
     std::string preview_animation;
     std::string preview_scene;
@@ -1193,13 +1325,51 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
     bool preview_movie = false;
     std::string preview_still;
     std::string preview_audio;
-    if (!parse_args(argc, argv, frames, cues, preview_cai, preview_model,
+    float preview_distance=-1.0f;
+    float preview_yaw_degrees=1000.0f;
+    if (!parse_args(argc, argv, frames, cues, preview_cai, preview_bones,
+                    preview_model,
                     preview_animation,
                     preview_scene, preview_project, preview_movie,
-                    preview_still, preview_audio)) {
+                    preview_still, preview_audio, preview_distance,
+                    preview_yaw_degrees)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-model DAN-stem] [--preview-animation DAN-stem] [--preview-scene DSN-stem] [--preview-project record-name] [--preview-movie] [--preview-still font|icon|vga|bank|material|scene] [--preview-audio effect|effect12|dialogue|track]");
+                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-bones] [--preview-model DAN-stem] [--preview-animation DAN-stem[:clip-index[:frame]]] [--preview-distance 1.2..10] [--preview-yaw-deg -180..180] [--preview-scene DSN-stem] [--preview-project record-name] [--preview-movie] [--preview-still font|icon|vga|bank|material|scene] [--preview-audio effect|effect12|dialogue|track]");
         return SDL_APP_FAILURE;
+    }
+    ui.show_bones=preview_bones;
+    std::string animation_stem=preview_animation;
+    size_t requested_clip=SIZE_MAX;
+    float requested_frame=-1.0f;
+    const size_t first_colon=preview_animation.find(':');
+    if (first_colon!=std::string::npos) {
+        animation_stem=preview_animation.substr(0,first_colon);
+        const size_t second_colon=preview_animation.find(':',first_colon+1);
+        const std::string clip_text=preview_animation.substr(first_colon+1,
+            second_colon==std::string::npos ? std::string::npos :
+                second_colon-first_colon-1);
+        char* end=nullptr;
+        errno=0;
+        const unsigned long parsed=std::strtoul(clip_text.c_str(),&end,10);
+        if (animation_stem.empty() || clip_text.empty() || errno || !end || *end ||
+            parsed>63) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                "animation selector must be DAN-stem[:clip-index[:frame]]");
+            return SDL_APP_FAILURE;
+        }
+        requested_clip=static_cast<size_t>(parsed);
+        if (second_colon!=std::string::npos) {
+            const std::string frame_text=preview_animation.substr(second_colon+1);
+            errno=0;
+            requested_frame=std::strtof(frame_text.c_str(),&end);
+            if (frame_text.empty() || errno || !end || *end ||
+                !std::isfinite(requested_frame) || requested_frame<0 ||
+                requested_frame>1000000.0f) {
+                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                    "animation frame must be a finite nonnegative number");
+                return SDL_APP_FAILURE;
+            }
+        }
     }
     if (!shell.init({"ODViewer", draw_ui, &ui, frames, 20.0f, 1.2f,
                      "ODViewer-window.rgba", 1440, 900})) {
@@ -1267,7 +1437,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
         ui.catalog.tick(10000);
         bool found=false;
         const std::string archive_name=(preview_animation.empty() ?
-            preview_model : preview_animation)+".DAN";
+            preview_model : animation_stem)+".DAN";
         for (size_t slot=0; slot<2 && !found; ++slot) {
             const auto* source=ui.catalog.source(slot);
             if (!source) continue;
@@ -1278,7 +1448,17 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
                 break;
             }
         }
+        if (found && !preview_animation.empty() &&
+            ui.animation_preview.has_clip() && requested_clip!=SIZE_MAX) {
+            if (!ui.animation_preview.select(requested_clip,ui.animation_error)) {
+                // The error is reported by the shared failure path below.
+            } else if (requested_frame>=0 &&
+                       !ui.animation_preview.seek(requested_frame,ui.animation_error)) {
+                // The selected clip remains available for interactive inspection.
+            }
+        }
         if (!found || !ui.model_preview.has_model() ||
+            !ui.animation_error.empty() ||
             (!preview_animation.empty() && !ui.animation_preview.has_clip())) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,"model preview load failed: %s",
                 !ui.preview_error.empty() ? ui.preview_error.c_str() :
@@ -1291,8 +1471,13 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
             shell.shutdown();
             return SDL_APP_FAILURE;
         }
-        if (!preview_animation.empty()) ui.animation_preview.set_playing(true);
-        ui.required_animation_smoke=!preview_animation.empty() && frames>0;
+        if (!preview_animation.empty() && requested_frame<0)
+            ui.animation_preview.set_playing(true);
+        if (preview_distance>0) ui.model_view.distance=preview_distance;
+        if (preview_yaw_degrees<=180.0f)
+            ui.model_view.yaw=preview_yaw_degrees*0.017453292519943295f;
+        ui.required_animation_smoke=!preview_animation.empty() &&
+            requested_frame<0 && frames>0;
     }
     if (!preview_scene.empty() || !preview_project.empty()) {
         ui.catalog.tick(10000);

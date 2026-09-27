@@ -81,6 +81,39 @@ void append_face(GlideModelDraw& draw, const PreparedFace& face) {
 
 } // namespace
 
+bool GLIDE_ModelJoints(const ModelGraph& graph, std::vector<ModelJoint>& joints,
+                       std::string& error) {
+    error.clear();
+    joints.clear();
+    if (graph.nodes.empty()) return fail(error,"model has no joint nodes");
+    std::vector<WorldNode> world(graph.nodes.size());
+    std::vector<uint8_t> state(graph.nodes.size());
+    for (size_t slot=0; slot<graph.nodes.size(); ++slot)
+        if (!world_node(graph,slot,world,state,0,error)) return false;
+    std::vector<uint8_t> relevant(graph.nodes.size());
+    for (const auto& face : graph.faces) {
+        if (face.owner_node>=graph.nodes.size())
+            return fail(error,"joint overlay has an invalid face owner");
+        relevant[face.owner_node]=1;
+        for (const auto& corner : face.corners) {
+            if (corner.node>=graph.nodes.size())
+                return fail(error,"joint overlay has an invalid face corner");
+            relevant[corner.node]=1;
+        }
+    }
+    for (size_t slot=0; slot<graph.nodes.size(); ++slot) {
+        if (!relevant[slot]) continue;
+        for (int parent=graph.nodes[slot].parent; parent>=0;
+             parent=graph.nodes[static_cast<size_t>(parent)].parent)
+            relevant[static_cast<size_t>(parent)]=1;
+    }
+    joints.reserve(graph.nodes.size());
+    for (size_t slot=0; slot<graph.nodes.size(); ++slot)
+        joints.push_back({slot,graph.nodes[slot].parent,graph.nodes[slot].name,
+                          world[slot].position,relevant[slot]!=0});
+    return true;
+}
+
 bool GLIDE_DrawObjectFaces(const ModelGraph& graph, GlideModelDraw& draw,
                            std::string& error) {
     error.clear();
