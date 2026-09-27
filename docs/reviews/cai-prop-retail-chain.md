@@ -21,6 +21,14 @@ ODViewer load path.
 
 ## Retail Windows function chain
 
+`SCENE_LoadLevel` takes no explicit project argument in the checked call sites.
+It tests the pending-load global at `0x00661e08` for `1` and reads the current
+0x2200-byte project record through the pointer at `0x00661e04`. One caller at
+`0x0044cb5f` sets that pointer to the working record at `0x0065fb04`, sets the
+pending flag, then calls `SCENE_LoadLevel` at `0x0044cb73`. Feeding it a
+synthetic project therefore means preparing its expected shared state, not
+passing a record as a function parameter.
+
 1. The selected `DREAMS.DAT` record is the working project when
    `SCENE_LoadLevel` (`0x0041f9db`) runs. Its loop checks `OBJET1` through
    `OBJET15` for the active bit and calls `ENT_InstantiateFromObjet`
