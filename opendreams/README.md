@@ -54,11 +54,15 @@ source path, parent, internal key, extent and provenance. Selecting the
 `CAISSE` **Model name** row under Disc 2's `DATA/3DC/CAI.DAN` builds a small
 project and scene in memory, calls the partial shared `SCENE_LoadLevel` path,
 and draws the textured crate in the GPU preview pane. The exact disc/archive
-row determines the source when names repeat. Other model archives report their
-current support status there. For a repeatable first preview:
+row determines the source when names repeat. Supported DAN archives now render
+their static node hierarchy, multiple original materials and reached face
+modes. Archives with a material name absent from their own texture directory
+show that error in the preview. For repeatable model checks:
 
 ```powershell
 .\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-cai
+.\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-model F74
+.\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-model BA0
 ```
 
 ODViewer uses a larger vector font for readable navigation. The catalog lives in

@@ -1,6 +1,6 @@
 # 003 — ODViewer asset previews and playback
 
-Status: **CAI model, movie, static image, and audio/dialogue viewer slices implemented; expanded viewer scope in progress**
+Status: **static DAN model, movie, static image, and audio/dialogue viewer slices implemented; animation and scene scope in progress**
 
 Date: 2026-09-27
 
@@ -29,7 +29,7 @@ are validated in their own runtime milestones.
 
 | Viewer capability | Spec 003 result | Current state |
 |---|---|---|
-| DAN model and project-object preview | Load the selected archive/object through shared resource and scene paths; render its materials and face modes. | CAI/Project 71 proof implemented; the current preview handles one material and face types 2/3. |
+| DAN model and project-object preview | Load the selected archive/object through shared resource and scene paths; render its materials and face modes. | Static preview now composes node hierarchy and draws multiple materials with DAN types 2/3/-5; 178 of 191 physical DAN files load from the two discs. Type 9 is prepared but its only DAN has an unmatched material name. |
 | Model animation | Select and play the bound DAN animation clips on the preview rig at the recovered 30 Hz rate, with pause/step and the selected source retained. | DAN chunk readers exist; rig evaluation and visual playback remain. |
 | Scene and level preview | Render selected `.DSN`/project geometry and placed assets with the common renderer and a viewer camera; keep source identity. | Payload and Project 71 validation exist; general visual preview remains. |
 | Sprites, fonts and static textures | Display indexed pixels, palette rows and transparency from shared decoded data. | Selected sprite slots, font glyphs, VGA sheets, standalone/DAN material banks and assembled DSN object textures render in ODViewer with a palette swatch and transparency control. Animated materials and exact dynamic sprite composition remain. |
@@ -236,11 +236,11 @@ real Disc 1 `INTRO.HNM`, an `UBS2` sound movie and an HNM4 texture.
 
 ## Other viewer preview slices
 
-- **Models and animation:** expand the current one-material type-2/3 preview
-  to the reached 3dfx face modes, P8 palette rows, clamp/wrap, chroma key,
-  lighting and deferred translucent faces. Keep original face/UV data and
-  model/archive identity. Bind DAN clips to the attached rig without
-  embedding a gameplay loop in ODViewer.
+- **Models and animation:** the static DAN preview now handles multiple
+  materials, P8 palette rows, clamp/wrap, chroma key and parent transforms.
+  Complete lighting, diagnostic faces and deferred transparency against retail
+  observations. Bind DAN clips to the attached rig without embedding a
+  gameplay loop in ODViewer.
 - **Scenes/projects:** select a physical `.DSN` or project record, load through
   the same bounded scene/resource path, and show its geometry, materials and
   placed actors under a viewer camera. Original spawn and transforms remain
@@ -267,11 +267,10 @@ observation.
    preview-region Viewer output with the same test scene/frame at matching
    aspect; keep Shell's one commit/present owner. The Runtime proof does not
    introduce gameplay into this spec.
-2. **Model/scene GPU path:** extend the existing CAI preview from one material
-   and face types 2/3 through the face, palette, lighting and transparency
-   modes reached by selected models, then use the same renderer for selected
-   DSN/project scenes. Preserve the current CAI and Project 71 checks at
-   every step.
+2. **Model/scene GPU path:** the CAI preview now handles static DAN models with
+   multiple materials and reached textured face modes. Finish lighting and
+   transparency, then use the same renderer for selected DSN/project scenes.
+   Preserve the CAI and Project 71 checks at every step.
 3. **Static and animated assets:** add sprite/font/static-texture display,
    HNM4 frame decoding, DAN rig animation and the selected-source controls
    those previews need. Share material/texture upload code with the model
@@ -476,4 +475,27 @@ spawn transform. Windows native tests
 pass 12/12 with both original images; Windows, WSL/Linux and Emscripten builds
 pass. The port map marks the reached retail functions `partial` or `unverified`
 and leaves owner review unchanged. The GPU preview currently supports one
-material and face types 2/3; it does not claim screenshot parity with Glide.
+material and face types 2/3 at that checkpoint; it did not claim screenshot parity with Glide.
+
+### Static DAN models — 2026-09-27
+
+The model preview now uses `MATH_MulMat3` and `MATH_MulMat3Vec3` Q15 arithmetic
+to compose parent-first node transforms, including zero-vertex connector nodes.
+The adapted `GLIDE_DrawObjectFaces` path emits GPU batches with original signed
+UVs, per-material palette selection and the 3dfx clamp/wrap/chroma/deferred
+ordering rules. `GLIDE_ConvertPalette` expands the RGB565 rows; the modern GPU
+upload uses the original 128×128 model LOD sampled from every second texel.
+ODViewer retains its source-scoped load path and uses separate clamp, wrap and
+alpha GPU state in the preview target. `--preview-model F74` checks the keyed
+face mode; `--preview-model BA0` checks multiple materials; `--preview-cai`
+remains the crate regression case.
+
+The two original disc images contain 191 physical DAN files. The bounded C++
+loader and draw preparation accept 178, covering 46,091 physical faces. The
+other 13 instances have face/material names absent from their own DAN texture
+directory; ODViewer reports the exact missing name and does not substitute a
+texture. The 56-byte type-1 diagnostic blocks are validated but not submitted
+in this slice. The only DAN using type 9, `L14.DAN`, is among the 13 unmatched
+material cases, so its wrap mode has synthetic coverage but no disc GPU QA yet.
+Animation, exact lighting, fog, diagnostic faces and retail screenshot parity
+remain open.

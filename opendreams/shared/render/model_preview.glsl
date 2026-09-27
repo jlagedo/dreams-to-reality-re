@@ -16,8 +16,13 @@ layout(binding=0) uniform texture2D image_tex;
 layout(binding=0) uniform sampler image_smp;
 in vec2 uv;
 out vec4 frag_color;
+layout(binding=1) uniform fs_params {
+    vec4 draw_mode;
+};
 void main() {
-    frag_color = texture(sampler2D(image_tex, image_smp), uv);
+    vec4 sampled = texture(sampler2D(image_tex, image_smp), uv);
+    if (draw_mode.x > 0.5 && sampled.a < 0.5) discard;
+    frag_color = vec4(sampled.rgb, draw_mode.y);
 }
 @end
 

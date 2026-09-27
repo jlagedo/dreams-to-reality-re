@@ -119,7 +119,10 @@ bool MDL_LoadMaterials(DanArchive& archive, ModelGraph& graph, std::string& erro
             });
         if (found != graph.materials.end()) continue;
         std::vector<uint8_t> bytes;
-        if (!RES_ReadFile(archive, name + ".3DM", bytes, error)) return false;
+        if (!RES_ReadFile(archive, name + ".3DM", bytes, error)) {
+            error = "model material " + name + ": " + error;
+            return false;
+        }
         graph.materials.push_back({name, std::move(bytes)});
     }
     return MDL_BindTreeMaterials(graph, error);

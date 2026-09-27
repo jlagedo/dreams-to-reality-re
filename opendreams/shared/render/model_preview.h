@@ -1,16 +1,18 @@
 #pragma once
 
 #include "port/scene.h"
+#include "port/glide_model.h"
 
 #include <sokol_gfx.h>
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace od {
 
-// Viewer-only first GPU material path. It owns one static actor mesh and a
-// square offscreen color/depth target sampled by the ImGui preview pane.
+// Static model GPU path using the DREAMSFX face submission contract. It owns
+// one actor mesh and an offscreen color/depth target for the viewer pane.
 class ModelPreview {
 public:
     bool init(std::string& error);
@@ -18,7 +20,7 @@ public:
     void draw() const;
     void clear_model();
     void shutdown();
-    bool has_model() const { return vertices_.id != 0 && vertex_count_ != 0; }
+    bool has_model() const { return vertices_.id != 0 && !draw_.batches.empty(); }
     sg_view texture_view() const { return color_texture_view_; }
 
 private:
@@ -28,12 +30,20 @@ private:
     sg_view depth_attachment_{};
     sg_view color_texture_view_{};
     sg_shader shader_{};
-    sg_pipeline pipeline_{};
-    sg_sampler sampler_{};
+    sg_pipeline opaque_pipeline_{};
+    sg_pipeline alpha_pipeline_{};
+    sg_sampler clamp_sampler_{};
+    sg_sampler wrap_sampler_{};
     sg_buffer vertices_{};
-    sg_image material_{};
-    sg_view material_view_{};
-    size_t vertex_count_ = 0;
+    struct GpuTexture {
+        size_t material = 0;
+        uint32_t row = 0;
+        sg_image image{};
+        sg_view view{};
+    };
+    std::vector<GpuTexture> textures_;
+    std::vector<size_t> batch_textures_;
+    port::GlideModelDraw draw_;
 };
 
 } // namespace od

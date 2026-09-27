@@ -61,11 +61,24 @@ bool MDL_RelocPrimitives(const std::vector<uint8_t>& record, int64_t delta,
         const uint32_t count = u32(record, block_offset + 0x1c);
         const uint32_t first_face = u32(record, block_offset + 0x20);
         const uint32_t stride = u32(record, block_offset + 0x2c);
-        if (count > 20000 || (count && stride != 68))
+        const bool diagnostic = type == -2 || type == 1 || type == 4 ||
+                                type == 0x11 || type == 0x1b;
+        if (count > 20000 || (count && stride != (diagnostic ? 56u : 68u)))
             return fail(error, "model face block has an unsupported count or stride");
         size_t face_offset = 0;
-        if (count && !address_offset(first_face, delta, record, 0x40, face_offset))
+        if (count && !address_offset(first_face, delta, record,
+                                     diagnostic ? 0x30 : 0x40, face_offset))
             return fail(error, "model face list is outside its record");
+        // Retail relocates the 56-byte diagnostic blocks too. The textured
+        // model graph keeps only the 68-byte triangles used by the GPU
+        // material path; diagnostic submission remains a separate slice.
+        if (diagnostic) {
+            if (count && !range(record,face_offset+static_cast<size_t>(count-1)*stride,
+                                0x30))
+                return fail(error,"model diagnostic face list is truncated");
+            block = u32(record, block_offset);
+            continue;
+        }
         for (uint32_t index = 0; index < count; ++index) {
             const size_t at = face_offset + static_cast<size_t>(index) * stride;
             if (!range(record, at, 0x40))
@@ -138,14 +151,19 @@ bool MDL_RelocNodeTree(const std::vector<uint8_t>& record,
             return fail(error, "model node header is truncated");
         const uint32_t count = u32(record, off + 0x90);
         const uint32_t base = u32(record, off + 0x94);
-        if (!count || count > 100000 || !range(record, off + 0xf0,
-                                                static_cast<size_t>(count) * 40u) ||
-            u32(record, off + 0x9c) != base + static_cast<uint64_t>(count) * 40u)
+        if (count > 100000 || !range(record, off + 0xf0,
+                                     static_cast<size_t>(count) * 40u) ||
+            (count && u32(record, off + 0x9c) !=
+                      base + static_cast<uint64_t>(count) * 40u))
             return fail(error, "model node vertex array is invalid");
-        const int64_t this_delta = static_cast<int64_t>(off + 0xf0) - base;
-        if (delta == std::numeric_limits<int64_t>::min()) delta = this_delta;
-        else if (delta != this_delta)
-            return fail(error, "model nodes disagree about their address delta");
+        // Zero-vertex connector nodes have no usable vertex base. Retail still
+        // includes them in the node table and hierarchy (AR0.DAN is one case).
+        if (count) {
+            const int64_t this_delta = static_cast<int64_t>(off + 0xf0) - base;
+            if (delta == std::numeric_limits<int64_t>::min()) delta = this_delta;
+            else if (delta != this_delta)
+                return fail(error, "model nodes disagree about their address delta");
+        }
         ModelNode node;
         node.source_offset = source_offset;
         for (size_t axis = 0; axis < 3; ++axis)
@@ -163,13 +181,26 @@ bool MDL_RelocNodeTree(const std::vector<uint8_t>& record,
         vertex_bases.push_back(base);
         graph.nodes.push_back(std::move(node));
     }
+    if (delta == std::numeric_limits<int64_t>::min())
+        return fail(error, "model has no vertex-bearing node for relocation");
+    for (size_t index = 0; index < graph.nodes.size(); ++index) {
+        if (!graph.nodes[index].vertices.empty()) continue;
+        const size_t off = node_offsets[index];
+        const int64_t expected = static_cast<int64_t>(off + 0xf0) - delta;
+        const uint32_t end = u32(record, off + 0x9c);
+        if (u32(record, off + 0x94) != 0 ||
+            (end != 0 && (expected < 0 || expected > UINT32_MAX ||
+                          end != static_cast<uint32_t>(expected))))
+            return fail(error, "empty model connector has invalid address fields");
+    }
     std::unordered_map<uint32_t, size_t> by_address;
     for (size_t index = 0; index < graph.nodes.size(); ++index)
-        by_address.emplace(vertex_bases[index] - 220u, index);
+        by_address.emplace(static_cast<uint32_t>(
+            static_cast<int64_t>(node_offsets[index]) + 0x14 - delta), index);
     for (size_t index = 0; index < graph.nodes.size(); ++index) {
         const size_t off = node_offsets[index];
         const uint32_t parent = u32(record, off + 0x24);
-        if (parent) {
+        if (parent && parent != 1) {
             const auto found = by_address.find(parent);
             if (found == by_address.end())
                 return fail(error, "model node has an unknown parent");

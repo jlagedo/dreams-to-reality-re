@@ -87,6 +87,8 @@ add_library(ODShared STATIC
     shared/port/vfs.cpp
     shared/port/lz.cpp
     shared/port/model.cpp
+    shared/port/math.cpp
+    shared/port/glide_model.cpp
     shared/port/resource.cpp
     shared/port/scene.cpp
     shared/port/ddat.cpp
@@ -189,6 +191,12 @@ if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
 endif()
 
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
+    add_executable(ODModelDrawTests tests/model_draw_tests.cpp)
+    target_link_libraries(ODModelDrawTests PRIVATE ODShared)
+    od_project_options(ODModelDrawTests)
+    add_test(NAME ODModelDraw COMMAND ODModelDrawTests)
+    set_tests_properties(ODModelDraw PROPERTIES LABELS "model;corpus" TIMEOUT 240)
+
     add_executable(ODAudioPreviewTests tests/audio_preview_tests.cpp)
     target_link_libraries(ODAudioPreviewTests PRIVATE ODShared)
     od_project_options(ODAudioPreviewTests)

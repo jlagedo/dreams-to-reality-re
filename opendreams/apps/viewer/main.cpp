@@ -846,6 +846,9 @@ void preview_pane(ViewerUi& state) {
             state.preview_level->selected_actor().asset_name.c_str(),
             od::inspect::identity_name(source->image->identity()));
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", row->path.c_str());
+        const auto& model=state.preview_level->selected_actor().model;
+        ImGui::TextDisabled("Static model | %zu nodes | %zu faces | %zu materials",
+                            model.nodes.size(),model.faces.size(),model.materials.size());
     }
     const ImVec2 start = ImGui::GetCursorScreenPos();
     const ImVec2 size = ImGui::GetContentRegionAvail();
@@ -969,7 +972,7 @@ void draw_ui(void* user) {
 
 bool parse_args(int argc, char** argv, int& frames,
                 std::array<const char*, 2>& cues, bool& preview_cai,
-                bool& preview_movie, std::string& preview_still,
+                std::string& preview_model, bool& preview_movie, std::string& preview_still,
                 std::string& preview_audio) {
     for (int i = 1; i < argc;) {
         if (std::strcmp(argv[i], "--preview-cai") == 0) {
@@ -980,6 +983,12 @@ bool parse_args(int argc, char** argv, int& frames,
         if (std::strcmp(argv[i], "--preview-movie") == 0) {
             preview_movie = true;
             ++i;
+            continue;
+        }
+        if (std::strcmp(argv[i], "--preview-model") == 0) {
+            if (i+1>=argc) return false;
+            preview_model=argv[i+1];
+            i+=2;
             continue;
         }
         if (std::strcmp(argv[i], "--preview-still") == 0) {
@@ -1014,13 +1023,14 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
     int frames = 0;
     std::array<const char*, 2> cues{};
     bool preview_cai = false;
+    std::string preview_model;
     bool preview_movie = false;
     std::string preview_still;
     std::string preview_audio;
-    if (!parse_args(argc, argv, frames, cues, preview_cai, preview_movie,
+    if (!parse_args(argc, argv, frames, cues, preview_cai, preview_model, preview_movie,
                     preview_still, preview_audio)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-movie] [--preview-still font|icon|vga|bank|material|scene] [--preview-audio effect|effect12|dialogue|track]");
+                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-model DAN-stem] [--preview-movie] [--preview-still font|icon|vga|bank|material|scene] [--preview-audio effect|effect12|dialogue|track]");
         return SDL_APP_FAILURE;
     }
     if (!shell.init({"ODViewer", draw_ui, &ui, frames, 20.0f, 1.2f,
@@ -1078,6 +1088,31 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "CAI preview load failed: %s",
                          ui.preview_error.empty() ? "Disc 2 CAISSE in CAI.DAN is unavailable"
                                                   : ui.preview_error.c_str());
+            ui.model_preview.shutdown();
+            ui.video_preview.shutdown();
+            ui.still_preview.clear();
+            shell.shutdown();
+            return SDL_APP_FAILURE;
+        }
+    }
+    if (!preview_model.empty()) {
+        ui.catalog.tick(10000);
+        bool found=false;
+        const std::string archive_name=preview_model+".DAN";
+        for (size_t slot=0; slot<2 && !found; ++slot) {
+            const auto* source=ui.catalog.source(slot);
+            if (!source) continue;
+            for (const auto& row : source->rows) {
+                if (row.kind!="Model archive" || row.name!=archive_name) continue;
+                select(ui,slot,row.id);
+                found=true;
+                break;
+            }
+        }
+        if (!found || !ui.model_preview.has_model()) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,"model preview load failed: %s",
+                ui.preview_error.empty() ? "requested DAN archive is unavailable"
+                                         : ui.preview_error.c_str());
             ui.model_preview.shutdown();
             ui.video_preview.shutdown();
             ui.still_preview.clear();
