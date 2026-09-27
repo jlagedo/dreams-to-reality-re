@@ -1,6 +1,7 @@
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL_main.h>
 #include "audio/audio_preview.h"
+#include "animation/animation_preview.h"
 #include "inspect/catalog.h"
 #include "inspect/still_preview.h"
 #include "inspect/viewer_prefs.h"
@@ -44,6 +45,9 @@ struct ViewerUi {
     bool sort_ascending = true;
     std::unique_ptr<od::port::PreviewLevelContext> preview_level;
     od::ModelPreview model_preview;
+    od::AnimationPreview animation_preview;
+    std::string animation_error;
+    bool required_animation_smoke = false;
     od::ModelView model_view;
     od::VideoPreview video_preview;
     od::inspect::StillImage still_image;
@@ -89,6 +93,8 @@ const od::inspect::Row* selection(const ViewerUi& state) {
 }
 
 void clear_preview(ViewerUi& state) {
+    state.animation_preview.close();
+    state.animation_error.clear();
     state.model_preview.clear_model();
     state.model_view={};
     state.video_preview.close();
@@ -226,6 +232,12 @@ void load_selected_preview(ViewerUi& state) {
     if (scene ? !state.model_preview.load(preview->render_graph(),state.preview_error)
               : !state.model_preview.load(preview->selected_actor(),state.preview_error))
         return;
+    if (row->kind=="Model name" || row->kind=="Model archive") {
+        std::string animation_error;
+        if (!state.animation_preview.open(source->image,row->path,
+                preview->selected_actor().model,state.model_preview,animation_error))
+            state.animation_error=animation_error;
+    }
     state.preview_level = std::move(preview);
 }
 
@@ -902,6 +914,70 @@ void preview_pane(ViewerUi& state) {
     const ImVec2 size = ImGui::GetContentRegionAvail();
     if (size.x <= 0 || size.y <= 0) return;
     if (state.model_preview.has_model()) {
+        if (state.animation_preview.active()) {
+            std::string animation_error;
+            if (!state.animation_preview.tick(ImGui::GetIO().DeltaTime,
+                    animation_error)) {
+                state.animation_preview.set_playing(false);
+                state.animation_error=animation_error;
+            }
+            const auto& animation=state.animation_preview;
+            const size_t selected=animation.selected_index();
+            const std::string selected_name=selected<animation.clip_count() ?
+                std::string(animation.clip_name(selected)) : "Select clip";
+            ImGui::SetNextItemWidth(-1.0f);
+            if (ImGui::BeginCombo("##animationclip",selected_name.c_str())) {
+                for (size_t index=0; index<animation.clip_count(); ++index) {
+                    const std::string name(animation.clip_name(index));
+                    if (ImGui::Selectable(name.c_str(),selected==index)) {
+                        if (state.animation_preview.select(index,animation_error))
+                            state.animation_error.clear();
+                        else state.animation_error=animation_error;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            if (animation.has_clip()) {
+                if (ImGui::Button(animation.playing() ? "Pause##animation" :
+                                  "Play##animation"))
+                    state.animation_preview.set_playing(!animation.playing());
+                ImGui::SameLine();
+                if (ImGui::Button("Step##animation")) {
+                    if (state.animation_preview.step(animation_error))
+                        state.animation_error.clear();
+                    else state.animation_error=animation_error;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Restart##animation")) {
+                    if (state.animation_preview.restart(animation_error))
+                        state.animation_error.clear();
+                    else state.animation_error=animation_error;
+                }
+                bool loop=animation.looping();
+                if (ImGui::Checkbox("Loop##animation",&loop))
+                    state.animation_preview.set_looping(loop);
+                ImGui::SameLine();
+                bool follow=animation.follow_root();
+                if (ImGui::Checkbox("Follow root##animation",&follow))
+                    state.animation_preview.set_follow_root(follow);
+                float frame=animation.frame();
+                if (ImGui::SliderFloat("Frame",&frame,0.0f,
+                                       static_cast<float>(animation.duration()),"%.1f")) {
+                    if (state.animation_preview.seek(frame,animation_error))
+                        state.animation_error.clear();
+                    else state.animation_error=animation_error;
+                }
+                ImGui::TextDisabled("%.1f / %u frames | 30 Hz | %zu tracks | %s",
+                    animation.frame(),animation.duration(),animation.track_count(),
+                    animation.resource_type()==6 ? "spline" : "linear");
+            }
+            if (!state.animation_error.empty())
+                ImGui::TextWrapped("Animation: %s",state.animation_error.c_str());
+            if (!state.animation_preview.flush(state.model_preview,animation_error)) {
+                state.animation_preview.set_playing(false);
+                state.animation_error=animation_error;
+            }
+        }
         ImGui::SetNextItemWidth(160.0f);
         ImGui::SliderFloat("Distance",&state.model_view.distance,1.2f,10.0f);
         ImGui::SameLine();
@@ -1039,7 +1115,8 @@ void draw_ui(void* user) {
 
 bool parse_args(int argc, char** argv, int& frames,
                 std::array<const char*, 2>& cues, bool& preview_cai,
-                std::string& preview_model, std::string& preview_scene,
+                std::string& preview_model, std::string& preview_animation,
+                std::string& preview_scene,
                 std::string& preview_project, bool& preview_movie, std::string& preview_still,
                 std::string& preview_audio) {
     for (int i = 1; i < argc;) {
@@ -1056,6 +1133,12 @@ bool parse_args(int argc, char** argv, int& frames,
         if (std::strcmp(argv[i], "--preview-model") == 0) {
             if (i+1>=argc) return false;
             preview_model=argv[i+1];
+            i+=2;
+            continue;
+        }
+        if (std::strcmp(argv[i], "--preview-animation") == 0) {
+            if (i+1>=argc) return false;
+            preview_animation=argv[i+1];
             i+=2;
             continue;
         }
@@ -1104,16 +1187,18 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
     std::array<const char*, 2> cues{};
     bool preview_cai = false;
     std::string preview_model;
+    std::string preview_animation;
     std::string preview_scene;
     std::string preview_project;
     bool preview_movie = false;
     std::string preview_still;
     std::string preview_audio;
     if (!parse_args(argc, argv, frames, cues, preview_cai, preview_model,
+                    preview_animation,
                     preview_scene, preview_project, preview_movie,
                     preview_still, preview_audio)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-model DAN-stem] [--preview-scene DSN-stem] [--preview-project record-name] [--preview-movie] [--preview-still font|icon|vga|bank|material|scene] [--preview-audio effect|effect12|dialogue|track]");
+                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-model DAN-stem] [--preview-animation DAN-stem] [--preview-scene DSN-stem] [--preview-project record-name] [--preview-movie] [--preview-still font|icon|vga|bank|material|scene] [--preview-audio effect|effect12|dialogue|track]");
         return SDL_APP_FAILURE;
     }
     if (!shell.init({"ODViewer", draw_ui, &ui, frames, 20.0f, 1.2f,
@@ -1178,10 +1263,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
             return SDL_APP_FAILURE;
         }
     }
-    if (!preview_model.empty()) {
+    if (!preview_model.empty() || !preview_animation.empty()) {
         ui.catalog.tick(10000);
         bool found=false;
-        const std::string archive_name=preview_model+".DAN";
+        const std::string archive_name=(preview_animation.empty() ?
+            preview_model : preview_animation)+".DAN";
         for (size_t slot=0; slot<2 && !found; ++slot) {
             const auto* source=ui.catalog.source(slot);
             if (!source) continue;
@@ -1192,16 +1278,21 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
                 break;
             }
         }
-        if (!found || !ui.model_preview.has_model()) {
+        if (!found || !ui.model_preview.has_model() ||
+            (!preview_animation.empty() && !ui.animation_preview.has_clip())) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,"model preview load failed: %s",
-                ui.preview_error.empty() ? "requested DAN archive is unavailable"
-                                         : ui.preview_error.c_str());
+                !ui.preview_error.empty() ? ui.preview_error.c_str() :
+                !ui.animation_error.empty() ? ui.animation_error.c_str() :
+                "requested DAN archive or animation is unavailable");
+            ui.animation_preview.close();
             ui.model_preview.shutdown();
             ui.video_preview.shutdown();
             ui.still_preview.clear();
             shell.shutdown();
             return SDL_APP_FAILURE;
         }
+        if (!preview_animation.empty()) ui.animation_preview.set_playing(true);
+        ui.required_animation_smoke=!preview_animation.empty() && frames>0;
     }
     if (!preview_scene.empty() || !preview_project.empty()) {
         ui.catalog.tick(10000);
@@ -1342,10 +1433,22 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
     return static_cast<od::Shell*>(appstate)->event(*event);
 }
 SDL_AppResult SDL_AppIterate(void* appstate) {
-    return static_cast<od::Shell*>(appstate)->iterate();
+    const SDL_AppResult result=static_cast<od::Shell*>(appstate)->iterate();
+    if (result==SDL_APP_SUCCESS && ui.required_animation_smoke &&
+        (!ui.animation_preview.has_clip() ||
+         ui.animation_preview.frame()<=1.0f ||
+         !ui.animation_error.empty())) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+            "animation playback smoke failed: %s",
+            ui.animation_error.empty() ? "frame did not advance" :
+            ui.animation_error.c_str());
+        return SDL_APP_FAILURE;
+    }
+    return result;
 }
 void SDL_AppQuit(void* appstate, SDL_AppResult) {
     if (appstate) {
+        ui.animation_preview.close();
         ui.model_preview.shutdown();
         ui.video_preview.shutdown();
         ui.still_preview.clear();

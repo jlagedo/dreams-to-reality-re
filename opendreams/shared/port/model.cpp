@@ -166,6 +166,7 @@ bool MDL_RelocNodeTree(const std::vector<uint8_t>& record,
         }
         ModelNode node;
         node.source_offset = source_offset;
+        node.name = fixed_text(record,off+0x14,12);
         for (size_t axis = 0; axis < 3; ++axis)
             node.local_xyz[axis] = i32(record, off + 0x30 + axis * 4u);
         for (size_t value = 0; value < 9; ++value)

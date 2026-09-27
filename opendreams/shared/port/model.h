@@ -26,6 +26,7 @@ struct ModelFace {
 
 struct ModelNode {
     uint32_t source_offset = 0;
+    std::string name;
     int parent = -1;
     int external_parent_handle = -1; // Retail handle 0 is the camera root.
     std::array<int32_t, 3> local_xyz{};

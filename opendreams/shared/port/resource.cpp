@@ -85,7 +85,14 @@ bool RES_ReadFile(DanArchive& archive, std::string_view logical_name,
         }
         return true;
     }
-    return fail(error, "DAN resource route supports .3DC and .3DM in this slice");
+    if (name.size() >= 4 && name.compare(name.size() - 4, 4, ".3DA") == 0) {
+        if (!DAN_Load3DA(archive,name,bytes,dan_error)) {
+            error=dan_error.message;
+            return false;
+        }
+        return true;
+    }
+    return fail(error, "DAN resource route supports .3DC, .3DM and .3DA");
 }
 
 bool MDL_BindFaceMaterials(ModelGraph& graph, std::string& error) {

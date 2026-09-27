@@ -138,11 +138,13 @@ bool ModelPreview::load(const port::ModelGraph& graph, std::string& error) {
         clear_model();
         return false;
     }
-    const float scale=1.8f/extent;
+    frame_scale_=1.8f/extent;
+    for (size_t axis=0; axis<3; ++axis)
+        frame_center_[axis]=(draw_.minimum[axis]+draw_.maximum[axis])*0.5f;
     for (auto& vertex : draw_.vertices)
         for (size_t axis=0; axis<3; ++axis)
-            vertex.position[axis] = (vertex.position[axis]-
-                (draw_.minimum[axis]+draw_.maximum[axis])*0.5f)*scale;
+            vertex.position[axis]=(vertex.position[axis]-frame_center_[axis])*
+                frame_scale_;
 
     sg_buffer_desc vertex_desc{};
     vertex_desc.data.ptr=draw_.vertices.data();
@@ -200,6 +202,54 @@ bool ModelPreview::load(const port::ModelGraph& graph, std::string& error) {
     return true;
 }
 
+bool ModelPreview::update_pose(const port::ModelGraph& graph, std::string& error) {
+    error.clear();
+    if (!has_model()) {
+        error="no model is loaded for animation";
+        return false;
+    }
+    port::GlideModelDraw next;
+    if (!port::GLIDE_DrawObjectFaces(graph,next,error)) return false;
+    if (next.vertices.size()!=draw_.vertices.size() ||
+        next.batches.size()!=draw_.batches.size()) {
+        error="animation changed the model's face layout";
+        return false;
+    }
+    for (size_t i=0; i<next.batches.size(); ++i) {
+        const auto& a=next.batches[i];
+        const auto& b=draw_.batches[i];
+        if (a.first!=b.first || a.count!=b.count ||
+            a.material!=b.material || a.palette_row!=b.palette_row ||
+            a.mode!=b.mode) {
+            error="animation changed a material draw batch";
+            return false;
+        }
+    }
+    for (auto& vertex : next.vertices)
+        for (size_t axis=0; axis<3; ++axis)
+            vertex.position[axis]=(vertex.position[axis]-frame_center_[axis])*
+                frame_scale_;
+    if (!dynamic_vertices_) {
+        sg_destroy_buffer(vertices_);
+        sg_buffer_desc desc{};
+        desc.size=next.vertices.size()*sizeof(port::GlideModelVertex);
+        desc.usage.dynamic_update=true;
+        desc.label="animated model triangles";
+        vertices_=sg_make_buffer(&desc);
+        if (sg_query_buffer_state(vertices_)!=SG_RESOURCESTATE_VALID) {
+            error="sokol could not allocate animated model vertices";
+            clear_model();
+            return false;
+        }
+        dynamic_vertices_=true;
+    }
+    sg_range range{next.vertices.data(),
+                   next.vertices.size()*sizeof(port::GlideModelVertex)};
+    sg_update_buffer(vertices_,&range);
+    draw_.vertices=std::move(next.vertices);
+    return true;
+}
+
 void ModelPreview::draw(const ModelView& view) const {
     if (!has_model()) return;
     sg_pass pass{};
@@ -244,6 +294,9 @@ void ModelPreview::clear_model() {
     if (vertices_.id) sg_destroy_buffer(vertices_);
     vertices_={};
     draw_={};
+    frame_scale_=1.0f;
+    frame_center_[0]=frame_center_[1]=frame_center_[2]=0.0f;
+    dynamic_vertices_=false;
 }
 
 void ModelPreview::shutdown() {

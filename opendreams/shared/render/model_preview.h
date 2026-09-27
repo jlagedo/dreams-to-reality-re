@@ -25,6 +25,7 @@ public:
     bool init(std::string& error);
     bool load(const port::PreviewActor& actor, std::string& error);
     bool load(const port::ModelGraph& graph, std::string& error);
+    bool update_pose(const port::ModelGraph& graph, std::string& error);
     void draw(const ModelView& view) const;
     void clear_model();
     void shutdown();
@@ -52,6 +53,9 @@ private:
     std::vector<GpuTexture> textures_;
     std::vector<size_t> batch_textures_;
     port::GlideModelDraw draw_;
+    float frame_scale_ = 1.0f;
+    float frame_center_[3]{};
+    bool dynamic_vertices_ = false;
 };
 
 } // namespace od

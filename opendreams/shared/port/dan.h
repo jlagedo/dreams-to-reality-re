@@ -89,6 +89,7 @@ private:
     friend bool DAN_Read3DC(DanArchive&, std::string_view, std::vector<uint8_t>&, DanError&);
     friend bool DAN_ReadTextureChunks(DanArchive&, DanError&);
     friend bool DAN_Load3DM(DanArchive&, std::string_view, std::vector<uint8_t>&, DanError&);
+    friend bool DAN_Load3DA(DanArchive&, size_t, std::vector<uint8_t>&, DanError&);
     friend size_t DAN_GetAnimCount(const DanArchive&);
     friend std::string_view DAN_GetAnimName(const DanArchive&, size_t);
     friend void DAN_CloseArchive(DanArchive&);
@@ -101,6 +102,10 @@ bool DAN_Read3DC(DanArchive& archive, std::string_view logical_name,
 bool DAN_ReadTextureChunks(DanArchive& archive, DanError& error);
 bool DAN_Load3DM(DanArchive& archive, std::string_view name,
                  std::vector<uint8_t>& bank, DanError& error);
+bool DAN_Load3DA(DanArchive& archive, size_t index,
+                 std::vector<uint8_t>& clip, DanError& error);
+bool DAN_Load3DA(DanArchive& archive, std::string_view name,
+                 std::vector<uint8_t>& clip, DanError& error);
 size_t DAN_GetAnimCount(const DanArchive& archive);
 std::string_view DAN_GetAnimName(const DanArchive& archive, size_t index);
 void DAN_CloseArchive(DanArchive& archive);

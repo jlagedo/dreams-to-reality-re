@@ -325,6 +325,42 @@ bool DAN_Load3DM(DanArchive& archive, std::string_view name,
                 "texture name is absent from the open DAN archive");
 }
 
+bool DAN_Load3DA(DanArchive& archive, size_t index,
+                 std::vector<uint8_t>& clip, DanError& error) {
+    error = {};
+    clip.clear();
+    if (!archive.open_ || !archive.animations_loaded_)
+        return fail(error,DanErrorCode::invalid_state,
+                    "DAN animation directory has not been loaded");
+    if (index>=archive.clips_.size() || index>=archive.chunks_.size())
+        return fail(error,DanErrorCode::missing_file,
+                    "DAN animation slot is outside its directory");
+    const auto& chunk=archive.chunks_[index];
+    if (chunk.work_offset>archive.work_.size() ||
+        chunk.payload_size>archive.work_.size()-chunk.work_offset)
+        return fail(error,DanErrorCode::invalid_chunk,
+                    "DAN animation chunk exceeds its work buffer");
+    std::string lz_error;
+    if (!LZ_Unpack(archive.work_.data()+chunk.work_offset,chunk.payload_size,
+                   clip,lz_error,16u*1024u*1024u))
+        return fail(error,DanErrorCode::invalid_chunk,
+                    "DAN animation decompression failed: "+lz_error);
+    return true;
+}
+
+bool DAN_Load3DA(DanArchive& archive, std::string_view name,
+                 std::vector<uint8_t>& clip, DanError& error) {
+    const std::string requested=upper_ascii(basename_stem(name));
+    for (size_t index=0; index<archive.clips().size(); ++index) {
+        const std::string stored=upper_ascii(basename_stem(archive.clips()[index].text));
+        if (stored.compare(0,8,requested,0,8)==0)
+            return DAN_Load3DA(archive,index,clip,error);
+    }
+    clip.clear();
+    return fail(error,DanErrorCode::missing_file,
+                "animation name is absent from the open DAN archive");
+}
+
 size_t DAN_GetAnimCount(const DanArchive& archive) {
     return archive.clips_.size();
 }

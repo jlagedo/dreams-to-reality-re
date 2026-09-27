@@ -89,6 +89,7 @@ add_library(ODShared STATIC
     shared/port/model.cpp
     shared/port/math.cpp
     shared/port/glide_model.cpp
+    shared/port/animation.cpp
     shared/port/resource.cpp
     shared/port/scene.cpp
     shared/port/ddat.cpp
@@ -106,6 +107,7 @@ add_library(ODShared STATIC
     shared/port/sound.cpp
     shared/audio/audio_output.cpp
     shared/audio/audio_preview.cpp
+    shared/animation/animation_preview.cpp
     shared/shell.cpp
     shared/render/background.cpp
     shared/render/glide_compat.cpp
@@ -191,6 +193,12 @@ if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
 endif()
 
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
+    add_executable(ODAnimationTests tests/animation_tests.cpp)
+    target_link_libraries(ODAnimationTests PRIVATE ODShared)
+    od_project_options(ODAnimationTests)
+    add_test(NAME ODAnimation COMMAND ODAnimationTests)
+    set_tests_properties(ODAnimation PROPERTIES LABELS "animation;corpus" TIMEOUT 180)
+
     add_executable(ODScenePreviewTests tests/scene_preview_tests.cpp)
     target_link_libraries(ODScenePreviewTests PRIVATE ODShared)
     od_project_options(ODScenePreviewTests)

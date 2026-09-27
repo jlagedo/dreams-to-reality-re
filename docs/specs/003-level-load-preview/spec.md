@@ -1,6 +1,6 @@
 # 003 — ODViewer asset previews and playback
 
-Status: **static model and scene/project, movie, static image, and audio/dialogue viewer slices implemented; animation and runtime renderer seam in progress**
+Status: **static model and scene/project, DAN animation, movie, static image, and audio/dialogue viewer slices implemented; runtime renderer seam in progress**
 
 Date: 2026-09-27
 
@@ -32,7 +32,7 @@ are validated in their own runtime milestones.
 | Viewer capability | Spec 003 result | Current state |
 |---|---|---|
 | DAN model and project-object preview | Load the selected archive/object through shared resource and scene paths; render its materials and face modes. | Static preview now composes node hierarchy and draws multiple materials with DAN types 2/3/-5; 178 of 191 physical DAN files load from the two discs. Type 9 is prepared but its only DAN has an unmatched material name. |
-| Model animation | Select and play the bound DAN animation clips on the preview rig at the recovered 30 Hz rate, with pause/step and the selected source retained. | DAN chunk readers exist; rig evaluation and visual playback remain. |
+| Model animation | Select and play the bound DAN animation clips on the preview rig at the recovered 30 Hz rate, with pause/step and the selected source retained. | ODViewer plays selected linear and spline clips with pause, step, restart, scrub, loop and root-motion controls. All 1,048 physical clips decode; 1,037 bind directly to node-directory slots. Eleven F03/ITO clips report track-count mismatches. Fixed-table precision, gameplay state selection and clip blending remain. |
 | Scene and level preview | Render selected `.DSN`/project geometry and placed assets with the common renderer and a viewer camera; keep source identity. | All 95 distinct DSNs render their 157,433 source faces with 2,059 source texture pages. All 150 project records load; 531 of 560 active placements load, including loose and DAN-backed `.3DC`. The remaining 29 DAN material failures and 54 unmatched scene material names are visible diagnostics. Viewer orbit/zoom/target controls work; dynamic palettes, fog and Runtime output remain. |
 | Sprites, fonts and static textures | Display indexed pixels, palette rows and transparency from shared decoded data. | Selected sprite slots, font glyphs, VGA sheets, standalone/DAN material banks and assembled DSN object textures render in ODViewer with a palette swatch and transparency control. Animated materials and exact dynamic sprite composition remain. |
 | Animated textures | Decode and show HNM4/HNS4 frame sequences; reuse the GPU material update path when a scene binds them. | Header classification exists; frame decode remains. |
@@ -273,10 +273,9 @@ observation.
    models, all physical DSNs and placed project objects. Finish lighting,
    transparency parity, dynamic materials and the Runtime destination seam.
    Preserve the CAI and Project 71 checks at every step.
-3. **Static and animated assets:** add sprite/font/static-texture display,
-   HNM4 frame decoding, DAN rig animation and the selected-source controls
-   those previews need. Share material/texture upload code with the model
-   and scene renderer.
+3. **Static and animated assets:** sprite/font/static-texture display and DAN
+   rig playback now use the selected-source viewer path. Add HNM4 frame decoding
+   and share animated material updates with the model and scene renderer.
 4. **HNM6 movie slice:** extend `VideoState` into a persistent session, port
    the `IX` decoder state and the five movie-reachable Glide contracts, then
    show `GENERIC.HNM` with silent 15 Hz playback, pause/step and source-safe
@@ -499,8 +498,7 @@ directory; ODViewer reports the exact missing name and does not substitute a
 texture. The 56-byte type-1 diagnostic blocks are validated but not submitted
 in this slice. The only DAN using type 9, `L14.DAN`, is among the 13 unmatched
 material cases, so its wrap mode has synthetic coverage but no disc GPU QA yet.
-Animation, exact lighting, fog, diagnostic faces and retail screenshot parity
-remain open.
+Exact lighting, fog, diagnostic faces and retail screenshot parity remain open.
 
 ### Static scenes and project placements — 2026-09-27
 
@@ -528,3 +526,32 @@ draws `E29USINE.DSN`, `MI0.DAN` and `CAI.DAN` together. Corpus and GPU startup
 checks cover E29USINE, rare deferred/keyed scene modes and Project 114's
 cross-disc object. Dynamic palette updates, scene fog, exact deferred/depth
 behavior, animated materials and screenshot parity remain open.
+
+### DAN rig animation — 2026-09-27
+
+The selected DAN model keeps its source-scoped archive open for clip selection.
+`DAN_Load3DA` and the `.3DA` branch of `RES_ReadFile` choose and decompress a
+tag-3 clip. The adapted `ANIM_RelocLinearTracks` and
+`ANIM_RelocSplineTracks` turn its original track/key pointers into bounded host
+records. The evaluator uses the original node-directory order, including
+zero-vertex connectors; it applies stored linear keys or spline controls and
+Hermite tangents through the ported `ANIM_EvalTrack*`, `ANIM_ApplyModel*`,
+`MATH_QuatToMatrix`, `MATH_QuatSlerp` and `ANIM_ApplyEase` cuts. Sokol updates
+only the vertex buffer after the first pose, retaining the source materials
+and a stable preview camera frame.
+
+ODViewer exposes clip selection, play/pause, one-frame step, restart, scrub,
+loop and in-place/follow-root display at the recovered 30 Hz base. All 191
+physical DAN archives yield 1,048 clips, 21,050 tracks, 197,102 rotation keys
+and 110,418 translation keys, exactly matching the independent Python decoder.
+The 1,037 clips whose track count matches the model directory evaluate at
+start, midpoint and end. Eleven clips in `F03.DAN` and `ITO.DAN` have extra
+tracks; the viewer reports those bindings instead of guessing a node mapping.
+Stored and interpolated XH_ spline poses and BA0 linear poses have focused
+Python comparisons; finite-frame GPU playback smokes cover both families.
+
+The existing 13 DAN archives with unmatched material names still cannot open
+the visual model preview, even though their animation clips parse. Viewer
+root-motion retargeting is an inspection policy. Runtime action selection,
+transition blending, fixed lookup-table quaternion precision, clip-specific
+one-shot behavior, physics consumption and screenshot parity remain open.
