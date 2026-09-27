@@ -77,6 +77,7 @@ add_library(ODShared STATIC
     shared/disc/image.cpp
     shared/port/file_roots.cpp
     shared/port/vfs.cpp
+    shared/port/ddat.cpp
     shared/shell.cpp
     shared/render/background.cpp
     shared/render/sokol_impl.cpp
@@ -119,6 +120,14 @@ foreach(app IN ITEMS ODViewer ODRuntime)
 endforeach()
 
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
+    add_executable(ODDdatTests tests/ddat_tests.cpp)
+    target_link_libraries(ODDdatTests PRIVATE ODShared)
+    od_project_options(ODDdatTests)
+    add_test(NAME ODDdatFixtures COMMAND ODDdatTests)
+    add_test(NAME ODDdatCorpus COMMAND ODDdatTests --corpus)
+    set_tests_properties(ODDdatFixtures PROPERTIES LABELS ddat TIMEOUT 30)
+    set_tests_properties(ODDdatCorpus PROPERTIES LABELS "ddat;corpus" SKIP_RETURN_CODE 77 TIMEOUT 120)
+
     add_executable(ODPortFileRootsTests tests/port_file_roots_tests.cpp)
     target_link_libraries(ODPortFileRootsTests PRIVATE ODShared)
     od_project_options(ODPortFileRootsTests)

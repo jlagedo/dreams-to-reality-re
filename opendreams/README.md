@@ -126,6 +126,14 @@ is read-only, validates archive extents and reports recoverable errors.
 `ghidra_scripts/ApplyPortMap.java` generates Function Tags and implementation
 location plate comments in Ghidra.
 
+`shared/port/ddat.cpp` now ports `DDAT_Load`, `DDAT_LoadRecord`,
+`DDAT_InitEmptyRecords` and `RLE_UnpackZeros`. The bank reads `DREAMS.DAT`
+through the selected VFS source. `DDAT_LoadRecord` returns one reusable
+`0x2200` working buffer and retains the game's previous-name fallback;
+catalog callers can check `has_record` before requesting a name. The corpus
+test checks all 150 records from each original image against aggregate CRCs
+from the independent Python decoder.
+
 ## Shared disc access (spec 002 foundation)
 
 `shared/disc/image.h` is the portable source boundary for both applications and

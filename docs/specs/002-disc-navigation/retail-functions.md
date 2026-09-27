@@ -1,8 +1,9 @@
 # 002 — initial retail-function port map
 
 Status: **planning map, not an implementation record**. The file-root getters,
-VFS file calls and BF archive/member path have been adapted in `opendreams/`;
-the other asset paths below remain to be ported. Record completed functions in
+VFS/BF path and DDAT/RLE project-record path have been adapted in
+`opendreams/`; the other asset paths below remain to be ported. Record
+completed functions in
 `port-map.tsv` under the policy in
 [`PORT_MAP.md`](../../../opendreams/PORT_MAP.md) only when code is implemented.
 
