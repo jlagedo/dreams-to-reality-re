@@ -78,6 +78,8 @@ add_library(ODShared STATIC
     shared/port/file_roots.cpp
     shared/port/vfs.cpp
     shared/port/ddat.cpp
+    shared/port/stream.cpp
+    shared/port/dsn.cpp
     shared/shell.cpp
     shared/render/background.cpp
     shared/render/sokol_impl.cpp

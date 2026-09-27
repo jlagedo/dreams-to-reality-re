@@ -1,5 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "disc/image.h"
+#include "port/dsn.h"
+#include "port/stream.h"
 #include "port/vfs.h"
 #include <lib9660.h>
 
@@ -49,6 +51,11 @@ void dual32(uint8_t* out, uint32_t value) {
     }
 }
 
+void little32(uint8_t* out, uint32_t value) {
+    for (unsigned i = 0; i < 4; ++i)
+        out[i] = static_cast<uint8_t>(value >> (i * 8));
+}
+
 size_t record(uint8_t* sector, size_t at, uint32_t extent, uint32_t size,
               uint8_t flags, const std::string& identifier) {
     const size_t length = 33 + identifier.size() + (identifier.size() % 2 == 0 ? 1 : 0);
@@ -74,6 +81,7 @@ struct Options {
     bool invalid_audio = false;
     bool unicode_data_name = false;
     bool bf_archives = false;
+    bool dsn_header = false;
 };
 
 struct Fixture {
@@ -128,8 +136,9 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
     pos = record(root, pos, 27, 2048, 2, "EMPTY");
     if (options.bf_archives) {
         pos = record(root, pos, 29, 598, 0, "ONE.BF;1");
-        record(root, pos, 30, 598, 0, "TWO.BF;1");
+        pos = record(root, pos, 30, 598, 0, "TWO.BF;1");
     }
+    if (options.dsn_header) record(root, pos, 31, 128, 0, "TEST.DSN;1");
     auto* root_second = iso.data() + 21 * 2048;
     pos = record(root_second, 0, 26, 4, 0, "EXTRA.TXT;1");
     if (options.duplicate_name)
@@ -172,6 +181,20 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
         };
         write_bf(29, "first", "second", "TWO.TXT");
         write_bf(30, "new!!", "third!", "THREE.TXT");
+    }
+    if (options.dsn_header) {
+        auto* dsn = iso.data() + 31 * 2048;
+        std::memcpy(dsn, "DSNF", 4);
+        little32(dsn + 5, 128);
+        little32(dsn + 10, 69); // 31 * 2 names + 7.
+        little16(dsn + 14, 2);
+        std::memcpy(dsn + 16, "ROOM_A", 6);
+        std::memcpy(dsn + 27, "ROOM_B", 6);
+        for (uint32_t word = 0; word < 5; ++word) {
+            little32(dsn + 38 + word * 4, word + 1);
+            little32(dsn + 58 + word * 4, word + 10);
+        }
+        dsn[78] = 1; // First packed-body tag after the two header tables.
     }
 
     const std::string data_name = options.unicode_data_name ? u8"Träck 01.bin" :
@@ -395,6 +418,91 @@ bool test_vfs_and_bf(const fs::path& base) {
     return true;
 }
 
+bool test_stream_and_dsn(const fs::path& base) {
+    Options options;
+    options.dsn_header = true;
+    const auto fixture = make_fixture(base / "stream-dsn", options);
+    Error disc_error;
+    auto opened = Image::open(fixture.cue, disc_error);
+    CHECK(opened != nullptr);
+    std::shared_ptr<const Image> image(std::move(opened));
+    od::port::VfsContext vfs(image);
+    od::port::StreamError stream_error;
+    auto stream = od::port::STRM_Create(vfs, 64, 64, 32, stream_error);
+    CHECK(stream != nullptr && stream->ring_size() == 64);
+    CHECK(od::port::STRM_Open(*stream, "DREAMS.DAT", stream_error));
+    CHECK(od::port::STRM_Fill(*stream, stream_error));
+    CHECK(stream->available() == 32);
+    const uint8_t* bytes = nullptr;
+    CHECK(!od::port::STRM_Peek(*stream, 33, bytes, stream_error));
+    CHECK(stream_error.code == od::port::StreamErrorCode::invalid_peek);
+    CHECK(od::port::STRM_Peek(*stream, 10, bytes, stream_error));
+    for (size_t i = 0; i < 10; ++i) CHECK(bytes[i] == i % 251);
+    CHECK(od::port::STRM_Commit(*stream, stream_error));
+    CHECK(od::port::STRM_Fill(*stream, stream_error));
+    CHECK(od::port::STRM_Peek(*stream, 50, bytes, stream_error));
+    for (size_t i = 0; i < 50; ++i) CHECK(bytes[i] == (i + 10) % 251);
+    CHECK(od::port::STRM_Commit(*stream, stream_error));
+    CHECK(od::port::STRM_Fill(*stream, stream_error));
+    CHECK(od::port::STRM_Peek(*stream, 8, bytes, stream_error));
+    for (size_t i = 0; i < 8; ++i) CHECK(bytes[i] == (i + 60) % 251);
+    CHECK(od::port::STRM_Commit(*stream, stream_error));
+    CHECK(od::port::STRM_Close(*stream, stream_error));
+    od::port::STRM_Free(stream);
+    CHECK(stream == nullptr);
+
+    stream = od::port::STRM_Create(vfs, 0x57800, 0x57800, 0x8000, stream_error);
+    CHECK(stream != nullptr && stream->ring_size() == 0x58000);
+    od::port::DsnState state;
+    CHECK(od::port::DSN_InitState(state, *stream));
+    od::port::DsnError dsn_error;
+    CHECK(od::port::DSN_LoadHeader(state, "TEST.DSN", dsn_error));
+    CHECK(state.loaded() && state.declared_size() == 128 && state.span() == 69);
+    CHECK(state.name_count() == 2 && state.body_offset() == 78);
+    CHECK(state.objects().size() == 2);
+    CHECK(state.objects()[0].name == "ROOM_A" && state.objects()[0].words[4] == 5);
+    CHECK(state.objects()[1].name == "ROOM_B" && state.objects()[1].words[0] == 10);
+    CHECK(od::port::STRM_Peek(*stream, 1, bytes, stream_error));
+    CHECK(bytes[0] == 1); // The port leaves the stream at the first body tag.
+    CHECK(od::port::STRM_Commit(*stream, stream_error));
+    od::port::DSN_ResetState(state);
+    CHECK(!state.loaded() && state.stream() == stream.get() && state.objects().empty());
+    od::port::STRM_Free(stream);
+
+    const auto bad = make_fixture(base / "bad-dsn", options);
+    {
+        std::fstream raw(bad.data, std::ios::binary | std::ios::in | std::ios::out);
+        raw.seekp(31 * 2352 + 16);
+        raw.write("NOPE", 4);
+    }
+    auto bad_image = Image::open(bad.cue, disc_error);
+    CHECK(bad_image != nullptr);
+    od::port::VfsContext invalid(std::shared_ptr<const Image>(std::move(bad_image)));
+    stream = od::port::STRM_Create(invalid, 0x57800, 0x57800, 0x8000, stream_error);
+    CHECK(stream != nullptr && od::port::DSN_InitState(state, *stream));
+    CHECK(!od::port::DSN_LoadHeader(state, "TEST.DSN", dsn_error));
+    CHECK(dsn_error.code == od::port::DsnErrorCode::invalid_header);
+    CHECK(!state.loaded());
+    od::port::STRM_Free(stream);
+
+    const auto bad_count = make_fixture(base / "bad-dsn-count", options);
+    {
+        std::fstream raw(bad_count.data, std::ios::binary | std::ios::in | std::ios::out);
+        raw.seekp(31 * 2352 + 16 + 14);
+        raw.put(33);
+    }
+    bad_image = Image::open(bad_count.cue, disc_error);
+    CHECK(bad_image != nullptr);
+    od::port::VfsContext invalid_count(std::shared_ptr<const Image>(std::move(bad_image)));
+    stream = od::port::STRM_Create(invalid_count, 0x57800, 0x57800, 0x8000,
+                                    stream_error);
+    CHECK(stream != nullptr && od::port::DSN_InitState(state, *stream));
+    CHECK(!od::port::DSN_LoadHeader(state, "TEST.DSN", dsn_error));
+    CHECK(dsn_error.code == od::port::DsnErrorCode::invalid_header);
+    od::port::STRM_Free(stream);
+    return true;
+}
+
 bool test_markers_and_offsets(const fs::path& base) {
     Error error;
     Options options;
@@ -512,6 +620,22 @@ bool compare_reference(const Image& image, const fs::path& root, const char* pat
     return true;
 }
 
+uint32_t crc32_update(uint32_t value, const void* data, size_t size) {
+    const auto* bytes = static_cast<const uint8_t*>(data);
+    for (size_t i = 0; i < size; ++i) {
+        value ^= bytes[i];
+        for (unsigned bit = 0; bit < 8; ++bit)
+            value = (value >> 1) ^ ((value & 1) ? 0xedb88320u : 0u);
+    }
+    return value;
+}
+
+std::string uppercase_path(std::string path) {
+    for (char& c : path)
+        if (c >= 'a' && c <= 'z') c = static_cast<char>(c - 'a' + 'A');
+    return path;
+}
+
 int corpus() {
     const char* one = std::getenv("DREAMS_CUE1");
     const char* two = std::getenv("DREAMS_CUE2");
@@ -608,9 +732,64 @@ int corpus() {
             }
             if (!od::port::VFS_Close(vfs, handle, vfs_error)) return 1;
         }
+        std::vector<const od::disc::Entry*> scenes;
+        for (const auto& entry : source->entries()) {
+            const std::string path = uppercase_path(entry.path);
+            if (entry.kind == EntryKind::file && path.size() >= 4 &&
+                path.substr(path.size() - 4) == ".DSN") scenes.push_back(&entry);
+        }
+        std::sort(scenes.begin(), scenes.end(), [](const auto* a, const auto* b) {
+            return uppercase_path(a->path) < uppercase_path(b->path);
+        });
+        const size_t expected_scene_count = i == 0 ? 52 : 46;
+        const size_t expected_object_count = i == 0 ? 1171 : 974;
+        const uint32_t expected_scene_crc = i == 0 ? 0x09a8c16du : 0x071183a4u;
+        if (scenes.size() != expected_scene_count) return 1;
+        od::port::StreamError stream_error;
+        auto stream = od::port::STRM_Create(vfs, 0x57800, 0x57800, 0x8000,
+                                             stream_error);
+        if (!stream) return 1;
+        od::port::DsnState dsn;
+        od::port::DSN_InitState(dsn, *stream);
+        od::port::DsnError dsn_error;
+        uint32_t scene_crc = 0xffffffffu;
+        size_t object_count = 0;
+        for (const auto* entry : scenes) {
+            if (!od::port::DSN_LoadHeader(dsn, entry->path, dsn_error) ||
+                !dsn.loaded() || dsn.declared_size() != entry->byte_size ||
+                dsn.body_offset() != 16 + 31 * static_cast<size_t>(dsn.name_count()) ||
+                dsn.objects().size() != dsn.name_count()) {
+                std::cerr << "Disc " << i + 1 << " DSN " << entry->path << ": "
+                          << dsn_error.message << "\n";
+                return 1;
+            }
+            object_count += dsn.name_count();
+            const std::string path = uppercase_path(entry->path);
+            scene_crc = crc32_update(scene_crc, path.data(), path.size());
+            const uint8_t zero = 0;
+            scene_crc = crc32_update(scene_crc, &zero, 1);
+            std::array<uint8_t, 10> fields{};
+            little32(fields.data(), dsn.declared_size());
+            little32(fields.data() + 4, dsn.span());
+            little16(fields.data() + 8, dsn.name_count());
+            scene_crc = crc32_update(scene_crc, fields.data(), fields.size());
+            for (const auto& object : dsn.objects())
+                scene_crc = crc32_update(scene_crc, object.raw_name.data(),
+                                         object.raw_name.size());
+            for (const auto& object : dsn.objects())
+                scene_crc = crc32_update(scene_crc, object.raw_record.data(),
+                                         object.raw_record.size());
+        }
+        scene_crc ^= 0xffffffffu;
+        if (object_count != expected_object_count || scene_crc != expected_scene_crc) {
+            std::cerr << "Disc " << i + 1 << " DSN headers differ from Python oracle\n";
+            return 1;
+        }
+        od::port::STRM_Free(stream);
         std::cout << "Disc " << i + 1 << ": " << source->file_count() << " files, "
                   << source->directory_count() << " directories, "
-                  << source->tracks().size() << " tracks\n";
+                  << source->tracks().size() << " tracks, "
+                  << scenes.size() << " DSN headers\n";
         images[i] = std::move(source);
     }
     Error error;
@@ -636,7 +815,8 @@ int main(int argc, char** argv) {
     fs::create_directories(base);
     const bool mount_okay = test_mount_and_read(base);
     const bool vfs_okay = mount_okay && test_vfs_and_bf(base);
-    const bool markers_okay = vfs_okay && test_markers_and_offsets(base);
+    const bool stream_okay = vfs_okay && test_stream_and_dsn(base);
+    const bool markers_okay = stream_okay && test_markers_and_offsets(base);
     const bool okay = markers_okay && test_failures(base);
     std::error_code ignored;
     fs::remove_all(base, ignored);
