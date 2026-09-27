@@ -391,6 +391,11 @@ does not wrap them to a box width. No dark backing rectangle or second shadow
 pass is drawn on this path. The only separate UI sprite here is the `joy_swi`
 prompt at `((W-40)/sx,165/sy)`; it is not a subtitle scrim.
 
+The Dutch, Spanish and Turkish binaries change one immediate in this path:
+`SUB EDX, 0x69` becomes `SUB EDX, 0x7d` before a scaled
+`TEXT_PrintFaded` coordinate. The same change appears in Windows, DOS and
+Glide builds; see [binary-edition-comparison.md](binary-edition-comparison.md).
+
 The runtime trace proves the timed text presentation path and portrait role.
 `TITRES.SPR` remains absent from the five-bank loader and has no runtime
 references found outside extraction; the saved title images are unused by the

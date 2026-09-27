@@ -91,8 +91,11 @@ and the game binaries would then match neither.
   `Rational Systems, Inc. 1990-1994` copyright. **[verified]**
 - `WINDREAM.EXE` resources carry the `eGW4` marker of Watcom's resource
   compiler. **[verified]**
-- The game binaries contain **no debug information** — no object names, no
-  source paths beyond `X:\CRYO\DREAMS\`. **[verified]**
+- The configured English game binaries have zero PE/LE debug-directory fields,
+  no object names and no source paths beyond `X:\CRYO\DREAMS\`.
+  Dutch and Spanish Windows builds retain OMF object records with original
+  renderer names and source paths; see
+  [localized-build-symbols.md](localized-build-symbols.md). **[verified]**
 
 ## Reference material on disk
 

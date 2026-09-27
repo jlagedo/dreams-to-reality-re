@@ -17,6 +17,9 @@ docs do.
 | [re-setup.md](re-setup.md) | **Ghidra setup**, repo layout for RE, suggested order of attack; LE loader for the DOS builds, Glide typing, cross-build function matcher; **function naming**: registry, checked facts, doc comments in Ghidra |
 | [engine.md](engine.md) | Engine architecture, toolchain, the four binaries, subsystem layout; renderer backends, **Glide ↔ DirectDraw/GDI map**, input and joystick paths |
 | [toolchain.md](toolchain.md) | **Watcom C/C++ 10.6** pinned down; reference material; ~290 runtime symbols recovered per DOS binary |
+| [localized-build-symbols.md](localized-build-symbols.md) | **Dutch and Spanish OMF symbol residue**: original renderer names, source paths and four missed English function entries |
+| [edition-comparison.md](edition-comparison.md) | **Four retail editions**: project-bank revisions, shared visuals versus dubbed movie audio, extra voice/font assets and isolated byte anomalies |
+| [binary-edition-comparison.md](binary-edition-comparison.md) | **Game executable differences across editions**: PE/LE sizes and layouts, imports, function matching and decompilation implications |
 | [cryolib.md](cryolib.md) | `CRYO.DLL` = CryoLib: 165 exports incl. a working **HNM6 decoder** |
 | [game-content.md](game-content.md) | 150 levels, 30 inventory items, save system, from `DREAMS.INI` |
 | [boot-sequence.md](boot-sequence.md) | **Boot flow decompiled** — intro → generic → menu → new game → head video → first map, with videos and menus named |

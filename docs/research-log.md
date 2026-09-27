@@ -143,6 +143,11 @@ CryoLib's names can reach the game, through `tools/match_identical.py`. Only
 `HNM6_Init_All_15` and `HNM6_Init_All_16` are real CryoLib names; the other
 names describe what the code does.
 
+Later examination of Dutch and Spanish retail builds found embedded Watcom
+OMF records with original renderer names and a source path. The statement
+above describes the configured English build; see
+[localized-build-symbols.md](localized-build-symbols.md).
+
 ### `CARRE.3DC` was never broken — *carre* means square
 
 The open questions asked why `CARRE` "fails to decode as a box". It decodes as

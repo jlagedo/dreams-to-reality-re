@@ -421,6 +421,13 @@ Only the Windows builds read a joystick; the DOS builds have no joystick code
    centre, POV, buttons) posts event `0x39`; `JOY_Poll` (`0x440d3d`) (X/Y minus centre,
    buttons, no POV) posts event `0x3a`. Both only on change.
 
+   Later Dutch, Spanish and Turkish Windows builds also call `JOY_Poll`
+   directly from **input mode 1** in `INPUT_UpdateActions`, mapping button
+   bits to Space and Esc action words. The configured English build reads
+   cached keyboard Space/Esc bytes in that mode. The `J` hotkey selects mode
+   3, and no retail setter of mode 1 has been found. See
+   [binary-edition-comparison.md](binary-edition-comparison.md).
+
 So `J` drives the `0x3a` path: X/Y plus buttons, no hat. No call site with a
 literal command 7 was found, so what enables the `0x39`/POV path is open, as
 is the consumer that turns event `0x3a` into player movement.
