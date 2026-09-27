@@ -111,7 +111,9 @@ bool GLIDE_DrawObjectFaces(const ModelGraph& graph, GlideModelDraw& draw,
         prepared.material = face.material_index;
         prepared.mode = mode;
         const auto& owner = graph.nodes[face.owner_node];
-        const uint32_t requested_row = mode == GlideFaceMode::translucent ? 15u :
+        const uint32_t requested_row =
+            graph.materials[face.material_index].static_palette_row15 ? 15u :
+            mode == GlideFaceMode::translucent ? 15u :
             std::min(owner.light_count ? static_cast<uint32_t>(face.shade) :
                      owner.shade,31u);
         // The retail P8 palette cache is keyed by page pointer, not shade row.
@@ -169,16 +171,17 @@ bool GLIDE_ConvertPalette(const std::vector<uint8_t>& bank, unsigned row,
     return true;
 }
 
-bool model_texture_lod(const std::vector<uint8_t>& bank, unsigned row,
-                       std::vector<uint8_t>& rgba, std::string& error) {
+bool texture_page(const std::vector<uint8_t>& bank, unsigned row, unsigned size,
+                  std::vector<uint8_t>& rgba, std::string& error) {
     rgba.clear();
     std::array<uint8_t,1024> palette{};
     if (!GLIDE_ConvertPalette(bank,row,palette,error)) return false;
-    rgba.resize(128u*128u*4u);
-    for (size_t y=0; y<128; ++y)
-        for (size_t x=0; x<128; ++x) {
-            const uint8_t index=bank[0x8014u+(y*2u)*256u+x*2u];
-            const size_t at=(y*128u+x)*4u;
+    const size_t step=256u/size;
+    rgba.resize(static_cast<size_t>(size)*size*4u);
+    for (size_t y=0; y<size; ++y)
+        for (size_t x=0; x<size; ++x) {
+            const uint8_t index=bank[0x8014u+(y*step)*256u+x*step];
+            const size_t at=(y*size+x)*4u;
             std::copy_n(palette.data()+static_cast<size_t>(index)*4u,3,
                         rgba.data()+at);
             const size_t color=static_cast<size_t>(index)*4u;
@@ -187,6 +190,16 @@ bool model_texture_lod(const std::vector<uint8_t>& bank, unsigned row,
                         palette[color+2]==palette[2]) ? 0 : 255;
         }
     return true;
+}
+
+bool model_texture_lod(const std::vector<uint8_t>& bank, unsigned row,
+                       std::vector<uint8_t>& rgba, std::string& error) {
+    return texture_page(bank,row,128,rgba,error);
+}
+
+bool scene_texture_page(const std::vector<uint8_t>& bank, unsigned row,
+                        std::vector<uint8_t>& rgba, std::string& error) {
+    return texture_page(bank,row,256,rgba,error);
 }
 
 } // namespace od::port

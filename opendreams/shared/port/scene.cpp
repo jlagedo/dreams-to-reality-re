@@ -54,10 +54,29 @@ void write_cell(uint8_t* destination, size_t capacity, std::string_view text) {
     destination[length] = 0;
 }
 
+void append_actor_graph(ModelGraph& scene, const PreviewActor& actor) {
+    const size_t node_base=scene.nodes.size();
+    const size_t material_base=scene.materials.size();
+    for (auto node : actor.model.nodes) {
+        if (node.parent>=0) node.parent+=static_cast<int>(node_base);
+        scene.nodes.push_back(std::move(node));
+    }
+    scene.materials.insert(scene.materials.end(),actor.model.materials.begin(),
+                           actor.model.materials.end());
+    for (auto face : actor.model.faces) {
+        face.owner_node+=node_base;
+        face.material_index+=material_base;
+        for (auto& corner : face.corners) corner.node+=node_base;
+        scene.faces.push_back(std::move(face));
+    }
+}
+
 } // namespace
 
-PreviewLevelContext::PreviewLevelContext(std::shared_ptr<const disc::Image> image)
-    : vfs_(std::move(image)) {}
+PreviewLevelContext::PreviewLevelContext(std::shared_ptr<const disc::Image> image,
+                                        std::shared_ptr<const disc::Image> secondary)
+    : vfs_(std::move(image)), secondary_vfs_(secondary ?
+        std::make_unique<VfsContext>(std::move(secondary)) : nullptr) {}
 
 bool PreviewLevelContext::select_project(std::string_view name,
                                          size_t object_slot, std::string& error) {
@@ -65,8 +84,12 @@ bool PreviewLevelContext::select_project(std::string_view name,
     loaded_ = false;
     pending_load_ = false;
     level_ = {};
+    render_ = {};
     actor_ = {};
+    actors_.clear(); issues_.clear(); missing_materials_.clear();
     synthetic_scene_ = false;
+    project_scene_ = false;
+    scene_source_path_.clear();
     model_source_path_.clear();
     selected_model_name_.clear();
     if (object_slot == 0 || object_slot >= 16)
@@ -90,6 +113,37 @@ bool PreviewLevelContext::select_project(std::string_view name,
     return true;
 }
 
+bool PreviewLevelContext::select_project_scene(std::string_view name,
+                                               std::string& error) {
+    if (!select_project(name,1,error)) return false;
+    selected_slot_=SIZE_MAX;
+    project_scene_=true;
+    return true;
+}
+
+bool PreviewLevelContext::select_scene(std::string_view physical_path,
+                                       std::string& error) {
+    error.clear();
+    loaded_=false;
+    pending_load_=false;
+    level_={}; render_={}; actor_={};
+    actors_.clear(); issues_.clear(); missing_materials_.clear();
+    project_record_.fill(0);
+    model_source_path_.clear();
+    selected_model_name_.clear();
+    const std::string path=upper_ascii(physical_path);
+    if (path.compare(0,9,"DATA/3DC/")!=0 ||
+        path.size()<14 || path.substr(path.size()-4)!=".DSN")
+        return fail(error,"select a physical DATA/3DC/*.DSN scene");
+    scene_source_path_=std::string(physical_path);
+    project_name_=stem(basename(path));
+    selected_slot_=SIZE_MAX;
+    synthetic_scene_=false;
+    project_scene_=false;
+    pending_load_=true;
+    return true;
+}
+
 bool PreviewLevelContext::select_model(std::string_view physical_path,
                                        std::string_view model_name,
                                        std::string& error) {
@@ -97,7 +151,9 @@ bool PreviewLevelContext::select_model(std::string_view physical_path,
     loaded_ = false;
     pending_load_ = false;
     level_ = {};
+    render_ = {};
     actor_ = {};
+    actors_.clear(); issues_.clear(); missing_materials_.clear();
     project_record_.fill(0);
     const std::string path = upper_ascii(physical_path);
     const std::string asset = basename(path);
@@ -116,8 +172,10 @@ bool PreviewLevelContext::select_model(std::string_view physical_path,
     project_name_ = "Preview";
     model_source_path_ = std::string(physical_path);
     selected_model_name_ = std::string(model_name);
+    scene_source_path_.clear();
     selected_slot_ = 1;
     synthetic_scene_ = true;
+    project_scene_ = false;
     pending_load_ = true;
     return true;
 }
@@ -131,12 +189,16 @@ bool SCENE_InitLevel(PreviewLevelContext& context, std::string& error) {
         context.level_.nodes.push_back(std::move(root));
         return true;
     }
-    const uint8_t* scene_slot = context.project_record_.data() + 0x600;
-    if (std::memcmp(scene_slot, "OBJET0", 6) != 0)
-        return fail(error, "project OBJET0 is not a scene slot");
-    const std::string name = cell(scene_slot + 0xc, 16);
-    if (name.size() < 5 || name.substr(name.size() - 4) != ".DSN")
-        return fail(error, "project OBJET0 does not name a DSN scene");
+    std::string path=context.scene_source_path_;
+    if (path.empty()) {
+        const uint8_t* scene_slot = context.project_record_.data() + 0x600;
+        if (std::memcmp(scene_slot, "OBJET0", 6) != 0)
+            return fail(error, "project OBJET0 is not a scene slot");
+        const std::string name = cell(scene_slot + 0xc, 16);
+        if (name.size() < 5 || name.substr(name.size() - 4) != ".DSN")
+            return fail(error, "project OBJET0 does not name a DSN scene");
+        path="DATA/3DC/"+name;
+    }
     StreamError stream_error;
     auto stream = STRM_Create(context.vfs_, 0x57800, 0x57800, 0x8000, stream_error);
     if (!stream) {
@@ -147,14 +209,17 @@ bool SCENE_InitLevel(PreviewLevelContext& context, std::string& error) {
     DSN_InitState(dsn, *stream);
     DsnError dsn_error;
     std::vector<uint8_t> geometry, collision;
-    if (!DSN_LoadHeader(dsn, "DATA/3DC/" + name, dsn_error) ||
+    std::vector<DsnTexturePage> pages;
+    if (!DSN_LoadHeader(dsn, path, dsn_error) ||
         !DSN_LoadMaterialsAndFaces(dsn, geometry, dsn_error) ||
-        !DSN_LoadVertexPool(dsn, collision, dsn_error)) {
+        !DSN_LoadVertexPool(dsn, collision, dsn_error) ||
+        !DSN_LoadTextures(dsn,pages,dsn_error)) {
         error = dsn_error.message;
         STRM_Free(stream);
         return false;
     }
-    const bool relocated = RES_Relocate(geometry, context.level_, error);
+    const bool relocated = RES_Relocate(geometry, context.level_, error) &&
+        MDL_LoadSceneMaterials(pages,context.level_,context.missing_materials_,error);
     STRM_Free(stream);
     return relocated;
 }
@@ -163,12 +228,39 @@ bool ENT_LoadModel(PreviewLevelContext& context, PreviewActor& actor,
                    std::string& error) {
     error.clear();
     const std::string name = actor.asset_name;
-    if (name.size() < 5 || name.substr(name.size() - 4) != ".DAN")
-        return fail(error, "this preview slice loads DAN object models");
-    DanArchive archive(context.vfs_);
-    DanError dan_error;
+    if (name.size() < 5)
+        return fail(error,"project object has no supported model resource");
+    const bool dan=name.substr(name.size()-4)==".DAN";
+    const bool raw=name.substr(name.size()-4)==".3DC";
+    if (!dan && !raw)
+        return fail(error,"project object does not reference DAN or 3DC geometry");
+    const auto source_for=[&](const std::string& path) -> VfsContext* {
+        disc::FileId file;
+        disc::Error source;
+        if (context.vfs_.image()->find(path,file,source)) return &context.vfs_;
+        if (context.secondary_vfs_ &&
+            context.secondary_vfs_->image()->find(path,file,source)) {
+            actor.from_secondary_source=true;
+            return context.secondary_vfs_.get();
+        }
+        return nullptr;
+    };
+    if (raw) {
+        const std::string path="DATA/3DC/"+name;
+        if (VfsContext* physical=source_for(path)) {
+            if (!RES_Load(*physical,path,actor.model,error)) return false;
+            return MDL_AttachNode(actor,error);
+        }
+    }
     const std::string path = context.model_source_path_.empty()
-        ? "DATA/3DC/" + name : context.model_source_path_;
+        ? "DATA/3DC/" + stem(name) + ".DAN" : context.model_source_path_;
+    VfsContext* asset_source=source_for(path);
+    if (!asset_source)
+        return fail(error,context.secondary_vfs_ ?
+            "project model is absent from both mounted sources" :
+            "project model is absent from the selected source");
+    DanArchive archive(*asset_source);
+    DanError dan_error;
     if (!DAN_OpenArchive(archive, path, dan_error)) {
         error = dan_error.message;
         return false;
@@ -180,7 +272,7 @@ bool ENT_LoadModel(PreviewLevelContext& context, PreviewActor& actor,
         if (found == archive.names().end())
             return fail(error, "selected model name is absent from its DAN archive");
     }
-    if (!RES_Load(archive, stem(name) + ".3DC", actor.model, error)) return false;
+    if (!RES_Load(archive,stem(name)+".3DC",actor.model,error)) return false;
     if (!MDL_AttachNode(actor, error)) return false;
     if (!DAN_ReadAnimChunks(archive, dan_error)) {
         error = dan_error.message;
@@ -272,8 +364,36 @@ bool SCENE_LoadLevel(PreviewLevelContext& context, std::string& error) {
     if (!context.pending_load_)
         return fail(error, "no project is pending level load");
     context.loaded_ = false;
-    if (!SCENE_InitLevel(context, error) ||
-        !ENT_InstantiateFromObjet(context, context.selected_slot_, error) ||
+    if (!SCENE_InitLevel(context, error)) return false;
+    if (context.project_scene_) {
+        context.render_=context.level_;
+        context.actors_.clear();
+        context.issues_.clear();
+        for (size_t slot=1; slot<16; ++slot) {
+            const uint8_t* record=context.project_record_.data()+0x600+slot*0xc0;
+            if (std::memcmp(record,"OBJET",5)!=0 || !(record[0x34]&1u) ||
+                (record[0x35]&1u)) continue;
+            const std::string asset=cell(record+0xc,16);
+            std::string object_error;
+            if (!ENT_InstantiateFromObjet(context,slot,object_error) ||
+                !ENT_ResetToSpawn(context,context.actor_,object_error)) {
+                context.issues_.push_back({slot,asset,object_error});
+                continue;
+            }
+            append_actor_graph(context.render_,context.actor_);
+            context.actors_.push_back(std::move(context.actor_));
+        }
+        context.pending_load_=false;
+        context.loaded_=true;
+        return true;
+    }
+    if (context.selected_slot_==SIZE_MAX) {
+        context.render_=context.level_;
+        context.pending_load_=false;
+        context.loaded_=true;
+        return true;
+    }
+    if (!ENT_InstantiateFromObjet(context, context.selected_slot_, error) ||
         !ENT_ResetToSpawn(context, context.actor_, error)) return false;
     context.pending_load_ = false;
     context.loaded_ = true;

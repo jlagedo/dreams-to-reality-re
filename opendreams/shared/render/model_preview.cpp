@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -12,18 +13,23 @@ namespace {
 
 constexpr int target_size = 512;
 
-void preview_matrix(float (&matrix)[16]) {
-    constexpr float yaw_c = 0.70710678f, yaw_s = 0.70710678f;
-    constexpr float pitch_c = 0.93969262f, pitch_s = 0.34202014f;
+void preview_matrix(const ModelView& view, float (&matrix)[16]) {
+    const float yaw_c=std::cos(view.yaw), yaw_s=std::sin(view.yaw);
+    const float pitch_c=std::cos(view.pitch), pitch_s=std::sin(view.pitch);
     constexpr float focal = 2.2f, near_plane = 0.1f, far_plane = 100.0f;
     const float a = far_plane / (far_plane - near_plane);
     const float b = -far_plane * near_plane / (far_plane - near_plane);
+    const float x_offset=-yaw_c*view.target[0]+yaw_s*view.target[2];
+    const float y_offset=pitch_s*yaw_s*view.target[0]-
+        pitch_c*view.target[1]+pitch_s*yaw_c*view.target[2];
+    const float z_offset=view.distance-pitch_c*yaw_s*view.target[0]-
+        pitch_s*view.target[1]-pitch_c*yaw_c*view.target[2];
     const float rows[4][4] = {
-        {focal * yaw_c, 0, -focal * yaw_s, 0},
+        {focal * yaw_c, 0, -focal * yaw_s, focal*x_offset},
         {-focal * pitch_s * yaw_s, focal * pitch_c,
-         -focal * pitch_s * yaw_c, 0},
-        {a * pitch_c * yaw_s, a * pitch_s, a * pitch_c * yaw_c, a * 3.5f + b},
-        {pitch_c * yaw_s, pitch_s, pitch_c * yaw_c, 3.5f},
+         -focal * pitch_s * yaw_c, focal*y_offset},
+        {a * pitch_c * yaw_s, a * pitch_s, a * pitch_c * yaw_c, a*z_offset+b},
+        {pitch_c * yaw_s, pitch_s, pitch_c * yaw_c, z_offset},
     };
     for (size_t row = 0; row < 4; ++row)
         for (size_t column = 0; column < 4; ++column)
@@ -113,13 +119,17 @@ bool ModelPreview::init(std::string& error) {
 }
 
 bool ModelPreview::load(const port::PreviewActor& actor, std::string& error) {
-    error.clear();
-    clear_model();
     if (!actor.attached_to_camera_root) {
         error="selected model is not attached to the preview root";
         return false;
     }
-    if (!port::GLIDE_DrawObjectFaces(actor.model,draw_,error)) return false;
+    return load(actor.model,error);
+}
+
+bool ModelPreview::load(const port::ModelGraph& graph, std::string& error) {
+    error.clear();
+    clear_model();
+    if (!port::GLIDE_DrawObjectFaces(graph,draw_,error)) return false;
     float extent = 0;
     for (size_t axis=0; axis<3; ++axis)
         extent = std::max(extent,draw_.maximum[axis]-draw_.minimum[axis]);
@@ -154,8 +164,14 @@ bool ModelPreview::load(const port::PreviewActor& actor, std::string& error) {
             continue;
         }
         std::vector<uint8_t> rgba;
-        if (!port::model_texture_lod(actor.model.materials[batch.material].bank,
-                                     batch.palette_row,rgba,error)) {
+        const auto& material=graph.materials[batch.material];
+        const unsigned lod=material.preview_lod;
+        const bool uploaded=lod==128 ?
+            port::model_texture_lod(material.bank,batch.palette_row,rgba,error) :
+            lod==256 ?
+            port::scene_texture_page(material.bank,batch.palette_row,rgba,error) : false;
+        if (!uploaded) {
+            if (error.empty()) error="scene material has an unsupported texture size";
             clear_model();
             return false;
         }
@@ -163,8 +179,8 @@ bool ModelPreview::load(const port::PreviewActor& actor, std::string& error) {
         texture.material=batch.material;
         texture.row=batch.palette_row;
         sg_image_desc image_desc{};
-        image_desc.width=128;
-        image_desc.height=128;
+        image_desc.width=static_cast<int>(lod);
+        image_desc.height=static_cast<int>(lod);
         image_desc.pixel_format=SG_PIXELFORMAT_RGBA8;
         image_desc.data.mip_levels[0].ptr=rgba.data();
         image_desc.data.mip_levels[0].size=rgba.size();
@@ -184,7 +200,7 @@ bool ModelPreview::load(const port::PreviewActor& actor, std::string& error) {
     return true;
 }
 
-void ModelPreview::draw() const {
+void ModelPreview::draw(const ModelView& view) const {
     if (!has_model()) return;
     sg_pass pass{};
     pass.attachments.colors[0]=color_attachment_;
@@ -195,7 +211,7 @@ void ModelPreview::draw() const {
     pass.action.depth.clear_value=1.0f;
     sg_begin_pass(&pass);
     float matrix[16]{};
-    preview_matrix(matrix);
+    preview_matrix(view,matrix);
     sg_range vs_uniforms{matrix,sizeof(matrix)};
     for (size_t index=0; index<draw_.batches.size(); ++index) {
         const auto& batch=draw_.batches[index];

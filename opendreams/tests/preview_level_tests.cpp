@@ -2,11 +2,14 @@
 #include "disc/image.h"
 #include "port/scene.h"
 
+#include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 
 int main() {
     const char* cue = std::getenv("DREAMS_CUE2");
@@ -58,6 +61,38 @@ int main() {
         isolated.spawn_heading != 0 || !isolated.attached_to_camera_root) {
         std::cerr << "selected CAISSE model did not produce the in-memory preview scene\n";
         return 5;
+    }
+    od::port::PreviewLevelContext physical_scene(image);
+    if (!physical_scene.select_scene("DATA/3DC/E29USINE.DSN",error) ||
+        !od::port::SCENE_LoadLevel(physical_scene,error)) {
+        std::cerr << "physical scene preview: " << error << '\n';
+        return 6;
+    }
+    const auto& graph=physical_scene.render_graph();
+    const std::array<uint8_t,20> e29_header{{
+        0,0,0,0, 0,0,0,0, 3,0,0,0, 0x51,0xc8,0xa0,0x82, 0,0,0,0}};
+    const auto* first_bank=graph.materials.empty() ? nullptr :
+        &graph.materials[0].bank;
+    if (graph.nodes.size()!=55 || graph.faces.size()!=2225 ||
+        graph.materials.size()!=30 ||
+        graph.faces[0].material_index>=graph.materials.size() ||
+        graph.materials[0].preview_lod!=256 ||
+        !graph.materials[0].static_palette_row15 ||
+        !first_bank || first_bank->size()!=0x18014u ||
+        !std::equal(e29_header.begin(),e29_header.end(),first_bank->begin()) ||
+        (*first_bank)[0x14u+15u*0x400u+6u]!=static_cast<uint8_t>(23114) ||
+        (*first_bank)[0x14u+15u*0x400u+7u]!=static_cast<uint8_t>(23114>>8)) {
+        std::cerr << "physical E29USINE scene materials differ\n";
+        return 7;
+    }
+    od::port::PreviewLevelContext project_scene(image);
+    if (!project_scene.select_project_scene("Project71",error) ||
+        !od::port::SCENE_LoadLevel(project_scene,error) ||
+        project_scene.placed_actors().size()!=2 ||
+        !project_scene.object_issues().empty() ||
+        project_scene.render_graph().faces.size()!=2807) {
+        std::cerr << "Project 71 scene preview: " << error << '\n';
+        return 8;
     }
     std::cout << "Project 71 and selected CAISSE preview paths produced CAI nodes\n";
     return 0;

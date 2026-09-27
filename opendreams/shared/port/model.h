@@ -38,6 +38,8 @@ struct ModelNode {
 struct ModelMaterial {
     std::string name;
     std::vector<uint8_t> bank; // 0x14 header, 32 palette rows, 256x256 page.
+    uint16_t preview_lod = 128; // DAN's Glide descriptor; DSN uses its scene page.
+    bool static_palette_row15 = false; // Viewer DSN path before dynamic row updates.
 };
 
 struct ModelGraph {

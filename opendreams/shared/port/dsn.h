@@ -11,6 +11,8 @@
 
 namespace od::port {
 
+struct ModelMaterial;
+
 enum class DsnErrorCode {
     none,
     no_stream,
@@ -38,6 +40,7 @@ struct DsnObject {
 
 struct DsnTexturePage {
     std::string object_name;
+    std::array<uint8_t,20> header_template{};
     std::array<uint16_t, 256> palette_rgb565{};
     std::vector<uint8_t> indices; // 256x256 page, assembled from 64 planes.
 };
@@ -86,6 +89,12 @@ bool DSN_LoadVertexPool(DsnState& state, std::vector<uint8_t>& collision,
 // all 64 planes for one selected scene object in one bounded call.
 bool DSN_LoadTextures(DsnState& state, size_t object_index,
                       DsnTexturePage& page, DsnError& error);
+// Consume the same tag-3 palette and 64 tag-4 planes once for every object.
+// The viewer requests the complete source-owned set when drawing a scene.
+bool DSN_LoadTextures(DsnState& state, std::vector<DsnTexturePage>& pages,
+                      DsnError& error);
+bool DSN_Create3DM(const DsnTexturePage& page, ModelMaterial& material,
+                   DsnError& error);
 bool DSN_BlitTileToPage(const uint8_t* plane, size_t plane_size,
                         unsigned record, std::vector<uint8_t>& page,
                         DsnError& error);

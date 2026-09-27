@@ -191,6 +191,12 @@ if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
 endif()
 
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
+    add_executable(ODScenePreviewTests tests/scene_preview_tests.cpp)
+    target_link_libraries(ODScenePreviewTests PRIVATE ODShared)
+    od_project_options(ODScenePreviewTests)
+    add_test(NAME ODScenePreviewCorpus COMMAND ODScenePreviewTests)
+    set_tests_properties(ODScenePreviewCorpus PROPERTIES LABELS "scene;corpus" TIMEOUT 300 SKIP_RETURN_CODE 77)
+
     add_executable(ODModelDrawTests tests/model_draw_tests.cpp)
     target_link_libraries(ODModelDrawTests PRIVATE ODShared)
     od_project_options(ODModelDrawTests)

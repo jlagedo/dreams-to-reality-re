@@ -1,4 +1,6 @@
 #include "port/dsn.h"
+
+#include "port/model.h"
 #include "port/lz.h"
 
 #include <algorithm>
@@ -225,14 +227,26 @@ bool DSN_BlitTileToPage(const uint8_t* plane, size_t plane_size,
 
 bool DSN_LoadTextures(DsnState& state, size_t object_index,
                       DsnTexturePage& page, DsnError& error) {
-    error = {};
     page = {};
+    if (!state.loaded() || !state.geometry_loaded() || !state.stream())
+        return fail(error,DsnErrorCode::invalid_state,
+                    "DSN header and packed geometry must load before textures");
+    if (object_index >= state.objects().size())
+        return fail(error,DsnErrorCode::invalid_state,
+                    "DSN texture object index exceeds the scene directory");
+    std::vector<DsnTexturePage> pages;
+    if (!DSN_LoadTextures(state,pages,error)) return false;
+    page = std::move(pages[object_index]);
+    return true;
+}
+
+bool DSN_LoadTextures(DsnState& state, std::vector<DsnTexturePage>& pages,
+                      DsnError& error) {
+    error = {};
+    pages.clear();
     if (!state.loaded() || !state.geometry_loaded() || !state.stream())
         return fail(error, DsnErrorCode::invalid_state,
                     "DSN header and packed geometry must load before textures");
-    if (object_index >= state.objects().size())
-        return fail(error, DsnErrorCode::invalid_state,
-                    "DSN texture object index exceeds the scene directory");
     Stream& stream = *state.stream();
     const size_t expected = state.objects().size() * 1024u;
     std::vector<uint8_t> header, payload;
@@ -245,18 +259,46 @@ bool DSN_LoadTextures(DsnState& state, size_t object_index,
         return take_body(stream, expected, payload, error);
     };
     if (!read_tag(3)) return false;
-    DsnTexturePage decoded;
-    decoded.object_name = state.objects()[object_index].name;
-    const size_t start = object_index * 1024u;
-    for (size_t i = 0; i < decoded.palette_rgb565.size(); ++i)
-        decoded.palette_rgb565[i] = little16(payload.data() + start + i * 4 + 2);
-    decoded.indices.assign(256u * 256u, 0);
-    for (unsigned record = 0; record < 64; ++record) {
-        if (!read_tag(4) ||
-            !DSN_BlitTileToPage(payload.data() + start, 1024, record,
-                                decoded.indices, error)) return false;
+    pages.resize(state.objects().size());
+    for (size_t object=0; object<pages.size(); ++object) {
+        auto& decoded=pages[object];
+        decoded.object_name=state.objects()[object].name;
+        decoded.header_template=state.objects()[object].raw_record;
+        const size_t start=object*1024u;
+        for (size_t i=0; i<decoded.palette_rgb565.size(); ++i)
+            decoded.palette_rgb565[i]=little16(payload.data()+start+i*4u+2u);
+        decoded.indices.assign(256u*256u,0);
     }
-    page = std::move(decoded);
+    for (unsigned record = 0; record < 64; ++record) {
+        if (!read_tag(4)) return false;
+        for (size_t object=0; object<pages.size(); ++object)
+            if (!DSN_BlitTileToPage(payload.data()+object*1024u,1024,record,
+                                    pages[object].indices,error)) return false;
+    }
+    return true;
+}
+
+bool DSN_Create3DM(const DsnTexturePage& page, ModelMaterial& material,
+                   DsnError& error) {
+    error = {};
+    material = {};
+    if (page.object_name.empty() || page.indices.size()!=256u*256u)
+        return fail(error,DsnErrorCode::invalid_state,
+                    "scene material has no name or complete texture page");
+    material.name=page.object_name;
+    material.bank.assign(0x18014u,0);
+    std::copy(page.header_template.begin(),page.header_template.end(),
+              material.bank.begin());
+    material.preview_lod=256;
+    material.static_palette_row15=true;
+    const size_t palette=0x14u+15u*0x400u;
+    for (size_t i=0; i<256; ++i) {
+        const uint16_t packed=page.palette_rgb565[i];
+        material.bank[palette+i*4u+2u]=static_cast<uint8_t>(packed);
+        material.bank[palette+i*4u+3u]=static_cast<uint8_t>(packed>>8);
+    }
+    std::copy(page.indices.begin(),page.indices.end(),
+              material.bank.begin()+0x8014u);
     return true;
 }
 

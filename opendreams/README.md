@@ -57,12 +57,16 @@ and draws the textured crate in the GPU preview pane. The exact disc/archive
 row determines the source when names repeat. Supported DAN archives now render
 their static node hierarchy, multiple original materials and reached face
 modes. Archives with a material name absent from their own texture directory
-show that error in the preview. For repeatable model checks:
+show that error in the preview. Physical scenes and project records also draw
+there, with orbit/zoom/target controls. Project objects show their source disc
+and any unavailable material. For repeatable checks:
 
 ```powershell
 .\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-cai
 .\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-model F74
 .\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-model BA0
+.\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-scene E29USINE
+.\build\win-msvc-x64-debug\ODViewer.exe --cue1 "E:\path\disc1.cue" --cue2 "E:\path\disc2.cue" --preview-project Project114
 ```
 
 ODViewer uses a larger vector font for readable navigation. The catalog lives in

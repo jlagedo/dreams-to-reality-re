@@ -45,5 +45,7 @@ bool GLIDE_ConvertPalette(const std::vector<uint8_t>& bank, unsigned row,
 // index-zero alpha marker is used only by chroma-key GPU pipelines.
 bool model_texture_lod(const std::vector<uint8_t>& bank, unsigned row,
                        std::vector<uint8_t>& rgba, std::string& error);
+bool scene_texture_page(const std::vector<uint8_t>& bank, unsigned row,
+                        std::vector<uint8_t>& rgba, std::string& error);
 
 } // namespace od::port

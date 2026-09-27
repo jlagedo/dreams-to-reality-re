@@ -1,6 +1,6 @@
 # 003 — ODViewer asset previews and playback
 
-Status: **static DAN model, movie, static image, and audio/dialogue viewer slices implemented; animation and scene scope in progress**
+Status: **static model and scene/project, movie, static image, and audio/dialogue viewer slices implemented; animation and runtime renderer seam in progress**
 
 Date: 2026-09-27
 
@@ -14,8 +14,10 @@ animated textures, movies, sound and dialogue. All previews occupy the
 viewer's preview content region; playback controls and errors remain in that
 pane. ODShared owns retail-derived loading, decoding and rendering state, so
 ODViewer remains a selector and inspection UI. The selected row's physical
-path and disc identity choose the source; equal names on different discs or
-inside different archives cannot silently substitute for it.
+path and disc identity choose the primary source; equal names on different
+discs or inside different archives cannot silently substitute for it. A project
+object may use the other mounted disc only when absent from the primary source,
+and the viewer labels that placement.
 
 This spec is the single implementation contract for the **viewer side** of
 those previews. The Windows programs are the game-flow, loader, movie and
@@ -31,7 +33,7 @@ are validated in their own runtime milestones.
 |---|---|---|
 | DAN model and project-object preview | Load the selected archive/object through shared resource and scene paths; render its materials and face modes. | Static preview now composes node hierarchy and draws multiple materials with DAN types 2/3/-5; 178 of 191 physical DAN files load from the two discs. Type 9 is prepared but its only DAN has an unmatched material name. |
 | Model animation | Select and play the bound DAN animation clips on the preview rig at the recovered 30 Hz rate, with pause/step and the selected source retained. | DAN chunk readers exist; rig evaluation and visual playback remain. |
-| Scene and level preview | Render selected `.DSN`/project geometry and placed assets with the common renderer and a viewer camera; keep source identity. | Payload and Project 71 validation exist; general visual preview remains. |
+| Scene and level preview | Render selected `.DSN`/project geometry and placed assets with the common renderer and a viewer camera; keep source identity. | All 95 distinct DSNs render their 157,433 source faces with 2,059 source texture pages. All 150 project records load; 531 of 560 active placements load, including loose and DAN-backed `.3DC`. The remaining 29 DAN material failures and 54 unmatched scene material names are visible diagnostics. Viewer orbit/zoom/target controls work; dynamic palettes, fog and Runtime output remain. |
 | Sprites, fonts and static textures | Display indexed pixels, palette rows and transparency from shared decoded data. | Selected sprite slots, font glyphs, VGA sheets, standalone/DAN material banks and assembled DSN object textures render in ODViewer with a palette swatch and transparency control. Animated materials and exact dynamic sprite composition remain. |
 | Animated textures | Decode and show HNM4/HNS4 frame sequences; reuse the GPU material update path when a scene binds them. | Header classification exists; frame decode remains. |
 | Movies | Decode HNM5 (`UBB2`/`UBS2`) and HNM6 (`HNM6`/`HNS6`) from the selected disc; play, pause, step, restart and show captions. | HNM5/HNM6 playback, SD audio and ST captions are wired in ODViewer; all 95 physical HNM5/6 files decode to the end. Seek, audio-clock scheduling, full corpus pixel parity and HNM4 remain. |
@@ -267,9 +269,9 @@ observation.
    preview-region Viewer output with the same test scene/frame at matching
    aspect; keep Shell's one commit/present owner. The Runtime proof does not
    introduce gameplay into this spec.
-2. **Model/scene GPU path:** the CAI preview now handles static DAN models with
-   multiple materials and reached textured face modes. Finish lighting and
-   transparency, then use the same renderer for selected DSN/project scenes.
+2. **Model/scene GPU path:** the common preview path now handles static DAN
+   models, all physical DSNs and placed project objects. Finish lighting,
+   transparency parity, dynamic materials and the Runtime destination seam.
    Preserve the CAI and Project 71 checks at every step.
 3. **Static and animated assets:** add sprite/font/static-texture display,
    HNM4 frame decoding, DAN rig animation and the selected-source controls
@@ -499,3 +501,30 @@ in this slice. The only DAN using type 9, `L14.DAN`, is among the 13 unmatched
 material cases, so its wrap mode has synthetic coverage but no disc GPU QA yet.
 Animation, exact lighting, fog, diagnostic faces and retail screenshot parity
 remain open.
+
+### Static scenes and project placements — 2026-09-27
+
+`SCENE_InitLevel` now loads a physical DSN or a project's `OBJET0` through the
+ported tag-1/2 readers. `DSN_LoadTextures` consumes tag 3 and all 64 tag-4
+planes once for every named object. The adapted `DSN_Create3DM` copies each
+20-byte source template, writes its palette into row 15 and assembles its
+256×256 page. The shared GPU path binds scene pages at 256×256 while DAN
+materials retain their 128×128 Glide LOD. Physical scene and project rows draw
+inside ODViewer's preview pane with orbit, zoom and target controls.
+
+All 95 distinct DSNs load and submit 157,433 tag-1 faces with 2,059 source
+texture pages, matching the independent Python graph count. Fourteen DSNs also
+reference 54 full material names absent from their own texture directories.
+Those faces use a visible magenta diagnostic pattern; the viewer lists every
+missing name. No alternate source texture is silently assigned.
+
+Across all 150 projects, the preview loads 531 of 560 active `OBJET1..15`
+placements with their stored position and heading. This includes 15 loose or
+DAN-backed logical `.3DC` placements and four actors fetched from the other
+mounted disc when the primary lacks their DAN. The viewer labels secondary
+sources and lists the remaining 29 failures by slot; all 29 are DAN archives
+whose face material names do not match their own texture directory. Project 71
+draws `E29USINE.DSN`, `MI0.DAN` and `CAI.DAN` together. Corpus and GPU startup
+checks cover E29USINE, rare deferred/keyed scene modes and Project 114's
+cross-disc object. Dynamic palette updates, scene fog, exact deferred/depth
+behavior, animated materials and screenshot parity remain open.

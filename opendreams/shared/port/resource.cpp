@@ -1,6 +1,7 @@
 #include "port/resource.h"
 
 #include "port/dan.h"
+#include "port/dsn.h"
 #include "port/vfs.h"
 
 #include <algorithm>
@@ -128,6 +129,49 @@ bool MDL_LoadMaterials(DanArchive& archive, ModelGraph& graph, std::string& erro
     return MDL_BindTreeMaterials(graph, error);
 }
 
+bool MDL_LoadSceneMaterials(const std::vector<DsnTexturePage>& pages,
+                            ModelGraph& graph, std::vector<std::string>& missing,
+                            std::string& error) {
+    error.clear();
+    missing.clear();
+    graph.materials.clear();
+    graph.materials.reserve(pages.size());
+    for (const auto& page : pages) {
+        ModelMaterial material;
+        DsnError source;
+        if (!DSN_Create3DM(page,material,source)) {
+            error=source.message;
+            return false;
+        }
+        graph.materials.push_back(std::move(material));
+    }
+    for (const auto& face : graph.faces) {
+        const std::string name=upper_ascii(face.material_name);
+        const auto found=std::find_if(graph.materials.begin(),graph.materials.end(),
+            [&](const ModelMaterial& material) {
+                return upper_ascii(material.name)==name;
+            });
+        if (found!=graph.materials.end()) continue;
+        DsnTexturePage diagnostic;
+        diagnostic.object_name=face.material_name;
+        diagnostic.palette_rgb565[1]=0xf81fu;
+        diagnostic.palette_rgb565[2]=0x1082u;
+        diagnostic.indices.resize(256u*256u);
+        for (size_t y=0; y<256; ++y)
+            for (size_t x=0; x<256; ++x)
+                diagnostic.indices[y*256u+x]=((x/16u+y/16u)&1u) ? 1 : 2;
+        ModelMaterial material;
+        DsnError source;
+        if (!DSN_Create3DM(diagnostic,material,source)) {
+            error=source.message;
+            return false;
+        }
+        missing.push_back(face.material_name);
+        graph.materials.push_back(std::move(material));
+    }
+    return MDL_BindTreeMaterials(graph,error);
+}
+
 bool RES_Load(DanArchive& archive, std::string_view logical_name,
               ModelGraph& graph, std::string& error) {
     graph = {};
@@ -135,6 +179,35 @@ bool RES_Load(DanArchive& archive, std::string_view logical_name,
     if (!RES_ReadFile(archive, logical_name, bytes, error)) return false;
     if (!RES_Relocate(bytes, graph, error)) return false;
     return MDL_LoadMaterials(archive, graph, error);
+}
+
+bool RES_Load(VfsContext& vfs, std::string_view physical_path,
+              ModelGraph& graph, std::string& error) {
+    graph={};
+    const std::string path=upper_ascii(physical_path);
+    if (path.size()<4 || path.substr(path.size()-4)!=".3DC")
+        return fail(error,"loose model resource must be a .3DC file");
+    std::vector<uint8_t> bytes;
+    if (!RES_ReadFile(vfs,physical_path,bytes,error) ||
+        !RES_Relocate(bytes,graph,error)) return false;
+    for (const auto& face : graph.faces) {
+        const std::string name=upper_ascii(face.material_name);
+        if (name.empty()) return fail(error,"loose model face has no material name");
+        const auto found=std::find_if(graph.materials.begin(),graph.materials.end(),
+            [&](const ModelMaterial& material) {
+                return upper_ascii(material.name)==name;
+            });
+        if (found!=graph.materials.end()) continue;
+        std::vector<uint8_t> bank;
+        if (!RES_ReadFile(vfs,"DATA/3DC/"+name+".3DM",bank,error)) {
+            error="loose model material "+name+": "+error;
+            return false;
+        }
+        if (bank.size()!=0x18014u)
+            return fail(error,"loose model material has no retail texture bank");
+        graph.materials.push_back({name,std::move(bank)});
+    }
+    return MDL_BindTreeMaterials(graph,error);
 }
 
 } // namespace od::port

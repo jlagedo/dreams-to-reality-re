@@ -44,6 +44,7 @@ struct ViewerUi {
     bool sort_ascending = true;
     std::unique_ptr<od::port::PreviewLevelContext> preview_level;
     od::ModelPreview model_preview;
+    od::ModelView model_view;
     od::VideoPreview video_preview;
     od::inspect::StillImage still_image;
     od::StillPreview still_preview;
@@ -89,6 +90,7 @@ const od::inspect::Row* selection(const ViewerUi& state) {
 
 void clear_preview(ViewerUi& state) {
     state.model_preview.clear_model();
+    state.model_view={};
     state.video_preview.close();
     state.still_preview.clear();
     state.still_image = {};
@@ -196,11 +198,18 @@ void load_selected_preview(ViewerUi& state) {
                                  state.transparent_zero,state.preview_error);
         return;
     }
-    auto preview = std::make_unique<od::port::PreviewLevelContext>(source->image);
+    const auto* secondary=row->kind=="Project" ?
+        state.catalog.source(1-state.selected_slot) : nullptr;
+    auto preview = std::make_unique<od::port::PreviewLevelContext>(
+        source->image,secondary ? secondary->image : nullptr);
     if (row->kind == "Model name" || row->kind == "Model archive") {
         const std::string_view name = row->kind == "Model name"
             ? std::string_view(row->name) : std::string_view{};
         if (!preview->select_model(row->path, name, state.preview_error)) return;
+    } else if (row->kind == "Scene" || row->kind == "Scene object") {
+        if (!preview->select_scene(row->path,state.preview_error)) return;
+    } else if (row->kind == "Project") {
+        if (!preview->select_project_scene(row->name,state.preview_error)) return;
     } else if (row->kind == "Project object" && row->parent != SIZE_MAX &&
                row->parent < source->rows.size() &&
                row->name.compare(0, 5, "OBJET") == 0) {
@@ -211,8 +220,11 @@ void load_selected_preview(ViewerUi& state) {
         if (!preview->select_project(project.name, static_cast<size_t>(slot),
                                      state.preview_error)) return;
     } else return;
-    if (!od::port::SCENE_LoadLevel(*preview, state.preview_error) ||
-        !state.model_preview.load(preview->selected_actor(), state.preview_error))
+    if (!od::port::SCENE_LoadLevel(*preview,state.preview_error)) return;
+    const bool scene=row->kind=="Scene" || row->kind=="Scene object" ||
+                     row->kind=="Project";
+    if (scene ? !state.model_preview.load(preview->render_graph(),state.preview_error)
+              : !state.model_preview.load(preview->selected_actor(),state.preview_error))
         return;
     state.preview_level = std::move(preview);
 }
@@ -813,7 +825,7 @@ void preview_pane(ViewerUi& state) {
         }
         return;
     }
-    std::string title = "Select a model or prop";
+    std::string title = "Select a model, scene or project";
     std::string subtitle = "3D preview is not ready yet.";
     if (row) {
         const auto* source = state.catalog.source(state.selected_slot);
@@ -842,23 +854,78 @@ void preview_pane(ViewerUi& state) {
     }
     if (state.model_preview.has_model() && row && state.preview_level) {
         const auto* source = state.catalog.source(state.selected_slot);
-        ImGui::Text("%s -> %s | %s", row->name.c_str(),
-            state.preview_level->selected_actor().asset_name.c_str(),
-            od::inspect::identity_name(source->image->identity()));
+        const bool scene=row->kind=="Scene" || row->kind=="Scene object" ||
+                         row->kind=="Project";
+        ImGui::Text("%s | %s",row->name.c_str(),
+                    od::inspect::identity_name(source->image->identity()));
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", row->path.c_str());
-        const auto& model=state.preview_level->selected_actor().model;
-        ImGui::TextDisabled("Static model | %zu nodes | %zu faces | %zu materials",
-                            model.nodes.size(),model.faces.size(),model.materials.size());
+        const auto& graph=scene ? state.preview_level->render_graph() :
+                                  state.preview_level->selected_actor().model;
+        ImGui::TextDisabled("%s | %zu nodes | %zu faces | %zu materials",
+                            scene ? "Static scene" : "Static model",
+                            graph.nodes.size(),graph.faces.size(),graph.materials.size());
+        if (scene && !state.preview_level->missing_scene_materials().empty() &&
+            ImGui::TreeNode("Missing scene textures (diagnostic pattern)")) {
+            for (const auto& name : state.preview_level->missing_scene_materials())
+                ImGui::TextUnformatted(name.c_str());
+            ImGui::TreePop();
+        }
+        if (row->kind=="Project") {
+            size_t secondary_count=0;
+            for (const auto& actor : state.preview_level->placed_actors())
+                secondary_count+=actor.from_secondary_source ? 1u : 0u;
+            ImGui::TextDisabled("%zu placed objects | %zu unavailable",
+                state.preview_level->placed_actors().size(),
+                state.preview_level->object_issues().size());
+            if (secondary_count)
+                ImGui::TextDisabled("%zu objects loaded from the other mounted disc",
+                                    secondary_count);
+            if (!state.preview_level->placed_actors().empty() &&
+                ImGui::TreeNode("Placed objects")) {
+                for (const auto& actor : state.preview_level->placed_actors())
+                    ImGui::Text("OBJET%zu %s (%d, %d, %d)%s",actor.object_slot,
+                        actor.asset_name.c_str(),actor.spawn_xyz[0],
+                        actor.spawn_xyz[1],actor.spawn_xyz[2],
+                        actor.from_secondary_source ? " [other disc]" : "");
+                ImGui::TreePop();
+            }
+            if (!state.preview_level->object_issues().empty() &&
+                ImGui::TreeNode("Unavailable project objects")) {
+                for (const auto& issue : state.preview_level->object_issues())
+                    ImGui::TextWrapped("OBJET%zu %s: %s",issue.slot,
+                        issue.asset_name.c_str(),issue.reason.c_str());
+                ImGui::TreePop();
+            }
+        }
     }
     const ImVec2 start = ImGui::GetCursorScreenPos();
     const ImVec2 size = ImGui::GetContentRegionAvail();
     if (size.x <= 0 || size.y <= 0) return;
     if (state.model_preview.has_model()) {
-        state.model_preview.draw();
-        const float side = std::min(size.x, size.y);
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (size.x - side) * 0.5f);
+        ImGui::SetNextItemWidth(160.0f);
+        ImGui::SliderFloat("Distance",&state.model_view.distance,1.2f,10.0f);
+        ImGui::SameLine();
+        if (ImGui::Button("Reset camera")) state.model_view={};
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::SliderFloat3("Target",state.model_view.target,-1.0f,1.0f,"%.2f");
+        state.model_preview.draw(state.model_view);
+        const ImVec2 image_space=ImGui::GetContentRegionAvail();
+        if (image_space.x<=0 || image_space.y<=0) return;
+        const float side = std::min(image_space.x, image_space.y);
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (image_space.x - side) * 0.5f);
         ImGui::Image(simgui_imtextureid(state.model_preview.texture_view()),
                      ImVec2(side, side));
+        if (ImGui::IsItemHovered()) {
+            const auto& io=ImGui::GetIO();
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+                state.model_view.yaw+=io.MouseDelta.x*0.01f;
+                state.model_view.pitch=std::clamp(
+                    state.model_view.pitch+io.MouseDelta.y*0.01f,-1.5f,1.5f);
+            }
+            if (io.MouseWheel!=0)
+                state.model_view.distance=std::clamp(
+                    state.model_view.distance-io.MouseWheel*0.25f,1.2f,10.0f);
+        }
         return;
     }
     if (!state.preview_error.empty()) subtitle = state.preview_error;
@@ -972,7 +1039,8 @@ void draw_ui(void* user) {
 
 bool parse_args(int argc, char** argv, int& frames,
                 std::array<const char*, 2>& cues, bool& preview_cai,
-                std::string& preview_model, bool& preview_movie, std::string& preview_still,
+                std::string& preview_model, std::string& preview_scene,
+                std::string& preview_project, bool& preview_movie, std::string& preview_still,
                 std::string& preview_audio) {
     for (int i = 1; i < argc;) {
         if (std::strcmp(argv[i], "--preview-cai") == 0) {
@@ -988,6 +1056,18 @@ bool parse_args(int argc, char** argv, int& frames,
         if (std::strcmp(argv[i], "--preview-model") == 0) {
             if (i+1>=argc) return false;
             preview_model=argv[i+1];
+            i+=2;
+            continue;
+        }
+        if (std::strcmp(argv[i], "--preview-scene") == 0) {
+            if (i+1>=argc) return false;
+            preview_scene=argv[i+1];
+            i+=2;
+            continue;
+        }
+        if (std::strcmp(argv[i], "--preview-project") == 0) {
+            if (i+1>=argc) return false;
+            preview_project=argv[i+1];
             i+=2;
             continue;
         }
@@ -1024,13 +1104,16 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
     std::array<const char*, 2> cues{};
     bool preview_cai = false;
     std::string preview_model;
+    std::string preview_scene;
+    std::string preview_project;
     bool preview_movie = false;
     std::string preview_still;
     std::string preview_audio;
-    if (!parse_args(argc, argv, frames, cues, preview_cai, preview_model, preview_movie,
+    if (!parse_args(argc, argv, frames, cues, preview_cai, preview_model,
+                    preview_scene, preview_project, preview_movie,
                     preview_still, preview_audio)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-model DAN-stem] [--preview-movie] [--preview-still font|icon|vga|bank|material|scene] [--preview-audio effect|effect12|dialogue|track]");
+                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-model DAN-stem] [--preview-scene DSN-stem] [--preview-project record-name] [--preview-movie] [--preview-still font|icon|vga|bank|material|scene] [--preview-audio effect|effect12|dialogue|track]");
         return SDL_APP_FAILURE;
     }
     if (!shell.init({"ODViewer", draw_ui, &ui, frames, 20.0f, 1.2f,
@@ -1112,6 +1195,36 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
         if (!found || !ui.model_preview.has_model()) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,"model preview load failed: %s",
                 ui.preview_error.empty() ? "requested DAN archive is unavailable"
+                                         : ui.preview_error.c_str());
+            ui.model_preview.shutdown();
+            ui.video_preview.shutdown();
+            ui.still_preview.clear();
+            shell.shutdown();
+            return SDL_APP_FAILURE;
+        }
+    }
+    if (!preview_scene.empty() || !preview_project.empty()) {
+        ui.catalog.tick(10000);
+        bool found=false;
+        const bool physical=!preview_scene.empty();
+        const std::string target=physical ? preview_scene+".DSN" : preview_project;
+        for (size_t order=0; order<2 && !found; ++order) {
+            const size_t slot=physical ? order : 1-order;
+            const auto* source=ui.catalog.source(slot);
+            if (!source) continue;
+            for (const auto& row : source->rows) {
+                if (row.kind!=(physical ? "Scene" : "Project") ||
+                    row.name!=target) continue;
+                select(ui,slot,row.id);
+                if (ui.model_preview.has_model()) {
+                    found=true;
+                    break;
+                }
+            }
+        }
+        if (!found || !ui.model_preview.has_model()) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,"scene preview load failed: %s",
+                ui.preview_error.empty() ? "requested scene or project is unavailable"
                                          : ui.preview_error.c_str());
             ui.model_preview.shutdown();
             ui.video_preview.shutdown();
