@@ -156,7 +156,11 @@ foreach(app IN ITEMS ODViewer ODRuntime)
         target_sources(${app} PRIVATE ${app_icon})
         set_target_properties(${app} PROPERTIES
             MACOSX_BUNDLE TRUE
-            MACOSX_BUNDLE_ICON_FILE "${app}.icns")
+            MACOSX_BUNDLE_ICON_FILE "${app}.icns"
+            MACOSX_BUNDLE_GUI_IDENTIFIER "org.opendreams.${app}"
+            MACOSX_BUNDLE_BUNDLE_NAME "${app}"
+            MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+            MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}")
     endif()
     if(NOT EMSCRIPTEN)
         set(window_icon "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/${app}-window.rgba")

@@ -33,7 +33,7 @@
         "CMAKE_OSX_DEPLOYMENT_TARGET": "13.0",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
-        "CMAKE_OBJCXX_COMPILER": "clang++"
+        "CMAKE_OBJCXX_COMPILER": "/usr/bin/clang++"
       }
     },
     {
