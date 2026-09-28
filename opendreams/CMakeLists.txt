@@ -90,6 +90,10 @@ add_library(ODShared STATIC
     shared/port/math.cpp
     shared/port/glide_model.cpp
     shared/port/animation.cpp
+    shared/port/boot_menu.cpp
+    shared/port/camera.cpp
+    shared/port/player.cpp
+    shared/port/game_entry.cpp
     shared/port/resource.cpp
     shared/port/scene.cpp
     shared/port/ddat.cpp
@@ -110,6 +114,7 @@ add_library(ODShared STATIC
     shared/animation/animation_preview.cpp
     shared/shell.cpp
     shared/render/background.cpp
+    shared/render/boot_menu.cpp
     shared/render/glide_compat.cpp
     shared/render/video_preview.cpp
     shared/render/model_preview.cpp
@@ -145,6 +150,10 @@ foreach(app IN ITEMS ODViewer ODRuntime)
         set(app_source apps/runtime/main.cpp)
     endif()
     add_executable(${app} ${app_source})
+    if(app STREQUAL "ODRuntime")
+        target_sources(${app} PRIVATE apps/runtime/source_config.cpp
+            apps/runtime/front_end.cpp)
+    endif()
     if(WIN32)
         set(ICON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/${app}.ico")
         configure_file(cmake/AppIcon.rc.in
@@ -197,6 +206,21 @@ if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
 endif()
 
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
+    add_executable(ODPlayerConeTests tests/player_cone_tests.cpp)
+    target_link_libraries(ODPlayerConeTests PRIVATE ODShared)
+    od_project_options(ODPlayerConeTests)
+    add_test(NAME ODPlayerConeCorpus COMMAND ODPlayerConeTests)
+
+    add_executable(ODGameEntryTests tests/game_entry_tests.cpp)
+    target_link_libraries(ODGameEntryTests PRIVATE ODShared)
+    od_project_options(ODGameEntryTests)
+    add_test(NAME ODGameEntry COMMAND ODGameEntryTests)
+
+    add_executable(ODBootMenuTests tests/boot_menu_tests.cpp)
+    target_link_libraries(ODBootMenuTests PRIVATE ODShared)
+    od_project_options(ODBootMenuTests)
+    add_test(NAME ODBootMenu COMMAND ODBootMenuTests)
+
     add_executable(ODAnimationTests tests/animation_tests.cpp)
     target_link_libraries(ODAnimationTests PRIVATE ODShared)
     od_project_options(ODAnimationTests)

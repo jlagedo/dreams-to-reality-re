@@ -18,6 +18,9 @@ struct ShellOptions {
     const char* icon_rgba = nullptr;
     int window_width = 1024;
     int window_height = 640;
+    bool enable_controllers = false;
+    const char* capture_path = nullptr; // Save the last finite frame as PNG.
+    bool hidden_window = false;
 };
 
 class Shell {

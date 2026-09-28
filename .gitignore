@@ -123,6 +123,7 @@ web/.animation-tests/
 # ---------------------------------------------------------------------------
 dreams.local.toml
 .dreams.local.env
+opendreams/runtime.local.ini
 .env
 .idea/
 .vscode/

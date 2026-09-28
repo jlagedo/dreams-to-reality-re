@@ -27,12 +27,12 @@ entry 0x465538 (Watcom startup)
 
 | # | On screen | What the code does | Asset |
 |---|---|---|---|
-| 1 | **Intro movie** (~3 min 05 s, skippable) | `BOOT_Run 0x436481` builds `data\hnm\` + `intro.hnm`, sends event `0x17` (play video), pumps frames until video end or skip keys | `DATA\HNM\INTRO.HNM` — disc 1, 2781 frames 640×304 @15 fps |
+| 1 | **Intro movie** (~3 min 05 s, skippable) | `BOOT_Run 0x436481` builds `data\hnm\` + `intro.hnm`, sends command `0x17` (open) then `0x18` (start) on success, and pumps frames until video end or a Space/Esc press edge | `DATA\HNM\INTRO.HNM` — disc 1, 2781 frames 640×304 @15 fps |
 | 2 | **Short warp animation** (the "loading animation", ~7 s) | same function, second event `0x17` with `generic.hnm`; then loads the menu corner-marker sprites (`MENU_PlaceCornerIcons` (`0x435c2b`)) and enters the menu loop | `DATA\HNM\GENERIC.HNM` — 101 frames ≈ 6.7 s, light-speed tunnel; runs under/behind the menu |
-| 3 | **Main menu** (2×2 grid) | menu tick `MENU_Tick` (`0x435fae`) inside the frame loop; labels from pointer table at `0x4a2ed5`; background `data\tga\menu.tga`, icons `data\icone\icones.bf`, music = CD audio track 13 (`0x426fd8 == 0xd` fade logic) | see menu section below |
-| 4 | **New game** | on confirm (item 0) the tick copies the current project's video name out of its `DREAMS.DAT` record (`+0x3c`), exits the menu; `BOOT_Run` resets entities, arms a **15 s** in-engine transition timer (`_DAT_005e5480 = 15.0`), then plays the project video if the record names one | Project 0 record names `ETE_E~1.HNM` — **absent from both discs**, so this play silently fails and is skipped (see "The ETE mystery") |
-| 5 | **In-engine transition** (~15 s) | `GAME_Tick 0x4240ba`, the per-frame gameplay tick, counts the 15 s down in its state≠loading branch: camera drifts (noise-driven deltas on the view globals), front/back buffers fade to white or black | no asset — rendered |
-| 6 | **Talking-head animation** (~21 s) | `GAME_Tick` state=loading: current project is `Project0` and one-shot latch `DAT_0049da28` is set → stop music (event `0x1f`), play video, then immediately call the map loader — the head talks while/just before the level streams in | `DATA\HNM\TETE_E~1.HNM` — 313 frames; an elderly bearded man's head (the elder's briefing) |
+| 3 | **Main menu** (2×2 grid) | menu tick `MENU_Tick` (`0x435fae`) inside the frame loop; labels from pointer table at `0x4a2ed5`; background is the looping generic movie with sprites from `data\icone\icones.bf` (the attempted `data\tga\menu.tga` is absent) | see menu section below |
+| 4 | **New game** | on confirm (item 0) `MENU_Tick` writes an empty C string at the active record's `+0x3c`, then exits the menu; `BOOT_Run` resets level state and inventory and arms a **15-engine-frame** transition timer (`_DAT_005e5480 = 15.0`). The optional project-movie branch sees the empty string and does not call open. | The Project 0 record contains inert `ETE_E~1.HNM` bytes starting at `+0x3d`, after the NUL at `+0x3c`; see the offset note below. |
+| 5 | **In-engine transition** (~0.5 s at 30 engine frames/s) | `GAME_Tick 0x4240ba` counts the 15 frames down in its state≠loading branch: camera drifts and frame buffers finish white or black according to mode. | no asset — rendered |
+| 6 | **Talking-head animation** (~21 s) | `GAME_Tick` state=loading: current project is `Project0` and one-shot latch `DAT_0049da28` is set → stop music (event `0x1f`), start the video and return. A later tick after playback calls the level loader. | `DATA\HNM\TETE_E~1.HNM` — 313 frames; an elderly white-bearded man speaking. |
 | 7 | **Loading / CD-swap screen** | `SCENE_LoadLevel 0x41f9db` → `CD_PrepareLevel` (`0x427d64`): if the needed disc is not mounted shows *Please change to CD no %d*; with hard-disk caching it draws *Please wait while loading ...* and copies the files the level manifest lists to `X:\CRYO\DREAMS\` | `LISTL1.TXT` for Project 0 |
 | 8 | **First map: Ile d'Angkor** | the level's `.DSN`/`.DAN` files load (the set the manifest lists) | `H18ANGKR.DSN` + `F84/F07BLEU×4/CH0/MINE.DAN`, on top of the always-resident `LISTL0.TXT` set |
 
@@ -85,11 +85,12 @@ under the intro's name.
   request `{1, id, 0x20}` to `DSOUND_PlaySound` (`0x446654`).
 * The per-frame boot/menu step `BOOT_TickFrame` (`0x4363c8`) redraws the menu
   (`MENU_Draw` (`0x435ea0`)) when dirty flag `0x4a2f31` is set, swaps, and
-  counts steps of `0x28` ticks of the 200 Hz MGM timer (200 ms each); after 3
-  steps it sets exit flag `0x626f00`, which also exits the wait; combined with the
-  second `generic.hnm` reference living in the replay/record subsystem
-  (`data\hnm\generic.hnm` @ `0xe9e4`, beside `data\replay.bin` refs), this is
-  consistent with an attract/demo path — **[unverified]**.
+  counts steps of `0x28` ticks of the 200 Hz MGM timer (about 200 ms each).
+  `BOOT_Run` calls this after a menu selection has exited the selection loop;
+  after 3 steps it sets exit flag `0x626f00` and finalizes that branch. This
+  call path supports a short post-selection hold, not an attract-mode claim.
+  `CTRL_Dispatcher` handles video-end event `0x3f` by reopening
+  `generic.hnm`, which explains the menu background loop. **[verified]**
 
 ### Save/load browser (from the main menu)
 
@@ -106,29 +107,25 @@ items (`0x4c519e…`) — the ESC overlay during play, not the boot menu. Its
 spell/object grids and four option toggles are traced in
 [sprites-ui-dialog.md](sprites-ui-dialog.md).
 
-## The ETE mystery — the new-game video that isn't there
+## The ETE offset — an inert filename after the terminator
 
-The play-after-new-game video is **data-driven**: each project record in
-`DREAMS.DAT` carries its intro-video filename, and the in-memory parsed record
-exposes it at `+0x3c`. `BOOT_Run` plays `data\hnm\<that name>` only if the
-field is non-empty.
+The optional play-after-new-game path reads a C string at active project-record
+offset `+0x3c`. In both disc `DREAMS.DAT` files and the inspected retail install,
+Project 0 has a NUL at `+0x3c`; bytes `+0x3d` onward spell `ETE_E~1.HNM`.
+`MENU_Tick` also writes an empty string to `+0x3c` on New Game. Therefore
+`BOOT_Run` skips the optional-video open altogether. An earlier analysis read
+the adjacent bytes as the active string and incorrectly described a failed
+open. The source of those inert bytes remains unknown.
 
-* Project 0's record (file offset `0x400 + offs[0]`, chunk tag `0x04`) names
-  **`ETE_E~1.HNM`**. No file by that name exists on either disc — only
-  `TETE_E~1.HNM`. So on this release the per-project play fails and is
-  skipped (event `0x17` returns nonzero → event `0x18` stop → continue).
-* What the player actually sees after New Game is therefore **not** the
-  project video but the hardcoded one in `GAME_Tick 0x4240ba`: when the
-  project being entered is `Project0` and the one-shot latch
-  `DAT_0049da28` is set, it plays **`data\hnm\tete_e~1.hnm`** directly
-  (string at `0x4c493e`), then calls the map loader.
-* Whether `ETE_E~1.HNM` is a stale name from a master that had both files, or
-  the 8.3 mangling of a longer name that never shipped, is open. **[unverified]**
+`GAME_Tick 0x4240ba` separately names `data\hnm\tete_e~1.hnm` (string at
+`0x4c493e`). Its one-shot branch starts that movie and returns; the next
+loading tick after playback calls `SCENE_LoadLevel`.
 
 ## Level entry, end to end
 
 1. `GAME_Tick 0x4240ba`, state = loading, project = `Project0`, latch on:
-   stop music → play `TETE_E~1.HNM` → `SCENE_LoadLevel 0x41f9db`.
+   stop music → start `TETE_E~1.HNM` → return. After playback, the next loading
+   tick calls `SCENE_LoadLevel 0x41f9db`.
 2. `CD_PrepareLevel` (`0x427d64`) CD check (`DATA\1CD.ID` / `DATA\2CD.ID` / `DATA\FULL.ID`
    sentinel files; *Please change to CD no %d* from `CD_PromptSwap` (`0x428626`)),
    then, with hard-disk caching, the loading screen (*Please wait while
@@ -155,9 +152,9 @@ same pair at `0x3c2c8`/`0x3c658`. Messages identified during this trace:
 |---:|---|
 | `0x11` | get time |
 | `0x12` | init sound (8 voices, bank) |
-| `0x17` | **open/play video** (`.HNM`/`.UBB` via `0x485dc`) |
-| `0x18` | stop video |
-| `0x19` | stop sound |
+| `0x17` | open video (`.HNM`/`.UBB` via `VID_Open` `0x4085dc`) |
+| `0x18` | start the opened video |
+| `0x19` | stop video and its sound |
 | `0x1c` | query (sound/CD?) — checked at init |
 | `0x1f` | stop music |
 | `0x26` | install master frame handler |
@@ -231,7 +228,7 @@ consumed by `CTRL_Dispatcher` (`0x40e75c`) in the boot, menu and caption loops a
 | `UI_InitIcons` (`0x4341eb`) | UI/icon init (`icones.bf`, icon-name bindings) |
 | `GAME_TickFrame` (`0x416d45`) | master per-frame handler (installed at init): input events, demo record/play, `GAME_Tick`, HUD, key help (`UI_DrawKeyHelp` `0x416096`), video frames (`VID_DecodeFrame` `0x408816`), next frame's Δt |
 | `0x417078` | in-handler state dispatcher; always calls `GAME_Tick` (`0x4240ba`) |
-| `0x4240ba` | `GAME_Tick` — per-frame gameplay tick (entity ticks, AI scheduler, scene exits, pause, level-load kick); the 15 s in-engine transition and the Project0 head video are two of its states |
+| `0x4240ba` | `GAME_Tick` — per-frame gameplay tick (entity ticks, AI scheduler, scene exits, pause, level-load kick); the 15-engine-frame transition and Project0 head video are two of its states |
 | `0x41f9db` | `SCENE_LoadLevel` — level load when the pending-load flag is set: `CD_PrepareLevel`, DSN textures, lights/fog, OBJET entity spawns |
 | `CD_PrepareLevel` (`0x427d64`) | CD-swap prompt; hard-disk cache copy behind the loading screen |
 | `0x43a306` | `MGM_SendMessage` — message dispatcher (not `CTRL_Dispatcher`, which is `0x40e75c`) |

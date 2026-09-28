@@ -188,8 +188,10 @@ saved direct call graph). HNM5 needs the large `HNM5_DecodeFrame640`
 expansion. HNM4 supplies animated 256×256 textures, with a separate codec
 and palette. [cryolib.md](../../cryolib.md), [hnm-video.md](../../hnm-video.md)
 and [hnm6-spec.md](../../hnm6-spec.md) contain codec/container evidence;
-NihAV and the existing extracted files are **validation oracles**, not
-runtime dependencies. No game video belongs in the repository or app binary.
+NihAV and the existing extracted files are independent structural and motion
+cross-checks, not runtime dependencies. HNM6 color must follow the retail
+`HNM6_StoreBlockRGB16` formula, as recorded below. No game video belongs in
+the repository or app binary.
 
 The 3dfx movie call audit supplies the output contract without changing the
 Windows-base dispatcher:
@@ -378,9 +380,16 @@ shows `ST` text within the pane and closes source, audio and GPU state on a
 selection or mount change. `--cue2 <path> --preview-movie` selects Disc 2's
 `GENERIC.HNM` for repeatable startup checks.
 
-The first four decoded `GENERIC.HNM` HNS6 and `HNMFR2.UBB` UBS2 frames match
-the independent NihAV RGB output exactly after RGB565 quantization; the first
-SD PCM batches match the Python oracle byte for byte. Both files also decode
+The HNM5 `HNMFR2.UBB` frames match the independent NihAV RGB output after
+RGB565 quantization. The HNM6 container and block decode previously matched
+NihAV RGB for the first four `GENERIC.HNM` frames, but that color agreement
+was not retail color proof: direct review of `HNM6_StoreBlockRGB16` in both
+Windows (`0x47f814`) and `DREAMSFX.EXE` (`0xa5c44`) found that its blue term
+uses `U_raw >> 3`, where the old C++ conversion used the smaller `U/3` green
+term. The shared HNM6 port now follows the retail store formula; its current
+frame fingerprint is a regression check, while exact low-bit IDCT color parity
+still needs a raw retail-frame comparison. The first SD PCM batches match the
+Python oracle byte for byte. Both files also decode
 through their final frame using the selected-disc VFS. A two-disc corpus sweep
 decodes all 95 HNM5/6 files and 25,450 frames with no failures; the 20 HNM4
 animated textures are separately identified. The demo variants at 512×408

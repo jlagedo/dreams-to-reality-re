@@ -358,19 +358,20 @@ and still compiles for the browser.
    all 95 scenes (including the former collision-vote fallbacks), with the projection
    reference test. Gameplay-dependent camera behaviour is exercised in
    ODRuntime or focused tests, not a game session embedded in ODViewer.
-4. **First playable level.** ODRuntime with the original camera (`CAM_CompCameraPos`),
-   player movement from the original tables,
-   collision, physics, level exits, the HUD. Fixed-step loop at 30 Hz with
+4. **Runtime front end and first playable level.** [Spec 004](specs/004-runtime-boot-menu/spec.md)
+   brings ODRuntime through the original intro, menu and Project 0 level-load
+   handoff, including basic controller operation. The first playable level adds
+   the original camera (`CAM_CompCameraPos`), player movement from the original
+   tables, collision, physics, level exits and the HUD. Fixed-step loop at 30 Hz with
    Δt = 1.0; the renderer draws the latest completed step. Optional motion
    interpolation belongs to milestone 7.
 5. **Gameplay systems.** AI scheduler, NPC actions, combat, inventory and
-   spells, menus, dialogue, saves, the boot flow with videos. Level by level
+   spells, in-game menus, dialogue and saves. Level by level
    against the project map ([level-map.md](level-map.md)).
 6. **The whole game.** All 150 projects playable start to finish.
 7. **Polish and the web.** Enhancement toggles (including, if wanted, smooth
-   3D motion above the step rate), a gamepad layout (a bindings table; the
-   original is keyboard only, [engine.md](engine.md) "Input"), desktop
-   packaging; then the parked web work: `opendreams pack`, on-demand loading
+   3D motion above the step rate), configurable gamepad bindings beyond the
+   basic Spec 004 front-end layout, and desktop packaging; then the parked web work: `opendreams pack`, on-demand loading
    with a browser cache, the web release.
 
 ## Reverse-engineering work the runtime depends on

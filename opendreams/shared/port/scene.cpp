@@ -2,6 +2,7 @@
 
 #include "port/dan.h"
 #include "port/dsn.h"
+#include "port/player.h"
 #include "port/resource.h"
 #include "port/stream.h"
 
@@ -221,7 +222,18 @@ bool SCENE_InitLevel(PreviewLevelContext& context, std::string& error) {
     const bool relocated = RES_Relocate(geometry, context.level_, error) &&
         MDL_LoadSceneMaterials(pages,context.level_,context.missing_materials_,error);
     STRM_Free(stream);
-    return relocated;
+    if (!relocated) return false;
+    if (context.runtime_player_) {
+        PlayerState& player = *context.runtime_player_;
+        ANIM_InitStateTable(player);
+        const std::string selected = cell(context.project_record_.data() + 0x8c, 32);
+        const std::string asset = selected.empty() ? "XH_.3DC" : selected;
+        if (!ENT_LoadObject(player, context.project_record_.data(), asset, error) ||
+            !ANIM_LoadEntitySet(player, error) ||
+            !ANIM_RequestState(player, 0, error) ||
+            !ANIM_ApplyPendingState(player, error)) return false;
+    }
+    return true;
 }
 
 bool ENT_LoadModel(PreviewLevelContext& context, PreviewActor& actor,

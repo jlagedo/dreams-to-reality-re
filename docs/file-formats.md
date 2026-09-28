@@ -779,7 +779,7 @@ Decompiled from `SCENE_LoadLevel` (`0x41f9db`) and `ENT_InstantiateFromObjet` (`
 - `+0x018` `i32[3]`: Signed palette RGB base, used by `REND_TickPaletteLighting`.
 - `+0x024` `i32[3]`: Signed palette RGB random variation; these triplets are not spatial directions. See [lighting.md](lighting.md).
 - `+0x030` `i32[3]`: Ambient light RGB components (values in $0 \dots 255$, e.g. `(152, 168, 126)`).
-- `+0x03C` `char[32]`: Primary animated video filename (`.HNM` or `.UBB`, e.g. `ETE_E~1.HNM`, `CASC2.HNM`).
+- `+0x03C` `char[32]`: Primary animated video C string (`.HNM` or `.UBB`, e.g. `CASC2.HNM`). Project 0's string is empty; its `ETE_E~1.HNM` bytes begin at `+0x03D` after a NUL.
 - `+0x05C` `char[32]`: Secondary animated video filename (e.g. `M01DRA.HNM` in Project 12).
 - `+0x06C` `char[32]`: Target scene material name receiving primary video texture (e.g. `F02_EAUP`).
 - `+0x08C` `char[32]`: Target scene material name receiving secondary video texture (e.g. `M01DRA`).

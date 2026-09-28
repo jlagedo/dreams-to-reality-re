@@ -11,6 +11,7 @@ docs do.
 | [Spec 001 — project initialization](specs/001-project-init/spec.md) | C/C++ foundation, build/dependencies and two runnable Hello World applications through SDL3, sokol and Dear ImGui |
 | [Spec 002 — disc and source-asset navigation](specs/002-disc-navigation/spec.md) | Browser requirements for cue/bin images, source files, indexed entries, project references and tracks; no media previews or playback |
 | [Spec 003 — ODViewer asset previews and playback](specs/003-level-load-preview/spec.md) | Single viewer implementation spec; CAI/Project 71, HNM5/HNM6 movies, static image previews, and FSB/DRD/CD audio playback are implemented |
+| [Spec 004 — ODRuntime boot and main menu](specs/004-runtime-boot-menu/spec.md) | Draft runtime front end: recovered intro, looping movie menu, input/controller adaptation, New Game handoff and branch plan |
 | [ODViewer browser implementation](reviews/002-viewer-browser.md) | Inspection layer versus retail ports, provenance of indexed fields, corpus validation and remaining navigation checks |
 | [re-status.md](re-status.md) | **Current RE status and priorities**: recovered behavior, checked coverage, remaining gaps, field corrections and validation commands |
 | [glide-renderer.md](glide-renderer.md) | **Faithful GPU contract**: complete face dispatch, clamp/wrap, deferred alpha, depth, texture uploads, palette cache and fog |

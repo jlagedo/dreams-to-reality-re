@@ -78,6 +78,11 @@ FrameState GraphicsBackend::acquire(SDL_Window* window, sg_swapchain& out, std::
     return FrameState::ready;
 }
 
+bool GraphicsBackend::capture(const std::string&, std::string& error) {
+    error = "hidden frame capture currently requires the D3D11 backend";
+    return false;
+}
+
 bool GraphicsBackend::present(std::string&) {
     // sokol_gfx schedules presentation in sg_commit().
     auto* state = static_cast<MetalState*>(state_);

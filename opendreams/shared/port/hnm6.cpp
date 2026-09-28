@@ -6,6 +6,26 @@
 #include <string>
 
 namespace od::port {
+
+void HNM6_StoreBlockRGB16(const std::array<std::array<int16_t, 64>, 3>& planes,
+                          std::vector<uint16_t>& dst, int x0, int y0, int width) {
+    for (int y = 0; y < 8; ++y) for (int x = 0; x < 8; ++x) {
+        const int i = y * 8 + x;
+        const int luminance = planes[0][i] + 128;
+        const int u = planes[1][i], v = planes[2][i];
+        const int red_offset = (16 * v + 8) / 10;
+        const int green_offset = u / 3;
+        // Retail StoreBlockRGB16 (0x47f814) adds U_raw >> 3 to blue.
+        // The portable IDCT has already shifted each plane down by 4.
+        const int red5 = std::clamp((luminance + red_offset) >> 3, 0, 31);
+        const int green6 = std::clamp((luminance - (red_offset >> 1) -
+                                       green_offset) >> 2, 0, 62);
+        const int blue5 = std::clamp((luminance + 2 * u) >> 3, 0, 31);
+        dst[(y0 + y) * width + x0 + x] =
+            static_cast<uint16_t>((red5 << 11) | (green6 << 5) | blue5);
+    }
+}
+
 namespace {
 
 uint16_t le16(const uint8_t* p) {
@@ -373,15 +393,7 @@ struct DecodeContext {
                     planes[p][i]=static_cast<int16_t>(planes[p][i]*quant[i]);
                 idct(planes[p]);
             }
-            for (int y=0; y<8; ++y) for (int x=0; x<8; ++x) {
-                const int i=y*8+x;
-                const int yy=planes[0][i]+128, u=planes[1][i], v=planes[2][i];
-                const int cr=(16*v+8)/10, cb=u/3;
-                const uint16_t r=static_cast<uint16_t>(std::clamp(yy+cr,0,255));
-                const uint16_t g=static_cast<uint16_t>(std::clamp(yy-cr/2-cb,0,255));
-                const uint16_t blue=static_cast<uint16_t>(std::clamp(yy+cb,0,255));
-                dst[(b.y+y)*width+b.x+x] = static_cast<uint16_t>((r>>3)<<11 | (g>>2)<<5 | blue>>3);
-            }
+            HNM6_StoreBlockRGB16(planes, dst, b.x, b.y, width);
             return true;
         }
         int dx=0,dy=0;

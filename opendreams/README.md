@@ -8,7 +8,60 @@ port; HNM5/HNM6 movies now play from a selected disc row with SDL3 sound.
 Sprites, fonts and static texture pages also preview from the selected disc.
 FSB effects, DRD voices with portraits/captions and CUE audio tracks now play.
 Animation and the remaining viewer previews are in progress.
-`ODRuntime` retains its foundation screen. Both use one static `ODShared` library.
+`ODRuntime` now mounts configured disc images, displays the intro and main menu,
+and enters the Project 0 scene with Duncan's idle animation from New Game.
+Load/Options pages are pending.
+Both applications use one static `ODShared` library.
+
+## ODRuntime disc sources
+
+ODRuntime first reads `sources.ini` under the per-user directory returned by
+`SDL_GetPrefPath("OpenDreams", "ODRuntime")` (for example,
+`%APPDATA%\OpenDreams\ODRuntime` on Windows). This machine's file contains the
+two original CUE images saved for the runtime. Launching the executable from
+another working directory still finds them. If the user file is absent, the
+runtime also searches beside its executable and up two parent directories for
+the gitignored `opendreams/runtime.local.ini` development fallback;
+`runtime.example.ini` shows its format. Paths are UTF-8, may contain spaces,
+and relative paths resolve from their config file's directory. ODRuntime checks
+each image's disc marker and reports a wrong or unreadable image before opening
+its window. An explicit `--config` selects another file, and `--cue1`/`--cue2`
+override that file per disc:
+
+```powershell
+.\build\win-msvc-x64-debug\ODRuntime.exe --frames 2
+.\build\win-msvc-x64-debug\ODRuntime.exe --config runtime.local.ini --cue1 "E:\path\disc1.cue"
+.\build\win-msvc-x64-debug\ODRuntime.exe --cue1 "E:\path\disc1.cue" --cue2 "E:\path\disc2.cue"
+```
+
+Passing both CUE paths bypasses the default config. If neither a config nor
+arguments supply images, the foundation screen still opens and reports the
+unconfigured sources. `DREAMS_DISC1/2` refer to extracted Python-toolkit trees,
+not CUE images. With Disc 1 mounted, ODRuntime plays `INTRO.HNM`; Space, Esc,
+gamepad south/east or raw joystick buttons can skip it. `--skip-intro` opens the
+menu directly for development checks. At the menu, arrows or controller
+directions cycle the four choices, Space/Enter or south confirms, and Esc or
+east quits. New Game runs the elder movie, loads the first scene, initializes
+the XH_ player and displays its entry camera. The player idles, while movement,
+collision and HUD are pending. Load and Options report pending runtime
+work. The remaining boot flow is tracked in
+[Spec 004](../docs/specs/004-runtime-boot-menu/spec.md).
+
+For visual QA on Windows, capture the completed D3D11 frame directly from a
+hidden runtime window:
+
+```powershell
+.\build\win-msvc-x64-debug\ODRuntime.exe --skip-intro --capture ..\out\boot\menu.png --frames 10
+.\build\win-msvc-x64-debug\ODRuntime.exe --start-new-game --capture ..\out\boot\project0.png --frames 3600
+```
+
+`--capture` writes a PNG after the final frame, exits, and does not show or
+focus a window. It defaults to 10 frames if `--frames` is omitted. This is a
+GPU back-buffer capture, so other desktop windows and notifications cannot
+appear in it. The current capture implementation is Windows D3D11 only; other
+backends report an explicit unsupported-capture error. `--start-new-game`
+enters the same New Game branch directly for unattended captures; a normal
+launch still starts with the intro and menu.
 
 ## Application icons
 

@@ -92,7 +92,7 @@ decided by the review alone and 1 left unnamed. Details are in
 - **`0x48646d` is not a game `main`.** It is Watcom's `__NTMain`, and
   `0x41745e` is **`WinMain`** (previously `Game_Run`).
 - **`TRANS_Tick` was the whole game tick.** `0x4240ba` runs entity ticks, squad
-  AI, scene exits, pause and the level-load kick every frame; the 15 s
+  AI, scene exits, pause and the level-load kick every frame; the 15-frame
   transition and the head video are two of its states. It is now **`GAME_Tick`**.
 - **The level loader.** `0x41f9db` (`Scene_SpawnProjectEntities`) is the whole
   level loader, now **`SCENE_LoadLevel`**. The "new-game setup" at `0x41f699`
@@ -804,18 +804,17 @@ whose label table sits at `0x4a2ed5`: `NEW GAME` / `LOAD A GAME` / `OPTIONS`
 `UpLf/UpRg/DnLf/DnRg` corner markers. The lowercase `Load`/`Options`/`Quit`
 strings belong to the separate in-game pause menu (`MENU_RunGameMenu` (`004337c0`) → `MENU_DrawGameMenu` (`00432b45`)).
 
-Two data corrections came out of it. First, the new-game project video is
-**data-driven** — each decompressed `DREAMS.DAT` project record names its
-video (in-memory at `+0x3c`), and Project 0's record names
-**`ETE_E~1.HNM`, a file that exists on neither disc**; the open fails and the
-play is skipped. What ships instead is hardcoded in `GAME_Tick
-004240ba`: a one-shot latch (`DAT_0049da28`) that plays
-**`data\hnm\tete_e~1.hnm`** — the bearded elder's 313-frame talking-head
-briefing — immediately before `SCENE_LoadLevel 0041f9db` loads
-the map through the `Please wait while loading ...` / CD-swap screen
-(`CD_PrepareLevel` (`00427d64`), `LISTL%d.txt` manifests). Second, between menu confirm and the
-briefing there is a rendered, non-video **15-second in-engine transition**
-(`_DAT_005e5480 = 15.0` armed on new game, counted down in `GAME_Tick` (`004240ba`)).
+Two data corrections came out of it. First, the new-game project-video path is
+**data-driven**: `BOOT_Run` reads the record's C string at `+0x3c`. A later
+byte-level check found that Project 0 has NUL at `+0x3c` and the inert bytes
+`ETE_E~1.HNM` begin at `+0x3d`; no optional open occurs. `GAME_Tick 004240ba`
+instead starts hardcoded **`data\hnm\tete_e~1.hnm`** through a one-shot latch
+(`DAT_0049da28`) and returns. A subsequent loading tick calls
+`SCENE_LoadLevel 0041f9db`, which reaches `CD_PrepareLevel` (`00427d64`)
+and the `LISTL%d.txt` manifests. Second, between menu confirm and the
+briefing is a rendered, non-video **15-engine-frame transition**
+(`_DAT_005e5480 = 15.0`). `GAME_TickFrame` advances about 30 engine frames/s,
+so this lasts roughly half a second in normal play.
 
 `LISTL0.TXT` is confirmed as the always-resident universe
 (`H03PAQUE.DSN` + `CH0/HOLO/XH_/MHE`), and `LISTL1.TXT` opens with

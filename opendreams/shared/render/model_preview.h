@@ -17,19 +17,27 @@ struct ModelView {
     float pitch = 0.34906585f;
     float distance = 3.5f;
     float target[3]{};
+    bool explicit_eye = false;
+    float eye[3]{};
+    float focal_x = 2.2f;
+    float focal_y = 2.2f;
+    float near_plane = 0.1f;
+    float far_plane = 100.0f;
 };
 
 // Static model GPU path using the DREAMSFX face submission contract. It owns
 // one actor mesh and an offscreen color/depth target for the viewer pane.
 class ModelPreview {
 public:
-    bool init(std::string& error);
+    bool init(std::string& error, int width = 512, int height = 512);
     bool load(const port::PreviewActor& actor, std::string& error);
     bool load(const port::ModelGraph& graph, std::string& error);
     bool update_pose(const port::ModelGraph& graph, std::string& error);
     void draw(const ModelView& view) const;
     bool project_joint(const std::array<int32_t,3>& world_xyz,
                        const ModelView& view, float& u, float& v) const;
+    std::array<float,3> world_to_view(const std::array<int32_t,3>& xyz) const;
+    float scaled_distance(float source_units) const { return source_units * frame_scale_; }
     void clear_model();
     void shutdown();
     bool has_model() const { return vertices_.id != 0 && !draw_.batches.empty(); }

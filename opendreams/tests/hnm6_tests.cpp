@@ -18,6 +18,14 @@ uint32_t le32(const uint8_t* p) {
 }
 
 int main() {
+    std::array<std::array<int16_t, 64>, 3> planes{};
+    std::vector<uint16_t> color_block(64);
+    planes[1][0] = 64;
+    od::port::HNM6_StoreBlockRGB16(planes,color_block,0,0,8);
+    if (color_block[0] != 0x835f || color_block[1] != 0x8410) {
+        std::cerr << "retail HNM6 blue and green table terms differ\n";
+        return 1;
+    }
     od::port::VideoDpcm audio;
     std::array<uint8_t, 516> sd{};
     sd[2] = 1; // delta code 1 -> +1

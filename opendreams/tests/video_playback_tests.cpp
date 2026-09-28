@@ -39,9 +39,11 @@ int main() {
                                            pixels.size()*sizeof(uint16_t));
             const uint64_t sound_hash=fnv(reinterpret_cast<const uint8_t*>(step.pcm.data()),
                                            step.pcm.size()*sizeof(int16_t));
-            if (image_hash!=0x9c14693a3e6a7003ull ||
+            // Frame fingerprint after the retail RGB16 store's U>>3 blue term;
+            // the separate synthetic HNM6 test checks that term directly.
+            if (image_hash!=0x2792185aa376cdc0ull ||
                 sound_hash!=0x0a4680e29badf74cull) {
-                std::cerr << "first GENERIC frame or SD audio differs from corpus oracle\n";
+                std::cerr << "first GENERIC frame or SD audio differs from retail-color regression\n";
                 return 1;
             }
         }

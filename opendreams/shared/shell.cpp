@@ -31,6 +31,7 @@ SDL_Window* Shell::window() const { return impl_ ? impl_->window : nullptr; }
 bool Shell::init(const ShellOptions& options) {
     error_.clear();
     if (!options.title || !options.draw_ui || options.max_frames < 0 ||
+        (options.capture_path && options.max_frames < 1) ||
         options.ui_font_pixels < 0.0f || options.ui_size_scale <= 0.0f ||
         options.window_width <= 0 || options.window_height <= 0) {
         error_ = "invalid OpenDreams shell options";
@@ -42,7 +43,9 @@ bool Shell::init(const ShellOptions& options) {
         return false;
     }
     impl_->options = options;
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
+    const SDL_InitFlags subsystems = SDL_INIT_VIDEO | SDL_INIT_EVENTS |
+        (options.enable_controllers ? SDL_INIT_GAMEPAD | SDL_INIT_JOYSTICK : 0);
+    if (!SDL_Init(subsystems)) {
         error_ = std::string("SDL initialization failed: ") + SDL_GetError();
         shutdown();
         return false;
@@ -52,7 +55,9 @@ bool Shell::init(const ShellOptions& options) {
         return false;
     }
     const SDL_WindowFlags flags = static_cast<SDL_WindowFlags>(
-        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | GraphicsBackend::window_flags());
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY |
+        (options.hidden_window ? SDL_WINDOW_HIDDEN : 0) |
+        GraphicsBackend::window_flags());
     int window_width = options.window_width;
     int window_height = options.window_height;
     SDL_Rect usable{};
@@ -196,6 +201,15 @@ SDL_AppResult Shell::iterate() {
     simgui_render(); // calls ImGui::Render exactly once
     sg_end_pass();
     sg_commit();
+    if (impl_->options.capture_path &&
+        impl_->frames + 1 == impl_->options.max_frames) {
+        if (!impl_->graphics.capture(impl_->options.capture_path, error_)) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", error_.c_str());
+            return SDL_APP_FAILURE;
+        }
+        SDL_Log("Captured frame: %s", impl_->options.capture_path);
+        if (impl_->options.hidden_window) return SDL_APP_SUCCESS;
+    }
     if (!impl_->graphics.present(error_)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", error_.c_str());
         return SDL_APP_FAILURE;

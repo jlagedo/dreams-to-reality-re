@@ -246,15 +246,14 @@ Three of these have named places in the startup sequence (decompiled; see
 
 | File | Role at boot |
 |---|---|
-| `INTRO.HNM` | the first movie, played via dispatcher event `0x17` before anything else; skippable |
+| `INTRO.HNM` | the first movie, opened with dispatcher command `0x17` and started with `0x18`; skippable |
 | `GENERIC.HNM` | played right after the intro — the 101-frame light-speed tunnel that runs as the animated main-menu background |
 | `TETE_E~1.HNM` | hardcoded one-shot for entering Project 0 — the bearded elder's talking-head briefing, played just before the first map loads |
 
-The general per-level mechanism is data-driven: each project record in
-`DREAMS.DAT` names its intro video (in-memory at `+0x3c`), and the engine
-plays `data\hnm\<name>` on entry. Project 0's record names `ETE_E~1.HNM`,
-which **exists on neither disc** — that play fails open-and-skip, and the
-hardcoded `TETE_E~1.HNM` is what actually shows.
+The general per-level mechanism is data-driven: the engine reads the project
+record's C string at `+0x3c` and plays it when nonempty. Project 0 has a NUL
+at that byte; inert `ETE_E~1.HNM` bytes begin at `+0x3d`. No optional open is
+attempted. The hardcoded `TETE_E~1.HNM` is what shows.
 
 ### The disc-2 `INTRO.HNM` mystery — solved
 

@@ -11,12 +11,47 @@
 namespace od {
 namespace {
 
-constexpr int target_size = 512;
-
 void preview_matrix(const ModelView& view, float (&matrix)[16]) {
+    if (view.explicit_eye) {
+        float forward[3]{view.target[0]-view.eye[0],
+                         view.target[1]-view.eye[1],
+                         view.target[2]-view.eye[2]};
+        const float length=std::sqrt(forward[0]*forward[0]+forward[1]*forward[1]+
+                                     forward[2]*forward[2]);
+        if (length>0.0f)
+            for (float& value : forward) value/=length;
+        else forward[2]=1.0f;
+        float right[3]{forward[2],0.0f,-forward[0]};
+        const float horizontal=std::sqrt(right[0]*right[0]+right[2]*right[2]);
+        if (horizontal>0.0f) {
+            right[0]/=horizontal; right[2]/=horizontal;
+        } else right[0]=1.0f;
+        const float up[3]{
+            forward[1]*right[2]-forward[2]*right[1],
+            forward[2]*right[0]-forward[0]*right[2],
+            forward[0]*right[1]-forward[1]*right[0]};
+        const auto eye_dot=[&](const float (&axis)[3]) {
+            return axis[0]*view.eye[0]+axis[1]*view.eye[1]+
+                   axis[2]*view.eye[2];
+        };
+        const float a=view.far_plane/(view.far_plane-view.near_plane);
+        const float b=-view.far_plane*view.near_plane/
+                      (view.far_plane-view.near_plane);
+        const float rows[4][4]={{
+            view.focal_x*right[0],view.focal_x*right[1],view.focal_x*right[2],
+            -view.focal_x*eye_dot(right)},
+            {view.focal_y*up[0],view.focal_y*up[1],view.focal_y*up[2],
+             -view.focal_y*eye_dot(up)},
+            {a*forward[0],a*forward[1],a*forward[2],b-a*eye_dot(forward)},
+            {forward[0],forward[1],forward[2],-eye_dot(forward)}};
+        for (size_t row=0;row<4;++row)
+            for (size_t column=0;column<4;++column)
+                matrix[column*4+row]=rows[row][column];
+        return;
+    }
     const float yaw_c=std::cos(view.yaw), yaw_s=std::sin(view.yaw);
     const float pitch_c=std::cos(view.pitch), pitch_s=std::sin(view.pitch);
-    constexpr float focal = 2.2f, near_plane = 0.1f, far_plane = 100.0f;
+    const float near_plane = view.near_plane, far_plane = view.far_plane;
     const float a = far_plane / (far_plane - near_plane);
     const float b = -far_plane * near_plane / (far_plane - near_plane);
     const float x_offset=-yaw_c*view.target[0]+yaw_s*view.target[2];
@@ -25,9 +60,10 @@ void preview_matrix(const ModelView& view, float (&matrix)[16]) {
     const float z_offset=view.distance-pitch_c*yaw_s*view.target[0]-
         pitch_s*view.target[1]-pitch_c*yaw_c*view.target[2];
     const float rows[4][4] = {
-        {focal * yaw_c, 0, -focal * yaw_s, focal*x_offset},
-        {-focal * pitch_s * yaw_s, focal * pitch_c,
-         -focal * pitch_s * yaw_c, focal*y_offset},
+        {view.focal_x * yaw_c, 0, -view.focal_x * yaw_s,
+         view.focal_x*x_offset},
+        {-view.focal_y * pitch_s * yaw_s, view.focal_y * pitch_c,
+         -view.focal_y * pitch_s * yaw_c, view.focal_y*y_offset},
         {a * pitch_c * yaw_s, a * pitch_s, a * pitch_c * yaw_c, a*z_offset+b},
         {pitch_c * yaw_s, pitch_s, pitch_c * yaw_c, z_offset},
     };
@@ -41,12 +77,16 @@ bool valid(sg_view view) { return sg_query_view_state(view) == SG_RESOURCESTATE_
 
 } // namespace
 
-bool ModelPreview::init(std::string& error) {
+bool ModelPreview::init(std::string& error, int width, int height) {
     error.clear();
+    if (width <= 0 || height <= 0) {
+        error = "model target dimensions must be positive";
+        return false;
+    }
     sg_image_desc color_desc{};
     color_desc.usage.color_attachment = true;
-    color_desc.width = target_size;
-    color_desc.height = target_size;
+    color_desc.width = width;
+    color_desc.height = height;
     color_desc.pixel_format = SG_PIXELFORMAT_RGBA8;
     color_desc.sample_count = 1;
     color_desc.label = "model preview color";
@@ -54,8 +94,8 @@ bool ModelPreview::init(std::string& error) {
 
     sg_image_desc depth_desc{};
     depth_desc.usage.depth_stencil_attachment = true;
-    depth_desc.width = target_size;
-    depth_desc.height = target_size;
+    depth_desc.width = width;
+    depth_desc.height = height;
     depth_desc.pixel_format = SG_PIXELFORMAT_DEPTH;
     depth_desc.sample_count = 1;
     depth_desc.label = "model preview depth";
@@ -310,6 +350,15 @@ bool ModelPreview::project_joint(const std::array<int32_t,3>& world_xyz,
     u=0.5f+0.5f*x/w;
     v=0.5f-0.5f*y/w;
     return std::isfinite(u) && std::isfinite(v);
+}
+
+std::array<float,3> ModelPreview::world_to_view(
+    const std::array<int32_t,3>& xyz) const {
+    return {{
+        (static_cast<float>(xyz[0])-frame_center_[0])*frame_scale_,
+        (-static_cast<float>(xyz[1])-frame_center_[1])*frame_scale_,
+        (static_cast<float>(xyz[2])-frame_center_[2])*frame_scale_
+    }};
 }
 
 void ModelPreview::clear_model() {

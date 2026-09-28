@@ -8,6 +8,11 @@
 
 namespace od::port {
 
+// Retail HNM6_StoreBlockRGB16 inner block conversion. The decoded IDCT
+// samples here are scaled down by 16 relative to the original scratch words.
+void HNM6_StoreBlockRGB16(const std::array<std::array<int16_t, 64>, 3>& planes,
+                          std::vector<uint16_t>& dst, int x, int y, int width);
+
 // One instance is owned by one open HNM6/HNS6 video. The caller supplies the
 // previous and destination 640x304 RGB565 frames, as at the retail IX call.
 class Hnm6Decoder {

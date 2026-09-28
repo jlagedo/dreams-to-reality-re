@@ -13,6 +13,8 @@
 
 namespace od::port {
 
+class PlayerState;
+
 struct PreviewActor {
     size_t object_slot = SIZE_MAX;
     std::string asset_name;
@@ -53,6 +55,7 @@ public:
     const std::array<uint8_t, DdatBank::record_size>& project_record() const {
         return project_record_;
     }
+    void set_runtime_player(PlayerState* player) { runtime_player_ = player; }
 
 private:
     VfsContext vfs_;
@@ -74,6 +77,7 @@ private:
     bool loaded_ = false;
     bool synthetic_scene_ = false;
     bool project_scene_ = false;
+    PlayerState* runtime_player_ = nullptr; // Caller owns this optional actor.
 
     friend bool SCENE_InitLevel(PreviewLevelContext&, std::string&);
     friend bool SCENE_LoadLevel(PreviewLevelContext&, std::string&);

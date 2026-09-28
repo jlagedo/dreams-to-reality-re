@@ -5,6 +5,7 @@
 
 #include <cstdio>
 #include <new>
+#include <vector>
 
 namespace od {
 namespace {
@@ -145,6 +146,80 @@ FrameState GraphicsBackend::acquire(SDL_Window* window, sg_swapchain& out, std::
     out.sample_count = 1;
     out.d3d11.render_view = state->render_view;
     return FrameState::ready;
+}
+
+bool GraphicsBackend::capture(const std::string& png_path, std::string& error) {
+    auto* state = static_cast<D3DState*>(state_);
+    if (!state || !state->swapchain || state->width < 1 || state->height < 1) {
+        error = "D3D11 frame capture has no completed swapchain";
+        return false;
+    }
+    ID3D11Resource* rendered_resource = nullptr;
+    state->render_view->GetResource(&rendered_resource);
+    if (!rendered_resource) {
+        error = "D3D11 frame capture has no rendered color target";
+        return false;
+    }
+    ID3D11Texture2D* back_buffer = nullptr;
+    HRESULT hr = rendered_resource->QueryInterface(__uuidof(ID3D11Texture2D),
+                                                   reinterpret_cast<void**>(&back_buffer));
+    rendered_resource->Release();
+    if (FAILED(hr)) {
+        set_hr_error(error, "capture render-target texture", hr);
+        return false;
+    }
+    D3D11_TEXTURE2D_DESC desc{};
+    back_buffer->GetDesc(&desc);
+    if (desc.Format != DXGI_FORMAT_B8G8R8A8_UNORM || desc.SampleDesc.Count != 1) {
+        back_buffer->Release();
+        error = "frame capture requires a single-sample BGRA8 back buffer";
+        return false;
+    }
+    desc.Usage = D3D11_USAGE_STAGING;
+    desc.BindFlags = 0;
+    desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    desc.MiscFlags = 0;
+    ID3D11Texture2D* staging = nullptr;
+    hr = state->device->CreateTexture2D(&desc, nullptr, &staging);
+    if (FAILED(hr)) {
+        back_buffer->Release();
+        set_hr_error(error, "capture staging texture", hr);
+        return false;
+    }
+    state->context->CopyResource(staging, back_buffer);
+    back_buffer->Release();
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    hr = state->context->Map(staging, 0, D3D11_MAP_READ, 0, &mapped);
+    if (FAILED(hr)) {
+        staging->Release();
+        set_hr_error(error, "capture readback", hr);
+        return false;
+    }
+    std::vector<uint8_t> rgba(static_cast<size_t>(desc.Width) * desc.Height * 4u);
+    for (UINT y = 0; y < desc.Height; ++y) {
+        const auto* src = static_cast<const uint8_t*>(mapped.pData) +
+                          static_cast<size_t>(y) * mapped.RowPitch;
+        auto* dst = rgba.data() + static_cast<size_t>(y) * desc.Width * 4u;
+        for (UINT x = 0; x < desc.Width; ++x) {
+            dst[4*x] = src[4*x+2];
+            dst[4*x+1] = src[4*x+1];
+            dst[4*x+2] = src[4*x];
+            dst[4*x+3] = 255;
+        }
+    }
+    state->context->Unmap(staging, 0);
+    staging->Release();
+    SDL_Surface* surface = SDL_CreateSurfaceFrom(static_cast<int>(desc.Width),
+        static_cast<int>(desc.Height), SDL_PIXELFORMAT_RGBA32, rgba.data(),
+        static_cast<int>(desc.Width * 4u));
+    if (!surface) {
+        error = std::string("cannot create capture surface: ") + SDL_GetError();
+        return false;
+    }
+    const bool saved = SDL_SavePNG(surface, png_path.c_str());
+    if (!saved) error = std::string("cannot save frame capture: ") + SDL_GetError();
+    SDL_DestroySurface(surface);
+    return saved;
 }
 
 bool GraphicsBackend::present(std::string& error) {
