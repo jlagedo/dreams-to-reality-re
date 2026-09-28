@@ -42,6 +42,22 @@ mark the port partial and state the assumption. For the player path, specificall
 check that source pointer `1` resolves to the first model node and that the
 composed model root lands at the recorded project spawn.
 
+## Static recompilation experiment (pcrecomp)
+
+Porting test: lift the retail x86 to C with pcrecomp and run it. Everything
+lives under the gitignored `out/` (generated code is game-derived; never commit).
+
+| Path | What |
+|---|---|
+| `out/recomp/pcrecomp/` | Upstream toolbox clone (github.com/sp00nznet/pcrecomp); `tools/lift/` lift32 lifter, `tools/ghidra/DumpBounds.java` |
+| `out/recomp/windream/` | GDIDREAM.EXE recomp build: `lift.py` (bounds.csv → `gen/`), `build.ps1` (clang-cl + Ninja), `run.ps1` (sandboxed run, scripted keys, snapshots), `runtime/` (hand-written Win32/DSound/GDI shims) |
+| `out/recomp/difftest/` | Differential tests: Watcom 10.6 test program native vs recompiled (`difftest.ps1`, `wat.ps1`, `coverage.py`) |
+| `out/recomp/nocturne/`, `out/recomp/pod-recomp/` | Reference recomp projects from the same author |
+| `out/dev/research/pcrecomp/` | Notes copied from pcrecomp and related projects (pipeline, hybrid approach, philosophy) |
+| `out/recomp/matchdecomp/` | Matching decompilation: `match.py <c> <func_> <va> --cc wc110 --flags "-5r -otexan -s"` byte-diffs a compiled function against WINDREAM.EXE; `flagsweep.py`, `cases.txt`, `src/` |
+
+Toolchains (evidence: `matchdecomp/fpscan.py`, `fpruns.py`, `libversion.py`, `linkver.ps1`): WINDREAM/GDIDREAM are **Watcom 11.0** throughout (compiler, linker, runtime; not 11.0a); DREAMS.EXE and DREAMSFX.EXE link the 10.6 runtime and mix 10.6- and 11.0-compiled object files by address range (DREAMSFX's 10.6 code uses `-d1+`). Match flags: most Windows game code is unoptimized and stack-checked, `-5r -od` (retail starts `push N; call __CHK`); optimized modules use `-5r -otexan -s`. Blind 24-function test and its scripts: `matchdecomp/blind/` (`tally.py`). Compilers under `DREAMS_WATCOM`: `wc106`, `wc110\11.0`, `wc110\11.0a`. Evidence and flags: `docs/toolchain.md`.
+
 ## Local paths
 
 | Variable | Path |

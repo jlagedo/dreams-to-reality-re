@@ -8,17 +8,31 @@ pins the *version* and turns it into recovered symbol names.
 
 ## Verdict
 
-All four game executables were built with **Watcom C/C++ 10.6** (released
-August 1996). **[verified]**
+The four game executables do **not** share one toolchain. **[verified]**
 
-10.0, 10.5 and 11.0 are excluded. 10.6 and its maintenance release **10.6a
-cannot be told apart** by any method here — they ship a byte-identical
-`CLIB3R.LIB` (MD5 `3bb5e9971a8cd3dcfa1b96b542c1c51a`).
+| Binary | Game code compiled by | Runtime library | Linker |
+|---|---|---|---|
+| `WINDREAM.EXE`, `GDIDREAM.EXE` | **Watcom 11.0** | **11.0** (not 11.0a) | 11.0 `wlink` |
+| `DREAMS.EXE` | a **mix** of 10.6 and 11.0 object files | 10.6 | not checked |
+| `DREAMSFX.EXE` | a **mix**, mostly 10.6 (built with `-d1+`) and some 11.0 | 10.6 | not checked |
+
+An earlier revision of this page said all four were Watcom 10.6. It excluded
+11.0 using the 11.0c banner (Sybase, 2000), but plain 11.0 (1997) still prints
+the WATCOM International banner, and the library fingerprinting only compared
+10.5 with 10.6. Steps 1 and 2 below are still correct as far as they go: the
+game is not 10.5, and the DOS builds do link the 10.6 runtime. Steps 3–6 are
+the evidence for the revised verdict.
+
+Compiler flags for matching Windows code (step 6): most of Cryo's Windows code
+was compiled **unoptimized with stack checking**, reproduced by `-5r -od`
+(each function starts `push N; call __CHK`). The optimized modules are
+reproduced by `-5r -otexan -s`; `-4r`/`-6r` and `-oaxt`/`-oneatx` give the
+same bytes, while `-3r` and plain `-ox` do not.
 
 `SETUP.EXE` is *not* part of this — it is MSVC-built, as its `.text`/`.data`
 section names show.
 
-## Step 1 — the runtime banner narrows it to the 10.5/10.6 family
+## Step 1 — the runtime banner narrows it to 10.5–11.0
 
 Every game binary carries this string verbatim:
 
@@ -35,10 +49,11 @@ Reference banners pulled from original distributions: **[verified]**
 |---|---|
 | Watcom 10.5 | `WATCOM International Corp. 1988-1995` |
 | Watcom 10.6 / 10.6a | `WATCOM International Corp. 1988-1995` |
+| Watcom 11.0 | `WATCOM International Corp. 1988-1995` |
 | Watcom 11.0c | `Sybase, Inc. 1988-2000` |
 
-Sybase branding rules out 11.0 immediately. 10.5 and 10.6 share a banner, so the
-string alone cannot separate them.
+Sybase branding rules out 11.0c only. 10.5, 10.6 and 11.0 share a banner, so
+the string alone cannot separate them.
 
 The banner's origin is visible in source: `SRC\STARTUP\386\CSTRT386.ASM` on the
 10.6 CD, lines 177–179 —
@@ -79,14 +94,126 @@ Matching 10.6 exactly is positive evidence and does not depend on the 10.5
 comparison, so 10.0 is excluded too: its library would differ from 10.6 as well,
 and the game binaries would then match neither.
 
-## Step 3 — supporting detail
+This step did not test 11.0. Much of 11.0's library is byte-identical to
+10.6's, so "10.6-only versus 10.5" windows do not exclude 11.0; step 3 does
+that comparison.
 
-- `WINDREAM.EXE` PE timestamp is **1997-10-29 14:25:41 UTC**, before Watcom 11.0
-  shipped. **[verified]**
-- PE linker version is **2.18**. That is Watcom's `wlink` — `PE_LNK_MAJOR 2`,
-  `PE_LNK_MINOR 0x12`, hardcoded in
-  [`bld/watcom/h/exepe.h`](https://github.com/open-watcom/open-watcom-v2/blob/master/bld/watcom/h/exepe.h).
-  It confirms the linker but carries no version information. **[verified]**
+## Step 3 — the runtime library: 11.0 on Windows, 10.6 on DOS
+
+The same method as step 2, with full-extent signature matches: count library
+functions whose bytes exist in only one version's `CLIB3R`, `MATH387R` and
+`MATH3R` (DOS builds also `GRAPH` and `EMU387`). **[verified]**
+
+| Binary | 10.6-only functions found | 11.0-only functions found |
+|---|---|---|
+| `WINDREAM.EXE`, `GDIDREAM.EXE` | 2 of 524 | **179 of 745** |
+| `DREAMS.EXE` | **140 of 488** | 2 of 837 |
+| `DREAMSFX.EXE` | **137 of 488** | 1 of 837 |
+
+11.0 against 11.0a on `WINDREAM.EXE`: **127** of 535 functions unique to 11.0
+are present, **0** of 552 unique to 11.0a. The 11.0-only matches include the
+thread-data and semaphore code, `_EFG_Format_` and a `scanf` integer parser
+with a 64-bit (`long long`) path that calls `__U8M`; 10.6's `scanf` has no
+64-bit path.
+
+## Step 4 — the linker: 11.0's section layout
+
+The PE linker version field is **2.18** in all four PE outputs tested: 10.6,
+10.6a and 11.0 `wlink` all write it (`PE_LNK_MAJOR 2`, `PE_LNK_MINOR 0x12`,
+hardcoded in
+[`bld/watcom/h/exepe.h`](https://github.com/open-watcom/open-watcom-v2/blob/master/bld/watcom/h/exepe.h)),
+so it identifies Watcom but not the version. The section layout and header
+flags do. Linking one test program with each linker against each version's
+libraries shows that the linker alone decides them: **[verified]**
+
+| Linker | Section order | `Characteristics` |
+|---|---|---|
+| 10.6, 10.6a | `BEGTEXT, DGROUP, .bss, .idata, .reloc` | `0x8182` |
+| 11.0 | `AUTO, .idata, DGROUP, .bss, .reloc` | `0x182` |
+| `WINDREAM.EXE` | `AUTO, .idata, DGROUP, .bss, .reloc, .rsrc` | `0x182` |
+
+## Step 5 — code-generation idioms that do not depend on the source
+
+Constructs compiled with both compilers at every tested flag set, where the
+difference comes from the compiler version and not from how the C is written:
+**[verified]**
+
+- **Switch jump tables.** 10.6 dispatches with `jmp cs:[reg*4+table]`
+  (`2E FF 24 ..`) under all 375 flat-model flag sets tried; 11.0 never emits
+  the `CS` prefix in the flat model (420 flag sets), only with `-ms`.
+- **Division by a constant.** 10.6 loads the divisor into EBX, 11.0 into ECX.
+  This is the same register-preference change that breaks 10.6 matches in
+  general (11.0 tries ECX before EBX). It is soft evidence: 11.0 uses EBX when
+  ECX is busy.
+- **Unoptimized frames without locals.** 10.6 emits `sub esp,0`; 11.0 reserves
+  a spare 4 bytes (`sub esp,4`), stack-checks 4 more bytes and restores with
+  `mov esp,ebp`.
+
+Counts outside the matched runtime library:
+
+| Binary | Switch `cs:` (10.6) | Switch plain (11.0) | Divisor EBX / ECX | Unoptimized frames: `sub esp,0` / `sub esp,4` / total |
+|---|---|---|---|---|
+| `WINDREAM.EXE` | 1 | **112** | 9 / **31** | **0** / 147 / 898 |
+| `DREAMS.EXE` | 49 | 111 | 26 / 10 | 1 / 0 / 24 |
+| `DREAMSFX.EXE` | **67** | 38 | 27 / 8 | 0 / 0 / 37 |
+
+Under 10.6, every unoptimized function without locals would produce
+`sub esp,0`; `WINDREAM.EXE` has 898 unoptimized frames and none of them. The
+counts also show that the Windows game code is mostly unoptimized, while the
+DOS builds are almost entirely optimized.
+
+**The DOS builds mix object files.** Ordered by address, the 10.6 and 11.0
+markers form long runs rather than interleaving: `DREAMS.EXE` has 21 version
+changes across 196 markers where random order would give about 92, and
+`DREAMSFX.EXE` 13 across 140 against about 61. The linker lays out whole
+object files contiguously, so this is what object files compiled by different
+compilers look like. All four executables were written to the disc on
+1997-10-29 between 12:07 and 12:25, so the older-compiler objects were relinked
+on the same day, not left over from an earlier build.
+
+## Step 6 — matching decompilation
+
+Functions written back in C and compiled with each compiler, then compared
+byte for byte with retail; relocated bytes are wildcards. **[verified]**
+
+- **Pilot, seven small `MATH_` functions** (`0x45b154`–`0x45bb84`): all seven
+  are byte-exact under 11.0 with the flags above; 10.6 matches only
+  `MATH_SetIdentityMat3`, which both compilers produce the same way. The same C
+  compiled with 11.0 is found byte-exact in `DREAMS.EXE` (at `0x913a4`–`0x91dd4`,
+  inside an 11.0 run of step 5); compiled with 10.6 `-5r -otexan -d1+ -s`, six of
+  the seven are found in `DREAMSFX.EXE` (`0x86d24`–`0x8776c`, inside a 10.6 run).
+- **Blind test, 24 random functions.** Drawn from `WINDREAM.EXE` with a fixed
+  seed, excluding the runtime library and the pilot. Four agents wrote C from
+  the Ghidra decompilation and retail disassembly. They saw the compilers only
+  as "A" and "B"; every attempt was scored under both, with the same flags, at
+  most 12 attempts per function.
+
+  | Measure | 11.0 | 10.6 | Two-sided sign test |
+  |---|---|---|---|
+  | Exact from the first-draft C, only under one compiler | **12** | 1 | p = 0.0034 |
+  | Exact on any attempt, only under one compiler | 5 | 1 | p = 0.22 |
+
+  The second row does not separate the compilers because in unoptimized code
+  10.6 also matches once the C gains an unused local variable, which pads its
+  frame to 11.0's size. The writers found this blind and every such 10.6 match
+  needed one. The single 10.6-only first-draft match, `0x46068d`, is not Cryo
+  code: its bytes are in 11.0's own `CLIB3R.LIB` (the heap code beside `free`
+  at `0x460589`). The table leaves out three sampled functions next to the
+  runtime's `scanf` code that may be unrecognised library code: `0x4896ec`
+  (10.6-exact) and two hand-written assembly routines, `0x48a64a` and
+  `0x48d7e8`. Besides those two, `0x40464f` and `VID_Lock` (`0x445bf2`)
+  matched under neither compiler: retail has a `je +2; jmp` branch that
+  neither produces from any C tried.
+
+The scripts for steps 3–6 are in `out/recomp/matchdecomp/` (local, not
+committed): `libversion.py`, `linkver.ps1`, `fpscan.py`, `fpruns.py`,
+`framescan.py`, `match.py` and `blind/`.
+
+## Step 7 — supporting detail
+
+- `WINDREAM.EXE` PE timestamp is **1997-10-29 14:25:41 UTC**. Watcom 11.0 is
+  a 1997 release, and the 11.0a CD's files are dated 1997-08-29, so both
+  predate the build. **[verified]**
 - `DOS4GW.EXE` is DOS/4GW **1.97**, build stamp `May 19 1994`, with the
   `Rational Systems, Inc. 1990-1994` copyright. **[verified]**
 - `WINDREAM.EXE` resources carry the `eGW4` marker of Watcom's resource
@@ -108,15 +235,24 @@ E:\dev_game\watcom\                                    258 MB
 │   ├── open_watcom_1.0.0-src.zip           38 MB   26,600 files, dated 2003-01-24
 │   └── open_watcom_1.0.0-src\             146 MB   extracted
 │       └── bld\   clib 12M · cg 6.1M · wl 2.6M · cc 2.4M · wlib, wpp, wdw, ...
-└── 10.6-cd\                                74 MB   read off the retail 10.6 ISO
-    ├── SRC\                               569 KB   genuine 10.6 source (69 files)
-    ├── LIB386\                             70 MB   187 files, DOS/NT/OS2/WIN/NETWARE
-    └── H\                                 2.5 MB   10.6 headers
+├── 10.6-cd\                                74 MB   read off the retail 10.6 ISO
+│   ├── SRC\                               569 KB   genuine 10.6 source (69 files)
+│   ├── LIB386\                             70 MB   187 files, DOS/NT/OS2/WIN/NETWARE
+│   └── H\                                 2.5 MB   10.6 headers
+├── wc106\watcom10.6\                               installed 10.6 GA (binaries dated 1996-02-29)
+├── wc106a\10.6a\                                   10.6a linkers only (dated 1997-01-10)
+└── wc110\
+    ├── 11.0\                                       11.0: BINNT, BINW, H, LIB386
+    └── 11.0a\                                      11.0a: BINNT, BINW, H, LIB386 (dated 1997-08-29)
 ```
+
+`wc106` and `wc110` hold working compilers (`BINNT\WCC386.EXE`), used for
+matching decompilation.
 
 ### What is and is not available **[sourced]**
 
-- **Compiler source exists only for 11.0c.** Sybase open-sourced the Watcom
+- **Compiler source exists only for 11.0c**, a later update of the compiler
+  that built the Windows game code. Sybase open-sourced the Watcom
   codebase in 2003 under the Sybase Open Watcom Public License; that release,
   Open Watcom 1.0, *is* the 11.0c tree. Mirrors:
   [openwatcom.org/ftp/source/](https://openwatcom.org/ftp/source/),
@@ -135,14 +271,19 @@ E:\dev_game\watcom\                                    258 MB
 
 The 10.6 CD is on the Internet Archive as
 [watcom-c-cpp-compilers-collection](https://archive.org/details/watcom-c-cpp-compilers-collection);
-the extraction here was done with HTTP range reads against the ISO9660
-directory rather than downloading the full 664 MB image.
+`10.6-cd` was extracted with HTTP range reads against the ISO9660 directory.
+The whole collection (4.8 GB, every release from 6.5 to 11.0c) has since been
+downloaded; `wc106a` and `wc110` come from its `watcom-10.6a`, `watcom-11.0`
+and `watcom-11.0a` items.
 
 ## Recovering runtime symbol names
 
 Watcom's libraries are OMF, and OMF keeps `PUBDEF` records: real function names
-bound to the exact bytes the linker copies into the image. Since the exact
-library version is now known, the stock libraries act as a symbol source.
+bound to the exact bytes the linker copies into the image. Given the library
+version, the stock libraries act as a symbol source. The results below were
+produced with the 10.6 libraries for all four binaries; that is right for the
+DOS builds, but the Windows builds link 11.0's runtime (step 3), so re-running
+with 11.0's libraries should name more of `WINDREAM.EXE`.
 
 `src/dreams/watcom.py` parses the libraries, masks out every byte covered by a
 `FIXUPP` record (call displacements and absolute addresses differ between the
@@ -212,7 +353,7 @@ not in the binaries.
 | String literals are emitted the first time the code generator meets them, 4-byte aligned when optimising for time, into that file's `CONST` | `cgen2.c` `Emit1String`, `EmitLiteral` | constants are in code order even inside a file |
 | Uninitialised variables, globals included, go to that file's `_BSS`; there are no common symbols | `cc/c/cinfo.c` `AssignSeg` | `.bss` is contiguous per file |
 | File-scope variables are emitted by walking `GlobalSym`, which is chained by **name-hash bucket** | `cc/c/csym.c`, `cgen2.c` `EmitSyms` | `.bss` order inside a file looks scrambled |
-| Function alignment: 1 byte with `-os` or the default, 4 with `-3` for speed, 16 with `-4`/`-5` | `cg/intel/c/i86enc2.c` `DepthAlign(PROC_ALIGN)` | game functions are unaligned (about 25% are 4-aligned, i.e. chance), so no per-file compiler options can be read off the code |
+| Function alignment: 1 byte with `-os` or the default, 4 with `-3` for speed, 16 with `-4`/`-5` | `cg/intel/c/i86enc2.c` `DepthAlign(PROC_ALIGN)` | game functions are unaligned (about 25% are 4-aligned, i.e. chance), so alignment reveals no per-file options; the stack-check prologue does (optimized versus `-od`, step 5) |
 | The linker keeps each segment's contributions in link order: every game file, then the libraries | not read; observed only | each data region is the game part, then the library part |
 
 ## Was the C++ compiler used?
@@ -246,7 +387,16 @@ residue in `engine.md`. Confirming it needs a different technique.
    `Memory.locateAddressesForFileOffset` resolves into the loader's raw
    `.image` copy instead and must not be used. `DREAMS.EXE` is not imported
    yet.
-3. 10.6 versus 10.6a is undecidable from the runtime library, which is
-   byte-identical between them. Whether anything else in the two distributions
-   differs in a way the game binaries would reveal has not been checked.
-   **[unverified]**
+3. ~~10.6 versus 10.6a is undecidable.~~ Mostly moot: the Windows builds are
+   11.0 (steps 3–6). 10.6a differs from 10.6 GA only in its 1997-01-10 linkers,
+   which write the same PE layout as 10.6 GA (step 4). The DOS builds' LE
+   linker version has not been checked. **[unverified]**
+4. The Windows runtime-name pass (above) still uses the 10.6 libraries; switch
+   the Windows signatures to 11.0's `LIB386\NT` and re-apply in Ghidra.
+5. Some retail debug-built code has a `je +2; jmp` branch (`VID_Lock`
+   `0x445bf2`, `CD_ResumeAudio` `0x40464f`) and reloads locals the way only
+   `volatile` reproduces. Neither `-od`, `-d1` nor `-d2` explains this, so
+   the Windows debug flags are not fully known. **[unverified]**
+6. Which object files in `DREAMS.EXE` and `DREAMSFX.EXE` are 10.6 and which
+   11.0 is known only as address runs (step 5), not mapped to source files
+   (`tools/find_modules.py`).

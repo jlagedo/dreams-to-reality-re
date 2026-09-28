@@ -440,7 +440,8 @@ project (after `FixWatcomBss.java`).
 ### `ApplyWatcall.java` — run this on any fresh project
 
 Ghidra ships **no Watcom compiler spec**, and all four game executables are
-Watcom C/C++ 10.6, which passes arguments in `EAX, EDX, EBX, ECX`. Without it
+Watcom C/C++ (10.6 and 11.0; see [toolchain.md](toolchain.md)), which passes
+arguments in `EAX, EDX, EBX, ECX`. Without it
 every decompilation is lossy: arguments surface as `extraout_*` and `unaff_*`
 and cannot be read at all.
 

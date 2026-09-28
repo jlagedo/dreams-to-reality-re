@@ -342,6 +342,7 @@ they are not re-asserted.
 | All `.HNM` files are HNM6 | **wrong** | 20 are **HNM4** (256x256 texture animations); 75 are HNM6/HNS6 (640x304 cutscenes). FFmpeg can already decode the HNM4 set. |
 | `FULL.ID` is a "no disc needed" marker | **overstated** | `SETUP.INI` shows it is written only by the **maxi install**. It marks installation size, not disc independence. Its effect on disc checking is untested. |
 | The Windows build was MSVC-built | **wrong** | Watcom C/C++, same as the DOS builds. `SETUP.EXE` is the only MSVC binary. |
+| All four game executables are Watcom 10.6 | **wrong** | The Windows builds are Watcom 11.0 (compiler, linker, runtime); the DOS builds link the 10.6 runtime and mix 10.6 and 11.0 object files. 11.0 had been excluded using the 11.0c banner, which plain 11.0 does not carry. See [toolchain.md](toolchain.md). |
 | **No working HNM6 decoder exists** | **wrong** | **Two** independent open-source decoders exist: NihAV's `na_game_tool` (Rust, HNM6 added Jan 2026) and ScummVM's `video/hnm_decoder.cpp` (C++, added Aug 2022). All 113 video files on these discs decode. See [hnm-video.md](hnm-video.md). |
 | ScummVM will not help | **overstated** | Its *engines* are point-and-click only and cannot run this game — but its **video layer** decodes this game's HNM format, and its `apc.cpp` decodes Cryo APC audio. |
 | `.UBB` are UBIK presentation bundles | **wrong** | They are **video** — HNM generation 5, the codec from *MegaRace II* (1996). There is no UBIK authoring toolkit; the shared name is a coincidence with Cryo's game *Ubik*. |
@@ -1435,6 +1436,33 @@ disc data; each verdict became the second source for its name.
 - Trig tables **[verified]**: filled by `0x45b040` (`fsincos`, x32768, step
   2π/4096): `0x665ff0` = cosine, `0x669ff0` = sine; the `MATH_BuildOrientMatrix`
   registry note had them swapped (fixed).
+
+## 2026-09-28 — matching decompilation; the Windows builds are Watcom 11.0
+
+Trying matching decompilation (compile C with Watcom, compare bytes with
+retail) showed that the installed Watcom 10.6 cannot reproduce the Windows
+code: it prefers EBX where retail uses ECX, whatever the source or flags.
+Details and numbers are in [toolchain.md](toolchain.md), steps 3–6.
+
+- **Compiler [verified]**: Watcom 11.0 reproduces seven pilot `MATH_`
+  functions byte for byte. In a blind test on 24 random functions, where the
+  writers saw the compilers only as "A" and "B", first-draft C matched exactly
+  under 11.0 alone for 12 functions and under 10.6 alone for 1, which turned
+  out to be 11.0 runtime code (p = 0.0034).
+- **Independent of the source [verified]**: switch tables without a `CS`
+  prefix (112 of 113), divisors in ECX, and 898 unoptimized frames with no
+  `sub esp,0`. The 11.0 linker's section layout (`AUTO` first,
+  `Characteristics` `0x182`) and 179 runtime functions found only in 11.0's
+  library (none only in 11.0a) complete the Windows picture.
+- **DOS builds [verified]**: 10.6 runtime; the game code is a mix of 10.6 and
+  11.0 object files that clusters by address. The pilot C built with 11.0 is
+  byte-exact in `DREAMS.EXE`; built with 10.6 and `-d1+`, six of seven are
+  byte-exact in `DREAMSFX.EXE`.
+- **Build settings [verified]**: most of the Windows game code is unoptimized
+  with stack checking (`-5r -od`); optimized modules match `-5r -otexan -s`.
+- The Open Watcom v2 and 1.9 compilers were tried first. Both prefer ECX but
+  never split memory operands the way retail does, which pointed to a
+  compiler between 10.6 and the open-source line.
 
 ## Sources
 

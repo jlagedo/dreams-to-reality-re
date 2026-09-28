@@ -34,11 +34,15 @@ straight from the developer tree with no asset cleanup.
 
 ## Toolchain
 
-**All four game executables were built with Watcom C/C++ 10.6 — including the
+**All four game executables were built with Watcom C/C++ — including the
 Windows ones.** This is the single most informative finding about the codebase.
-The version is pinned down in [toolchain.md](toolchain.md), which also covers the
-reference libraries and the runtime symbol names recovered from them.
-**[verified]**
+The versions differ: the Windows builds are **Watcom 11.0** throughout
+(compiler, linker and runtime), while the two DOS builds link the 10.6 runtime
+and mix object files compiled by 10.6 and 11.0. Most of the Windows game code
+was compiled without optimization and with stack checking; the DOS builds are
+optimized. [toolchain.md](toolchain.md) gives the evidence, the compiler flags
+for matching decompilation, the reference libraries and the runtime symbol
+names recovered from them. **[verified]**
 
 Evidence:
 
