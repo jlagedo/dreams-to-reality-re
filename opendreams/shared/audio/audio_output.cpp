@@ -25,6 +25,7 @@ bool AudioOutput::open_stream(std::string& error) {
         return false;
     }
     paused_ = false;
+    SDL_SetAudioStreamGain(stream_, gain_);
     if (!tick(error) || !SDL_ResumeAudioStreamDevice(stream_)) {
         if (error.empty()) error=std::string("SDL playback start failed: ")+SDL_GetError();
         stop();
@@ -160,6 +161,11 @@ void AudioOutput::set_paused(bool paused) {
     else SDL_ResumeAudioStreamDevice(stream_);
 }
 
+void AudioOutput::set_gain(float gain) {
+    gain_=gain<0.0f ? 0.0f : gain;
+    if (stream_) SDL_SetAudioStreamGain(stream_,gain_);
+}
+
 bool AudioOutput::restart(std::string& error) {
     error.clear();
     if (!stream_) { error="no audio source is open"; return false; }
@@ -201,6 +207,25 @@ double AudioOutput::position_seconds() const {
     const uint64_t safe=std::min(played,total_bytes_);
     return static_cast<double>(safe) /
         (static_cast<double>(rate_)*channels_*(bits_/8));
+}
+
+uint64_t AudioOutput::played_frames() const {
+    const uint64_t frame=static_cast<uint64_t>(channels_)*(bits_/8);
+    if (!stream_ || !frame) return 0;
+    const int queued=SDL_GetAudioStreamQueued(stream_);
+    const uint64_t waiting=queued>0 ? static_cast<uint64_t>(queued) : 0;
+    return (submitted_bytes_>waiting ? submitted_bytes_-waiting : 0)/frame;
+}
+
+uint64_t AudioOutput::queued_frames() const {
+    const uint64_t frame=static_cast<uint64_t>(channels_)*(bits_/8);
+    if (!stream_ || !frame) return 0;
+    const int queued=SDL_GetAudioStreamQueued(stream_);
+    return queued>0 ? static_cast<uint64_t>(queued)/frame : 0;
+}
+
+void AudioOutput::flush() {
+    if (stream_) SDL_FlushAudioStream(stream_);
 }
 
 double AudioOutput::duration_seconds() const {

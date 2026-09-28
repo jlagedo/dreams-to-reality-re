@@ -3,6 +3,21 @@
 #include <algorithm>
 
 namespace od::port {
+namespace {
+
+// GAME_Tick loading branch (0x4240e2): the latch sends 0x1f, opens
+// TETE_E~1.HNM and returns; without it the level loads on this tick.
+GameEntryEvent start_elder_or_load(GameEntryState& state) {
+    if (state.elder_latch) {
+        state.elder_latch = false;
+        state.phase = GameEntryPhase::elder_movie;
+        return GameEntryEvent::start_elder_movie;
+    }
+    state.phase = GameEntryPhase::load_level;
+    return GameEntryEvent::load_level;
+}
+
+} // namespace
 
 void BOOT_BeginNewGame(GameEntryState& state, std::string_view project_movie,
                        bool project_movie_available) {
@@ -23,26 +38,18 @@ GameEntryEvent GAME_TickEntry(GameEntryState& state, double elapsed_seconds,
         state.hold_seconds += elapsed;
         if (state.hold_seconds < 3.0 * 41.0 / 200.0)
             return GameEntryEvent::none;
-        state.phase = state.project_movie_available ?
-            GameEntryPhase::project_movie : GameEntryPhase::transition;
-        return state.project_movie_available ? GameEntryEvent::start_project_movie
-                                             : GameEntryEvent::stop_menu;
-    case GameEntryPhase::project_movie:
-        if (movie_ended) state.phase = GameEntryPhase::transition;
-        return GameEntryEvent::none;
-    case GameEntryPhase::transition:
-        // GAME_TickFrame computes 30 / estimated FPS and clamps to 0.2..5.
-        state.transition_frames -= std::clamp(
-            static_cast<float>(elapsed * 30.0), 0.2f, 5.0f);
-        if (state.transition_frames > 0.0001f) return GameEntryEvent::none;
-        state.transition_frames = 0.0f;
-        if (state.elder_latch) {
-            state.elder_latch = false;
-            state.phase = GameEntryPhase::elder_movie;
-            return GameEntryEvent::start_elder_movie;
+        // MGM 0x19 closes the movie; both pages are cleared to black.
+        state.phase = GameEntryPhase::boot_return;
+        return GameEntryEvent::stop_menu;
+    case GameEntryPhase::boot_return:
+        if (state.project_movie_available) {
+            state.phase = GameEntryPhase::project_movie;
+            return GameEntryEvent::start_project_movie;
         }
-        state.phase = GameEntryPhase::load_level;
-        return GameEntryEvent::load_level;
+        return start_elder_or_load(state);
+    case GameEntryPhase::project_movie:
+        if (!movie_ended) return GameEntryEvent::none;
+        return start_elder_or_load(state);
     case GameEntryPhase::elder_movie:
         if (!movie_ended) return GameEntryEvent::none;
         state.phase = GameEntryPhase::load_level;

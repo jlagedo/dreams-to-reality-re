@@ -71,13 +71,17 @@ int main() {
     const auto& graph=physical_scene.render_graph();
     const std::array<uint8_t,20> e29_header{{
         0,0,0,0, 0,0,0,0, 3,0,0,0, 0x51,0xc8,0xa0,0x82, 0,0,0,0}};
-    const auto* first_bank=graph.materials.empty() ? nullptr :
-        &graph.materials[0].bank;
+    // Graph banks follow the faces' first reference to a cache entry
+    // (MDL_BindFaceMaterials), not the DSN map order; E29_ZZ1 is map 0.
+    const auto first_map=std::find_if(graph.materials.begin(),graph.materials.end(),
+        [](const od::port::ModelMaterial& material) { return material.name=="E29_ZZ1"; });
+    const auto* first_bank=first_map==graph.materials.end() ? nullptr : &first_map->bank;
     if (graph.nodes.size()!=55 || graph.faces.size()!=2225 ||
-        graph.materials.size()!=30 ||
+        graph.materials.size()!=30 || !first_bank ||
+        !physical_scene.unused_scene_maps().empty() ||
         graph.faces[0].material_index>=graph.materials.size() ||
-        graph.materials[0].preview_lod!=256 ||
-        !graph.materials[0].static_palette_row15 ||
+        first_map->preview_lod!=256 ||
+        !first_map->static_palette_row15 ||
         !first_bank || first_bank->size()!=0x18014u ||
         !std::equal(e29_header.begin(),e29_header.end(),first_bank->begin()) ||
         (*first_bank)[0x14u+15u*0x400u+6u]!=static_cast<uint8_t>(23114) ||

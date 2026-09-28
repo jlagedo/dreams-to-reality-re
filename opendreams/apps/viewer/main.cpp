@@ -6,9 +6,11 @@
 #include "inspect/still_preview.h"
 #include "inspect/viewer_prefs.h"
 #include "port/scene.h"
+#include "render/level_materials.h"
 #include "render/model_preview.h"
 #include "render/still_preview.h"
 #include "render/video_preview.h"
+#include "port/menj.h"
 #include "shell.h"
 #include <imgui.h>
 #include <util/sokol_imgui.h>
@@ -47,6 +49,12 @@ struct ViewerUi {
     bool sort_ascending = true;
     std::unique_ptr<od::port::PreviewLevelContext> preview_level;
     od::ModelPreview model_preview;
+    // Project previews: palette lighting, 3dfx fog/gamma and the HNM4
+    // material on a viewer-owned 30 Hz tick (retail runs GAME_Tick).
+    od::port::LevelMaterialSession level_materials;
+    // Retail fog is tuned for the gameplay camera; the orbit view starts
+    // outside the level, so the viewer shows it only on request.
+    bool glide_fog = false;
     od::AnimationPreview animation_preview;
     std::string animation_error;
     bool required_animation_smoke = false;
@@ -108,7 +116,10 @@ void clear_preview(ViewerUi& state) {
     state.animation_preview.close();
     state.animation_error.clear();
     state.selected_bone=SIZE_MAX;
+    state.level_materials.clear();
     state.model_preview.clear_model();
+    state.model_preview.set_fog({});
+    state.model_preview.set_output_gamma(1.0f);
     state.model_view={};
     state.video_preview.close();
     state.still_preview.clear();
@@ -250,6 +261,13 @@ void load_selected_preview(ViewerUi& state) {
         if (!state.animation_preview.open(source->image,row->path,
                 preview->selected_actor().model,state.model_preview,animation_error))
             state.animation_error=animation_error;
+    }
+    if (row->kind=="Project") {
+        std::string material_error;
+        if (state.level_materials.start(preview->render_graph(),
+                od::port::level_material_setup(*preview),material_error))
+            od::sync_level_materials(state.level_materials,state.model_preview);
+        else state.preview_error=material_error;
     }
     state.preview_level = std::move(preview);
 }
@@ -691,9 +709,21 @@ void audio_preview_pane(ViewerUi& state, const od::inspect::Source& source) {
     const size_t current=state.audio_preview.current_caption_index();
     ImGui::BeginGroup();
     ImGui::Text("Dialogue: %zu lines",lines.size());
-    if (current!=SIZE_MAX && current<lines.size())
-        ImGui::TextWrapped("%s",lines[current].text.c_str());
-    else ImGui::TextDisabled("Waiting for the first caption");
+    // MENJ_PlayVoiceCaptions page of up to four lines with their retail fades;
+    // the counter follows the voice position at 15 Hz (retail counts its own
+    // 15 Hz flag from DRD_PlayVoice).
+    std::vector<uint32_t> durations;
+    durations.reserve(lines.size());
+    for (const auto& line : lines) durations.push_back(line.duration_ticks);
+    const auto frame=od::port::MENJ_VoiceCaptionsAt(durations,
+        state.audio_preview.entry_duration_ticks(),
+        static_cast<uint32_t>(state.audio_preview.position_seconds()*15.0));
+    if (frame.lines.empty()) ImGui::TextDisabled("Waiting for the first caption");
+    for (const auto& print : frame.lines) {
+        // Opaque at coverage 63+, else SPR_BlendPixel's (coverage >> 1) / 32.
+        const float alpha=print.coverage>=63 ? 1.0f : (print.coverage>>1)/32.0f;
+        ImGui::TextColored(ImVec4(1,1,1,alpha),"%s",lines[print.line].text.c_str());
+    }
     ImGui::EndGroup();
     if (ImGui::TreeNode("Script and timing")) {
         for (size_t i=0; i<lines.size(); ++i) {
@@ -812,9 +842,16 @@ void preview_pane(ViewerUi& state) {
         ImGui::SameLine();
         if (ImGui::Button("Restart") && !state.video_preview.restart(playback_error))
             state.preview_error = playback_error;
+        const uint32_t total = state.video_preview.total_frames();
+        int position = static_cast<int>(state.video_preview.shown_frames() ?
+            state.video_preview.shown_frames() - 1 : 0);
         ImGui::SameLine();
-        ImGui::Text("%u / %u", state.video_preview.decoded_frames(),
-                    state.video_preview.total_frames());
+        ImGui::SetNextItemWidth(-1.0f);
+        const char* format = state.video_preview.seeking() ? "seeking %d" : "frame %d";
+        if (ImGui::SliderInt("##movie-position", &position, 0,
+                             total ? static_cast<int>(total) - 1 : 0, format) &&
+            !state.video_preview.seek(static_cast<uint64_t>(position), playback_error))
+            state.preview_error = playback_error;
         if (!state.preview_error.empty())
             ImGui::TextWrapped("%s", state.preview_error.c_str());
         if (state.video_preview.has_image()) {
@@ -886,7 +923,7 @@ void preview_pane(ViewerUi& state) {
                             scene ? "Static scene" : "Static model",
                             graph.nodes.size(),graph.faces.size(),graph.materials.size());
         if (scene && !state.preview_level->missing_scene_materials().empty() &&
-            ImGui::TreeNode("Missing scene textures (diagnostic pattern)")) {
+            ImGui::TreeNode("Unbound materials (not drawn)")) {
             for (const auto& name : state.preview_level->missing_scene_materials())
                 ImGui::TextUnformatted(name.c_str());
             ImGui::TreePop();
@@ -1046,15 +1083,35 @@ void preview_pane(ViewerUi& state) {
         ImGui::SliderFloat("Distance",&state.model_view.distance,1.2f,10.0f);
         ImGui::SameLine();
         if (ImGui::Button("Reset camera")) state.model_view={};
+        if (state.level_materials.active()) {
+            ImGui::SameLine();
+            ImGui::Checkbox("3dfx fog",&state.glide_fog);
+        }
         ImGui::SetNextItemWidth(-1.0f);
         ImGui::SliderFloat3("Target",state.model_view.target,-1.0f,1.0f,"%.2f");
-        state.model_preview.draw(state.model_view);
         const ImVec2 image_space=ImGui::GetContentRegionAvail();
         if (image_space.x<=0 || image_space.y<=0) return;
-        const float side = std::min(image_space.x, image_space.y);
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (image_space.x - side) * 0.5f);
-        ImGui::Image(simgui_imtextureid(state.model_preview.texture_view()),
-                     ImVec2(side, side));
+        // The offscreen destination follows the pane in physical pixels.
+        const ImVec2 pixel_scale=ImGui::GetIO().DisplayFramebufferScale;
+        const int target_width=std::max(1,static_cast<int>(image_space.x*pixel_scale.x+0.5f));
+        const int target_height=std::max(1,static_cast<int>(image_space.y*pixel_scale.y+0.5f));
+        if (!state.model_preview.resize_target(target_width,target_height,state.preview_error)) {
+            ImGui::TextColored(ImVec4(1.0f,0.45f,0.35f,1.0f),"%s",state.preview_error.c_str());
+            return;
+        }
+        const od::ModelView framed=od::fit_to_target(state.model_view,
+                                                      target_width,target_height);
+        if (state.level_materials.active()) {
+            std::string material_error;
+            if (!state.level_materials.advance(ImGui::GetIO().DeltaTime,material_error)) {
+                state.preview_error=material_error;
+                state.level_materials.clear();
+            }
+            od::sync_level_materials(state.level_materials,state.model_preview);
+            if (!state.glide_fog) state.model_preview.set_fog({});
+        }
+        state.model_preview.draw(framed);
+        ImGui::Image(simgui_imtextureid(state.model_preview.texture_view()),image_space);
         if (!joints.empty()) {
             const ImVec2 origin=ImGui::GetItemRectMin();
             const ImVec2 extent=ImGui::GetItemRectMax();
@@ -1064,8 +1121,9 @@ void preview_pane(ViewerUi& state) {
                 if (!visible_joint(joint)) continue;
                 float u=0,v=0;
                 if (!state.model_preview.project_joint(joint.world_xyz,
-                        state.model_view,u,v)) continue;
-                positions[joint.slot]=ImVec2(origin.x+u*side,origin.y+v*side);
+                        framed,u,v)) continue;
+                positions[joint.slot]=ImVec2(origin.x+u*image_space.x,
+                                             origin.y+v*image_space.y);
                 projected[joint.slot]=1;
             }
             ImDrawList* draw=ImGui::GetWindowDrawList();
@@ -1233,6 +1291,10 @@ void draw_ui(void* user) {
     ImGui::End();
 }
 
+std::string capture_path; // --capture: hidden-window GPU back-buffer PNG.
+std::string preview_hnm4; // --preview-hnm4: an HNM4 animated texture by name.
+long preview_seek = -1;   // --preview-seek: seek the selected movie, paused.
+
 bool parse_args(int argc, char** argv, int& frames,
                 std::array<const char*, 2>& cues, bool& preview_cai,
                 bool& preview_bones,
@@ -1249,6 +1311,11 @@ bool parse_args(int argc, char** argv, int& frames,
         }
         if (std::strcmp(argv[i], "--preview-bones") == 0) {
             preview_bones=true;
+            ++i;
+            continue;
+        }
+        if (std::strcmp(argv[i], "--preview-fog") == 0) {
+            ui.glide_fog = true;
             ++i;
             continue;
         }
@@ -1295,6 +1362,13 @@ bool parse_args(int argc, char** argv, int& frames,
         }
         if (i + 1 >= argc) return false;
         if (std::strcmp(argv[i], "--cue1") == 0) cues[0] = argv[i + 1];
+        else if (std::strcmp(argv[i], "--capture") == 0) capture_path = argv[i + 1];
+        else if (std::strcmp(argv[i], "--preview-hnm4") == 0) preview_hnm4 = argv[i + 1];
+        else if (std::strcmp(argv[i], "--preview-seek") == 0) {
+            char* end = nullptr;
+            preview_seek = std::strtol(argv[i + 1], &end, 10);
+            if (!end || *end || preview_seek < 0) return false;
+        }
         else if (std::strcmp(argv[i], "--cue2") == 0) cues[1] = argv[i + 1];
         else if (std::strcmp(argv[i], "--frames") == 0) {
             errno = 0; char* end = nullptr;
@@ -1342,7 +1416,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
                     preview_still, preview_audio, preview_distance,
                     preview_yaw_degrees)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "usage: ODViewer [--frames N] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-bones] [--preview-model DAN-stem] [--preview-animation DAN-stem[:clip-index[:frame]]] [--preview-distance 1.2..10] [--preview-yaw-deg -180..180] [--preview-scene DSN-stem] [--preview-project record-name] [--preview-movie] [--preview-still font|icon|vga|bank|material|scene] [--preview-audio effect|effect12|dialogue|track]");
+                     "usage: ODViewer [--frames N] [--capture image.png] [--cue1 path] [--cue2 path] [--preview-cai] [--preview-bones] [--preview-model DAN-stem] [--preview-animation DAN-stem[:clip-index[:frame]]] [--preview-distance 1.2..10] [--preview-yaw-deg -180..180] [--preview-scene DSN-stem] [--preview-project record-name] [--preview-movie] [--preview-hnm4 NAME.HNM] [--preview-seek frame] [--preview-still font|icon|vga|bank|material|scene] [--preview-audio effect|effect12|dialogue|track]");
         return SDL_APP_FAILURE;
     }
     ui.show_bones=preview_bones;
@@ -1379,8 +1453,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
             }
         }
     }
+    if (!capture_path.empty() && frames == 0) frames = 10;
     if (!shell.init({"ODViewer", draw_ui, &ui, frames, 20.0f, 1.2f,
-                     "ODViewer-window.rgba", 1440, 900})) {
+                     "ODViewer-window.rgba", 1440, 900, false,
+                     capture_path.empty() ? nullptr : capture_path.c_str(),
+                     !capture_path.empty()})) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", shell.error().c_str());
         return SDL_APP_FAILURE;
     }
@@ -1539,6 +1616,41 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
             ui.video_preview.shutdown();
             ui.model_preview.shutdown();
             ui.still_preview.clear();
+            shell.shutdown();
+            return SDL_APP_FAILURE;
+        }
+    }
+    if (!preview_hnm4.empty()) {
+        ui.catalog.tick(10000);
+        bool found = false;
+        for (size_t slot = 0; slot < 2 && !found; ++slot) {
+            const auto* source = ui.catalog.source(slot);
+            if (!source) continue;
+            for (const auto& row : source->rows) {
+                if (row.kind != "HNM4 animated texture" || row.name != preview_hnm4)
+                    continue;
+                select(ui, slot, row.id);
+                found = true;
+                break;
+            }
+        }
+        if (!found || !ui.video_preview.has_image()) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "HNM4 preview load failed: %s",
+                         ui.preview_error.empty() ? "the named HNM4 file is unavailable"
+                                                  : ui.preview_error.c_str());
+            ui.video_preview.shutdown();
+            ui.model_preview.shutdown();
+            ui.still_preview.clear();
+            shell.shutdown();
+            return SDL_APP_FAILURE;
+        }
+    }
+    if (preview_seek >= 0 && ui.video_preview.has_video()) {
+        std::string seek_error;
+        ui.video_preview.set_playing(false);
+        if (!ui.video_preview.seek(static_cast<uint64_t>(preview_seek), seek_error)) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "movie seek failed: %s",
+                         seek_error.c_str());
             shell.shutdown();
             return SDL_APP_FAILURE;
         }

@@ -2,6 +2,7 @@
 #include "disc/image.h"
 #include "port/camera.h"
 #include "port/game_entry.h"
+#include "port/game_state.h"
 #include "port/scene.h"
 
 #include <cstdlib>
@@ -10,25 +11,66 @@
 #include <memory>
 #include <string>
 
+namespace {
+
+// BOOT_Run's New Game reset block and its two callees.
+int check_new_game_reset() {
+    od::port::GameState game;
+    game.health = 12.0f;
+    game.magic = 3.0f;
+    game.hotkeys_a = {{4, 5, 6}};
+    game.hotkeys_b = {{7, 8, 9}};
+    game.hotkeys_c = {{1, 2, 3}};
+    game.hud_icon = {{2, 3}};
+    game.elder_latch = 0;
+    game.inventory.count = 7;
+    game.inventory.names[0][0] = 'X';
+    for (auto& slot : game.levels.slots) {
+        slot[0x500] = 'L';
+        slot[0x10] = 0x55;
+    }
+    game.levels.ring_index = 5;
+    od::port::BOOT_ResetNewGame(game);
+    if (game.levels.ring_index != 0 || game.levels.slots[7][0x500] != 0 ||
+        game.levels.slots[7][0x10] != 0x55) return 20; // only names clear
+    const auto& inventory = game.inventory;
+    if (inventory.count != 0 || inventory.selected != 0xffffff00u ||
+        inventory.hotkey_item[2] != -1 || inventory.item_value[31] != 50.0f ||
+        inventory.bind_value[0] != 0 || inventory.names[0][0] != 'X') return 21;
+    if (game.record_flags[0] != 0x10200u || game.record_flags[3] != 0x20100u) return 22;
+    if (game.hotkeys_a[0] != -1 || game.hotkeys_b[2] != -1 ||
+        game.hotkeys_c[1] != 2 || game.hud_icon[1] != -1) return 23;
+    // New Game leaves health, magic and the elder latch alone.
+    if (game.health != 12.0f || game.magic != 3.0f || game.elder_latch != 0 ||
+        game.transition != 15.0f) return 24;
+    return 0;
+}
+
+} // namespace
+
 int main() {
     using od::port::GameEntryEvent;
     using od::port::GameEntryPhase;
+    if (const int reset = check_new_game_reset()) {
+        std::cerr << "New Game reset check " << reset << " failed\n";
+        return reset;
+    }
     od::port::GameEntryState state;
     od::port::BOOT_BeginNewGame(state, "ETE_E~1.HNM", false);
     const auto hold_first = od::port::GAME_TickEntry(state, 0.59, false);
     const auto hold_second = od::port::GAME_TickEntry(state, 0.03, false);
     if (hold_first != GameEntryEvent::none ||
         hold_second != GameEntryEvent::stop_menu ||
-        state.phase != GameEntryPhase::transition) {
+        state.phase != GameEntryPhase::boot_return) {
         std::cerr << "hold: " << static_cast<int>(hold_first) << ", "
                   << static_cast<int>(hold_second) << ", phase "
                   << static_cast<int>(state.phase) << '\n';
         return 1;
     }
-    for (int frame = 0; frame < 14; ++frame)
-        if (od::port::GAME_TickEntry(state, 1.0 / 30.0, false) !=
-            GameEntryEvent::none) return 2;
-    if (od::port::GAME_TickEntry(state, 1.0 / 30.0, false) !=
+    // Retail never counts the armed 15.0 down on New Game: the first loading
+    // tick starts the elder movie immediately.
+    if (state.transition_frames != 15.0f ||
+        od::port::GAME_TickEntry(state, 1.0 / 30.0, false) !=
             GameEntryEvent::start_elder_movie ||
         od::port::GAME_TickEntry(state, 1.0 / 30.0, false) !=
             GameEntryEvent::none ||
@@ -38,11 +80,12 @@ int main() {
     if (state.phase != GameEntryPhase::running) return 4;
 
     od::port::BOOT_BeginNewGame(state, "OPTIONAL.HNM", true);
-    if (od::port::GAME_TickEntry(state, 0.62, false) !=
+    if (od::port::GAME_TickEntry(state, 0.62, false) != GameEntryEvent::stop_menu ||
+        od::port::GAME_TickEntry(state, 0.03, false) !=
             GameEntryEvent::start_project_movie ||
+        od::port::GAME_TickEntry(state, 0.1, false) != GameEntryEvent::none ||
         od::port::GAME_TickEntry(state, 0.1, true) !=
-            GameEntryEvent::none ||
-        state.phase != GameEntryPhase::transition) return 5;
+            GameEntryEvent::start_elder_movie) return 5;
 
     const char* cue = std::getenv("DREAMS_CUE1");
     if (!cue || !*cue) {

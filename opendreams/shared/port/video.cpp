@@ -96,6 +96,7 @@ void VID_Close(VideoState& state) {
     state.rgb_frames_[1].clear();
     state.dpcm_.reset();
     state.hnm5_ = Hnm5Decoder{};
+    state.hnm4_ = Hnm4Decoder{}; // Retail 0x408ae7 -> 0x44d920 is a bare return.
 }
 
 int VID_Open(VideoState& state, std::string_view path, VideoError& error) {
@@ -176,6 +177,15 @@ int VID_Open(VideoState& state, std::string_view path, VideoError& error) {
                         "HNM5 frame dimensions or pixel format are unsupported");
         }
         state.hnm5_ = Hnm5Decoder(state.width_,state.height_);
+    } else {
+        // Retail 0x4088fd -> 0x4263d9 -> 0x44d8e8 installs the two fixed
+        // buffers, copies the header size fields, zeroes the frame counter
+        // and loads the remaining-frame count from header +0x10. It accepts
+        // any header; the decoder rejects non-256x256 frames when stepped.
+        // The walker never reads the saved outer word, so a zero count, not
+        // a zero word, marks an empty file.
+        state.hnm4_ = Hnm4Decoder(state.width_,state.height_);
+        state.ended_ = state.total_frames_ == 0;
     }
     return sound_selected ? 2 : 1;
 }
@@ -183,11 +193,57 @@ int VID_Open(VideoState& state, std::string_view path, VideoError& error) {
 bool VID_DecodeFrame(VideoState& state, VideoStep& step, VideoError& error) {
     error = {};
     step = {};
-    if (state.family_ != VideoFamily::hnm6 && state.family_ != VideoFamily::hnm5) {
-        return fail(error, VideoErrorCode::unsupported_codec,
-                    "this movie needs the HNM4 animated-texture decoder port");
+    if (state.family_ == VideoFamily::none) {
+        return fail(error, VideoErrorCode::unsupported_codec, "no movie is open");
     }
     if (!state.stream_ || state.ended_) { step.ended = true; return true; }
+    if (state.family_ == VideoFamily::hnm4) {
+        // VID_DecodeHnm4Frame 0x408939. Its caller already consumed the
+        // four-byte outer word; the walker reads 8-byte chunk headers
+        // straight from the stream (it never checks the outer size) until
+        // the first chunk whose tag starts with 'I'.
+        std::vector<uint8_t> header, payload;
+        for (;;) {
+            if (!read_exact(*state.stream_, 8, header, error)) return false;
+            const uint32_t chunk_size = le32(header.data());
+            if (chunk_size < 8 || chunk_size - 8 > 0x5f000u)
+                return fail(error, VideoErrorCode::corrupt_chunk,
+                            "HNM4 chunk size is invalid");
+            if (!read_exact(*state.stream_, chunk_size - 8, payload, error)) return false;
+            if (header[4] == 'I') break;
+            const uint16_t id = static_cast<uint16_t>(header[4] | (header[5] << 8));
+            std::string decode_error;
+            if (id == 0x4453 && state.sound_variant_selected_) { // SD
+                std::vector<int16_t> chunk_pcm;
+                if (!state.dpcm_.decode_sd(payload.data(), payload.size(), chunk_pcm,
+                                           decode_error))
+                    return fail(error, VideoErrorCode::decode_error, decode_error);
+                step.pcm.insert(step.pcm.end(), chunk_pcm.begin(), chunk_pcm.end());
+            } else if (id == 0x4c50) { // PL, retail 0x42ed30.
+                if (!state.hnm4_.update_palette(payload.data(), payload.size(), decode_error))
+                    return fail(error, VideoErrorCode::decode_error, decode_error);
+                ++step.palette_chunks;
+            }
+        }
+        std::string decode_error;
+        bool image_written = false;
+        if (!state.hnm4_.decode(header[5], payload.data(), payload.size(), image_written,
+                                decode_error))
+            return fail(error, VideoErrorCode::decode_error, decode_error);
+        step.image_ready = image_written;
+        ++state.decoded_frames_; // Retail decrements 0x52c504 for every I? chunk.
+        if (state.decoded_frames_ >= state.total_frames_) {
+            // Retail closes the video and posts 0x3f here; the session owner
+            // does both on `ended`, as for HNM5/6.
+            state.ended_ = true;
+            step.ended = true;
+            return true;
+        }
+        std::vector<uint8_t> next_word;
+        if (!read_exact(*state.stream_, 4, next_word, error)) return false;
+        state.next_chunk_word_ = le32(next_word.data());
+        return true;
+    }
     const uint32_t outer_size = state.next_chunk_word_ & 0x00ffffffu;
     if (outer_size < 4 || outer_size > 0x5f004u)
         return fail(error, VideoErrorCode::corrupt_chunk,

@@ -3,6 +3,7 @@
 #include "port/stream.h"
 #include "port/hnm6.h"
 #include "port/hnm5.h"
+#include "port/hnm4.h"
 #include "port/video_audio.h"
 
 #include <array>
@@ -38,6 +39,7 @@ enum class VideoFamily : uint8_t { none = 0, hnm4 = 1, hnm5 = 2, hnm6 = 4 };
 struct VideoStep {
     bool image_ready = false;
     bool ended = false;
+    uint32_t palette_chunks = 0; // HNM4 PL chunks consumed by this frame
     std::vector<int16_t> pcm;
     std::string caption;
 };
@@ -68,6 +70,11 @@ public:
     uint16_t height() const { return height_; }
     bool ended() const { return ended_; }
     const std::vector<uint16_t>& rgb565_frame() const { return rgb_frames_[previous_index_]; }
+    // HNM4 has no RGB frame: retail writes 256x256 indices into the bound
+    // animated material and PL chunks update that material's palette.
+    const Hnm4Decoder& hnm4() const { return hnm4_; }
+    // A scene binding seeds the reopened decoder with its slot palette.
+    Hnm4Decoder& hnm4() { return hnm4_; }
 
 private:
     VfsContext* vfs_ = nullptr;
@@ -88,6 +95,7 @@ private:
     VideoDpcm dpcm_;
     Hnm6Decoder hnm6_;
     Hnm5Decoder hnm5_;
+    Hnm4Decoder hnm4_;
 
     friend int VID_Open(VideoState&, std::string_view, VideoError&);
     friend void VID_Close(VideoState&);

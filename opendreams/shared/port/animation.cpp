@@ -138,78 +138,157 @@ bool parse_tracks(const std::vector<uint8_t>& bytes, AnimationClip& clip,
     return true;
 }
 
+// Retail integer arithmetic wraps at 32 bits. Products are formed in
+// unsigned 64-bit (well defined on overflow) and reduced modulo 2^32.
+uint64_t bits64(int64_t value) { return static_cast<uint64_t>(value); }
+
+int32_t wrap32(uint64_t value) {
+    const uint32_t bits=static_cast<uint32_t>(value);
+    int32_t wrapped=0;
+    std::memcpy(&wrapped,&bits,sizeof(bits));
+    return wrapped;
+}
+
+// Retail's integer division by 256 (SAR/SHL/SBB/SAR): truncates toward zero.
+int32_t div256(uint64_t value) {
+    return wrap32(value)/256;
+}
+
+// __CHP then FISTP: truncate toward zero; NaN, infinities and values outside
+// int32 store the x87 integer indefinite 0x80000000.
+int32_t x87_trunc(double value) {
+    if (!(value>-2147483649.0 && value<2147483648.0)) return INT32_MIN;
+    return static_cast<int32_t>(value);
+}
+
+// Binary search shared by both evaluators: lo=0, hi=count-1, halve while
+// lo+1<hi, moving lo when key.frame < frame. Returns hi.
 template<typename Key>
-size_t right_key(const std::vector<Key>& keys, float frame) {
-    const auto found=std::lower_bound(keys.begin()+1,keys.end(),frame,
-        [](const Key& key,float time) { return key.frame<time; });
-    return static_cast<size_t>(found-keys.begin());
+size_t retail_key(const std::vector<Key>& keys, float frame) {
+    int32_t lo=0,hi=static_cast<int32_t>(keys.size())-1;
+    while (lo+1<hi) {
+        const int32_t middle=(lo+hi)/2;
+        if (static_cast<double>(keys[static_cast<size_t>(middle)].frame)<frame) lo=middle;
+        else hi=middle;
+    }
+    return static_cast<size_t>(hi);
 }
 
-unsigned weight256(float amount) {
-    return static_cast<unsigned>(std::lround(std::clamp(amount,0.0f,1.0f)*256.0f));
+// FILD/FSUBR operands: the float-minus-int difference is exact in double for
+// any frame the host accepts; the span is retail's wrapped 32-bit SUB.
+double key_offset(float frame, int32_t left) {
+    return static_cast<double>(frame)-left;
+}
+double key_span(int32_t right, int32_t left) {
+    return wrap32(bits64(right)-bits64(left));
 }
 
-Quat4 rotation_at(const AnimationTrack& track, float frame, bool spline) {
+bool rotation_at(const AnimationTrack& track, float frame, bool spline,
+                 Quat4& result) {
     const auto& keys=track.rotations;
-    if (keys.size()==1 || frame<=keys.front().frame) return keys.front().quaternion;
-    if (frame>=keys.back().frame) return keys.back().quaternion;
-    const size_t right=right_key(keys,frame);
-    const auto& a=keys[right-1];
+    // Tracks with fewer than two keys leave the node rotation untouched.
+    if (keys.size()<=1) return false;
+    const size_t right=retail_key(keys,frame);
     const auto& b=keys[right];
-    if (b.frame<=a.frame) return b.quaternion;
-    float t=(frame-a.frame)/static_cast<float>(b.frame-a.frame);
-    if (!spline || !a.has_out_control || !b.has_in_control)
-        return MATH_QuatSlerp(a.quaternion,b.quaternion,weight256(t),true);
-    t=ANIM_ApplyEase(t,a.ease_out,b.ease_in);
-    const Quat4 base=MATH_QuatSlerp(a.quaternion,b.quaternion,weight256(t),false);
-    const Quat4 control=MATH_QuatSlerp(a.out_control,b.in_control,
-                                       weight256(t),false);
-    return MATH_QuatSlerp(base,control,weight256(2.0f*t*(1.0f-t)),false);
-}
-
-Vec3 position_at(const AnimationTrack& track, float frame, bool spline) {
-    const auto& keys=track.translations;
-    if (keys.size()==1 || frame<=keys.front().frame) return keys.front().position;
-    if (frame>=keys.back().frame) return keys.back().position;
-    const size_t right=right_key(keys,frame);
+    if (!(static_cast<double>(b.frame)>frame)) {
+        result=b.quaternion;
+        return true;
+    }
+    // right >= 1 here. A frame before the first key interpolates keys 0/1
+    // with a negative weight, as retail does.
     const auto& a=keys[right-1];
-    const auto& b=keys[right];
-    if (b.frame<=a.frame) return b.position;
-    float t=(frame-a.frame)/static_cast<float>(b.frame-a.frame);
-    Vec3 result{};
+    const double offset=key_offset(frame,a.frame);
+    const double span=key_span(b.frame,a.frame);
     if (!spline) {
-        const unsigned weight=weight256(t);
-        for (size_t i=0; i<3; ++i)
-            result[i]=static_cast<int32_t>(
-                (static_cast<int64_t>(a.position[i])*(256u-weight)+
-                 static_cast<int64_t>(b.position[i])*weight)>>8);
-        return result;
+        // Linear: trunc((frame-a)*256/span). A non-integral quotient lies at
+        // least 1/span from an integer, so double matches x87 here.
+        result=MATH_QuatSlerp(a.quaternion,b.quaternion,
+                              x87_trunc(offset*256.0/span));
+        return true;
     }
-    t=ANIM_ApplyEase(t,a.ease_out,b.ease_in);
-    const double u=t;
-    const double h00=2*u*u*u-3*u*u+1;
-    const double h01=-2*u*u*u+3*u*u;
-    const double h10=u*u*u-2*u*u+u;
-    const double h11=u*u*u-u*u;
-    for (size_t i=0; i<3; ++i) {
-        const double value=h00*a.position[i]+h01*b.position[i]+
-            h10*a.out_tangent[i]+h11*b.in_tangent[i];
-        result[i]=static_cast<int32_t>(std::clamp(std::llround(value),
-            static_cast<long long>(INT32_MIN),static_cast<long long>(INT32_MAX)));
-    }
-    return result;
+    // Spline: t is stored as float, eased (float return), then ease*256 is
+    // truncated. SQUAD always runs, including zero control quaternions.
+    const float t=ANIM_ApplyEase(static_cast<float>(offset/span),a.ease_out,b.ease_in);
+    const int32_t weight=x87_trunc(static_cast<double>(t)*256.0);
+    const Quat4 base=MATH_QuatSlerp(a.quaternion,b.quaternion,weight);
+    const Quat4 control=MATH_QuatSlerp(a.out_control,b.in_control,weight);
+    const uint64_t twice_rest=(bits64(256)-bits64(weight))*2u;
+    result=MATH_QuatSlerp(base,control,div256(bits64(weight)*twice_rest));
+    return true;
 }
 
-bool eval_track(const AnimationTrack& track, float frame, bool spline,
-                Mat3& rotation, Vec3& position, bool& has_rotation,
+// MATH_MulMat4Vec4f (0x459fdc) with the 0x4aa710 Hermite basis, then
+// MATH_DotVec4f (0x459fbc). Every float store rounds to float; x87
+// intermediates are modelled in double.
+int32_t hermite_axis(float u, float u2, float u3, int32_t left, int32_t right,
+                     int32_t left_out, int32_t right_in) {
+    static constexpr float basis[16]={
+        2.0f,-2.0f,1.0f,1.0f, -3.0f,3.0f,-2.0f,-1.0f,
+        0.0f,0.0f,1.0f,0.0f, 1.0f,0.0f,0.0f,0.0f};
+    const float control[4]={static_cast<float>(left),static_cast<float>(right),
+                            static_cast<float>(left_out),static_cast<float>(right_in)};
+    float coefficient[4]{};
+    for (size_t row=0; row<4; ++row) {
+        float sum=0.0f;
+        for (size_t column=0; column<4; ++column)
+            sum=static_cast<float>(static_cast<double>(basis[row*4+column])*
+                                   control[column]+sum);
+        coefficient[row]=sum;
+    }
+    const float power[4]={u3,u2,u,1.0f};
+    double dot=static_cast<double>(power[1])*coefficient[1]+
+               static_cast<double>(power[0])*coefficient[0];
+    dot+=static_cast<double>(power[2])*coefficient[2];
+    dot+=static_cast<double>(power[3])*coefficient[3];
+    return x87_trunc(dot);
+}
+
+bool position_at(const AnimationTrack& track, float frame, bool spline,
+                 Vec3& result) {
+    const auto& keys=track.translations;
+    // Tracks with fewer than two keys leave the node position untouched.
+    if (keys.size()<=1) return false;
+    const size_t right=retail_key(keys,frame);
+    const auto& b=keys[right];
+    if (!(static_cast<double>(b.frame)>frame)) {
+        result=b.position;
+        return true;
+    }
+    const auto& a=keys[right-1];
+    const double offset=key_offset(frame,a.frame);
+    const double span=key_span(b.frame,a.frame);
+    if (!spline) {
+        // (a*(256-w) + w*b) >> 8 with 32-bit IMUL/ADD/SAR.
+        const int32_t weight=x87_trunc(offset*256.0/span);
+        const uint64_t rest=bits64(256)-bits64(weight);
+        for (size_t i=0; i<3; ++i)
+            result[i]=wrap32(bits64(a.position[i])*rest+
+                             bits64(weight)*bits64(b.position[i]))>>8;
+        return true;
+    }
+    const float u=ANIM_ApplyEase(static_cast<float>(offset/span),a.ease_out,b.ease_in);
+    const double square=static_cast<double>(u)*u; // exact: 48 significant bits
+    const float u2=static_cast<float>(square);
+    const float u3=static_cast<float>(square*u);
+    for (size_t i=0; i<3; ++i)
+        result[i]=hermite_axis(u,u2,u3,a.position[i],b.position[i],
+                               a.out_tangent[i],b.in_tangent[i]);
+    return true;
+}
+
+bool eval_track(const AnimationTrack& track, float frame, unsigned flags,
+                bool spline, Mat3& rotation, Vec3& position, bool& has_rotation,
                 bool& has_position, std::string& error) {
     error.clear();
+    has_rotation=false;
+    has_position=false;
     if (!std::isfinite(frame)) return fail(error,"animation frame is not finite");
-    has_rotation=!track.rotations.empty();
-    has_position=!track.translations.empty();
-    if (has_rotation)
-        MATH_QuatToMatrix(rotation_at(track,frame,spline),rotation);
-    if (has_position) position=position_at(track,frame,spline);
+    Quat4 quaternion{};
+    if (!(flags&1u) && rotation_at(track,frame,spline,quaternion)) {
+        MATH_QuatToMatrix(quaternion,rotation);
+        has_rotation=true;
+    }
+    if (!(flags&2u)) has_position=position_at(track,frame,spline,position);
     return true;
 }
 
@@ -231,7 +310,7 @@ bool apply_model(const AnimationClip& clip, float frame,
         Mat3 rotation{};
         Vec3 position{};
         bool has_rotation=false,has_position=false;
-        if (!eval_track(clip.tracks[slot],frame,spline,rotation,position,
+        if (!eval_track(clip.tracks[slot],frame,0,spline,rotation,position,
                         has_rotation,has_position,error)) return false;
         if (has_rotation && !MDL_SetNodeRotation(pose,slot,rotation,error)) return false;
         if (has_position) {
@@ -284,79 +363,87 @@ void MATH_QuatToMatrix(const Quat4& q, Mat3& m) {
     };
 }
 
-Quat4 MATH_QuatSlerp(const Quat4& left, const Quat4& right,
-                     unsigned weight, bool shortest_path) {
-    if (!weight) return left;
-    if (weight>=256) return right;
-    std::array<double,4> a{},b{},out{};
-    double norm_a=0,norm_b=0,dot=0;
-    for (size_t i=0; i<4; ++i) {
-        a[i]=left[i]; b[i]=right[i];
-        norm_a+=a[i]*a[i]; norm_b+=b[i]*b[i];
+Quat4 MATH_QuatSlerp(const Quat4& left, const Quat4& right, int32_t weight) {
+    // WINDREAM 0x45bf68: raw Q15 inputs (no normalization or sign flip),
+    // 32-bit wrapped products, SAR 15 and the fixed acos/sin tables.
+    const auto& tables=math_trig_tables();
+    // Weights in 0..256 keep every sine index in 0..2048. Retail indexes the
+    // table unchecked for other weights; the host masks to 12 bits instead
+    // of reading neighbouring retail memory.
+    const auto sine=[&tables](int32_t index) {
+        return static_cast<int64_t>(tables.sin[static_cast<size_t>(index&4095)]);
+    };
+    uint64_t dot_sum=0;
+    for (size_t i=0; i<4; ++i) dot_sum+=bits64(left[i])*bits64(right[i]);
+    const int32_t dot=wrap32(dot_sum)>>15;
+    Quat4 out{};
+    if (static_cast<int64_t>(dot)+0x8000<=20) {
+        // Nearly opposite: blend toward the perpendicular (-y,x,-w,z). Retail
+        // only rewrites the first three components; w keeps left z.
+        out={wrap32(0u-bits64(left[1])),left[0],wrap32(0u-bits64(left[3])),left[2]};
+        int32_t left_angle=div256((bits64(128)-bits64(weight))*1024u);
+        if (left_angle<0) left_angle=-left_angle;
+        const uint64_t left_weight=bits64(wrap32(bits64(sine(left_angle))*32768u));
+        const uint64_t right_weight=bits64(wrap32(
+            bits64(sine(div256(bits64(weight)*1024u)))*32768u));
+        for (size_t i=0; i<3; ++i)
+            out[i]=wrap32(bits64(left[i])*left_weight+bits64(out[i])*right_weight)>>15;
+        return out;
     }
-    if (norm_a==0 || norm_b==0) return norm_a==0 ? right : left;
-    norm_a=std::sqrt(norm_a); norm_b=std::sqrt(norm_b);
-    for (size_t i=0; i<4; ++i) {
-        a[i]/=norm_a; b[i]/=norm_b; dot+=a[i]*b[i];
+    int32_t left_weight=0,right_weight=0;
+    if (0x8000-static_cast<int64_t>(dot)<=20) {
+        left_weight=div256((bits64(256)-bits64(weight))*32768u);
+        right_weight=div256(bits64(weight)*32768u);
+    } else {
+        // trunc(2048 + dot/16) under __CHP; the sum is positive here and the
+        // index is 1..4094, whose acos entries (1..2027) have nonzero sines.
+        const int32_t angle=tables.acos[static_cast<size_t>((dot+0x8000)>>4)];
+        const int32_t sine_angle=static_cast<int32_t>(sine(angle));
+        left_weight=wrap32(bits64(sine(div256((bits64(256)-bits64(weight))*
+                                              bits64(angle))))*32768u)/sine_angle;
+        right_weight=wrap32(bits64(sine(div256(bits64(weight)*bits64(angle))))*
+                            32768u)/sine_angle;
     }
-    if (shortest_path && dot<0) {
-        dot=-dot;
-        for (double& value : b) value=-value;
-    }
-    dot=std::clamp(dot,-1.0,1.0);
-    const double t=static_cast<double>(weight)/256.0;
-    double left_weight=1.0-t,right_weight=t;
-    if (!shortest_path && dot<-0.9995) {
-        const std::array<double,4> orthogonal{{-a[1],a[0],-a[3],a[2]}};
-        for (size_t i=0; i<4; ++i)
-            out[i]=a[i]*std::cos(3.14159265358979323846*t)+
-                   orthogonal[i]*std::sin(3.14159265358979323846*t);
-    } else if (std::abs(dot)<0.9995) {
-        const double angle=std::acos(dot);
-        const double sine=std::sin(angle);
-        if (std::abs(sine)>1e-8) {
-            left_weight=std::sin((1.0-t)*angle)/sine;
-            right_weight=std::sin(t*angle)/sine;
-        }
-    }
-    if (shortest_path || dot>=-0.9995)
-        for (size_t i=0; i<4; ++i)
-            out[i]=left_weight*a[i]+right_weight*b[i];
-    double length=0;
-    for (double value : out) length+=value*value;
-    if (length==0) return left;
-    length=std::sqrt(length);
-    Quat4 result{};
     for (size_t i=0; i<4; ++i)
-        result[i]=static_cast<int32_t>(std::clamp(std::llround(out[i]/length*32768.0),
-            -32768ll,32768ll));
-    return result;
+        out[i]=wrap32(bits64(right[i])*bits64(right_weight)+
+                      bits64(left[i])*bits64(left_weight))>>15;
+    return out;
 }
 
 float ANIM_ApplyEase(float t, float left_out, float right_in) {
-    t=std::clamp(t,0.0f,1.0f);
+    // WINDREAM 0x459ec0, unclamped. x87 intermediates are modelled in double;
+    // every float load and store of the original is a float here.
     float start=right_in,end=left_out;
-    const float total=start+end;
-    if (total==0) return t;
-    if (total>1) { start/=total; end/=total; }
-    const float scale=1.0f/(2.0f-start-end);
-    if (start>0 && t<start) return scale*t*t/start;
-    if (end>0 && t>=1.0f-end)
-        return 1.0f-scale*(1.0f-t)*(1.0f-t)/end;
-    return (2.0f*t-start)*scale;
+    const double total=static_cast<double>(start)+end;   // FADD, FSTP double
+    const float total_float=static_cast<float>(total);   // FST float
+    if (total==0.0) return t;
+    if (1.0<total) {
+        const double inverse=1.0/total_float;
+        start=static_cast<float>(start*inverse);
+        end=static_cast<float>(inverse*end);
+    }
+    const float scale=static_cast<float>(1.0/((2.0-start)-static_cast<double>(end)));
+    if (t<start)
+        return static_cast<float>(static_cast<double>(scale)/start*t*t);
+    const double rest=1.0-static_cast<double>(t);
+    if (1.0-static_cast<double>(end)<=t)
+        return static_cast<float>(1.0-static_cast<double>(scale)/end*rest*rest);
+    return static_cast<float>((2.0*t-start)*scale);
 }
 
 bool ANIM_EvalTrackLinear(const AnimationTrack& track, float frame,
-                          Mat3& rotation, Vec3& position, bool& has_rotation,
-                          bool& has_position, std::string& error) {
-    return eval_track(track,frame,false,rotation,position,has_rotation,
+                          unsigned flags, Mat3& rotation, Vec3& position,
+                          bool& has_rotation, bool& has_position,
+                          std::string& error) {
+    return eval_track(track,frame,flags,false,rotation,position,has_rotation,
                       has_position,error);
 }
 
 bool ANIM_EvalTrackSpline(const AnimationTrack& track, float frame,
-                          Mat3& rotation, Vec3& position, bool& has_rotation,
-                          bool& has_position, std::string& error) {
-    return eval_track(track,frame,true,rotation,position,has_rotation,
+                          unsigned flags, Mat3& rotation, Vec3& position,
+                          bool& has_rotation, bool& has_position,
+                          std::string& error) {
+    return eval_track(track,frame,flags,true,rotation,position,has_rotation,
                       has_position,error);
 }
 

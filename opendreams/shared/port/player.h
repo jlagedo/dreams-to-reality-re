@@ -2,6 +2,7 @@
 
 #include "port/animation.h"
 #include "port/dan.h"
+#include "port/resource.h"
 #include "port/vfs.h"
 
 #include <array>
@@ -54,7 +55,7 @@ private:
 
     friend void ANIM_InitStateTable(PlayerState&);
     friend bool ENT_LoadObject(PlayerState&, const uint8_t*,
-                               std::string_view, std::string&);
+                               std::string_view, MaterialCache&, std::string&);
     friend bool ENT_MoveToPlayerSpawn(PlayerState&, const uint8_t*,
                                       std::string&);
     friend bool ANIM_LoadEntitySet(PlayerState&, std::string&);
@@ -68,6 +69,11 @@ private:
 };
 
 void ANIM_InitStateTable(PlayerState& player);
+// The player's materials enter the level cache in SCENE_InitLevel order.
+bool ENT_LoadObject(PlayerState& player, const uint8_t* project_record,
+                    std::string_view logical_name, MaterialCache& cache,
+                    std::string& error);
+// Standalone: a fresh cache seeded only by the player model.
 bool ENT_LoadObject(PlayerState& player, const uint8_t* project_record,
                     std::string_view logical_name, std::string& error);
 bool ENT_MoveToPlayerSpawn(PlayerState& player, const uint8_t* project_record,

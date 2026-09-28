@@ -187,7 +187,9 @@ int main() {
               << " multiple materials=" << multi
               << " unavailable=" << unavailable.size() << '\n';
     if (std::getenv("DREAMS_CUE1") && std::getenv("DREAMS_CUE2") &&
-        (models != 178 || faces != 46091 || unavailable.size() != 13 ||
+        // All 191 physical DAN files bind through their own directory
+        // (formerly 178, with 13 record names used as file names).
+        (models != 191 || faces != 50910 || !unavailable.empty() ||
          !chroma || !multi)) {
         std::cerr << "disc corpus did not exercise supported model material modes\n";
         return 3;

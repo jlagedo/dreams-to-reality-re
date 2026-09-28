@@ -779,10 +779,23 @@ Decompiled from `SCENE_LoadLevel` (`0x41f9db`) and `ENT_InstantiateFromObjet` (`
 - `+0x018` `i32[3]`: Signed palette RGB base, used by `REND_TickPaletteLighting`.
 - `+0x024` `i32[3]`: Signed palette RGB random variation; these triplets are not spatial directions. See [lighting.md](lighting.md).
 - `+0x030` `i32[3]`: Ambient light RGB components (values in $0 \dots 255$, e.g. `(152, 168, 126)`).
-- `+0x03C` `char[32]`: Primary animated video C string (`.HNM` or `.UBB`, e.g. `CASC2.HNM`). Project 0's string is empty; its `ETE_E~1.HNM` bytes begin at `+0x03D` after a NUL.
-- `+0x05C` `char[32]`: Secondary animated video filename (e.g. `M01DRA.HNM` in Project 12).
-- `+0x06C` `char[32]`: Target scene material name receiving primary video texture (e.g. `F02_EAUP`).
-- `+0x08C` `char[32]`: Target scene material name receiving secondary video texture (e.g. `M01DRA`).
+The strings from `+0x03C` onward are 16-byte cells. The decompiled users
+(2026-09-28) establish these meanings:
+
+- `+0x03C` `char[16]`: optional full-screen movie under `data\hnm\` (`.HNM` or
+  `.UBB`, e.g. `CASC2.HNM`), opened with MGM `0x17` (`0x416015`, `0x436841`,
+  `0x420d13`). Project 0's string is empty; its `ETE_E~1.HNM` bytes begin at
+  `+0x03D` after a NUL.
+- `+0x04C` `char[16]`: scene material that receives the HNM4 animated texture
+  (`0x42dae2`, e.g. `M01DRA` in Project 12).
+- `+0x05C` `char[16]`: HNM4 file under `data\anim\` (`0x42dbc7`, e.g.
+  `M01DRA.HNM`), opened once per level on the first game tick after DSN
+  texture streaming ends.
+- `+0x06C` `char[16]`: material for the slot-flag `0x20` software page effect
+  (`0x42dea3`); not a video target.
+- `+0x07C` `char[16]`: material for the slot-flag `0x40` page effect
+  (`0x42dfa0`); it also retargets the HNM4 pixel pointer `0x5e5494`.
+- `+0x08C` `char[16]`: a `.3DC` name (e.g. `MOT.3DC`), observed in data only.
 - `+0x09C` `i32`: Player movement mode, copied to actor `+0x34` by `ENT_LoadObject` (`0x41d624`) when non-zero (4 → 3, 5 → 1 flying, 6 → 3 flying). **Not** a camera projection mode. **[verified]**
 - `+0x0A0` `i32`: Player movement scale, copied as a float to actor `+0x104` (the animation step scale `ANIM_TickBlend` (`0x405f1f`) and `ANIM_TickClip` (`0x4068be`) multiply by). **Not** a near clip. **[verified]**
 - `+0x0A4` `i32`: Player turn step, copied to actor `+0x108`; `ANIM_RequestState` (`0x405118`) turns by it (default `0x30` of 4096 per turn, ¾ of it outside combat stance `+0xac & 0x20`). Values 63–65 were read as a field of view; the real FOV is a constant 76.36° (engine.md, *Camera and projection*). **[verified]**

@@ -133,13 +133,16 @@ bool GLIDE_DrawObjectFaces(const ModelGraph& graph, GlideModelDraw& draw,
     size_t bound_material = SIZE_MAX;
     uint32_t bound_row = 0;
     for (const ModelFace& face : graph.faces) {
+        // Types without a textured branch in the 3dfx hook submit nothing
+        // (0x16..0x18 grayscale is not in the static corpus and not ported).
         GlideFaceMode mode{};
-        if (!face_mode(face.type,mode))
-            return fail(error,"model uses an unsupported 3dfx face type");
+        if (!face_mode(face.type,mode)) continue;
+        if (face.owner_node >= graph.nodes.size())
+            return fail(error,"model face has an invalid owner node");
+        // Unbound blocks keep retail's unrelocated +0x08 and zero-size loads
+        // point at stale arena memory; neither has a page to draw.
         if (face.material_index >= graph.materials.size() ||
-            graph.materials[face.material_index].bank.size() != 0x18014u ||
-            face.owner_node >= graph.nodes.size())
-            return fail(error,"model face has no valid material or owner node");
+            graph.materials[face.material_index].bank.size() != 0x18014u) continue;
         PreparedFace prepared;
         prepared.material = face.material_index;
         prepared.mode = mode;

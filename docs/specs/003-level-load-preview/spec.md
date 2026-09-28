@@ -1,6 +1,6 @@
 # 003 — ODViewer asset previews and playback
 
-Status: **static model and scene/project, DAN animation, movie, static image, and audio/dialogue viewer slices implemented; runtime renderer seam in progress**
+Status: **all viewer slices implemented, including HNM4 animated textures, audio-clocked movies with seek, and the Runtime/Viewer render-destination seam; scene lighting, fog and animated-material binding in progress**
 
 Date: 2026-09-27
 
@@ -31,12 +31,12 @@ are validated in their own runtime milestones.
 
 | Viewer capability | Spec 003 result | Current state |
 |---|---|---|
-| DAN model and project-object preview | Load the selected archive/object through shared resource and scene paths; render its materials and face modes. | Static preview now composes node hierarchy and draws multiple materials with DAN types 2/3/-5; 178 of 191 physical DAN files load from the two discs. Type 9 is prepared but its only DAN has an unmatched material name. |
+| DAN model and project-object preview | Load the selected archive/object through shared resource and scene paths; render its materials and face modes. | Static preview composes the node hierarchy and draws multiple materials with DAN types 2/3/-5. All 191 physical DAN files load (50,910 faces) through retail material-directory binding. |
 | Model animation | Select and play the bound DAN animation clips on the preview rig at the recovered 30 Hz rate, with pause/step and the selected source retained. | ODViewer plays selected linear and spline clips with pause, step, restart, scrub, loop and root-motion controls. All 1,048 physical clips decode and evaluate against the model node count. Eleven F03/ITO clips carry unused trailing tracks, now labeled in the viewer. Fixed-table precision, gameplay state selection and clip blending remain. |
-| Scene and level preview | Render selected `.DSN`/project geometry and placed assets with the common renderer and a viewer camera; keep source identity. | All 95 distinct DSNs render their 157,433 source faces with 2,059 source texture pages. All 150 project records load; 531 of 560 active placements load, including loose and DAN-backed `.3DC`. The remaining 29 DAN material failures and 54 unmatched scene material names are visible diagnostics. Viewer orbit/zoom/target controls work; dynamic palettes, fog and Runtime output remain. |
+| Scene and level preview | Render selected `.DSN`/project geometry and placed assets with the common renderer and a viewer camera; keep source identity. | All 95 distinct DSNs render their 157,433 source faces with 2,059 source texture pages. All 150 project records load, and all 560 active placements load in retail order with no material misses. The single per-file miss, `E21_RIDE.DSN:E21ARROW`, resolves through E22.DAN in Project 58. Viewer orbit/zoom/target controls work; dynamic palettes, fog and Runtime output remain. |
 | Sprites, fonts and static textures | Display indexed pixels, palette rows and transparency from shared decoded data. | Selected sprite slots, font glyphs, VGA sheets, standalone/DAN material banks and assembled DSN object textures render in ODViewer with a palette swatch and transparency control. Animated materials and exact dynamic sprite composition remain. |
-| Animated textures | Decode and show HNM4/HNS4 frame sequences; reuse the GPU material update path when a scene binds them. | Header classification exists; frame decode remains. |
-| Movies | Decode HNM5 (`UBB2`/`UBS2`) and HNM6 (`HNM6`/`HNS6`) from the selected disc; play, pause, step, restart and show captions. | HNM5/HNM6 playback, SD audio and ST captions are wired in ODViewer; all 95 physical HNM5/6 files decode to the end. Seek, audio-clock scheduling, full corpus pixel parity and HNM4 remain. |
+| Animated textures | Decode and show HNM4/HNS4 frame sequences; reuse the GPU material update path when a scene binds them. | The retail HNM4 walker and codec are ported. All 20 HNM4 files on both discs (3,033 frames) match NihAV's indices and palettes frame by frame, and ODViewer plays them. Binding frames to scene materials remains. |
+| Movies | Decode HNM5 (`UBB2`/`UBS2`) and HNM6 (`HNM6`/`HNS6`) from the selected disc; play, pause, step, restart and show captions. | HNM5/HNM6 playback, SD audio and ST captions are wired in ODViewer, and all 95 physical HNM5/6 files decode to the end. Frames follow the played SD sample count, and a bounded seek replays from the start. Full corpus pixel parity remains. |
 | Sound and dialogue | Play the selected supported sample or dialogue with shared audio output; movie `SD` sound stays synchronized with video. | FSB effects, DRD voices with timed captions/portraits, and selected CUE audio tracks play in ODViewer through SDL3. Retail spatial voice mixing, exact caption fades, hardware listening checks and movie audio-clock scheduling remain. |
 
 Each row is a slice of Spec 003, not a separate proposal/spec. The completed
@@ -467,6 +467,207 @@ or original retail menu flow in ODViewer. Full level and media preview are
 Spec 003 slices; `ODRuntime` gameplay milestones remain separate. During
 incremental delivery, an unsupported DAN material/face mode or media codec
 reports its limitation instead of displaying a different source's asset.
+
+## Render seam, movie clock, seek and HNM4 — 2026-09-28
+
+**Destination seam.** `ModelPreview` now owns an explicit, resizable
+color/depth destination (`resize_target`). ODViewer sizes it to the preview
+content region in physical pixels and fits its orbit framing to the shorter
+side. ODRuntime sizes it to the whole drawable in physical pixels and keeps
+the retail 640-wide horizontal focal term, deriving the vertical one from the
+target aspect (`with_horizontal_focal`). With retail's default Cinemascope
+option, the runtime scene occupies the middle 3/4 between h/8 black bands.
+Shell still owns the single swapchain pass, `sg_commit` and present, and
+neither mode creates another window. The swapchain has no depth buffer on any
+backend, so the Runtime draws through a full-drawable offscreen target rather
+than directly into the swapchain pass. Both apps accept `--capture` for
+hidden-window checks. Captures of the E29USINE scene pane and of the Project 0
+runtime frame confirm the seam.
+
+**Movie clock.** Retail paces sound movies from the 200 Hz timer
+(`VID_IsFrameDue`: 14-tick threshold, 13-tick advance) and never reads the
+DirectSound play position. `MovieClock` instead follows the played SD sample
+count. Every HNM5/6 file's first superchunk preloads 15 SD chunks, and each
+later superchunk carries one chunk of 1,470 stereo frames (1/15 s). Frame k is
+therefore decoded when the device has played 1470·k samples. The clock falls
+back to accumulated 15 Hz host time only while less than one frame of audio
+is queued. SDL's resampler history is flushed when the stream ends. Results:
+
+- INTRO.HNM: 2,781 frames in 185.444 s (185.400 s nominal);
+- GENERIC.HNM: 6.739–6.742 s per 6.733 s loop.
+
+**Seek.** The viewer's frame slider performs a bounded seek. Retail has no
+seek, so this is new viewer UI:
+
+1. Reopen from the start.
+2. Decode up to 30 frames per tick without presenting them.
+3. Keep the SD audio decoded on the way, since the file leads by one second.
+4. Queue audio from the target frame's first sample, then resume.
+
+`--preview-seek N` checks it.
+
+**HNM4.** `VID_DecodeHnm4Frame` (`0x408939`) and its codec (`IZ` LZ key
+frames, the 16-mode `IU` inter frames, deinterlace and the `PL` palette parse
+at `0x42ed30`) are ported to `shared/port/hnm4.cpp`. Output follows retail: a
+256×256 index texture plus a palette of `v<<2` channels. All 20 HNM4 files on
+both discs (3,033 frames) match NihAV's indices and palettes frame by frame
+(`ODHnm4Tests`). The test also covers truncated, overflowing and malformed
+payloads with bounded errors. ODViewer plays them at the silent-video 15 Hz
+pump (`--preview-hnm4 E11_EAU.HNM`). Binding frames into a scene's animated
+material is the remaining animated-texture step.
+
+## Retail material binding — 2026-09-28
+
+Earlier previews used a face block's name as its texture name, which left 13
+DANs and 54 scene material names unmatched. Retail binds in two steps
+(`out/dev/research-materials.md`):
+
+- Each tag-1 model carries a 44-byte material directory:
+  `name[16] | file[16] | colour | 8 zero bytes`.
+- `MDL_LoadMaterials` loads `<file>.3DM` through the DSN, DAN or raw route
+  into a **level-scoped, refcounted 256-entry cache**. Name matching is an
+  exact `strcmp`, and the first live entry wins; `RES_InitArena` resets the
+  cache.
+- `MDL_BindFaceMaterials` gives textured blocks a page and flat types
+  `-2/1/4/0x11/0x1b` their colour word.
+
+Projects and the runtime load in retail order: shadows, player, shot
+models, OBJET1..15, then the OBJET0 scene. Results:
+
+- All 191 DAN and 98 DSN files bind through their own directories, except
+  E21_RIDE's `E21ARROW`. In Project 58, E22.DAN supplies it.
+- All 150 projects bind with no misses, and the 64 lighting slots follow the
+  true cache order.
+- Cross-file first-loaded-wins cases are pinned in `ODMaterialBindingCorpus`:
+  - P65's `H02ROUT*` use L14.DAN's banks;
+  - P34's F15SOUFF faces use F91.DAN's;
+  - every `GRILLE` uses OMBRE.3DC's.
+
+Flat blocks, all `DEFAULT` marker boxes and shadow quads, stay bound but
+undrawn until actor node hiding (`PHYS_AttachActorCollider`) is ported;
+DREAMSFX draws type 1 with its own colour counter. Standalone file previews
+seed the cache only from their own file. Cache release and
+duplicate-relocation paths remain.
+
+## Palette lighting, fog and animated materials — 2026-09-28
+
+Retail has no vertex lighting for level or actor faces. Types 2/3 use
+texture × a fixed iterated white, and the Gouraud types 0x16–0x18 are unused on
+the discs. Colour comes from per-material palette rows that are regenerated
+every game tick. Research is in `out/dev/research-lighting.md` and
+`research-animtex.md`; the port is in `shared/port/palette_lighting.*`,
+`random.*`, `fog.*` and `level_materials.*`.
+
+- **Lighting model.** The ported pieces are:
+  - Material slots (64-slot cap), registered by `MDL_RegisterLightingMaterial`
+    and seeded by `MDL_BuildPaletteColorTable` from DSN row 15 with the project
+    contrast.
+  - `SCENE_InitPaletteLighting` and the timed base target (`0x42f024`).
+  - `REND_TickPaletteLighting`: three Watcom `rand_` calls per tick and a 1/8
+    ease that rounds down.
+  - `REND_UpdatePaletteRows`: the 3dfx variant with neutral row 15 and the
+    `+0xc8` rule; the Windows variant with row 16 is kept for comparison.
+  - `REND_ApplyPaletteOffsets`, `MDL_BindActorPalette` and
+    `ENT_AdaptActorColor`.
+  - The mode 0/1 start biases of ±128.
+
+  A fixed 30 Hz tick drives the model: in ODRuntime, and in the viewer as a
+  preview tick.
+- **GPU path.** Each material is an 8-bit index texture (the 128 DAN LOD or
+  a 256 DSN page), plus one palette texture holding every slot's 32 rows. The
+  row is selected per face block, as `GLIDE_DrawObjectFaces` does. The chroma
+  key compares against row entry 0's colour. Changed pages and rows upload at
+  most once per frame.
+- **Fog and gamma (3dfx only).** `SCENE_SetFog` and `GLIDE_SetFog` build
+  Glide's 64-entry exponential table from project `+0x1c0..+0x1cc`, keeping
+  the unmasked colour packing (Project 66 packs to `0xb5b27c00`). The shader
+  applies it by camera-space depth, then gamma 0.8 (`out = in^1.25`). The
+  viewer offers fog as a toggle.
+- **Animated materials.** Project `+0x4c` names the material and `+0x5c` the
+  HNM4 under `data\anim\`; 27 projects animate. The port:
+  - opens the file on the scene's disc;
+  - decodes at 15 Hz, at most one frame per host frame;
+  - copies each frame into the material page;
+  - applies `PL` runs over the seeded slot palette;
+  - reopens the file at its end, as retail does.
+
+  Project 39's E11_EAU pool and Project 13's F03HNM1 match an independent
+  decode (`ODPaletteLightingDisc`).
+
+Adaptations and remaining work:
+
+- Adaptations:
+  - fixed-step ticks;
+  - per-session random streams;
+  - gamma applied before blending;
+  - linear interpolation between fog-table entries;
+  - no 32-step texture-streaming delay before HNM4 opens.
+- Page effects, ported 2026-09-28:
+  - the `+0x6c` page scroll (`SCENE_StartPageScroll`, tick `0x403fb9`)
+    moves the page up two rows per tick;
+  - the `+0x7c` page blend (`SCENE_StartPageBlend`, seed `0x403f3b`, step
+    `0x403f68`/`0x403ef0`) averages two rolling copies with retail's 32-bit
+    carry, and takes over the HNM4 pixel pointer;
+  - the palette-lighting flags `0x4a0f68`/`0x4a0f6c`/`0x4a0f70` gate
+    `SCENE_StartAnimTexture` and `SCENE_HasAnimTexture`;
+  - `ODPaletteLighting` checks these against a separate byte model;
+    `ODPaletteLightingDisc` checks Project36 `M04FEU` (scroll) and Project9
+    `E04_NRJ` (blend);
+  - in Project51, ESSAI is resident through the `boule.3dc` shot model, so
+    the blend overwrites each decoded HNM4 frame before it is drawn, as
+    retail does.
+- Remaining:
+  - effect lights (the `+0xc8` projects and OBJET record `+0x34&8`) and the
+    Windows/3dfx lit-row inversion; research notes are in `out/dev/fx/`,
+    not ported. The player's light needs the player in the level;
+  - the other colour writers (exit transition, hit flashes, transforms,
+    triggers, save restore);
+  - the underwater driver: set only by `ENT_TickPlayerStatus` from the
+    player's height against the water level `+0xd4`, and on 3dfx refogged by
+    `0x2c904` on the water-mode change. It needs the player;
+  - screenshot parity against a retail capture.
+
+## Caption fades and retail trig tables — 2026-09-28
+
+**Voice captions.** `MENJ_VoiceCaptionsAt` ports the caption timeline of
+`MENJ_PlayVoiceCaptions` (`0x436ab6`):
+
+- Every slot starts at fade 20 (hidden); line 0 starts opaque.
+- On each change of the 15 Hz counter, the page of four lines is printed
+  with its current fades. The current line's fade then halves (10, 5, 2, 1),
+  or the next line becomes current once the running sum of
+  `DRD_GetLineDuration` is reached.
+- `TEXT_BlitGlyphFaded` draws a glyph with coverage `0x40/fade`: at 63 or
+  more it is an opaque copy; otherwise `SPR_BlendPixel` mixes in
+  `(coverage >> 1)/32` of the glyph colour.
+
+ODViewer shows the retail page with those weights. It drives the counter
+from the voice position; retail counts its own 15 Hz flag from
+`DRD_PlayVoice`. `ODMenjTests` checks:
+
+- the opaque first line;
+- the two-tick delay before a new line appears;
+- the 10/5/2/1 sequence;
+- paging and the finish tick.
+
+The runtime's portrait, `UI_DimCaptionBand` and Again prompt belong with
+in-game dialogue.
+
+**Trig tables.** Retail builds its cos/sin and acos tables at startup
+(`0x45b040`, called from `RES_InitArena`): three × 4096 ints in `.bss`,
+4096 units per turn. The C++ generator reproduces all 12,288 entries
+exactly; this was verified against an instruction-level x87 replay. The
+following now use those tables with retail's integer rounding:
+
+- `MATH_QuatSlerp`: no normalisation, no sign flip, table index
+  `(dot+0x8000)>>4`, and the near-parallel/opposite branches;
+- `MATH_EulerToMat3`: all three axes;
+- the linear and spline rotation weights (truncated).
+
+`ODMath` checks the tables, slerp branches and Euler cases against an
+independent model. `ODMathRetailExe` checks the generator constants and code
+bytes in both Windows executables when the extracted Disc 1 tree is
+configured. The XH_ and BA0 animation poses in `ODAnimation` are unchanged.
 
 ## Implementation record — 2026-09-27
 

@@ -197,8 +197,10 @@ A different, shorter layout. Do not apply the generation-6 parse to it.
 0x40  ...      24-bit size prefixed chunks: PL, IZ, IU
 ```
 
-Timebase is **24 fps** for HNM4 — reported consistently by `ffprobe`, and not
-stored anywhere in the visible header.
+The header stores no timebase. `ffprobe` reports 24 fps, but retail never
+uses that. `GAME_TickFrame` (`0x416eb9`) decodes one HNM4 frame per 15 Hz
+timer tick, at most one per game frame, and reopens the file when it ends
+(`0x416ed1..0x416f2a`).
 
 ### UBB2 / UBS2 — **[verified]** 19/19
 
@@ -267,8 +269,8 @@ authored widescreen and composited into the display mode with black bars.
 
 ## Texture animations (HNM4)
 
-All 20 are 256×256, in `DATA\ANIM\` and `DATA\HNM\`, and their names say what
-they are: **[verified]**
+All 20 are 256×256 and live in `DATA\ANIM\`. Only `data\anim\` opens reach
+them (`0x42dc04`, `0x416f18`). Their names say what they are: **[verified]**
 
 | File | Frames | Effect |
 |---|--:|---|

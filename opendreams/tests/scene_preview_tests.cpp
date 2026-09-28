@@ -27,7 +27,7 @@ int main() {
     }
     std::set<std::string> visited;
     size_t faces=0,materials=0,objects=0;
-    size_t diagnostic_scenes=0, diagnostic_names=0;
+    size_t diagnostic_scenes=0, diagnostic_names=0, undrawn_faces=0;
     for (const auto& image : images) {
         for (const auto& file : image->entries()) {
             if (file.kind!=od::disc::EntryKind::file || file.path.size()<4 ||
@@ -44,31 +44,34 @@ int main() {
                 std::cerr << file.path << ": empty render graph/materials\n";
                 return 3;
             }
+            // A standalone DSN seeds the cache only from itself; retail leaves
+            // E21_RIDE's E21ARROW as a zero-size load (research-materials).
+            size_t undrawn=0;
             for (const auto& face : graph.faces)
-                if (face.material_index>=graph.materials.size()) {
-                    std::cerr << file.path << ": unbound material\n";
-                    return 4;
-                }
+                undrawn+=face.material_index>=graph.materials.size() ? 1u : 0u;
             od::port::GlideModelDraw draw;
             if (!od::port::GLIDE_DrawObjectFaces(graph,draw,error) ||
-                draw.vertices.size()!=graph.faces.size()*3u) {
+                draw.vertices.size()!=(graph.faces.size()-undrawn)*3u) {
                 std::cerr << file.path << ": " << error << '\n'; return 5;
             }
             faces+=graph.faces.size();
             materials+=graph.materials.size();
-            if (!scene.missing_scene_materials().empty()) {
+            if (!scene.unbound_materials().empty()) {
                 ++diagnostic_scenes;
             }
-            diagnostic_names+=scene.missing_scene_materials().size();
+            diagnostic_names+=scene.unbound_materials().size();
+            undrawn_faces+=undrawn;
             ++objects;
         }
     }
-    if (objects!=95 || faces!=157433 || diagnostic_scenes!=14 ||
-        diagnostic_names!=54) {
+    // Faces now bind through each DSN's own 44-byte material directory; the
+    // former 54 names in 14 scenes were record names used as file names.
+    if (objects!=95 || faces!=157433 || diagnostic_scenes!=1 ||
+        diagnostic_names!=1 || undrawn_faces!=6) {
         std::cerr << "scene corpus differs from Python tag-1 oracle: "
                   << objects << " scenes, " << faces << " faces, "
                   << diagnostic_scenes << " scenes with " << diagnostic_names
-                  << " missing texture names\n";
+                  << " unbound material names, " << undrawn_faces << " undrawn faces\n";
         return 6;
     }
     od::port::VfsContext vfs(images[1]);
@@ -104,13 +107,19 @@ int main() {
             project.render_graph().faces.size()<project.level_graph().faces.size()) {
             std::cerr << name << ": " << error << '\n'; return 10;
         }
+        if (!project.unbound_materials().empty()) {
+            std::cerr << name << ": " << project.unbound_materials().front() << '\n';
+            return 12;
+        }
         placed+=project.placed_actors().size();
         unavailable+=project.object_issues().size();
         for (const auto& actor : project.placed_actors())
             secondary_actors+=actor.from_secondary_source ? 1u : 0u;
         ++projects;
     }
-    if (projects!=150 || placed!=531 || unavailable!=29 ||
+    // Directory binding loads all 560 active placements (formerly 531, the
+    // 29 failures being DAN record names used as file names).
+    if (projects!=150 || placed!=560 || unavailable!=0 ||
         secondary_actors!=4) {
         std::cerr << "project placement census differs: " << projects
                   << " projects, " << placed << " actors, " << unavailable
@@ -118,8 +127,8 @@ int main() {
         return 11;
     }
     std::cout << objects << " original DSN scenes, " << faces
-              << " faces, " << materials-diagnostic_names << " source texture pages, "
-              << diagnostic_names << " diagnostic materials, "
+              << " faces, " << materials << " bound texture pages, "
+              << diagnostic_names << " unbound material names, "
               << projects << " projects, " << placed << " placed actors, "
               << unavailable << " unavailable actors, " << secondary_actors
               << " from the secondary source\n";

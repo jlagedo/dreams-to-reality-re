@@ -57,15 +57,20 @@ bool ANIM_DecodeClip(const std::vector<uint8_t>& bytes, std::string_view name,
 
 // Q15 matrix conversion follows WINDREAM's integer products and SAR 14.
 void MATH_QuatToMatrix(const Quat4& quaternion, Mat3& matrix);
-Quat4 MATH_QuatSlerp(const Quat4& left, const Quat4& right,
-                     unsigned weight256, bool shortest_path);
+// Retail fixed-table slerp at weight 0..256 using math_trig_tables().
+Quat4 MATH_QuatSlerp(const Quat4& left, const Quat4& right, int32_t weight256);
 float ANIM_ApplyEase(float t, float left_out, float right_in);
+// Retail flags: bit 0 skips rotation, bit 1 skips translation. A skipped
+// channel or a track with fewer than two keys leaves has_* false, meaning
+// the node keeps its current value.
 bool ANIM_EvalTrackLinear(const AnimationTrack& track, float frame,
-                          Mat3& rotation, Vec3& position, bool& has_rotation,
-                          bool& has_position, std::string& error);
+                          unsigned flags, Mat3& rotation, Vec3& position,
+                          bool& has_rotation, bool& has_position,
+                          std::string& error);
 bool ANIM_EvalTrackSpline(const AnimationTrack& track, float frame,
-                          Mat3& rotation, Vec3& position, bool& has_rotation,
-                          bool& has_position, std::string& error);
+                          unsigned flags, Mat3& rotation, Vec3& position,
+                          bool& has_rotation, bool& has_position,
+                          std::string& error);
 bool ANIM_ApplyModelLinear(const AnimationClip& clip, float frame,
                            const ModelGraph& bind, ModelGraph& pose,
                            bool follow_root_motion, std::string& error);

@@ -85,6 +85,13 @@ bool ENT_MoveToPlayerSpawn(PlayerState& player, const uint8_t* project_record,
 
 bool ENT_LoadObject(PlayerState& player, const uint8_t* project_record,
                     std::string_view logical_name, std::string& error) {
+    MaterialCache cache;
+    return ENT_LoadObject(player, project_record, logical_name, cache, error);
+}
+
+bool ENT_LoadObject(PlayerState& player, const uint8_t* project_record,
+                    std::string_view logical_name, MaterialCache& cache,
+                    std::string& error) {
     error.clear();
     player.loaded_ = false;
     player.bind_model_ = {};
@@ -100,7 +107,7 @@ bool ENT_LoadObject(PlayerState& player, const uint8_t* project_record,
         error = dan_error.message;
         return false;
     }
-    if (!RES_Load(player.archive_, logical_name, player.bind_model_, error))
+    if (!RES_Load(player.archive_, logical_name, cache, player.bind_model_, error))
         return false;
     if (player.bind_model_.nodes.empty())
         return fail(error, "player model has no root node");
@@ -203,20 +210,26 @@ bool PLAYER_ComposeRenderGraph(const PlayerState& player, const ModelGraph& scen
     const size_t transform_index = combined.nodes.size();
     combined.nodes.push_back(std::move(transform));
     node_base = combined.nodes.size();
-    const size_t material_base = combined.materials.size();
     for (auto node : player.pose_model_.nodes) {
         node.parent = node.parent < 0 ? static_cast<int>(transform_index) :
                       node.parent + static_cast<int>(node_base);
         combined.nodes.push_back(std::move(node));
     }
-    combined.materials.insert(combined.materials.end(),
-        player.pose_model_.materials.begin(), player.pose_model_.materials.end());
-    for (auto face : player.pose_model_.faces) {
-        face.owner_node += node_base;
-        face.material_index += material_base;
-        for (auto& corner : face.corners) corner.node += node_base;
-        combined.faces.push_back(std::move(face));
-    }
+    // Faces sharing a cache entry with the scene keep sharing one bank.
+    const auto mapping = merge_graph_materials(combined.materials,
+                                               player.pose_model_.materials);
+    const auto append = [&](const std::vector<ModelFace>& from,
+                            std::vector<ModelFace>& to) {
+        for (auto face : from) {
+            face.owner_node += node_base;
+            if (face.material_index < mapping.size())
+                face.material_index = mapping[face.material_index];
+            for (auto& corner : face.corners) corner.node += node_base;
+            to.push_back(std::move(face));
+        }
+    };
+    append(player.pose_model_.faces, combined.faces);
+    append(player.pose_model_.flat_faces, combined.flat_faces);
     return true;
 }
 

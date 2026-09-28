@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "disc/image.h"
+#include "inspect/catalog.h"
 #include "port/dan.h"
 #include "port/drd.h"
 #include "port/fsb.h"
@@ -151,7 +152,7 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
     }
     if (options.dsn_header) record(root, pos, 31, 128, 0, "TEST.DSN;1");
     if (options.dan_archive) record(root, pos, 31, 94, 0, "TEST.DAN;1");
-    if (options.drd_bank) record(root, pos, 31, 128, 0, "TEST.DRD;1");
+    if (options.drd_bank) record(root, pos, 31, 192, 0, "TEST.DRD;1");
     if (options.fsb_bank) record(root, pos, 31, 56, 0, "TEST.FSB;1");
     if (options.sprite_set) record(root, pos, 32, 7705, 0, "TEST.ALP;1");
     if (options.video_headers) {
@@ -236,28 +237,36 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
     }
     if (options.drd_bank) {
         auto* drd = iso.data() + 31 * 2048;
+        // DRD_LoadEntry reads the voice duration from the retail 44-byte WAVE
+        // header, so each fixture voice carries one and four PCM bytes.
+        const auto wave = [&](uint8_t* block) {
+            block[0] = 2; little32(block + 1, 53);
+            auto* riff = block + 5;
+            std::memcpy(riff, "RIFF", 4); little32(riff + 4, 40);
+            std::memcpy(riff + 8, "WAVEfmt ", 8); little32(riff + 16, 16);
+            little16(riff + 20, 1); little16(riff + 22, 1);
+            little32(riff + 24, 22050); little32(riff + 28, 44100);
+            little16(riff + 32, 2); little16(riff + 34, 16);
+            std::memcpy(riff + 36, "data", 4); little32(riff + 40, 4);
+        };
         std::memcpy(drd, "DRDF", 4);
-        little32(drd + 4, 128);
+        little32(drd + 4, 192);
         little32(drd + 8, 2);
-        little32(drd + 12, 55);
+        little32(drd + 12, 87);
         drd[16] = 0; little32(drd + 17, 13);
-        little32(drd + 21, 29); little32(drd + 25, 84);
+        little32(drd + 21, 29); little32(drd + 25, 116);
         auto* first = drd + 29;
-        first[0] = 1; little32(first + 1, 55); little32(first + 5, 1);
-        first[9] = 2; little32(first + 10, 21);
-        std::memcpy(first + 14, "RIFF", 4); little32(first + 18, 8);
-        std::memcpy(first + 22, "WAVE", 4);
-        first[30] = 3; little32(first + 31, 16);
-        first[39] = 6; std::memcpy(first + 40, "Hello", 5);
-        first[46] = 4; little32(first + 47, 9);
-        std::memcpy(first + 51, "FACE", 4);
-        auto* second = drd + 84;
-        second[0] = 1; little32(second + 1, 44); little32(second + 5, 1);
-        second[9] = 2; little32(second + 10, 21);
-        std::memcpy(second + 14, "RIFF", 4); little32(second + 18, 8);
-        std::memcpy(second + 22, "WAVE", 4);
-        second[30] = 3; little32(second + 31, 14);
-        second[39] = 4; std::memcpy(second + 40, "Bye", 3);
+        first[0] = 1; little32(first + 1, 87); little32(first + 5, 1);
+        wave(first + 9);
+        first[62] = 3; little32(first + 63, 16);
+        first[71] = 6; std::memcpy(first + 72, "Hello", 5);
+        first[78] = 4; little32(first + 79, 9);
+        std::memcpy(first + 83, "FACE", 4);
+        auto* second = drd + 116;
+        second[0] = 1; little32(second + 1, 76); little32(second + 5, 1);
+        wave(second + 9);
+        second[62] = 3; little32(second + 63, 14);
+        second[71] = 4; std::memcpy(second + 72, "Bye", 3);
     }
     if (options.fsb_bank) {
         auto* fsb = iso.data() + 31 * 2048;
@@ -292,6 +301,7 @@ Fixture make_fixture(const fs::path& directory, const Options& options = {}) {
         for (size_t i = 0; i < magics.size(); ++i) {
             auto* video = iso.data() + (32 + i) * 2048;
             std::memcpy(video, magics[i], 4);
+            video[7] = magics[i][0] == 'U' ? 8 : 16; // VID_Open pixel-format byte.
             little16(video + 8, 320);
             little16(video + 10, 200);
             little32(video + 16, 3);
@@ -670,12 +680,12 @@ bool test_drd_bank(const fs::path& base) {
     od::port::DrdError error;
     CHECK(od::port::DRD_Open(drd, "TEST.DRD", error));
     CHECK(drd.is_open() && drd.entry_count() == 2);
-    CHECK(drd.entry_offset(0) == 29 && drd.entry_size(0) == 55);
-    CHECK(drd.entry_offset(1) == 84 && drd.entry_size(1) == 44);
+    CHECK(drd.entry_offset(0) == 29 && drd.entry_size(0) == 87);
+    CHECK(drd.entry_offset(1) == 116 && drd.entry_size(1) == 76);
     CHECK(od::port::DRD_LoadEntry(drd, 0, error));
     CHECK(drd.current_index() == 0 && od::port::DRD_GetLineCount(drd) == 1);
     CHECK(drd.line_text(0) == "Hello" && drd.lines()[0].ticks_15hz == 0);
-    CHECK(drd.wave().size == 16 && std::memcmp(drd.wave().data, "RIFF", 4) == 0);
+    CHECK(drd.wave().size == 48 && std::memcmp(drd.wave().data, "RIFF", 4) == 0);
     const uint8_t* reused_wave = drd.wave().data;
     const auto portrait = od::port::DRD_GetPortrait(drd);
     CHECK(portrait.size == 4 && std::memcmp(portrait.data, "FACE", 4) == 0);
@@ -822,7 +832,10 @@ bool test_video_open_close(const fs::path& base) {
         {"VS6.HNM",od::port::VideoFamily::hnm6,12,2}
     }};
     for (const auto& example : cases) {
-        CHECK(od::port::VID_Open(video, example.path, error) == example.result);
+        const int opened_result = od::port::VID_Open(video, example.path, error);
+        if (opened_result != example.result)
+            std::cerr << example.path << ": " << error.message << '\n';
+        CHECK(opened_result == example.result);
         CHECK(video.family() == example.family && video.kind_flags() == example.flags);
         CHECK(video.source_size() == 128 && video.next_word()[0] == 0x78);
         CHECK(video.sound_variant_selected() == (example.result == 2));
@@ -873,6 +886,83 @@ bool test_markers_and_offsets(const fs::path& base) {
     image = Image::open(fixture.cue, error);
     CHECK(image != nullptr);
     CHECK(image->identity() == Identity::unknown);
+    return true;
+}
+
+
+// Spec 002 navigation transitions on synthetic images: marker identity in
+// either selection order, search before/after indexing (collapsed children),
+// disc/status filters, the parent chain used by "Reveal in source disc",
+// failed replacement and independent unmount.
+bool test_catalog_navigation(const fs::path& base) {
+    using od::inspect::Group;
+    using od::inspect::Status;
+    Options first;
+    first.markers = Markers::one;
+    first.bf_archives = true;
+    Options second;
+    second.markers = Markers::two;
+    second.dan_archive = true;
+    const auto disc1 = make_fixture(base / "catalog-one", first);
+    const auto disc2 = make_fixture(base / "catalog-two", second);
+    od::inspect::Catalog catalog;
+    std::string error;
+    // Disc 2 is selected first; identity comes from DATA/2CD.ID, not order.
+    CHECK(catalog.replace(0, disc2.cue, error));
+    CHECK(catalog.replace(1, disc1.cue, error));
+    CHECK(catalog.source(0)->image->identity() == Identity::disc2);
+    CHECK(catalog.source(1)->image->identity() == Identity::disc1);
+
+    // Physical ISO rows are searchable at once; logical children arrive with
+    // indexing, and the source reports its partial state meanwhile.
+    CHECK(!catalog.source(1)->complete);
+    CHECK(!catalog.search("ONE.BF", Group::count, 0, 0, true, false).empty());
+    CHECK(catalog.search("ONE.TXT", Group::count, 0, 0, true, false).empty());
+    for (int i = 0; i < 1000 &&
+         !(catalog.source(0)->complete && catalog.source(1)->complete); ++i)
+        catalog.tick(4);
+    CHECK(catalog.source(0)->complete && catalog.source(1)->complete);
+    const auto members = catalog.search("ONE.TXT", Group::count, 0, 0, true, false);
+    CHECK(!members.empty());
+    for (const auto& found : members) CHECK(found.slot == 1);
+
+    // Disc filter values follow disc::Identity; status filter is status + 1.
+    CHECK(catalog.search("ONE.TXT", Group::count, 2, 0, true, false).empty());
+    CHECK(!catalog.search("ONE.TXT", Group::count, 1, 0, true, false).empty());
+    CHECK(!catalog.search("TEST.DAN", Group::count, 2, 0, true, false).empty());
+    const int available = static_cast<int>(Status::available) + 1;
+    for (const auto& found : catalog.search("", Group::count, 0, available, true, false))
+        CHECK(catalog.row(found.slot, found.row)->status == Status::available);
+
+    // Reveal: every indexed child climbs a parent chain to the ISO root
+    // without cycles, passing its owning physical file.
+    for (const auto& found : members) {
+        const auto* row = catalog.row(found.slot, found.row);
+        // Both fixture archives hold a member named ONE.TXT; each keeps its
+        // own archive as its source.
+        CHECK(row && !row->physical && (row->path == "ONE.BF" || row->path == "TWO.BF"));
+        bool reached_file = false;
+        size_t steps = 0;
+        for (size_t at = row->parent; at != SIZE_MAX && steps < 64; ++steps) {
+            const auto* parent = catalog.row(found.slot, at);
+            CHECK(parent);
+            if (parent->physical && parent->path == row->path) reached_file = true;
+            at = parent->parent;
+        }
+        CHECK(reached_file && steps < 64);
+    }
+
+    // A failed replacement leaves the previous mount and its rows usable.
+    CHECK(!catalog.replace(0, base / "missing.cue", error));
+    CHECK(catalog.source(0) && catalog.source(0)->image->identity() == Identity::disc2);
+    CHECK(!catalog.search("TEST.DAN", Group::count, 0, 0, true, false).empty());
+
+    // Unmount invalidates only that source's rows.
+    const size_t stale_row = members.front().row;
+    catalog.unmount(1);
+    CHECK(!catalog.source(1) && !catalog.row(1, stale_row));
+    CHECK(catalog.search("ONE.TXT", Group::count, 0, 0, true, false).empty());
+    CHECK(!catalog.search("TEST.DAN", Group::count, 0, 0, true, false).empty());
     return true;
 }
 
@@ -1549,7 +1639,8 @@ int main(int argc, char** argv) {
     const bool sprite_okay = fsb_okay && test_sprite_set(base);
     const bool video_okay = sprite_okay && test_video_open_close(base);
     const bool markers_okay = video_okay && test_markers_and_offsets(base);
-    const bool okay = markers_okay && test_failures(base);
+    const bool catalog_okay = markers_okay && test_catalog_navigation(base);
+    const bool okay = catalog_okay && test_failures(base);
     std::error_code ignored;
     fs::remove_all(base, ignored);
     return okay ? 0 : 1;

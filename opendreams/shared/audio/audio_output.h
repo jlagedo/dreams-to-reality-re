@@ -29,6 +29,10 @@ public:
     bool queue_pcm(const void* bytes, size_t size, std::string& error);
     bool tick(std::string& error);
     void set_paused(bool paused);
+    // Linear channel gain; it persists across sources like a DirectSound
+    // buffer's SetVolume and is applied to each new SDL stream.
+    void set_gain(float gain);
+    float gain() const { return gain_; }
     bool restart(std::string& error);
     void stop();
 
@@ -36,6 +40,12 @@ public:
     bool paused() const { return paused_; }
     bool ended() const { return ended_; }
     double position_seconds() const;
+    // Sample frames the device has consumed, and sample frames still queued.
+    // SDL's resampler keeps a few input frames of history until flush().
+    uint64_t played_frames() const;
+    uint64_t queued_frames() const;
+    // Marks the end of external PCM so the resampler history drains.
+    void flush();
     double duration_seconds() const;
     uint32_t rate() const { return rate_; }
     uint16_t channels() const { return channels_; }
@@ -54,6 +64,7 @@ private:
     uint64_t total_bytes_ = 0, cursor_ = 0, submitted_bytes_ = 0;
     uint32_t rate_ = 0;
     uint16_t channels_ = 0, bits_ = 0;
+    float gain_ = 1.0f;
     bool subsystem_ready_ = false;
     bool paused_ = true;
     bool ended_ = false;

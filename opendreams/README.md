@@ -8,9 +8,9 @@ port; HNM5/HNM6 movies now play from a selected disc row with SDL3 sound.
 Sprites, fonts and static texture pages also preview from the selected disc.
 FSB effects, DRD voices with portraits/captions and CUE audio tracks now play.
 Animation and the remaining viewer previews are in progress.
-`ODRuntime` now mounts configured disc images, displays the intro and main menu,
-and enters the Project 0 scene with Duncan's idle animation from New Game.
-Load/Options pages are pending.
+`ODRuntime` now mounts configured disc images and plays the intro. It shows the
+main menu with its Load and Options pages. New Game enters the Project 0 scene
+with Duncan's idle animation and the level's CD music.
 Both applications use one static `ODShared` library.
 
 ## ODRuntime disc sources
@@ -41,11 +41,18 @@ not CUE images. With Disc 1 mounted, ODRuntime plays `INTRO.HNM`; Space, Esc,
 gamepad south/east or raw joystick buttons can skip it. `--skip-intro` opens the
 menu directly for development checks. At the menu, arrows or controller
 directions cycle the four choices, Space/Enter or south confirms, and Esc or
-east quits. New Game runs the elder movie, loads the first scene, initializes
-the XH_ player and displays its entry camera. The player idles, while movement,
-collision and HUD are pending. Load and Options report pending runtime
-work. The remaining boot flow is tracked in
-[Spec 004](../docs/specs/004-runtime-boot-menu/spec.md).
+east quits.
+
+New Game runs the elder movie, loads the first scene and initializes the XH_
+player. It displays the entry camera, with retail's default Cinemascope bands,
+and starts CD track 9. The player idles; movement, collision and HUD are
+pending.
+
+Options toggles the four retail settings. Retail never saves them. Load lists
+the ten slots of `data/game/game.dat` under the per-user directory, or under
+`--save-root <retail install root>`. Restoring a saved game is not ported yet.
+`--menu-page load|options` opens a page directly for development checks. The
+boot flow is tracked in [Spec 004](../docs/specs/004-runtime-boot-menu/spec.md).
 
 For visual QA on Windows, capture the completed D3D11 frame directly from a
 hidden runtime window:
@@ -56,7 +63,7 @@ hidden runtime window:
 ```
 
 `--capture` writes a PNG after the final frame, exits, and does not show or
-focus a window. It defaults to 10 frames if `--frames` is omitted. This is a
+focus a window. ODViewer accepts the same `--capture` option. It defaults to 10 frames if `--frames` is omitted. This is a
 GPU back-buffer capture, so other desktop windows and notifications cannot
 appear in it. The current capture implementation is Windows D3D11 only; other
 backends report an explicit unsupported-capture error. `--start-new-game`
@@ -127,6 +134,8 @@ For repeatable checks:
 .\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-animation BA0
 .\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-scene E29USINE
 .\build\win-msvc-x64-debug\ODViewer.exe --cue1 "E:\path\disc1.cue" --cue2 "E:\path\disc2.cue" --preview-project Project114
+.\build\win-msvc-x64-debug\ODViewer.exe --cue1 "E:\path\disc1.cue" --preview-hnm4 E11_EAU.HNM
+.\build\win-msvc-x64-debug\ODViewer.exe --cue2 "E:\path\disc2.cue" --preview-movie --preview-seek 50
 ```
 
 ODViewer uses a larger vector font for readable navigation. The catalog lives in

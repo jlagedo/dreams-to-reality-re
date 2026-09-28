@@ -1,5 +1,6 @@
 #include "port/model.h"
 
+#include <algorithm>
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
@@ -61,27 +62,16 @@ bool MDL_RelocPrimitives(const std::vector<uint8_t>& record, int64_t delta,
         const uint32_t count = u32(record, block_offset + 0x1c);
         const uint32_t first_face = u32(record, block_offset + 0x20);
         const uint32_t stride = u32(record, block_offset + 0x2c);
-        const bool diagnostic = type == -2 || type == 1 || type == 4 ||
-                                type == 0x11 || type == 0x1b;
-        if (count > 20000 || (count && stride != (diagnostic ? 56u : 68u)))
+        const bool flat = flat_block_type(type);
+        if (count > 20000 || (count && stride != (flat ? 56u : 68u)))
             return fail(error, "model face block has an unsupported count or stride");
         size_t face_offset = 0;
         if (count && !address_offset(first_face, delta, record,
-                                     diagnostic ? 0x30 : 0x40, face_offset))
+                                     flat ? 0x34 : 0x40, face_offset))
             return fail(error, "model face list is outside its record");
-        // Retail relocates the 56-byte diagnostic blocks too. The textured
-        // model graph keeps only the 68-byte triangles used by the GPU
-        // material path; diagnostic submission remains a separate slice.
-        if (diagnostic) {
-            if (count && !range(record,face_offset+static_cast<size_t>(count-1)*stride,
-                                0x30))
-                return fail(error,"model diagnostic face list is truncated");
-            block = u32(record, block_offset);
-            continue;
-        }
         for (uint32_t index = 0; index < count; ++index) {
             const size_t at = face_offset + static_cast<size_t>(index) * stride;
-            if (!range(record, at, 0x40))
+            if (!range(record, at, flat ? 0x34 : 0x40))
                 return fail(error, "model face ends outside its record");
             ModelFace face;
             face.owner_node = owner;
@@ -94,7 +84,7 @@ bool MDL_RelocPrimitives(const std::vector<uint8_t>& record, int64_t delta,
             for (size_t axis=0; axis<3; ++axis)
                 face.normal[axis]=i32(record,normal_offset+axis*4u);
             face.plane_distance=i32(record,at+0x30);
-            if (range(record, at, 0x41)) face.shade = record[at + 0x40];
+            if (!flat && range(record, at, 0x41)) face.shade = record[at + 0x40];
             constexpr std::array<size_t, 3> vertex_fields{{8, 0x14, 0x20}};
             constexpr std::array<size_t, 3> uv_fields{{0x34, 0x38, 0x3c}};
             for (size_t corner = 0; corner < 3; ++corner) {
@@ -110,6 +100,7 @@ bool MDL_RelocPrimitives(const std::vector<uint8_t>& record, int64_t delta,
                     break;
                 }
                 if (!found) return fail(error, "model face has an invalid vertex reference");
+                if (flat) continue; // 56-byte records carry no UV pointers.
                 size_t uv_offset = 0;
                 if (!address_offset(u32(record, at + uv_fields[corner]), delta,
                                     record, 8, uv_offset))
@@ -117,7 +108,7 @@ bool MDL_RelocPrimitives(const std::vector<uint8_t>& record, int64_t delta,
                 face.corners[corner].u = i32(record, uv_offset);
                 face.corners[corner].v = i32(record, uv_offset + 4);
             }
-            graph.faces.push_back(std::move(face));
+            (flat ? graph.flat_faces : graph.faces).push_back(std::move(face));
         }
         block = u32(record, block_offset);
     }
@@ -226,8 +217,28 @@ bool MDL_RelocNodeTree(const std::vector<uint8_t>& record,
 bool RES_Relocate(const std::vector<uint8_t>& record,
                   ModelGraph& graph, std::string& error) {
     std::vector<uint32_t> offsets;
-    if (!RES_RelocOffsetTable(record, offsets, error)) return false;
-    return MDL_RelocNodeTree(record, offsets, graph, error);
+    if (!RES_RelocOffsetTable(record, offsets, error) ||
+        !MDL_RelocNodeTree(record, offsets, graph, error)) return false;
+    // MDL_LoadMaterials (0x456038) reads the u32 record count and the 44-byte
+    // records that follow the node offset table (payload[0] = node count).
+    const size_t at = 0x18 + offsets.size() * 4u;
+    if (!range(record, at, 4))
+        return fail(error, "model record has no material directory count");
+    const uint32_t count = u32(record, at);
+    if (count > 256 || !range(record, at + 4, static_cast<size_t>(count) * 44u))
+        return fail(error, "model material directory is invalid");
+    graph.directory.reserve(count);
+    for (uint32_t index = 0; index < count; ++index) {
+        const size_t entry = at + 4 + static_cast<size_t>(index) * 44u;
+        MaterialRecord material;
+        std::copy_n(record.begin() + static_cast<std::ptrdiff_t>(entry), 44,
+                    material.raw.begin());
+        material.name = fixed_text(record, entry, 16);
+        material.file = fixed_text(record, entry + 16, 16);
+        material.colour = u32(record, entry + 32);
+        graph.directory.push_back(std::move(material));
+    }
+    return true;
 }
 
 } // namespace od::port

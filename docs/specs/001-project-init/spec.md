@@ -1,7 +1,13 @@
 # 001 — OpenDreams project initialization
 
-Status: **Draft — planning only**  
-Date: 2026-09-26
+Status: **Implemented** — both applications build and run on the pinned stack; see the
+[validation record](../../../opendreams/README.md#validation-record-2026-09-27)  
+Date: 2026-09-26 (status updated 2026-09-28)
+
+> The text below is the original plan. Where it says a file or preset "does
+> not exist yet", read it as history: `opendreams/` now contains the CMake
+> project, presets, pinned dependencies and both applications. Exact pins are
+> in [the OpenDreams README](../../../opendreams/README.md#dependencies-and-build).
 
 ## Purpose
 

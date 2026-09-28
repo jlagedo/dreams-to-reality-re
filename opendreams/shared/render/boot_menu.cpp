@@ -15,9 +15,10 @@ ImVec2 point(ImVec2 origin, float scale, float x, float y) {
 
 } // namespace
 
-bool BootMenuCanvas::upload(const port::SpriteSet& set,
-                            const port::SpriteDescriptor& descriptor,
-                            Picture& picture, std::string& error) {
+bool BootMenuCanvas::convert(const port::SpriteSet& set,
+                             const port::SpriteDescriptor& descriptor,
+                             std::vector<uint8_t>& rgba, std::string& error,
+                             bool dim) {
     if (descriptor.status != port::SpriteSlotStatus::loaded ||
         descriptor.width == 0 || descriptor.height == 0 ||
         descriptor.width > 2048 || descriptor.height > 2048) {
@@ -29,13 +30,15 @@ bool BootMenuCanvas::upload(const port::SpriteSet& set,
         error = "menu sprite pixels are truncated";
         return false;
     }
-    std::vector<uint8_t> rgba(count * 4);
+    rgba.assign(count * 4, 0);
     for (size_t i = 0; i < count; ++i) {
         const uint8_t index = descriptor.retail_buffer[i * set.bytes_per_pixel];
         const uint16_t color = set.palette[index];
-        rgba[4*i] = static_cast<uint8_t>((((color >> 10) & 31) * 255) / 31);
-        rgba[4*i+1] = static_cast<uint8_t>((((color >> 5) & 31) * 255) / 31);
-        rgba[4*i+2] = static_cast<uint8_t>(((color & 31) * 255) / 31);
+        // A darkened TEXT_Print row halves each channel, (c & 0xF7DE) >> 1.
+        const int shift = dim ? 1 : 0;
+        rgba[4*i] = static_cast<uint8_t>(((((color >> 10) & 31) >> shift) * 255) / 31);
+        rgba[4*i+1] = static_cast<uint8_t>(((((color >> 5) & 31) >> shift) * 255) / 31);
+        rgba[4*i+2] = static_cast<uint8_t>((((color & 31) >> shift) * 255) / 31);
         uint8_t alpha = index == 0 ? 0 : 255;
         if (alpha && set.bytes_per_pixel == 2) {
             const uint8_t coverage = descriptor.retail_buffer[i * 2 + 1];
@@ -44,6 +47,14 @@ bool BootMenuCanvas::upload(const port::SpriteSet& set,
         }
         rgba[4*i+3] = alpha;
     }
+    return true;
+}
+
+bool BootMenuCanvas::upload(const port::SpriteSet& set,
+                            const port::SpriteDescriptor& descriptor,
+                            Picture& picture, std::string& error) {
+    std::vector<uint8_t> rgba;
+    if (!convert(set, descriptor, rgba, error)) return false;
     sg_image_desc image{};
     image.width = static_cast<int>(descriptor.width);
     image.height = static_cast<int>(descriptor.height);
@@ -84,28 +95,73 @@ bool BootMenuCanvas::load(const port::SpriteState& sprites, std::string& error) 
             return false;
         }
     }
-    const auto* font = sprites.font(0);
-    const auto* set = sprites.set(0);
-    if (!font || !font->active || !set) {
-        error = "HI640 menu font is unavailable";
-        shutdown();
-        return false;
-    }
-    advances_ = font->advances;
-    std::array<bool, 256> needed{};
-    for (int choice = 0; choice < 4; ++choice) {
-        port::BootMenuState selected;
-        selected.selected = choice;
-        for (unsigned char ch : port::MENU_SelectedLabel(selected))
-            if (ch != ' ') needed[ch] = true;
-    }
-    for (size_t ch = 0; ch < needed.size(); ++ch) {
-        if (!needed[ch]) continue;
-        if (ch >= set->descriptors.size() ||
-            !upload(*set, set->descriptors[ch], glyphs_[ch], error)) {
+    for (size_t slot = 0; slot < fonts_.size(); ++slot) {
+        const auto* font = sprites.font(slot);
+        const auto* set = font && font->active ? sprites.set(font->sprite_slot) : nullptr;
+        if (!set || !load_font(*set, *font, fonts_[slot], error)) {
+            if (error.empty())
+                error = slot == 0 ? "HI640 menu font is unavailable" :
+                                    "HI480 save-slot font is unavailable";
             shutdown();
             return false;
         }
+    }
+    return true;
+}
+
+bool BootMenuCanvas::load_font(const port::SpriteSet& set,
+                               const port::FontState& state, Font& font,
+                               std::string& error) {
+    font.advances = state.advances;
+    // Shelf-pack printable ASCII, which covers every menu label and slot name.
+    constexpr int atlas_width = 1024;
+    int x = 0, y = 0, shelf = 0;
+    for (size_t ch = 33; ch < 127 && ch < set.descriptors.size(); ++ch) {
+        const auto& descriptor = set.descriptors[ch];
+        if (descriptor.status != port::SpriteSlotStatus::loaded ||
+            !descriptor.width || !descriptor.height ||
+            descriptor.width > atlas_width) continue;
+        const int width = static_cast<int>(descriptor.width);
+        const int height = static_cast<int>(descriptor.height);
+        if (x + width > atlas_width) { x = 0; y += shelf + 1; shelf = 0; }
+        font.glyphs[ch] = {x, y, width, height, descriptor.field_0c,
+                           descriptor.field_10};
+        x += width + 1;
+        shelf = std::max(shelf, height);
+    }
+    const int atlas_height = std::max(1, y + shelf);
+    for (size_t variant = 0; variant < font.atlas.size(); ++variant) {
+        std::vector<uint8_t> atlas(static_cast<size_t>(atlas_width) * atlas_height * 4, 0);
+        std::vector<uint8_t> rgba;
+        for (size_t ch = 33; ch < 127 && ch < set.descriptors.size(); ++ch) {
+            const Glyph& glyph = font.glyphs[ch];
+            if (!glyph.width) continue;
+            if (!convert(set, set.descriptors[ch], rgba, error, variant == 1)) return false;
+            for (int row = 0; row < glyph.height; ++row)
+                std::copy_n(rgba.data() + static_cast<size_t>(row) * glyph.width * 4,
+                            static_cast<size_t>(glyph.width) * 4,
+                            atlas.data() + (static_cast<size_t>(glyph.y + row) *
+                                            atlas_width + glyph.x) * 4);
+        }
+        sg_image_desc image{};
+        image.width = atlas_width;
+        image.height = atlas_height;
+        image.pixel_format = SG_PIXELFORMAT_RGBA8;
+        image.data.mip_levels[0].ptr = atlas.data();
+        image.data.mip_levels[0].size = atlas.size();
+        image.label = variant == 1 ? "retail menu font (darkened)" : "retail menu font";
+        Picture& picture = font.atlas[variant];
+        picture.image = sg_make_image(&image);
+        sg_view_desc view{};
+        view.texture.image = picture.image;
+        picture.view = sg_make_view(&view);
+        if (sg_query_image_state(picture.image) != SG_RESOURCESTATE_VALID ||
+            sg_query_view_state(picture.view) != SG_RESOURCESTATE_VALID) {
+            error = "GPU upload of a menu font atlas failed";
+            return false;
+        }
+        picture.width = atlas_width;
+        picture.height = atlas_height;
     }
     return true;
 }
@@ -129,19 +185,41 @@ void BootMenuCanvas::draw(ImDrawList* list, const port::BootMenuState& state,
                        point(origin, scale, static_cast<float>(x + picture.width),
                              static_cast<float>(y + picture.height)));
     }
-    const std::string_view label = port::MENU_SelectedLabel(state);
-    // MENU_Draw at 0x435f65 pushes x=0x626e10 (50 at 640) and
-    // y=0x626e14 + 24/scaleY (369 at 480) into TEXT_Print.
-    float x = 50.0f;
-    constexpr float y = 369.0f;
-    for (unsigned char ch : label) {
-        const Picture& glyph = glyphs_[ch];
-        if (glyph.view.id) {
-            list->AddImage(simgui_imtextureid(glyph.view),
-                           point(origin, scale, x, y),
-                           point(origin, scale, x + glyph.width, y + glyph.height));
+    // MENU_Draw at 0x435f65 prints the selected label with font 0, dim 0 at
+    // x=0x626e10 (50 at 640) and y=0x626e14 + 24/scaleY (369 at 480).
+    port::MenuTextLine label;
+    label.x = 50;
+    label.y = 369;
+    label.text = std::string(port::MENU_SelectedLabel(state));
+    draw_text(list, label, origin, scale);
+}
+
+void BootMenuCanvas::draw_text(ImDrawList* list, const port::MenuTextLine& line,
+                               ImVec2 origin, float scale) const {
+    if (!list || scale <= 0.0f || line.font < 0 ||
+        static_cast<size_t>(line.font) >= fonts_.size()) return;
+    const Font& font = fonts_[static_cast<size_t>(line.font)];
+    float x = static_cast<float>(line.x);
+    const float y = static_cast<float>(line.y);
+    const Picture& atlas = font.atlas[line.dim ? 1 : 0];
+    if (!atlas.view.id) return;
+    const float u_scale = 1.0f / static_cast<float>(atlas.width);
+    const float v_scale = 1.0f / static_cast<float>(atlas.height);
+    for (unsigned char ch : line.text) {
+        const Glyph& glyph = font.glyphs[ch];
+        if (glyph.width) {
+            // TEXT_DrawGlyphStyled blits through SPR_BlitSprite, which draws at
+            // (x - descriptor+0x0c, y - descriptor+0x10).
+            const float left = x - static_cast<float>(glyph.anchor_x);
+            const float top = y - static_cast<float>(glyph.anchor_y);
+            list->AddImage(simgui_imtextureid(atlas.view),
+                           point(origin, scale, left, top),
+                           point(origin, scale, left + glyph.width, top + glyph.height),
+                           {glyph.x * u_scale, glyph.y * v_scale},
+                           {(glyph.x + glyph.width) * u_scale,
+                            (glyph.y + glyph.height) * v_scale});
         }
-        x += static_cast<float>(std::max(0, advances_[ch]));
+        x += static_cast<float>(std::max(0, font.advances[ch]));
     }
 }
 
@@ -152,9 +230,11 @@ void BootMenuCanvas::shutdown() {
         picture = {};
     };
     for (auto& picture : corners_) release(picture);
-    for (auto& picture : glyphs_) release(picture);
+    for (auto& font : fonts_) {
+        for (auto& picture : font.atlas) release(picture);
+        font = {};
+    }
     placement_ = {};
-    advances_ = {};
 }
 
 } // namespace od

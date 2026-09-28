@@ -62,7 +62,7 @@ FACE_FIRST_AT = 20  #: address of the first record; the block's own self-check
 FACE_STRIDE_AT = 32  #: holds 68
 FACE_ORIGIN = 40  #: where the records really start, which +0x14 points at
 FACE_DATA = 44  #: where we read a record from, one word into it
-FACE_NAME = 8  #: bytes of object name at the head of a block
+FACE_NAME = 16  #: bytes of block (material) name; retail compares all 16 (MDL_BindFaceMaterials)
 VERTEX_WORDS = (1, 4, 7)
 UV_WORDS = (12, 13, 14)
 

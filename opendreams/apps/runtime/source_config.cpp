@@ -185,6 +185,15 @@ bool parse_source_options(int argc, char** argv, SourceOptions& options,
                 return false;
             }
             explicit_config = std::filesystem::u8path(argv[i + 1]);
+        } else if (std::strcmp(argv[i], "--menu-page") == 0) {
+            options.menu_page = argv[i + 1];
+            if (options.menu_page != "load" && options.menu_page != "options") {
+                error = "--menu-page must be load or options";
+                return false;
+            }
+            options.skip_intro = true;
+        } else if (std::strcmp(argv[i], "--save-root") == 0) {
+            options.save_root = std::filesystem::u8path(argv[i + 1]);
         } else if (std::strcmp(argv[i], "--capture") == 0) {
             if (!*argv[i + 1]) {
                 error = "--capture needs a PNG file path";

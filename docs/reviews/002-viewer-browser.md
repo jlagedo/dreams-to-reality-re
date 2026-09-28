@@ -49,10 +49,20 @@ All physical format-index jobs completed without a loader error on this corpus.
 The existing `ODDiscCorpus` and `ODDdatCorpus` provide independent byte and
 record comparisons; the catalog test adds cross-format navigation checks.
 
-Remaining 002 work: inspect a mounted browser window interactively; compare
-source reveal, filters and selection invalidation with user actions; add
-synthetic navigation tests for those UI transitions; and audit tag and
-reference labels beyond the checked corpus. Standalone `.3DC`/`.3DM` and
+Synthetic navigation tests (2026-09-28): `ODDiscFixtures` now mounts two
+self-authored images in reversed selection order. It checks:
+
+- marker identity;
+- that physical rows are searchable before indexing while BF children are not;
+- that children of collapsed containers are found once indexing completes;
+- the disc and status filter semantics;
+- the parent chain "Reveal in source disc" walks;
+- that a failed replacement keeps the previous mount;
+- that unmount invalidates only its own rows.
+
+Remaining 002 work: inspect a mounted browser window interactively and compare
+source reveal, filters and selection invalidation with real user actions;
+audit tag and reference labels beyond the checked corpus. Standalone `.3DC`/`.3DM` and
 `OBJET1.PAK` stay physical, selectable **unindexed** files until a retail path
 or documented viewer extension supplies their internal inventory. Media
 preview and playback remain outside 002.

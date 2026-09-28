@@ -1,7 +1,7 @@
 # 004 — ODRuntime boot and main menu
 
-Status: **Draft; intro, main menu, Project 0 scene/camera and idle player implemented; Load and Options pending**
-Date: 2026-09-27
+Status: **Front end implemented: intro, main menu, Load and Options pages, New Game to the idle Project 0 player with its CD music; save-state restoration and gameplay remain later milestones**
+Date: 2026-09-28
 Depends on: [001 foundation](../001-project-init/spec.md),
 [002 disc access](../002-disc-navigation/spec.md), and the shared media and
 renderer work in [003 previews](../003-level-load-preview/spec.md).
@@ -20,12 +20,13 @@ runs the short transition, shows the hardcoded elder movie, loads the level,
 and ticks the player's idle clip. Movement, collision, AI, triggers and HUD
 still need live ports before this becomes playable gameplay.
 
-The four retail main-menu choices remain visible. New Game and Quit are the
-first executable slice. Load and Options must open their recovered front-end
-controllers before 004 is called complete. Restoring a saved gameplay session
-requires the save-state port and is a later runtime deliverable; until then,
-Load can browse slots and explain that restoration is unavailable. This is a
-staged boundary, not a claim that the retail Load action has been ported.
+All four retail main-menu choices work. Load and Options open their recovered
+front-end pages. Restoring a saved gameplay session requires the save-state
+port (`GAME_LoadGame`) and remains a later runtime deliverable. Until then the
+Load page lists the real slots, and confirming a saved one takes retail's
+failure branch: status 8, and the page stays open. A host-only notice then
+explains that restoration is unavailable. This is a staged boundary, not a
+claim that the retail Load action has been ported.
 
 ODRuntime accepts `--cue1` and `--cue2` for reproducible launches and first
 reads the per-user `SDL_GetPrefPath("OpenDreams", "ODRuntime")/sources.ini`.
@@ -51,7 +52,7 @@ verify bytes again when a function is actually mapped as a port.
 | Intro | `BOOT_Run` `0x436481` clears both buffers, installs an intro-period handler with `BOOT_PushEventHandler` `0x433c4e`, opens Disc 1 `DATA/HNM/INTRO.HNM` with MGM command `0x17`, then starts it with `0x18` if open succeeded. The 2,781-frame movie runs until end event `0x3f` or a rising Space/Esc action; the handler is then restored. | Preserve the opening order and skip edge. Keep Disc 1 source identity: Disc 2's `INTRO.HNM` contains the generic warp clip. |
 | Warp and menu | `BOOT_Run` opens/starts `GENERIC.HNM`, places the `INTERF` corner sprites through `MENU_PlaceCornerIcons` `0x435c2b`, and pumps `MENU_Tick` `0x435fae`. The ordinary `CTRL_Dispatcher` handles movie-end event `0x3f` by reopening the generic clip, so the 101-frame warp repeats. | Draw movie, sprites and text into the runtime drawable with one presentation owner. Keep input responsive through decode and audio output. |
 | Main selection | `MENU_Draw` `0x435ea0` draws four active/inactive corners and the label selected from `NEW GAME`, `LOAD A GAME`, `OPTIONS`, `QUIT`. `MENU_Tick` handles navigation, sound IDs 9/10, branch selection and submenu calls. | Port the 2×2 selection and its dirty redraw/short post-confirm hold, not an ImGui button grid. |
-| New Game | The menu clears the front-end exit/load flags. `BOOT_Run` clears level state and inventory, reloads the project bank, arms a 15-engine-frame transition and reads the optional video C string at record `+0x3c`. Project 0 has a NUL there; inert `ETE_E~1.HNM` bytes start at `+0x3d`, so there is no optional open. `GAME_Tick` later starts hardcoded `TETE_E~1.HNM` once, returns, and loads Project 0 on a later tick after playback. | Preserve the empty optional movie and separate hardcoded elder movie. At the 30-frame/s engine scale, the transition is roughly 0.5 s. |
+| New Game | The menu clears the front-end exit/load flags. `BOOT_Run` clears level state and inventory, then reloads the project bank. `DDAT_Load` sets the loading state `0x661e08 = 1` at `0x448ff7`. `BOOT_Run` then writes 15.0 to the transition timer `0x5e5480` and reads the optional video C string at record `+0x3c`. Project 0 has a NUL there, and inert `ETE_E~1.HNM` bytes start at `+0x3d`, so there is no optional open. The first `GAME_Tick` takes the loading branch at `0x4240d5`. It starts the hardcoded `TETE_E~1.HNM` once, and loads Project 0 on the tick after playback. | Preserve the empty optional movie and the separate hardcoded elder movie. **The armed 15.0 never counts down on New Game.** The countdown branch is skipped in the loading state, and `SCENE_InitLevel` clears the timer (`0x41f45e`). The screen goes black after the menu hold; the level appears as a hard cut. |
 | Exit | Quit sets the controller's exit flag; `WinMain` exits the pump and runs subsystem, game and video shutdown. | Close movie, audio, queues, source handles and GPU resources, including a quit during playback. |
 
 The displayed background is the generic movie plus `INTERF` sprites and
@@ -88,12 +89,12 @@ and source its text separately; the retail discs do not provide it here.
 
 | Area | Current implementation | Remaining 004 work |
 |---|---|---|
-| Runtime shell | ODRuntime has intro, menu, entry-movie, transition and world phases under one SDL/sokol presentation loop. | Recover the rest of retail init, message-pump and shutdown side effects. |
-| Disc and project data | Both CUEs mount; the active Project 0 record loads from Disc 1 and remains alive through the scene handoff. | Carry visited-level, inventory and save-state resets; audit the full `GAME_Init` order. |
-| Movies | Intro, looping generic and elder HNM play in the runtime with decoded PCM. Their presentation clock is still wall-clock 15 Hz. | Validate the audio sample clock and end/skip timing against retail. |
-| 2D UI | `MENU_PlaceCornerIcons`, `MENU_Tick` and `MENU_Draw` have partial runtime ports using the original sprites, font and palette. | Complete save/options pages and audit exact glyph/blend/resolution behavior. |
-| Sound | Menu FSB sound IDs 9/10 play from the mounted source. | Trace any actual front-end CD-music selection and manage its lifetime. |
-| Input | SDL keyboard/gamepad/joystick actions operate the intro and four-choice menu. | Port action-word and CTRL event semantics beyond this front-end slice. |
+| Runtime shell | ODRuntime has intro, menu, entry-movie and world phases under one SDL/sokol presentation loop. The world scene renders into a full-drawable target. | Retail init, message-pump and shutdown side effects beyond the front end (see the init audit record). |
+| Disc and project data | Both CUEs mount; the active Project 0 record loads from Disc 1 and remains alive through the scene handoff. | Visited-level, inventory and save-state resets belong to the gameplay/save milestones. |
+| Movies | Intro, looping generic and elder HNM play in the runtime with decoded PCM. Frames follow the played SD sample count, falling back to 15 Hz host time only for a drained audio tail. | Pixel parity against a retail capture. |
+| 2D UI | `MENU_PlaceCornerIcons`, `MENU_Tick`, `MENU_Draw`, `MENU_DrawOptionsPage`, `MENU_DrawSaveSlots` and their input handlers are ported. They use the original INTERF sprites, the HI640/HI480 fonts, descriptor anchors and retail half-brightness rows. | Exact RGB555 glyph blend arithmetic, other resolutions and save-mode (in-game) pages. |
+| Sound | Menu FSB sound IDs 9/10 play from the mounted source. The options volume toggle applies `DSOUND_SetMasterVolume`, and Project 0 starts its CD track 9 playlist on the first gameplay tick. | Retail five-voice allocation and positional mixing belong to gameplay. |
+| Input | SDL keyboard/gamepad/joystick actions operate the intro, the menu and both pages. | Port action-word and CTRL event semantics beyond this front-end slice. |
 
 ### Input contract
 
@@ -125,8 +126,8 @@ modern controller in the boot menu.
 | Choice | Recovered destination | 004 plan |
 |---|---|---|
 | New Game | `BOOT_Run` reset/transition, then the one-shot `GAME_Tick` elder-movie and level-load branch. | Preserve the 15-engine-frame effect, the hardcoded elder clip and the later Project 0 load. |
-| Load a Game | `MENU_InitSaveSlotSelect` `0x437aa2`, `MENU_DrawSaveSlots` `0x437c01`, input handler `0x4373a7`. | Recover and show the original slot UI, thumbnails and empty/protected labels. Save-state restoration remains explicitly unavailable until its port exists. |
-| Options | `MENU_DrawOptionsPage` `0x430a45`, `MENU_HandleOptionsInput` `0x430cd3`, resolution index helper `0x4314ec`. | Recover page, selection, values and backing settings. Adapt display mode to the native window without inventing a resolution index; audit settings persistence before promising it. |
+| Load a Game | `GAME_LoadIndex` `0x40f3aa` reads `data\game\game.dat` once at startup. `MENU_InitSaveSlotSelect` `0x437aa2`, `MENU_DrawSaveSlots` `0x437c01` and `MENU_HandleSaveSlotInput` `0x4373a7` run the page. | **Implemented.** Ten HI480 rows sit at x=390 (381 for protected rows), y=100+20i, with only the selected row undimmed. The newest slot is selected. Up/Down move silently, with sound 9 only at a clamp. Esc returns with sound 10, and confirming an empty slot does nothing. The main-menu page never draws the thumbnail; the retail icon load is only a side effect. `GAME_LoadGame` is not ported. |
+| Options | `MENU_DrawOptionsPage` `0x430a45`, `MENU_HandleOptionsInput` `0x430cd3`. `MENU_UpdateResolutionIndex` `0x4314ec` is dead code in this build. | **Implemented.** Four HI640 rows at x=390, y=100/130/160/190. Defaults come from the data section: 2D shadow, automatic fight, volume MAX, Cinemascope. Up/Down clamp with sound 10. Enter/Space toggles silently. Esc leaves. Retail never persists these settings. Volume applies `DSOUND_SetMasterVolume(100/40)`. Cinemascope letterboxes the world view to the middle 3/4. The shadow and fight consumers are gameplay code. |
 | Quit | Controller flag to `WinMain` cleanup. | Release all runtime state and exit cleanly. |
 
 ## Implementation order
@@ -177,8 +178,9 @@ retail function.
 - The intro, generic clip and elder movie show no fabricated subtitle lines.
   Their SD PCM and decoded pixels agree with the shared decoder's independent
   003 oracles; long playback does not drift visibly from audio.
-- New Game observes an empty C string at `+0x3c`, runs the short transition and
-  `TETE_E~1.HNM`, then loads and presents Project 0 from its recorded spawn.
+- New Game observes an empty C string at `+0x3c`, holds the menu, clears to
+  black and plays `TETE_E~1.HNM` with no countdown. It then loads and presents
+  Project 0 from its recorded spawn with a hard cut.
   It does not silently choose Disc 2's `INTRO.HNM` or open ODViewer.
 - Load and Options display their recovered front-end pages. A real saved game
   is never reported as restored until the save-state port exists. Quit,
@@ -300,15 +302,86 @@ updates, collision, AI, triggers, HUD, lighting/fog parity and scene exits
 remain. The new player-cone functions and `SCENE_InitLevel` have partial map
 rows with owner review pending in both Windows Ghidra programs.
 
-Before completing the spec, resolve these focused questions in Ghidra and, where
-possible, a retail capture:
+### Front-end pages, audio clock and corrected entry — 2026-09-28
 
-- Exact menu coordinates, font style, active-corner animation and movie/sprite
-  composition for the target display mode.
-- Which call, if any, starts music in the boot menu, and which disc/audio
-  track it selects. The old “track 13” note was an Enter-key-code mix-up.
-- The Options page's actual values, apply/cancel behavior and persistence;
-  the slot browser's behavior for empty, protected and corrupt saves.
-- The exact transition imagery and presentation between the elder movie and
-  level scene. The 15-frame timer is approximately 0.5 s at the recovered
-  30-frame/s engine scale; full retail visual timing remains to be compared.
+Read-only Ghidra research (reports kept outside the repository under
+`out/dev/research-{options,load,boot}.md`) closed the open questions:
+
+- **Menu music: none.** The only MGM 0x1e (`CD_SetPlaylist`) call is at
+  `0x42f1bf`, in a `GAME_Tick` gameplay-branch helper at `0x42f166`. It queues
+  project `+0x11c` as a one-track playlist once per level load, and
+  `CD_TickPlaylist` loops it. The intro, menu and elder movie play only their
+  own SD audio and FSB sounds 9/10. Project 0 selects **CD track 9** from Disc
+  1; the runtime now starts it on the first world tick.
+- **Transition: none on New Game.** See the corrected New Game row above. The
+  palette-shift and white/black-fill countdown belongs to level exits and save
+  loads.
+- **Layout.** Corners sit at (50,85), (114,85), (50,149) and (114,149) before
+  anchors. The corners do not animate; highlighting swaps a fixed inactive
+  sprite for an active one. The label uses HI640, and the glyphs pass through
+  `SPR_BlitSprite`'s descriptor anchors.
+- **Options** and the **slot browser** are specified in the branch table.
+  Retail never saves option settings, and the page has no apply/cancel step.
+- **Movie clock.** Retail paces sound movies with a 14-tick threshold and a
+  13-tick advance on the 200 Hz counter, and never reads the DirectSound play
+  position. Each file's first superchunk preloads 15 SD chunks (one second);
+  every later superchunk carries one. The port decodes frame k when the device
+  has played 1470·k samples, keeping exact 15 Hz boundaries against audio.
+  INTRO.HNM has 48 more frames than SD chunks; that tail continues at 15 Hz
+  host time.
+
+`ODRuntime --menu-page load|options` opens a page for hidden captures, and
+`--save-root <dir>` points `GAME_LoadIndex` at a retail install tree. By
+default the per-user `SDL_GetPrefPath` directory stands in for
+`X:\CRYO\DREAMS\`. With the installed tree, the page lists "Hamam
+island", "Hamam Pool" and "Inside hamam", and selects slot 3 as retail does.
+`ODBootMenuTests` covers:
+
+- the grid, both pages and the success blink;
+- a synthetic `game.dat`;
+- the `DSOUND_SetChannelVolume` attenuation;
+- the playlist packing.
+
+`ODMovieClockTests` covers the audio and host clocks. `SDL_LOGGING=app=debug`
+reports each movie's frames, wall time and played audio at its end.
+INTRO.HNM presented all 2,781 frames in 185.444 s (185.400 s nominal),
+after its 182.2 s of SD audio drained. GENERIC.HNM loops measured 101 frames
+in 6.739–6.742 s wall time against 6.750 s of audio (6.733 s nominal).
+
+### Startup audit and New Game reset — 2026-09-28
+
+An ordered audit covers every call and global write from `WinMain` through
+`GAME_Init`, `GAME_InitSubsystems` and `BOOT_Run`, plus shutdown
+(`out/dev/research-init.md`). Its New Game items are now ported in
+`shared/port/game_state.cpp`:
+
+- the startup game state: health 100.0, magic 20.0, the startup
+  `ENT_ResetInventory`, the hotkey sets and elder latch 1;
+- `BOOT_ResetNewGame`:
+  - `SCENE_ClearLevelStates` clears only the name byte of each of the eight
+    0x510-byte visited-level slots, plus the ring index;
+  - `ENT_ResetInventory` keeps retail's `0xffffff00` selection word and the
+    four record flag words;
+  - the `0x626f14`/`0x626f20` hotkeys, the HUD icon cache, the 15.0 value and
+    the movie flag are reset.
+
+New Game leaves health, magic, the `0x626f08` set and the elder latch alone,
+as retail does. The latch now comes from that state rather than being
+re-armed per New Game. The runtime also draws the menu during the hold and
+presents one more menu frame before the black clear. Two retail behaviours
+are deliberately not reproduced:
+
+- After Quit, retail runs one more frame that opens `TETE_E~1.HNM` and never
+  closes it.
+- Retail freezes all work while the window lacks focus.
+
+The runtime exits cleanly on Quit, on a mid-movie close and on a missing
+source; this was checked with hidden runs.
+
+Remaining for later milestones:
+
+- `GAME_LoadGame` restore and the save-mode pages (in-game);
+- the gameplay consumers of the shadow and fight options;
+- the level-exit transition;
+- exact glyph blend arithmetic;
+- pixel parity against a retail capture.

@@ -89,8 +89,15 @@ add_library(ODShared STATIC
     shared/port/model.cpp
     shared/port/math.cpp
     shared/port/glide_model.cpp
+    shared/port/random.cpp
+    shared/port/palette_lighting.cpp
+    shared/port/fog.cpp
+    shared/port/level_materials.cpp
     shared/port/animation.cpp
     shared/port/boot_menu.cpp
+    shared/port/save_game.cpp
+    shared/port/menj.cpp
+    shared/port/game_state.cpp
     shared/port/camera.cpp
     shared/port/player.cpp
     shared/port/game_entry.cpp
@@ -105,6 +112,7 @@ add_library(ODShared STATIC
     shared/port/sprite.cpp
     shared/port/video.cpp
     shared/port/hnm6.cpp
+    shared/port/hnm4.cpp
     shared/port/hnm5.cpp
     shared/port/video_audio.cpp
     shared/port/wave.cpp
@@ -118,6 +126,7 @@ add_library(ODShared STATIC
     shared/render/glide_compat.cpp
     shared/render/video_preview.cpp
     shared/render/model_preview.cpp
+    shared/render/level_materials.cpp
     shared/render/still_preview.cpp
     shared/render/sokol_impl.cpp
     ${OD_BACKEND_SOURCE}
@@ -227,11 +236,33 @@ if(BUILD_TESTING AND NOT EMSCRIPTEN)
     add_test(NAME ODAnimation COMMAND ODAnimationTests)
     set_tests_properties(ODAnimation PROPERTIES LABELS "animation;corpus" TIMEOUT 180)
 
+    add_executable(ODMathTests tests/math_tests.cpp)
+    target_link_libraries(ODMathTests PRIVATE ODShared)
+    od_project_options(ODMathTests)
+    add_test(NAME ODMath COMMAND ODMathTests)
+    add_test(NAME ODMathRetailExe COMMAND ODMathTests --retail-exe)
+    set_tests_properties(ODMathRetailExe PROPERTIES SKIP_RETURN_CODE 77)
+
     add_executable(ODScenePreviewTests tests/scene_preview_tests.cpp)
     target_link_libraries(ODScenePreviewTests PRIVATE ODShared)
     od_project_options(ODScenePreviewTests)
     add_test(NAME ODScenePreviewCorpus COMMAND ODScenePreviewTests)
     set_tests_properties(ODScenePreviewCorpus PROPERTIES LABELS "scene;corpus" TIMEOUT 300 SKIP_RETURN_CODE 77)
+
+    add_executable(ODMaterialBindingTests tests/material_binding_tests.cpp)
+    target_link_libraries(ODMaterialBindingTests PRIVATE ODShared)
+    od_project_options(ODMaterialBindingTests)
+    add_test(NAME ODMaterialBindingCorpus COMMAND ODMaterialBindingTests)
+    set_tests_properties(ODMaterialBindingCorpus PROPERTIES LABELS "model;corpus" TIMEOUT 600 SKIP_RETURN_CODE 77)
+
+    add_executable(ODPaletteLightingTests tests/palette_lighting_tests.cpp)
+    target_link_libraries(ODPaletteLightingTests PRIVATE ODShared)
+    od_project_options(ODPaletteLightingTests)
+    add_test(NAME ODPaletteLighting COMMAND ODPaletteLightingTests)
+    set_tests_properties(ODPaletteLighting PROPERTIES LABELS render TIMEOUT 30)
+    add_test(NAME ODPaletteLightingDisc COMMAND ODPaletteLightingTests --disc)
+    set_tests_properties(ODPaletteLightingDisc PROPERTIES LABELS "render;corpus" TIMEOUT 180
+        SKIP_RETURN_CODE 77)
 
     add_executable(ODModelDrawTests tests/model_draw_tests.cpp)
     target_link_libraries(ODModelDrawTests PRIVATE ODShared)
@@ -263,6 +294,24 @@ if(BUILD_TESTING AND NOT EMSCRIPTEN)
     od_project_options(ODHnm6Tests)
     add_test(NAME ODHnm6 COMMAND ODHnm6Tests)
     set_tests_properties(ODHnm6 PROPERTIES LABELS video TIMEOUT 30 SKIP_RETURN_CODE 77)
+
+    add_executable(ODHnm4Tests tests/hnm4_tests.cpp)
+    target_link_libraries(ODHnm4Tests PRIVATE ODShared)
+    od_project_options(ODHnm4Tests)
+    add_test(NAME ODHnm4 COMMAND ODHnm4Tests)
+    set_tests_properties(ODHnm4 PROPERTIES LABELS video TIMEOUT 120 SKIP_RETURN_CODE 77)
+
+    add_executable(ODMenjTests tests/menj_tests.cpp)
+    target_link_libraries(ODMenjTests PRIVATE ODShared)
+    od_project_options(ODMenjTests)
+    add_test(NAME ODMenj COMMAND ODMenjTests)
+    set_tests_properties(ODMenj PROPERTIES LABELS audio TIMEOUT 10)
+
+    add_executable(ODMovieClockTests tests/movie_clock_tests.cpp)
+    target_link_libraries(ODMovieClockTests PRIVATE ODShared)
+    od_project_options(ODMovieClockTests)
+    add_test(NAME ODMovieClock COMMAND ODMovieClockTests)
+    set_tests_properties(ODMovieClock PROPERTIES LABELS video TIMEOUT 10)
 
     add_executable(ODVideoPlaybackTests tests/video_playback_tests.cpp)
     target_link_libraries(ODVideoPlaybackTests PRIVATE ODShared)

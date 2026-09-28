@@ -102,7 +102,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
     od::runtime::SourceOptions options;
     std::string error;
     if (!od::runtime::parse_source_options(argc, argv, options, error)) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s\nusage: ODRuntime [--config path] [--cue1 path] [--cue2 path] [--skip-intro] [--start-new-game] [--capture image.png] [--frames positive-integer]",
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s\nusage: ODRuntime [--config path] [--cue1 path] [--cue2 path] [--skip-intro] [--start-new-game] [--menu-page load|options] [--save-root dir] [--capture image.png] [--frames positive-integer]",
                      error.c_str());
         return SDL_APP_FAILURE;
     }
@@ -130,15 +130,24 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
         return SDL_APP_FAILURE;
     }
     if (ui.images[0]) {
+        std::filesystem::path save_root = options.save_root;
+        if (save_root.empty()) {
+            // Per-user replacement for the retail install root.
+            if (char* pref = SDL_GetPrefPath("OpenDreams", "ODRuntime")) {
+                save_root = std::filesystem::u8path(pref);
+                SDL_free(pref);
+            }
+        }
         if (!ui.front_end.init(ui.images[0], ui.images[1], shell.window(),
                                options.skip_intro, options.start_new_game,
-                               error)) {
+                               save_root, error)) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "runtime front end: %s", error.c_str());
             ui.front_end.shutdown();
             shell.shutdown();
             ui.images = {};
             return SDL_APP_FAILURE;
         }
+        ui.front_end.open_menu_page(options.menu_page);
         ui.front_end_ready = true;
     }
     return SDL_APP_CONTINUE;

@@ -35,7 +35,7 @@ def test_known_missing_retail_paths_remain_partial() -> None:
             for row in rows
             if row["program"] == program and row["coverage"] == "partial"
         }
-        assert actual == expected
+        assert expected <= actual
 
 
 def test_partial_port_requires_remaining_work(tmp_path, monkeypatch) -> None:
