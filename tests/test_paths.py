@@ -20,7 +20,6 @@ def test_local_file_and_process_environment_precedence(tmp_path, monkeypatch):
 
     assert paths.disc(1) == Path("C:/local/disc1").resolve()
     assert paths.get("extract") == Path("C:/local/work").resolve() / "extract"
-    assert paths.get("baked") == Path("C:/local/work").resolve() / "baked"
 
     monkeypatch.setenv("DREAMS_DISC1", str(tmp_path / "override"))
     assert paths.disc(1) == tmp_path / "override"
@@ -42,10 +41,8 @@ def test_output_defaults_to_repository(tmp_path, monkeypatch):
     assert paths.get("out") == paths.REPO_ROOT / "out"
 
 
-def test_pipeline_roots_default_under_the_work_root(tmp_path, monkeypatch):
+def test_extract_defaults_under_the_work_root(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "LOCAL_ENV", tmp_path / "absent.env")
-    for name in ("DREAMS_EXTRACT", "DREAMS_BAKED", "DREAMS_RELEASES"):
-        monkeypatch.delenv(name, raising=False)
+    monkeypatch.delenv("DREAMS_EXTRACT", raising=False)
     monkeypatch.setenv("DREAMS_WORK_ROOT", str(tmp_path / "work"))
-    for key in ("extract", "baked", "releases"):
-        assert paths.get(key) == (tmp_path / "work").resolve() / key
+    assert paths.get("extract") == (tmp_path / "work").resolve() / "extract"

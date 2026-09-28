@@ -1,6 +1,8 @@
 # Shared animation subsystem
 
-This page describes the Python export and Babylon.js viewer. Native ODViewer
+This page records the retired Babylon.js viewer's animation implementation and
+the Python export that remains available. The `web/` paths below are historical.
+Native ODViewer
 now follows the retail model-count apply loop for F03/ITO clips with trailing
 tracks; see [Spec 003](specs/003-level-load-preview/spec.md#dan-rig-animation--2026-09-27).
 

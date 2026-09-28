@@ -21,7 +21,7 @@ layouts and algorithms live in the linked subsystem pages. Dated entries in
 A decoded format, a named function, a documented algorithm and behavior
 reproduced in a running port are separate claims. `opendreams/` currently has
 the spec 001 application shells but no disc or game-asset loader. The Python
-toolkit and Babylon viewer remain the content inspection tools.
+toolkit remains a content inspection tool; ODViewer is the native inspection app.
 
 ## Naming coverage
 

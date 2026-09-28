@@ -20,7 +20,6 @@ from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
-from dreams import bake as baker
 from dreams import binio, paths, pe, probe
 from dreams import extract as extractor
 from dreams.formats import audio, disc, image, model, resource, scene, video
@@ -255,8 +254,8 @@ def export_animations(
 ) -> None:
     """Export clips, complete named rigs and skin bindings for every .DAN model.
 
-    A standalone debugging export. The pipeline gets the same data from
-    `dreams extract --only animations,models` followed by `dreams bake`.
+    A standalone debugging export. `dreams extract --only animations,models`
+    also writes these assets to the extract archive.
     """
     from dreams.animation_export import export_library
     from dreams.extract import merge_discs
@@ -549,187 +548,6 @@ def extract(
     for item in manifest["items"]:
         if item["status"] == "failed":
             console.print(f"[red]failed[/] {item['group']}: {item['source']} — {item['note']}")
-
-
-@app.command()
-def bake(
-    extract_dir: Annotated[
-        Path | None,
-        typer.Option(
-            "--extract-dir",
-            help="Source extract root. Defaults to DREAMS_EXTRACT / DREAMS_WORK_ROOT/extract.",
-        ),
-    ] = None,
-    out: Annotated[
-        Path | None,
-        typer.Option(
-            help="Destination baked root. Defaults to DREAMS_BAKED / DREAMS_WORK_ROOT/baked."
-        ),
-    ] = None,
-    only: Annotated[
-        str | None, typer.Option(help="Comma-separated groups to bake. Default: all.")
-    ] = None,
-    skip: Annotated[str | None, typer.Option(help="Comma-separated groups to skip.")] = None,
-    audio_format: Annotated[
-        str, typer.Option("--format", help="Audio codec: opus, mp3, or aac.")
-    ] = "opus",
-    force: Annotated[bool, typer.Option(help="Re-encode files that already exist.")] = False,
-    list_groups: Annotated[bool, typer.Option("--list", help="List bake groups and exit.")] = False,
-) -> None:
-    """Build the web app's data root from the extract archive.
-
-    Projects, scenes, models, clips, UI and text become the layout the app
-    reads; audio becomes Opus (or MP3/AAC), video H.264 MP4. The dev server
-    serves the result at /data unchanged. See docs/pipeline.md.
-    """
-    if list_groups:
-        table = Table("group", "layout", "description")
-        for g in baker.ALL_GROUPS:
-            table.add_row(g, baker.LAYOUT[g], baker.DESCRIPTIONS.get(g, ""))
-        console.print(table)
-        return
-
-    groups = [g.strip() for g in only.split(",")] if only else list(baker.ALL_GROUPS)
-    if skip:
-        drop = {g.strip() for g in skip.split(",")}
-        groups = [g for g in groups if g not in drop]
-
-    unknown = [g for g in groups if g not in baker.LAYOUT]
-    if unknown:
-        console.print(f"[red]unknown group(s):[/] {', '.join(unknown)}")
-        console.print(f"[dim]valid: {', '.join(baker.ALL_GROUPS)}[/]")
-        raise typer.Exit(1)
-
-    audio_fmt = audio_format.lower().strip()
-    if audio_fmt not in ("opus", "mp3", "aac"):
-        console.print(
-            f"[red]unsupported audio format:[/] {audio_format} (choose from opus, mp3, aac)"
-        )
-        raise typer.Exit(1)
-
-    src_root = extract_dir or paths.get("extract")
-    dest_root = out or paths.get("baked")
-
-    if not src_root.is_dir():
-        console.print(f"[red]extract directory not found:[/] {src_root}")
-        console.print("[dim]run 'dreams extract' first to generate source assets[/]")
-        raise typer.Exit(1)
-
-    console.print(
-        f"baking [cyan]{', '.join(groups)}[/] (audio: [yellow]{audio_fmt}[/])\n"
-        f"  source: [cyan]{src_root}[/]\n"
-        f"  destination: [cyan]{dest_root}[/]\n"
-    )
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description:<12}"),
-        BarColumn(),
-        TextColumn("{task.completed}/{task.total}"),
-        TimeElapsedColumn(),
-        console=console,
-    ) as progress:
-        manifest = baker.run(
-            extract_root=src_root,
-            baked_root=dest_root,
-            groups=groups,
-            audio_format=audio_fmt,
-            force=force,
-            progress=progress,
-        )
-
-    t = manifest["totals"]
-    table = Table(
-        "group", "ok", "skip", "fail", "src MB", "baked MB", "savings", title="bake results"
-    )
-    for g in groups:
-        rows = [i for i in manifest["items"] if i["group"] == g]
-        ok_count = sum(1 for r in rows if r["status"] == "ok")
-        skip_count = sum(1 for r in rows if r["status"] == "skipped")
-        fail_count = sum(1 for r in rows if r["status"] == "failed")
-        src_mb = sum(r["src_bytes"] for r in rows if r["status"] == "ok") / 1048576
-        dest_mb = sum(r["dest_bytes"] for r in rows if r["status"] == "ok") / 1048576
-        savings = f"-{(1.0 - (dest_mb / src_mb)) * 100:.1f}%" if src_mb > 0 else "0%"
-        table.add_row(
-            g,
-            str(ok_count),
-            str(skip_count),
-            str(fail_count),
-            f"{src_mb:.1f}",
-            f"{dest_mb:.1f}",
-            f"[green]{savings}[/]" if src_mb > 0 else "-",
-        )
-
-    console.print()
-    console.print(table)
-    src_total = t["source_bytes"] / 1048576
-    dest_total = t["baked_bytes"] / 1048576
-    written = f"\n[green]{t['files_written']} items written[/]"
-    if src_total > 0:
-        overall_savings = (1.0 - (dest_total / src_total)) * 100
-        written += (
-            f"; media {src_total:,.1f} MB -> {dest_total:,.1f} MB "
-            f"([bold green]-{overall_savings:.1f}%[/])"
-        )
-    console.print(written)
-    console.print(f"[dim]index.json rebuilt in {dest_root}[/]")
-    console.print(f"[dim]manifest written to {dest_root / 'manifest.json'}[/]")
-
-    for item in manifest["items"]:
-        if item["status"] == "failed":
-            console.print(f"[red]failed[/] {item['group']}: {item['source']} — {item['note']}")
-
-
-@app.command()
-def pack(
-    name: Annotated[str, typer.Argument(help="Release folder name, e.g. demo.")],
-    projects: Annotated[
-        str | None,
-        typer.Option(help="Comma-separated project indices, e.g. 0,62,134. Default: everything."),
-    ] = None,
-    build: Annotated[bool, typer.Option(help="Run the web app build first.")] = True,
-    baked_dir: Annotated[
-        Path | None, typer.Option("--baked-dir", help="Data root. Defaults to DREAMS_BAKED.")
-    ] = None,
-    out: Annotated[
-        Path | None, typer.Option(help="Releases root. Defaults to DREAMS_RELEASES.")
-    ] = None,
-) -> None:
-    """Write a deployable static site: the app build plus a subset of the data root.
-
-    Content files are copied unchanged; only index.json is rebuilt, for the
-    subset. Upload releases/<name>/site as-is. See docs/pipeline.md.
-    """
-    from dreams import pack as packer
-
-    selected = [int(p) for p in projects.split(",")] if projects else None
-    try:
-        manifest = packer.run(
-            baked_dir or paths.get("baked"),
-            out or paths.get("releases"),
-            name,
-            projects=selected,
-            build=build,
-        )
-    except (RuntimeError, ValueError) as exc:
-        console.print(f"[red]{exc}[/]")
-        raise typer.Exit(1) from exc
-
-    console.print(
-        f"[green]{manifest['files']} files[/], {manifest['bytes'] / 1048576:,.1f} MB, "
-        f"{len(manifest['projects'])} projects -> [cyan]{manifest['site']}[/]\n"
-        f"largest: {manifest['largest']['path']} "
-        f"({manifest['largest']['bytes'] / 1048576:.1f} MB)"
-    )
-    for entry in manifest["missing"]:
-        console.print(f"[yellow]listed but not baked:[/] {entry}")
-    for problem in manifest["problems"]:
-        console.print(f"[red]over the hosting limit:[/] {problem}")
-    if manifest["problems"]:
-        raise typer.Exit(1)
-    console.print(
-        f'[dim]deploy: npx wrangler pages deploy "{manifest["site"]}" --project-name <name>[/]'
-    )
 
 
 @app.command("mesh")

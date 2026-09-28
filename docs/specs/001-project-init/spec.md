@@ -445,8 +445,8 @@ this initial proposal. FetchContent's supported options are documented
 
 ## Compilation and graphics integration
 
-Configure the C++ project directly from `opendreams/`; the Python package and
-Babylon viewer keep independent build commands. Building either native
+Configure the C++ project directly from `opendreams/`; the Python package has
+independent commands. Building either native
 application must not require the Python reference toolkit, Node/Babylon or
 Ghidra. Compiler, CMake and shader build tools are normal build dependencies.
 Emscripten's own SDK tools are a separate requirement of the browser build.
@@ -600,10 +600,10 @@ directories**. Do not silently reinterpret them as image paths. Define explicit
 image-path configuration when disc mounting is implemented, with both native
 applications using the same meaning. Machine-specific paths stay untracked.
 
-The Python [extract/bake/pack pipeline](../../pipeline.md) continues to serve
-the Babylon viewer. Its baked data root is not the native engine's production
-input. Python output may be used in comparison tests without becoming a
-runtime dependency.
+The Python `extract` command produces a lossless reference archive. The former
+[bake/pack pipeline](../../pipeline.md) and Babylon viewer have been retired.
+Python output may be used in comparison tests without becoming a runtime
+dependency.
 
 ## Initialization work plan
 
@@ -707,10 +707,9 @@ separate ODRuntime and ODViewer downloads. The viewer can be distributed before
 the game is playable. ODShared is linked into those applications and has no
 independent SDK, DLL compatibility promise or release schedule initially.
 
-The Babylon viewer stays available during the transition. It is retired when
-ODViewer covers the required inspection workflows and its browser delivery is
-available where the existing web viewer is still needed. No immediate removal
-or rewrite of `web/` is part of this spec.
+The Babylon viewer was retired after this spec was written. ODViewer is the
+maintained inspection application; browser delivery remains a separate future
+milestone.
 
 ## Open implementation decisions
 

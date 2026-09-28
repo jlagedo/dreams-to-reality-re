@@ -1,8 +1,6 @@
 """Extract and decode every asset whose format we have actually solved.
 
-Scope: **content only**, faithful to the disc. This is the first of three
-stages - extract, bake, pack - described in ``docs/pipeline.md``; nothing here
-makes a choice for the web app. Where a format is only partly understood, its
+Scope: **content only**, faithful to the disc. Where a format is only partly understood, its
 raw bytes (``projects/*.bin``) or decoded headers (``metadata/``) are kept.
 
 Everything written here is lossless:
@@ -1211,8 +1209,8 @@ def _readme(m: dict) -> str:
         "copied byte-for-byte rather than re-encoded.",
         "",
         "This directory holds **game content only**, decoded and faithful to the",
-        "disc. `dreams bake` turns it into what the web app reads; nothing reads",
-        "this directory at runtime. Formats that are only partly understood keep",
+        "disc. The native applications read original game sources directly; this",
+        "archive supports inspection and comparison. Partly understood formats keep",
         "their raw bytes (`projects/*.bin`) or decoded headers (`metadata/`).",
         "",
         "## Contents",

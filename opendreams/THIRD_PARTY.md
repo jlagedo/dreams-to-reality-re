@@ -13,5 +13,6 @@ any future distribution that includes their code or binaries.
 | [lib9660](https://github.com/erincandescent/lib9660/tree/17704f87e833f3de46b1546864d47ef4a6d12b97) | ISC variant; Copyright 2014, 2025 Erin Shepherd; [vendored license](third_party/lib9660/LICENSE) | ISO 9660 records over ODShared's bounded sector callback; local fixes listed in the vendored README |
 | [Emscripten SDK](https://github.com/emscripten-core/emsdk/blob/dfb9d1a46c3bb8f52e1e6324be23123b9d73c190/LICENSE) | MIT | Browser build toolchain only |
 
-The Python toolkit and Babylon viewer remain separate projects. No media
-decoder, packer or original game content is part of the spec 001 applications.
+The Python toolkit remains a separate reference project. The retired Babylon
+viewer and its packer are no longer part of this repository. No original game
+content is part of the spec 001 applications.

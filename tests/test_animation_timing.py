@@ -1,4 +1,4 @@
-"""Pin the viewer base rate to the clock instructions in the original binary.
+"""Pin the animation base rate to the clock instructions in the original binary.
 
 These are deliberately build-specific evidence checks. A different executable
 needs a new trace instead of silently borrowing this build's addresses.

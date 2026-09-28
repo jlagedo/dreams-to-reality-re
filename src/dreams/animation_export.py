@@ -1,4 +1,4 @@
-"""Reproducible animation library and complete rig/vertex bindings for the viewer."""
+"""Reproducible animation library and complete rig/vertex bindings for inspection."""
 
 from __future__ import annotations
 

@@ -48,7 +48,7 @@ docs do.
 | [ISO-reader options](reviews/002-iso-reader-options.md) | MSVC/lib9660 reads original data-track BINs and matches both file counts; libarchive lists both derived ISOs; integration gaps and hardening findings |
 | [asset-access.md](asset-access.md) | **Recovered asset lookup and file access**: disc/install roots, UBIK VFS, project and DSN/DAN resource paths, dialogue and sound banks; contract for spec 002 |
 | [running.md](running.md) | How to actually run the game, ranked by difficulty; **3dfx build verified** under DOSBox Staging; controllers |
-| [pipeline.md](pipeline.md) | **Extract → bake → pack**: the data root the web app reads, its JSON, releases for static hosting |
+| [pipeline.md](pipeline.md) | Historical notes for the retired web viewer's extract → bake → pack pipeline |
 | [research-log.md](research-log.md) | Findings log, corrections, dead ends, open questions |
 
 ## Function names

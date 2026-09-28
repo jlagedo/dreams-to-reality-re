@@ -6,12 +6,10 @@
 |---|---|
 | `src/dreams/cli.py` | `dreams` CLI entry points |
 | `src/dreams/formats/` | Asset format decoders |
-| `src/dreams/bake.py`, `src/dreams/pack.py` | Pipeline stages 2 and 3: extract -> baked data root -> release (`docs/pipeline.md`) |
 | `src/dreams/paths.py` | Disc and output path resolution |
 | `dev/paths.example.env` | Template for local path settings |
 | `.dreams.local.env` | Machine paths (gitignored) |
 | `tests/` | Python tests |
-| `web/` | Babylon.js viewer; `web/src/` contains its source; `web/src/content.ts` owns every data URL |
 | `docs/README.md` | Research documentation index |
 | `docs/re-setup.md` | Ghidra setup and workflow |
 | `opendreams/PORT_MAP.md` | Retail function porting rules, including behavior coverage and Ghidra tags |
@@ -32,6 +30,18 @@ programs in Ghidra as described there. `status` records the port method;
 `reviewed` records the project owner's explicit personal review; never infer it
 from tests or an agent's analysis.
 
+Before adding host-only glue at a retail port boundary, trace the source-to-
+runtime contract in Ghidra: valid encoded pointer values (including `0` and
+`1`), parent links, coordinate spaces, and which retail function writes each
+transform. Keep retail-derived behavior distinct from host-only structure.
+Test those relationships against original data and independent retail evidence
+before treating the result as faithful; a plausible screenshot is not proof.
+Do not add an extra transform or reject an unusual pointer value merely because
+it fits a conventional engine design. If a relationship remains unverified,
+mark the port partial and state the assumption. For the player path, specifically
+check that source pointer `1` resolves to the first model node and that the
+composed model root lands at the recorded project spawn.
+
 ## Local paths
 
 | Variable | Path |
@@ -39,9 +49,9 @@ from tests or an agent's analysis.
 | `DREAMS_DISC1`, `DREAMS_DISC2` | Extracted game discs |
 | `DREAMS_INSTALL_ROOT` | Optional retail installation/cache tree for local comparisons; never a disc source |
 | `DREAMS_WATCOM` | Watcom reference files |
-| `DREAMS_WORK_ROOT` | Scratch and generated content; the pipeline defaults to its `extract/`, `baked/` and `releases/` subdirectories |
+| `DREAMS_WORK_ROOT` | Scratch and generated content; extraction defaults to its `extract/` subdirectory |
 | `DREAMS_GHIDRA_ROOT` | Ghidra installation |
-| `DREAMS_EXTRACT`, `DREAMS_BAKED`, `DREAMS_RELEASES`, `DREAMS_OUT` | Optional output overrides (`extract/`, `baked/`, `releases/`, `out/`) |
+| `DREAMS_EXTRACT`, `DREAMS_OUT` | Optional output overrides (`extract/`, `out/`) |
 | `DREAMS_NA_GAME_TOOL` | Optional path to the patched video decoder |
 
 Process environment takes precedence over `.dreams.local.env`. The toolkit
@@ -60,11 +70,6 @@ uv run dreams --help
 uv run dreams scene --help
 uv run dreams extract --list
 uv run dreams extract --only music,sprites --force
-uv run dreams bake --list
-uv run dreams bake
-uv run dreams bake --only music,sfx --format opus
-uv run dreams bake --force
-uv run dreams pack demo --projects 0,62,134
 uv run dreams mesh
 uv run dreams mesh E01GROTT --gltf out/
 uv run dreams mesh --preview out/
@@ -74,42 +79,17 @@ uv run ruff check .
 uv run ruff format .
 ```
 
-See `README.md` for CLI examples, including `disc`, `audio`, `scene`, `model`,
-`bake`, and binary inspection commands. `dreams extract` and `dreams bake` use
-`ffmpeg` and, for video extraction, `na_game_tool`; setup details are in
+See `README.md` for CLI examples, including `disc`, `audio`, `scene`, `model`
+and binary inspection commands. `dreams extract` uses `ffmpeg` and, for video
+extraction, `na_game_tool`; setup details are in
 `docs/hnm-video.md`.
 
-## Pipeline: extract, bake, pack
+## Extraction
 
-Three stages, each with one rule; details in `docs/pipeline.md`.
-
-1. **`dreams extract`**: discs -> `$DREAMS_WORK_ROOT/extract`, lossless and
-   faithful to the disc (FLAC, FFV1 MKV, PNG, glTF, JSON, raw project records).
-2. **`dreams bake`**: extract -> `$DREAMS_WORK_ROOT/baked`, the **data root**:
-   exactly what the web app reads, laid out as it is served. Project JSON keeps
-   raw engine units; fields whose meaning is unverified are named by offset
-   (`x6c`). Every run rebuilds `index.json`. Bake never reads the discs.
-3. **`dreams pack <name> --projects ...`**: data root + app build ->
-   `$DREAMS_WORK_ROOT/releases/<name>/site`, a static site ready for
-   `npx wrangler pages deploy`. Pack copies content unchanged.
-
-**The web app reads only the data root.** The dev server mounts it at `/data`
-as plain files; there are no API routes. If the viewer shows 404s for data,
-run `uv run dreams bake`. No game data belongs in the repository or in
-`web/` (`publicDir` is disabled). There is no format versioning: change bake
-and the app together and re-bake.
-
-## Web viewer
-
-```powershell
-npm --prefix web ci
-npm --prefix web run dev
-npm --prefix web run build
-npm --prefix web test
-```
-
-`http://localhost:5173/?project=62` skips the boot flow and starts in that
-project.
+`dreams extract` writes a lossless reference archive from the discs to
+`$DREAMS_WORK_ROOT/extract` (FLAC, FFV1 MKV, PNG, glTF, JSON, raw project
+records). The native OpenDreams applications read original game sources
+directly; the archive supports research and comparisons.
 
 ## Ghidra
 

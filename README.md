@@ -5,8 +5,8 @@ Reverse-engineering toolkit and research notes for **Dreams to Reality**
 
 The goal is **OpenDreams**, a portable C++17 engine that runs the original game
 data with the game's recovered logic, a 30 Hz simulation and GPU rendering.
-The native engine is not implemented yet; this repository currently contains
-the Python reference decoders, RE evidence and Babylon.js inspection viewer.
+This repository contains the native OpenDreams project, Python reference
+decoders, and reverse-engineering evidence.
 See [the north star](docs/north-star.md) for decisions and
 [current RE status](docs/re-status.md) for coverage and priorities.
 
@@ -28,8 +28,8 @@ uv run dreams --help
 Set `DREAMS_DISC1` and `DREAMS_DISC2` to the extracted disc directories,
 `DREAMS_WORK_ROOT` to an external work directory, and `DREAMS_WATCOM` and
 `DREAMS_GHIDRA_ROOT` if using the reverse-engineering tools. Process environment
-variables override the ignored `.dreams.local.env` file. The Python toolkit,
-PowerShell Ghidra scripts, and web viewer read the same settings.
+variables override the ignored `.dreams.local.env` file. The Python toolkit
+and PowerShell Ghidra scripts read the same settings.
 
 `DREAMS_EXTRACT` optionally overrides `$DREAMS_WORK_ROOT/extract`;
 `DREAMS_OUT` optionally overrides the repository's `out/` directory.
@@ -86,27 +86,11 @@ are skipped, not failed.
 
 Output goes **outside the repo** by design: it is derived game content.
 
-## Bake and pack
-
-The web app never reads `extract/`. `dreams bake` turns it into the **data
-root** the app reads, and `dreams pack` copies part of that, with the app
-build, into a static site:
-
-```bash
-uv run dreams bake                             # -> $DREAMS_WORK_ROOT/baked
-npm --prefix web run dev                       # serves baked/ at /data
-uv run dreams pack demo --projects 0,62,134    # -> $DREAMS_WORK_ROOT/releases/demo/site
-```
-
-Stages, layout and JSON formats are in [docs/pipeline.md](docs/pipeline.md).
-
 ## What works
 
 | Command | Status |
 |---|---|
 | `dreams extract` | **solved** — every decodable asset, lossless |
-| `dreams bake` | **working** — the web app's data root: projects, scenes, models, clips, UI, text, media |
-| `dreams pack` | **working** — a static release of chosen projects, checked against host limits |
 | `dreams audio info/unpack` | **solved** — extracts all 202 clips as WAV |
 | `dreams video` | **solved** — HNM4/5/6 headers |
 | `dreams res` | **solved** — 30 items, 150 levels from `DREAMS.INI` |

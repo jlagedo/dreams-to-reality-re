@@ -45,7 +45,7 @@ Requirements, from the owner:
 | Game data | **The runtime reads the two disc images** (`.cue`/`.bin`) through its own ISO 9660 reader and **native loaders for the original formats**. No extraction step for players. | Proves the reverse engineering; one code path; point at the original media and play, as OpenLara does |
 | Music | **Read straight from the images' audio tracks** (raw 44.1 kHz PCM sectors) | The original plays CD audio through MCI; the image already holds it, so nothing is ripped or transcoded on desktop |
 | Web pack | **Parked (desktop first).** When taken up: the only preprocessing; `opendreams pack` reads the images and writes a chunked, versioned pack: the loaders' structs serialized, music and voice as **Vorbis** (stb_vorbis), video in a browser-friendly form | The browser cannot fetch 1.4 GB or decode raw HNM fast enough; made by the same loaders, so there is no second format world |
-| Repository | **This repository**, new top-level `opendreams/` directory; the Python toolkit stays as the reference decoder and test oracle; the Babylon.js viewer is frozen and retired once ODViewer covers its inspection workflows and browser use | Cross-checking C++ loaders against the Python decoders is a local test, not a cross-repo chore |
+| Repository | **This repository**, with `opendreams/` for the native applications and the Python toolkit as reference decoder and test oracle; the Babylon.js viewer has been retired | Cross-checking C++ loaders against the Python decoders is a local test, not a cross-repo chore |
 | Applications | **ODShared**, the reconstructed engine shared by **ODRuntime**, the game, and **ODViewer**, the asset browser and port-validation tool | One retail-function port for game asset access and presentation; both applications consume it, and gameplay debugging stays in ODRuntime |
 | Fidelity | **Port the original code, fixed step, free renderer** (below) | The only option where the result is recognisably the same game |
 | Licence | MIT, like the rest of the repository; no game data in the repository, ever | |
@@ -326,10 +326,10 @@ it in the runtime; SDL3 does not decode compressed audio). Versioned, rebuilt
 from the images, never shipped. Container, chunk boundaries and what happens
 to video are the parked decisions listed at the end.
 
-The current Python `extract`/`bake`/`pack` pipeline ([pipeline.md](pipeline.md))
-keeps serving the Babylon viewer until ODViewer covers its inspection workflows
-and browser use. New format knowledge lands in the Python decoders first (they are the
-oracle) and in the C++ loaders second.
+The Python `extract` command remains a lossless reference archive. Its former
+`bake`/`pack` pipeline and Babylon viewer have been retired
+([historical pipeline notes](pipeline.md)). New format knowledge lands in the
+Python decoders first (they are the oracle) and in the C++ loaders second.
 
 ## Milestones
 

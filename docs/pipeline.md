@@ -1,5 +1,10 @@
 # Pipeline — extract, bake, pack
 
+> **Retired.** The Babylon.js web viewer and its `dreams bake` and `dreams pack`
+> commands were removed. This page is preserved as a historical record of the
+> old data contract. Use `dreams extract` for the reference archive; OpenDreams
+> reads original game sources directly.
+
 How game data goes from the discs to the web app and to a hosted release.
 Three stages, each with one rule. The web app reads only the output of the
 second stage, the **data root**, and a release is a copy of part of it.

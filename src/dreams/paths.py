@@ -19,8 +19,6 @@ VARIABLES = {
     "watcom": "DREAMS_WATCOM",
     "work_root": "DREAMS_WORK_ROOT",
     "extract": "DREAMS_EXTRACT",
-    "baked": "DREAMS_BAKED",
-    "releases": "DREAMS_RELEASES",
     "out": "DREAMS_OUT",
     "ghidra": "DREAMS_GHIDRA_ROOT",
     "na_game_tool": "DREAMS_NA_GAME_TOOL",
@@ -71,9 +69,6 @@ def configured(key: str) -> Path | None:
     if key == "extract":
         work = _value("DREAMS_WORK_ROOT", local)
         return Path(work).expanduser().resolve() / "extract" if work else None
-    if key in ("baked", "releases"):
-        work = _value("DREAMS_WORK_ROOT", local)
-        return Path(work).expanduser().resolve() / key if work else None
     return None
 
 
@@ -106,8 +101,6 @@ def describe() -> list[tuple[str, Path | None, bool]]:
         "watcom",
         "work_root",
         "extract",
-        "baked",
-        "releases",
         "out",
         "ghidra",
         "na_game_tool",
