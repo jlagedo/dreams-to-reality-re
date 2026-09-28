@@ -80,7 +80,7 @@ calls it as `0x5df47c = STRM_Create(0x57800, 0x57800, 0x8000)`. The 0x2c-byte
 descriptor it allocates matches the struct `STRM_Open` uses (`+0x14` size,
 `+0x10` set equal to `+0x14`, cursors `+0x4`/`+0x8`/`+0xc` zeroed, `+0x20`
 alignment, `+0x24` open flag). `STRM_Open` closes the previous file, opens the
-new one with `_uopen_`, resets the positions and allocates twice the buffer size
+new one with `open_`, resets the positions and allocates twice the buffer size
 from the MEM stack at `0x5df484`.
 
 ## `DSN_LoadHeader` (`0x4175bc`) reconstructed

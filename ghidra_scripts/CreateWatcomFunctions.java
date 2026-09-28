@@ -4,10 +4,10 @@
  * Ghidra creates functions at the entry point, at direct call targets and at
  * MSVC/GCC prologue patterns. Watcom code defeats all three for code that is
  * only reached through a pointer (frame handlers, window procedures, sort
- * callbacks) and for switch tables, which Watcom 10.6 places in the code
- * segment just before the function and dispatches with
- * `jmp dword ptr cs:table[reg*4]`. Verified by compiling test cases with the
- * real 10.6 compiler (docs/re-setup.md).
+ * callbacks) and for switch tables, which Watcom places in the code segment
+ * just before the function and dispatches with `jmp dword ptr table[reg*4]`
+ * (10.6 adds a `cs:` prefix, 11.0 does not; both are matched). Verified by
+ * compiling test cases with the real 10.6 compiler (docs/re-setup.md).
  *
  * Signals, all read from the binary:
  *   1. stack-check prologues: `push imm; call __CHK` starts every function

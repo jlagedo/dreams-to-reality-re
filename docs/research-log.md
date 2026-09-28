@@ -1463,6 +1463,18 @@ Details and numbers are in [toolchain.md](toolchain.md), steps 3–6.
 - The Open Watcom v2 and 1.9 compilers were tried first. Both prefer ECX but
   never split memory operands the way retail does, which pointed to a
   compiler between 10.6 and the open-source line.
+- **Ghidra moved to 11.0 [verified]**: the Windows runtime pass now matches
+  11.0's libraries and applies 11.0's headers. WINDREAM and GDIDREAM go from
+  119 to 271 runtime matches, and from 35 to 92 typed functions. The 11.0
+  signatures independently give the same name at the same address for all 12
+  runtime routines the registry had named by blind review alone. Four 10.6
+  core-only labels were off the true entry and `__threadid_` fell under the
+  signature threshold; `toolchain.md` has the details.
+- **Calling conventions re-applied [verified]**: `ApplyWatcall.java` re-run on
+  both Windows builds with the 11.0 helper list. `GDIDREAM.EXE` had never had
+  it and was still on Ghidra's `__stdcall`/`__fastcall` guesses. Four Win32
+  callbacks, the WndProc among them, are now `__stdcall`; they had been
+  unset. Details in `re-setup.md`.
 
 ## Sources
 

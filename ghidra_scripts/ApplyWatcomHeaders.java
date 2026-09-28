@@ -1,8 +1,10 @@
-/* Parse the Watcom 10.6 C headers and type the named runtime functions.
+/* Parse the Watcom C headers and type the named runtime functions.
  *
  * Run after ApplyWatcomSigs.java has named the runtime (printf_, int386x_,
- * _getvideoconfig_, ...). The headers come from <DREAMS_WATCOM>\10.6-cd\H and
- * stay outside the repo; cleaned copies are written to out/ghidra/watcom-h:
+ * _getvideoconfig_, ...). The headers match the linked runtime
+ * (docs/toolchain.md): <DREAMS_WATCOM>\wc110\11.0\H for the Windows builds,
+ * <DREAMS_WATCOM>\10.6-cd\H for DOS. They stay outside the repo; cleaned
+ * copies are written to out/ghidra/watcom-h:
  *   - #pragma aux / intrinsic / library lines are dropped (Watcom register
  *     specs such as "FP_SEG = __parm __caller [eax dx]" break Ghidra's parser);
  *   - pack(__push,1) / pack(__pop) become pack(push,1) / pack(pop);
@@ -14,7 +16,8 @@
  *       -scriptPath ghidra_scripts -postScript ApplyWatcomHeaders.java \
  *       <DREAMS_WATCOM>\10.6-cd\H
  *
- * LE programs parse as __DOS__ (with graph.h); PE programs as __NT__.
+ * LE programs parse as __DOS__ (with graph.h) and __WATCOMC__ 1060; PE
+ * programs as __NT__ and 1100.
  * A runtime function "name_" (Watcom's register-convention decoration) gets
  * the prototype of "name": __watcall, or __cdecl if it is variadic (Watcom
  * passes those on the stack, caller pops). Functions with float or double
@@ -124,7 +127,8 @@ public class ApplyWatcomHeaders extends GhidraScript {
         if (dos) {
             headers.add(dst.resolve("graph.h").toString());
         }
-        String[] defines = { "-D__386__=1", "-D__FLAT__=1", "-D__WATCOMC__=1060",
+        String[] defines = { "-D__386__=1", "-D__FLAT__=1",
+            dos ? "-D__WATCOMC__=1060" : "-D__WATCOMC__=1100",
             "-D_M_IX86=500", "-D__X86__=1", dos ? "-D__DOS__=1" : "-D__NT__=1" };
 
         File archive = new File(repoRoot(), "out/ghidra/" + currentProgram.getName() + "-watcom.gdt");

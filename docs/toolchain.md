@@ -280,10 +280,9 @@ and `watcom-11.0a` items.
 
 Watcom's libraries are OMF, and OMF keeps `PUBDEF` records: real function names
 bound to the exact bytes the linker copies into the image. Given the library
-version, the stock libraries act as a symbol source. The results below were
-produced with the 10.6 libraries for all four binaries; that is right for the
-DOS builds, but the Windows builds link 11.0's runtime (step 3), so re-running
-with 11.0's libraries should name more of `WINDREAM.EXE`.
+version, the stock libraries act as a symbol source. Each binary is matched
+against the runtime it links (step 3): 11.0's `wc110\11.0\LIB386` for the
+Windows builds, 10.6's `10.6-cd\LIB386` for DOS (`TARGETS` in `watcom.py`).
 
 `src/dreams/watcom.py` parses the libraries, masks out every byte covered by a
 `FIXUPP` record (call displacements and absolute addresses differ between the
@@ -297,16 +296,35 @@ PYTHONPATH=src python -m dreams.watcom
 
 Results: **[verified]**
 
-| Binary | Libraries | Signatures | Matches | Full extent |
-|---|---|---|---|---|
-| `WINDREAM.EXE` | `NT\CLIB3R`, `MATH387R`, `MATH3R` | 989 | 119 | 102 |
-| `GDIDREAM.EXE` | same | 989 | 119 | 102 |
-| `DREAMS.EXE` | `DOS\CLIB3R`, `MATH387R`, `MATH3R`, `DOS\GRAPH`, `DOS\EMU387` | 1242 | 287 | 285 |
-| `DREAMSFX.EXE` | same | 1242 | 282 | 280 |
+| Binary | Runtime | Libraries | Signatures | Matches | Full extent |
+|---|---|---|---|---|---|
+| `WINDREAM.EXE` | 11.0 | `NT\CLIB3R`, `MATH387R`, `MATH3R` | 1219 | 271 | 267 |
+| `GDIDREAM.EXE` | 11.0 | same | 1219 | 271 | 267 |
+| `DREAMS.EXE` | 10.6 | `DOS\CLIB3R`, `MATH387R`, `MATH3R`, `DOS\GRAPH`, `DOS\EMU387` | 1242 | 287 | 285 |
+| `DREAMSFX.EXE` | 10.6 | same | 1242 | 282 | 280 |
 
-The DOS builds link far more of the runtime than the Windows ones, and they do
-use Watcom's own graphics library: `GRAPH.LIB` alone accounts for 40 matches,
-including `_getvideoconfig_`, `_clearscreen_` and `_settextposition_`.
+The DOS builds use Watcom's own graphics library: `GRAPH.LIB` alone accounts
+for 40 matches, including `_getvideoconfig_`, `_clearscreen_` and
+`_settextposition_`.
+
+The Windows pass used the 10.6 libraries until 2026-09-28 and found 119
+matches (102 full extent). Moving to 11.0 **[verified]**:
+
+- 114 of the 119 addresses match again; 157 are new. Twelve of the new ones are
+  runtime routines the name registry had identified by blind review alone
+  because 10.6 missed them (`read_`, `lseek_`, `memset_`, `atoi_`, `exit_`,
+  `_dos_findfirst_`, …); the 11.0 signature gives the same name at the same
+  address for every one. No new match lands on a registry name.
+- Four 10.6 hits were core-only labels one to three bytes past the real entry
+  (`__ioalloc_`, `__NewExceptionHandler_`, `verify_pentium_fdiv_bug_`,
+  `__SigInit_`); 11.0 matches those functions over their full extent at the
+  true entry.
+- `__threadid_` (`0x4783eb`) is lost. Its bytes still agree with 11.0's
+  `mainwnt` module, but 11.0 puts another public (`__sig_null_rtn_`) 17 bytes
+  in, leaving 9 fixed bytes, under `MIN_FIXED`.
+- Ten names change to 11.0's spelling: `_uopen_` → `open_`, `_itoa_` →
+  `itoa_`, `_uultoa_` → `ultoa_`, `_strdup_` → `strdup_`, `_ustrlen_` →
+  `wcslen_`, `__DLLstart_` → `WinMainCRTStartup` (`0x465538`, the PE entry).
 
 Output lands in `E:\dev_game\watcom\sigs\` — a CSV per binary, plus an IDC
 script and a Ghidra script for the two PE targets (LE files have no simple
@@ -327,7 +345,10 @@ Checks that the matcher is honest, each of which caught a real defect:
 
 Names carry Watcom's register-calling-convention trailing underscore
 (`strcpy_`, `fopen_`). Where several public symbols share one body the CSV lists
-them all, e.g. `fprintf_|fscanf_|sscanf_`.
+them all, e.g. `fprintf_|fscanf_|sprintf_|sscanf_`. 11.0 builds wide and
+multibyte twins from the ANSI code (`strcat_|_mbscat_`, `open_|_wopen_`); those
+are listed after the ANSI name, which is the one the tools apply. The last CSV
+column, `runtime`, records the release matched.
 
 ### Applying the output
 
@@ -337,7 +358,9 @@ them all, e.g. `fprintf_|fscanf_|sscanf_`.
 - **Ghidra**: `ghidra_scripts/ApplyWatcomSigs.java <sigs>\<program>.csv`
   (headless or Script Manager) names the functions in all four binaries,
   including the LE ones, then `ApplyWatcomHeaders.java` applies the Watcom
-  header prototypes; see `re-setup.md`. The generated `windream_ghidra.py`
+  header prototypes (11.0's `H` for Windows, 10.6's for DOS); see
+  `re-setup.md`. Re-running replaces the earlier release's names and
+  comments. The generated `windream_ghidra.py`
   needs PyGhidra, which this machine's Python 3.14 cannot run.
 
 ## Layout rules, from the compiler source
@@ -391,8 +414,9 @@ residue in `engine.md`. Confirming it needs a different technique.
    11.0 (steps 3–6). 10.6a differs from 10.6 GA only in its 1997-01-10 linkers,
    which write the same PE layout as 10.6 GA (step 4). The DOS builds' LE
    linker version has not been checked. **[unverified]**
-4. The Windows runtime-name pass (above) still uses the 10.6 libraries; switch
-   the Windows signatures to 11.0's `LIB386\NT` and re-apply in Ghidra.
+4. ~~The Windows runtime-name pass still uses the 10.6 libraries.~~ Resolved
+   2026-09-28: 11.0's libraries and headers, applied to both Windows programs
+   (above).
 5. Some retail debug-built code has a `je +2; jmp` branch (`VID_Lock`
    `0x445bf2`, `CD_ResumeAudio` `0x40464f`) and reloads locals the way only
    `volatile` reproduces. Neither `-od`, `-d1` nor `-d2` explains this, so

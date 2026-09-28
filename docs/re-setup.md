@@ -407,19 +407,25 @@ here**: it resolves into the loader's `.image` overlay (a raw copy of the
 file), not the loaded objects. The script reads the LE object/page tables from
 `.image`, maps each offset itself, and verifies the bytes, skipping 32-bit
 relocation sites, before naming anything. Result: 279 + 2 labels in
-`DREAMSFX.EXE`, 102 + 17 in each Windows build; user-assigned names are never
-overwritten.
+`DREAMSFX.EXE` (10.6 runtime), 267 + 4 in each Windows build (11.0 runtime;
+102 + 17 with the 10.6 libraries). User-assigned names are never overwritten,
+and a current name that is one of a match's aliases is kept (the registry's
+`sprintf_` out of `fprintf_|…|sscanf_`). Re-running with another release
+replaces the earlier `Watcom <version> runtime:` paragraph and removes names
+it applied at addresses the new CSV no longer matches.
 
-`ApplyWatcomHeaders.java <DREAMS_WATCOM>\10.6-cd\H` parses the Watcom C
-headers (`stdio.h` … `signal.h`, plus `graph.h` for DOS; `__DOS__` for LE,
-`__NT__` for PE) and gives each `name_` runtime function the prototype of
+`ApplyWatcomHeaders.java <H dir>` parses the Watcom C headers of the linked
+release — `<DREAMS_WATCOM>\wc110\11.0\H` for the Windows builds,
+`<DREAMS_WATCOM>\10.6-cd\H` for DOS — (`stdio.h` … `signal.h`, plus `graph.h`
+for DOS; `__DOS__` for LE, `__NT__` for PE) and gives each `name_` runtime
+function the prototype of
 `name`: `__watcall`, or `__cdecl` when variadic (Watcom passes varargs on the
 stack, caller pops; `tools/lx-loader-watcom.cspec` gained a `__cdecl` model
 for this). Functions with `float`/`double` are skipped. Ghidra's parser needs
 cleaned copies, written to `out/ghidra/watcom-h`: `#pragma aux`/`intrinsic`
 lines dropped, `pack(__push,1)` normalised, `__far`/`__near`/`__huge`/...
 removed, `__segment` → `unsigned short`. Typed: 98 functions in `DREAMSFX.EXE`,
-35 per Windows build; types include `REGS`/`SREGS` (28/12 bytes),
+92 per Windows build (35 with 10.6); types include `REGS`/`SREGS` (28/12 bytes),
 `videoconfig`, `find_t`, `FILE`. DPMI calls now read as
 `r.x.eax = 1; r.x.ebx = sel; int386_(0x31, &r, &r)`.
 
@@ -458,13 +464,34 @@ and cannot be read at all.
   (Join-Path (Get-DreamsSetting DREAMS_WATCOM) 'sigs\windream.csv')
 ```
 
-It sets `__watcall` on every function except the 31 runtime helpers with
-bespoke register contracts, which the CSV identifies for free — Watcom
-decorates register-convention symbols with a **trailing underscore**
-(`memcpy_`, `strlen_`), and the ones without (`__CHK`, `IF@DSIN`, `__FDD`) are
-hand-written assembly. Applied to `WINDREAM.EXE`: 1,251 converted, 26 skipped.
+It sets `__watcall` on every function except:
 
-It also resets each signature to `SourceType.DEFAULT`. That step is essential
+- **runtime helpers with bespoke register contracts**, which the CSV
+  identifies for free — Watcom decorates register-convention symbols with a
+  **trailing underscore** (`memcpy_`, `strlen_`), and the ones without
+  (`__CHK`, `IF@DSIN`, `__FDD`, `__U8M`) are hand-written assembly. 42 in the
+  Windows builds' 11.0 match (31 with 10.6). A helper still carrying
+  `__watcall` from an earlier run is reset to `unknown`;
+- **typed functions**: an `IMPORTED` or `USER_DEFINED` signature (the header
+  prototypes from `ApplyWatcomHeaders.java`, hand typing) is kept, so the
+  script is safe to re-run;
+- **Win32 callbacks**, which get `__stdcall`: a function whose address is
+  loaded just before (12 instructions) a call that does not land on one of
+  the program's own functions — an import or a COM method. Each one is
+  printed. In both Windows builds: the WndProc `0x44627b` (stored into the
+  window class in `VID_CreateWindow`, next call `LoadIconA`), the `EnumDisplayModes` callback `0x445e20`, and the
+  runtime's `SetUnhandledExceptionFilter` and `SetConsoleCtrlHandler`
+  handlers (`0x489941`, `0x497dd0`). Every other address-taken function sits
+  in the game's own dispatch tables and is called as `__watcall`.
+
+The first run (10.6 match, `WINDREAM.EXE` only): 1,251 converted, 26 skipped.
+The 11.0 re-run on 2026-09-28, both builds: 1,651 `__watcall`, 4 `__stdcall`,
+91 typed kept, 52 skipped (thunks and helpers; 7 helpers reset in
+`WINDREAM.EXE`). `GDIDREAM.EXE` had never been converted before; the two
+builds now export identical signatures. The WndProc decompiles as
+`LRESULT (HWND, uint, uint, LPARAM)`.
+
+It also resets each converted signature to `SourceType.DEFAULT`. That step is essential
 and easy to miss — while a signature inferred under the wrong convention
 stands, the decompiler will not promote `EBX` to a parameter however right the
 prototype model is.
