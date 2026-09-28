@@ -187,9 +187,19 @@ bool PLAYER_ComposeRenderGraph(const PlayerState& player, const ModelGraph& scen
     combined = scene;
     ModelNode transform;
     transform.name = "Player world transform";
-    transform.local_xyz = player.spawn_xyz_;
     if (!MATH_EulerToMat3(0, player.spawn_heading_, 0,
                           transform.local_rot, error)) return false;
+    // ENT_MoveToPlayerSpawn writes the actor's model root to the level spawn.
+    // The authored root already has a local offset (XH_ bassin Y=-177), so
+    // applying the spawn as an additional parent translation would lift the
+    // whole actor by that offset once its child links are resolved.
+    Vec3 rotated_root{};
+    MATH_MulMat3Vec3(transform.local_rot,
+                     player.pose_model_.nodes[0].local_xyz, rotated_root);
+    for (size_t axis = 0; axis < 3; ++axis)
+        transform.local_xyz[axis] = static_cast<int32_t>(
+            static_cast<uint32_t>(player.spawn_xyz_[axis]) -
+            static_cast<uint32_t>(rotated_root[axis]));
     const size_t transform_index = combined.nodes.size();
     combined.nodes.push_back(std::move(transform));
     node_base = combined.nodes.size();

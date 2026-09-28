@@ -208,7 +208,9 @@ bool MDL_RelocNodeTree(const std::vector<uint8_t>& record,
     for (size_t index = 0; index < graph.nodes.size(); ++index) {
         const size_t off = node_offsets[index];
         const uint32_t parent = u32(record, off + 0x24);
-        if (parent && parent != 1) {
+        // Offset 1 is a valid source pointer to directory node 0, not a null
+        // marker. Only zero means no parent; XH_ thighs and torso use 1.
+        if (parent) {
             const auto found = by_address.find(parent);
             if (found == by_address.end())
                 return fail(error, "model node has an unknown parent");

@@ -5,11 +5,42 @@
 #include "port/player.h"
 #include "port/scene.h"
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
+
+namespace {
+
+bool bounded_player_faces(const od::port::ModelGraph& graph,
+                          std::string& error) {
+    od::port::GlideModelDraw prepared;
+    if (!od::port::GLIDE_DrawObjectFaces(graph, prepared, error)) return false;
+    float longest = 0.0f;
+    for (size_t triangle = 0; triangle < prepared.vertices.size(); triangle += 3)
+        for (size_t corner = 0; corner < 3; ++corner) {
+            const auto& a = prepared.vertices[triangle + corner].position;
+            const auto& b = prepared.vertices[triangle + (corner + 1) % 3].position;
+            float squared = 0.0f;
+            for (size_t axis = 0; axis < 3; ++axis)
+                squared += (a[axis] - b[axis]) * (a[axis] - b[axis]);
+            longest = std::max(longest, std::sqrt(squared));
+        }
+    // The stale serialized pointer value 1 names root node 0. Treating it as
+    // null produces ~218-unit pelvis-to-thigh edges in the bind/idle model.
+    if (longest >= 120.0f) {
+        error = "XH_ has a stretched face edge of " + std::to_string(longest);
+        return false;
+    }
+    return true;
+}
+
+} // namespace
 
 int main() {
     const char* cue = std::getenv("DREAMS_CUE1");
@@ -48,8 +79,21 @@ int main() {
         player.active_clip_name() != "XH_AN000.3DA" ||
         player.active_clip_duration() != 200 ||
         player.model().faces.size() != 504) return 4;
-    if (!od::port::ANIM_TickPlayerIdle(player, 1.0/30.0, error)) {
+    const auto& nodes = player.bind_model().nodes;
+    if (nodes.size() != 27 || nodes[0].parent != -1 ||
+        nodes[4].parent != 0 || nodes[7].parent != 0 ||
+        nodes[8].parent != 0 || nodes[26].parent != 0) {
+        std::cerr << "XH_ root pointer 1 was not resolved to bassin\n";
+        return 5;
+    }
+    if (!bounded_player_faces(player.bind_model(), error)) {
         std::cerr << error << '\n'; return 5;
+    }
+    for (int frame = 0; frame < 200; ++frame) {
+        if (!od::port::ANIM_TickPlayerIdle(player, 1.0/30.0, error) ||
+            !bounded_player_faces(player.model(), error)) {
+            std::cerr << error << '\n'; return 5;
+        }
     }
     od::port::PreviewLevelContext scene(image);
     if (!scene.select_project_scene("Project0", error)) {
@@ -73,5 +117,12 @@ int main() {
     }
     if (combined.faces.size() != scene.render_graph().faces.size() + 504 ||
         prepared.vertices.size() != combined.faces.size() * 3) return 8;
+    std::vector<od::port::ModelJoint> joints;
+    if (!od::port::GLIDE_ModelJoints(combined, joints, error) ||
+        player_base >= joints.size() ||
+        joints[player_base].world_xyz != player.spawn_xyz()) {
+        std::cerr << "player model root is not at Project0 spawn: " << error << '\n';
+        return 11;
+    }
     return 0;
 }

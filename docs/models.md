@@ -61,6 +61,15 @@ address is `base - 240`. But the runtime node the engine passes around starts
 node address = base - 220
 ```
 
+The serialized value `1` can be a real parent address. In `XH_.DAN`,
+`bassin01`, both thighs and `torse` store parent `1`, which resolves to the
+`bassin` directory node at slot 0. Only zero is null. `MDL_RelocNode`
+(`0x455d6c`) rebases every nonzero parent pointer. Treating `1` as a sentinel
+in the C++ graph had made the pelvis-to-thigh faces stretch about 218 units;
+resolving it brings the longest idle face edge below 120 units through the
+200-frame cycle. `ENT_MoveToPlayerSpawn` then places the model root at the
+recorded player spawn, rather than adding the authored root offset to it.
+
 This is why searching for `base` found nothing: 2,239 structs across 95 scenes
 were scanned at every offset and every delta in −32..+64, with zero hits.
 `base - 244` also found nothing. The sweep that worked returned `S = 220` with

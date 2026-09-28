@@ -286,6 +286,15 @@ base. `ODPlayerConeTests` checks 27 model nodes, 504 faces, the 200-frame
 state-0 clip, spawn coordinates, and composition with the Project 0 scene.
 A hidden muted runtime capture reached and continued rendering that actor.
 
+The first player capture exposed a pelvis-to-thigh strip. The source
+`XH_.DAN` uses serialized parent address `1` for four parts under `bassin`;
+retail relocates it, while the earlier C++ reader treated it as null. After
+fixing that parent link, the host player transform was adjusted to put the
+model root at Project 0's spawn, as `ENT_MoveToPlayerSpawn` does. The player
+cone test checks those links, bounded face edges through the idle cycle, and
+the root's world position. A new hidden capture shows the strip gone and the
+feet back at ground level.
+
 This is an idle player and a fixed entry camera. Live player control, camera
 updates, collision, AI, triggers, HUD, lighting/fog parity and scene exits
 remain. The new player-cone functions and `SCENE_InitLevel` have partial map
