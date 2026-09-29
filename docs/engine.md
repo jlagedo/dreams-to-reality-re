@@ -235,7 +235,7 @@ composed down to the camera root, i.e. in camera space.** Readers:
 
 | Reader | Called from | Use |
 |---|---|---|
-| `0x4477d9` | `DSOUND_PlaySound` (`0x446654`) via `0x447390` | distance to the camera sets the volume, camera-space x the pan |
+| `0x4477d9` | `DSOUND_PlaySound` (`0x446654`) via `0x447390` | distance to the camera sets the volume; the camera-space x pan never takes effect (below) |
 | `0x4145c3` | `AI_TickCombat` | line of sight: converts back to world space with the current camera (`0x457c3c`), tests the segment against collision planes |
 | `0x444b04` | `ENT_TickAttackObject` | same line-of-sight check |
 
@@ -253,8 +253,20 @@ ambient-tint sampler (`0x41c0a6`) whose pixel reader `0x4020a8` is a bare
 `RET` in this build, and the debug collision wireframe (`0x45f2a0`). Open:
 whether the shadow render (`ENT_RenderShadowTexture` `0x43eb67`, a second camera at
 `0x62b9a4`; called only by `ENT_UpdateShadow`, so not a portrait render) can
-re-parent an entity; and whether the pan call in `0x4477d9` overwrites the
-volume, since both use the `SetVolume` slot (`+0x3c`). **[unverified]**
+re-parent an entity. **[unverified]**
+
+**Positional sound has no pan.** **[verified in code]** After setting the
+volume from the distance, `0x4477d9` calls `0x44776b` with the camera-space
+x. It maps `x & 0x7f` to `v = 2·(x & 0x7f) − 128` (−128…126), converts it
+with `DSOUND_VolumeToAttenuation` (`0x44768f`) and passes the result to
+vtable slot `+0x3c`, which is `SetVolume`, not `SetPan` (`+0x40`). For
+`v ≥ 0` the value is +10…+10000; for `v < 0` it is below −10000. Both are
+outside DirectSound's volume range (−10000…0), so the call returns
+`DSERR_INVALIDPARAM`, which the game ignores, and the distance volume
+stays. Sound effects play centred. The recomp's emulated DirectSound first
+accepted these values, and a +10000 volume (a 100 dB boost) clipped every
+positional sound effect to full-scale noise (spec 000, "Runtime shim
+defects").
 
 ### Presentation and 2D — Glide mapped onto DirectDraw/GDI **[verified]**
 

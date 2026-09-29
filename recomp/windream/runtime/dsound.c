@@ -25,6 +25,7 @@
 
 #define DS_OK                0u
 #define DSERR_INVALIDCALL    0x88780032u
+#define DSERR_INVALIDPARAM   0x80070057u
 #define DSERR_NODRIVER       0x88780078u
 #define DSERR_ALREADYINIT    0x88780082u
 #define E_NOINTERFACE_       0x80004002u
@@ -290,9 +291,28 @@ static void b_SetFormat(void) {
     EnterCriticalSection(&g_cs); set_format(b, ARG(1)); LeaveCriticalSection(&g_cs);
     RET(DS_OK); STDRET(2);
 }
-static void b_SetVolume(void) { BUF_OR_FAIL(2); b->vol = (int32_t)ARG(1); RET(DS_OK); STDRET(2); }
-static void b_SetPan(void) { BUF_OR_FAIL(2); b->pan = (int32_t)ARG(1); RET(DS_OK); STDRET(2); }
-static void b_SetFrequency(void) { BUF_OR_FAIL(2); b->freq = ARG(1); RET(DS_OK); STDRET(2); }
+/* Out-of-range values fail and leave the buffer unchanged, as in DirectSound.
+ * The game relies on it: the positional pan (0x44776b) calls SetVolume, not
+ * SetPan, with +10..+10000 or below -10000, which DirectSound rejects; taken
+ * as a volume, +10000 is a 100 dB boost that clips every sound effect to noise. */
+static void b_SetVolume(void) {
+    BUF_OR_FAIL(2);
+    int32_t v = (int32_t)ARG(1);
+    if (v < -10000 || v > 0) { RET(DSERR_INVALIDPARAM); STDRET(2); return; }
+    b->vol = v; RET(DS_OK); STDRET(2);
+}
+static void b_SetPan(void) {
+    BUF_OR_FAIL(2);
+    int32_t v = (int32_t)ARG(1);
+    if (v < -10000 || v > 10000) { RET(DSERR_INVALIDPARAM); STDRET(2); return; }
+    b->pan = v; RET(DS_OK); STDRET(2);
+}
+static void b_SetFrequency(void) {
+    BUF_OR_FAIL(2);
+    uint32_t f = ARG(1);
+    if (f && (f < 100 || f > 100000)) { RET(DSERR_INVALIDPARAM); STDRET(2); return; }
+    b->freq = f; RET(DS_OK); STDRET(2);
+}
 static void b_Stop(void) {
     BUF_OR_FAIL(1);
     EnterCriticalSection(&g_cs); b->playing = 0; LeaveCriticalSection(&g_cs);

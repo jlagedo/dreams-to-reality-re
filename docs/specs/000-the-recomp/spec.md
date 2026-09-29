@@ -70,7 +70,9 @@ were built before 11.0 was pinned down; W1 moved them to it.
     `lift-report.json`.
 - **Runtime:** `runtime/` has about 3,700 lines of hand-written replacements
   for kernel, threads, files (write sandbox), user, GDI (emulated DIB and
-  `StretchBlt`), WinMM (timer, joystick, emulated CD audio) and DirectSound.
+  `StretchBlt`), WinMM (timer, joystick, emulated CD audio) and DirectSound
+  (a mixer thread over waveOut; out-of-range volume, pan and frequency fail
+  as in DirectSound).
   `gen_imports.py` generates the 109 import bridges.
   - Build: `build.py` (clang-cl, Ninja; one unoptimized build).
   - Run: `run.py` (scripted keys, BMP snapshots). Presents are capped at
@@ -79,7 +81,11 @@ were built before 11.0 was pinned down; W1 moved them to it.
 - **Result:** the recompiled game plays `INTRO.HNM` and `GENERIC.HNM`, takes
   scripted Esc/Return and reaches the first level in game. Since the
   collision fix below, Duncan lands on the ground at level start and a
-  70-second scripted run finishes without a fault.
+  70-second scripted run finishes without a fault. After the
+  `VID_DecodeHnm4Image` `push label; ret` fix and the DirectSound range
+  checks (below), a 20-minute manual play session (2026-09-29) walked
+  through five maps, including the one whose HNM4 video had crashed, with
+  no crash and clean sound effects, dialogue and music.
 - **Unimplemented sites:** 61 instruction sites are unimplemented: `int`,
   `bound`, far `jmp`/`call`, `aas`, `ins`, `into`, `salc`, `cli`/`sti`,
   `pushf`/`popf`. **[inferred]** almost all are data decoded as code.
@@ -247,10 +253,39 @@ written" warnings) from guest memory. pod-recomp hit the same pattern but
 finds only absolute 32-bit stores. These blitters did not run in the
 tested level, so this was not the collision bug.
 
+**Also fixed: `push label; ret` in `VID_DecodeHnm4Image`** (`0x44D921`).
+The function does `pushal; push 0x44D93B`, then `bl` selects a decoder
+(`0x55` → `0x44E653`, `0x5A` → `0x44D983`); both end in `ret`, which
+returns to `0x44D93B` (`inc word [0x4A4B14]; popal; ret`) inside the same
+function. The lift turned each `ret` into a C `return`, so `popal` never ran
+and the caller continued on a shifted stack; on one map this crashed in
+`VID_DecodeHnm4Frame` with a write to guest `0xFFFFFFFC`. `lift.py` now
+makes every in-function target of a `push imm32` a block leader and puts a
+guard before each `ret`: if the top of the stack is such a label, pop it and
+`goto` the label. Afterwards that map loaded and played, in a 20-minute,
+five-map session with no crash.
+
 **Checked and correct** along the way: the sweep's jump table, byte shifts
 and bit clears, register preservation across `malloc_`/`free_`, the
 endpoint sort, the reset after mesh add/remove, and every flag the lifter
 computes wrongly (no game code reads one; `difftest/consumers.py`).
+
+### Runtime shim defects found by play-testing **[verified in code 2026-09-29]**
+
+**Sound effects played as loud white noise;** dialogue (`DSOUND_PlayVoice`,
+the 11 kHz 8-bit channel), menu sounds and CD music were fine. Positional
+sound effects go through `0x4477d9`, whose pan step `0x44776b` calls
+`SetVolume` (`+0x3c`) with +10…+10000 or below −10000 (`docs/engine.md`,
+"Positional sound has no pan"). DirectSound rejects both with
+`DSERR_INVALIDPARAM`; `runtime/dsound.c` stored them, and a +10000 volume
+is a 100 dB gain that clipped every sample. Menu sounds skip the positional
+path, so they were unaffected.
+
+**Fix:** `SetVolume` (−10000…0), `SetPan` (−10000…10000) and
+`SetFrequency` (0 or 100…100000) now reject out-of-range values and leave
+the buffer unchanged, as DirectSound does. Shims must copy the API's
+failure cases as well as its successes: the game can depend on a call
+failing.
 
 ## Drift between the recomp and Ghidra **[verified 2026-09-28; resolved by W1 and W2]**
 
