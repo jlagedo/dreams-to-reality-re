@@ -20,6 +20,7 @@ Dependencies and evidence:
 - [3D boundary and smoke evidence](modern-cut.md).
 - [2D function/address map, contracts and smoke evidence](2d-cut.md).
 - [Implementation status, interfaces and validation](implementation.md).
+- [Demo-informed retail layouts, boundary and type-2 lighting](debug-renderer-contracts.md).
 - [Glide appearance rules](../../glide-renderer.md),
   [Glide call inventory](../../glide-call-inventory.md),
   [engine](../../engine.md), [port-map policy](../../../opendreams/PORT_MAP.md).
@@ -317,7 +318,10 @@ and broader natural gameplay coverage remain open. See the
 Radial lighting now uses shared arithmetic checked against 1,533 original x86
 cases, with live shade/normal-dot feedback and stale list-head palette binding.
 Controlled live binding/movement tests pass. WDS6 adds feedback addresses and
-the refreshed-light prefix; type-2/Gouraud and callback cases remain open. See
+the refreshed-light prefix. Type-2 flat lighting now also passes 1,063 mixed
+retail-x86 shade/normal cases, 400 direction cases and a controlled live
+rotation/unbind run. Gouraud, callback and full camera-chain feedback cases
+remain open. See the [demo-informed follow-up](debug-renderer-contracts.md) and
 the [lighting evidence](implementation.md#radial-lighting-kernels-and-capture).
 
 The new shared compositor independently passes the same 256 checkpoints and

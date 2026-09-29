@@ -1,6 +1,17 @@
 #include "render/direct.h"
 #include "render_scene_draw.h"
 #include <algorithm>
+extern "C" int wd_flat_lights(const int32_t *vertices, const int32_t *normal, int32_t plane,
+                              const od_local_light *lights, size_t count, uint8_t *shade,
+                              int32_t *dot) {
+    const int result = od_flat_light_shade(vertices, normal, plane, lights, count, shade);
+    if (result && count && dot)
+        *dot = od_light_normal_dot(normal, &lights[count - 1]);
+    return result;
+}
+extern "C" int wd_light_axis(const float *world, const int32_t *orientation, int32_t *axis) {
+    return od_oriented_light_axis(world, orientation, axis);
+}
 extern "C" int wd_flat_light_shade(const int32_t *vertices, const int32_t *normal, int32_t plane,
                                    const od_radial_light *lights, size_t count, uint8_t *shade) {
     return od_radial_flat_shade(vertices, normal, plane, lights, count, shade);
@@ -45,7 +56,7 @@ extern "C" int wd_lit_pair(const int32_t *points, const od_radial_light *light, 
     vp[5] = -1;
     wd::SceneLighting result;
     std::string error;
-    if (!wd::prepare_radial_lighting(scene, vp, result, error, true))
+    if (!wd::prepare_flat_lighting(scene, vp, result, error, true))
         return 0;
     std::copy_n(result.shades.begin(), 2, shades);
     for (const auto &w : result.writes) {

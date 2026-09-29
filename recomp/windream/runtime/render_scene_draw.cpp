@@ -40,8 +40,8 @@ bool textured_mode(int32_t type, od_face_mode &mode, uint32_t &wrap) {
 }
 } // namespace
 
-bool prepare_radial_lighting(const SceneSnapshot &scene, const float *vp, SceneLighting &output,
-                             std::string &error, bool require_metadata) {
+bool prepare_flat_lighting(const SceneSnapshot &scene, const float *vp, SceneLighting &output,
+                           std::string &error, bool require_metadata) {
     error.clear();
     SceneLighting result;
     for (const auto &face : scene.faces)
@@ -71,19 +71,21 @@ bool prepare_radial_lighting(const SceneSnapshot &scene, const float *vp, SceneL
                 return false;
             }
         }
-        std::array<od_radial_light, 8> lights{};
+        std::array<od_local_light, 8> lights{};
         for (uint32_t i = 0; i < node.light_count; ++i) {
             const auto index = node.light_indices[i];
             if (index >= scene.light_transform_count) {
                 error = "bound light lies beyond refreshed light prefix";
                 return false;
             }
-            if (index >= scene.lights.size() || scene.lights[index].type != 1) {
-                error = "unsupported non-radial or inactive bound light";
+            if (index >= scene.lights.size() ||
+                (scene.lights[index].type != 1 && scene.lights[index].type != 2)) {
+                error = "unsupported or inactive bound light";
                 return false;
             }
             const auto &source = scene.lights[index];
-            auto &local = lights[i];
+            auto &local = lights[i].radial;
+            lights[i].type = source.type;
             if (!od_radial_light_local(world.data() + owner * 12, source.position.data(),
                                        local.position)) {
                 error = "invalid local light transform";
@@ -92,6 +94,16 @@ bool prepare_radial_lighting(const SceneSnapshot &scene, const float *vp, SceneL
             local.inner_radius = source.inner_radius;
             local.outer_radius = source.outer_radius;
             local.intensity = source.intensity;
+            if (source.type == 2) {
+                if (!od_oriented_light_axis(world.data() + owner * 12, source.orientation.data(),
+                                            lights[i].axis)) {
+                    error = "invalid local light orientation";
+                    return false;
+                }
+                for (uint32_t axis = 0; axis < 3; ++axis)
+                    result.writes.push_back({0x672770u + uint32_t(index) * 0x94u + axis * 4,
+                                             uint32_t(lights[i].axis[axis]), 4, 0x47b3d0});
+            }
             for (uint32_t axis = 0; axis < 3; ++axis)
                 result.writes.push_back({0x672764u + uint32_t(index) * 0x94u + axis * 4,
                                          uint32_t(local.position[axis]), 4, 0x47b3d0});
@@ -132,16 +144,16 @@ bool prepare_radial_lighting(const SceneSnapshot &scene, const float *vp, SceneL
                 error = "lit face lacks captured normal address";
                 return false;
             }
-            if (!od_radial_flat_shade(original, face.normal.data(), face.plane_distance,
-                                      lights.data(), node.light_count, &result.shades[i])) {
-                error = "radial shading failed";
+            if (!od_flat_light_shade(original, face.normal.data(), face.plane_distance,
+                                     lights.data(), node.light_count, &result.shades[i])) {
+                error = "flat lighting failed";
                 return false;
             }
             for (uint32_t light = 0; light < node.light_count; ++light)
                 if (face.normal_address)
                     result.writes.push_back(
                         {face.normal_address + 12,
-                         uint32_t(od_radial_normal_dot(face.normal.data(), &lights[light])), 4,
+                         uint32_t(od_light_normal_dot(face.normal.data(), &lights[light])), 4,
                          0x47b7e0});
             result.writes.push_back({face.address + 0x40, result.shades[i], 1, 0x47b7e0});
         }
@@ -220,8 +232,7 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
     }
     std::vector<float> world;
     SceneLighting lighting;
-    if (!prepare_radial_lighting(scene, view_projection, lighting, error,
-                                 lighting_writes != nullptr))
+    if (!prepare_flat_lighting(scene, view_projection, lighting, error, lighting_writes != nullptr))
         return false;
     std::vector<od_scene_triangle> opaque, deferred;
     std::unordered_map<uint32_t, std::vector<const SceneFace *>> blocks;

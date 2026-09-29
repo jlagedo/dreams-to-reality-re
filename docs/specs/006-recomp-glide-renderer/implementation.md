@@ -2,6 +2,11 @@
 
 Date: 2026-09-29. Authority: [spec 006](spec.md).
 
+Latest follow-up: [demo-informed contracts](debug-renderer-contracts.md) confirms
+the hierarchy cut, corrects retail UV field names, and adds type-2 flat lighting.
+Mixed-light retail oracles and a controlled live rotation/unbind run pass;
+Gouraud/environment/mirror paths and the wider acceptance gates remain open.
+
 This is an implementation in progress, not completed R0–R4 delivery. Software
 remains the default reference. `run.py --renderer direct` now runs the live game
 through the shared GPU scene/UI/presentation pipeline for the tested first-scene
@@ -36,8 +41,8 @@ Implemented in this slice:
   colour-key semantics, clamp/repeat and deferred alpha 128/255 with depth writes.
   Windows palette generation remains lifted; logical shade r selects its physical
   row 31-r. Palette binding retains the selected snapshot until the page changes.
-  Supported radial lights now use the shared kernel and metadata feedback below;
-  oriented/Gouraud lights and unimplemented face modes still fail explicitly.
+  Supported radial and type-2 flat lights use shared kernels and metadata feedback;
+  Gouraud lights and unimplemented face modes still fail explicitly.
 - Native sprite/faded-text/gauge request normalization and exact-width shared
   scratch stores. Original fire generation and RNG continue on the guest side.
   The native UI test covers 75 pixel checkpoints (534,528 pixels) and compares
@@ -406,7 +411,7 @@ uv run --with unicorn python recomp/windream/debug/render_scene_mode_smoke.py
 uv run --with unicorn python recomp/windream/debug/render_scene_smoke.py out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
 ```
 
-`prepare_radial_lighting` now runs for supported textured nodes. It composes
+`prepare_flat_lighting` (originally `prepare_radial_lighting`) runs for supported textured nodes. It composes
 visual poses from source locals, transforms radial lights without reading old
 view/node caches, and uses the new camera/frustum to identify drawable faces.
 The adapter returns ordered light-vector, normal-dot and one-byte face-shade
@@ -427,7 +432,8 @@ and resumes after unbinding with zero routine readbacks. Its report/captures are
 under `DREAMS_OUT/recomp/windream/run-direct-radial-light`. This manipulates light
 inputs in an isolated child, not an unmodified gameplay effect-trigger route.
 
-**Still partial:** type-2, inactive bound slots, bindings outside the refreshed
+Type-2 flat lighting is now covered by the [demo-informed follow-up](debug-renderer-contracts.md).
+**Still partial:** inactive bound slots, bindings outside the refreshed
 prefix, Gouraud and lit-frame end callbacks fail explicitly. Retail removal can
 leave a live slot beyond the count used by its view-transform loop; this stale
 view-state case must not be silently recomputed from current world inputs.

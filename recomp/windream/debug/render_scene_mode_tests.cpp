@@ -1,6 +1,7 @@
 #include "render_scene_draw.h"
 #include "platform/graphics_backend.h"
 #include "render/direct_sokol.h"
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 
@@ -201,12 +202,33 @@ int main(int argc, char **argv) {
     float lit_vp[16];
     check(lit.view_projection(256, 128, false, lit_vp), "lit test camera");
     lit.light_transform_count = 0;
-    check(!wd::prepare_radial_lighting(lit, lit_vp, rejected, error, true),
+    check(!wd::prepare_flat_lighting(lit, lit_vp, rejected, error, true),
           "unrefreshed light prefix accepted");
     lit.light_transform_count = 1;
     lit.lights[0].type = 2;
-    check(!wd::prepare_radial_lighting(lit, lit_vp, rejected, error, true),
-          "unsupported oriented light accepted");
+    lit.lights[0].orientation = {32768, 0, 0, 0, 32768, 0, 0, 0, 32768};
+    lit.lights[0].intensity = 15;
+    check(wd::prepare_flat_lighting(lit, lit_vp, rejected, error, true), error.c_str());
+    check(rejected.shades[1] == 15, "oriented flat shade");
+    auto axis_write = std::find_if(rejected.writes.begin(), rejected.writes.end(),
+                                   [](const auto &w) { return w.address == 0x672778; });
+    check(axis_write != rejected.writes.end() && axis_write->value == 32768,
+          "oriented light direction feedback");
+    lit.materials[0].page += 0x10000;
+    lit.faces[0].shade = 15; // culled head supplies the palette row
+    check(draw.submit(renderer, lit, target, 256, 128, false, error), error.c_str());
+    sg_commit();
+    std::vector<uint32_t> oriented_pixels;
+    check(backend.read_image(od_renderer_image(renderer, target), 0, 0, 256, 128, oriented_pixels,
+                             error),
+          "oriented capture");
+    check((oriented_pixels[64 * 256 + 153] & 255) == 120, "oriented GPU palette row");
+    draw.finish_frame(renderer);
+    od_renderer_frame_complete(renderer);
+    draw.reset(renderer);
+    lit.lights[0].type = 3;
+    check(!wd::prepare_flat_lighting(lit, lit_vp, rejected, error, true),
+          "unsupported light kind accepted");
     od_renderer_destroy(renderer);
     sg_shutdown();
     backend.shutdown();

@@ -182,10 +182,21 @@ int32_t od_radial_normal_dot(const int32_t *normal, const od_radial_light *light
     return !std::isfinite(value) || value >= 2147483648.0 || value < -2147483648.0 ? INT32_MIN
                                                                                    : int32_t(value);
 }
-int od_radial_flat_shade(const int32_t *vertices, const int32_t *normal, int32_t plane,
-                         const od_radial_light *lights, size_t count, uint8_t *shade) {
+int32_t od_light_normal_dot(const int32_t *normal, const od_local_light *light) {
+    if (!light)
+        return INT32_MIN;
+    od_radial_light vector = light->radial;
+    if (light->type == 2)
+        std::copy_n(light->axis, 3, vector.position);
+    return od_radial_normal_dot(normal, &vector);
+}
+int od_flat_light_shade(const int32_t *vertices, const int32_t *normal, int32_t plane,
+                        const od_local_light *lights, size_t count, uint8_t *shade) {
     if (!vertices || !normal || !shade || (count && !lights) || count > 8)
         return 0;
+    for (size_t i = 0; i < count; ++i)
+        if (lights[i].type != 1 && lights[i].type != 2)
+            return 0;
     auto signed32 = [](uint32_t value) {
         int32_t result;
         std::memcpy(&result, &value, 4);
@@ -203,17 +214,19 @@ int od_radial_flat_shade(const int32_t *vertices, const int32_t *normal, int32_t
                        3;
     uint32_t sum = 0;
     for (size_t i = 0; i < count; ++i) {
-        const auto &light = lights[i];
+        const auto &light = lights[i].radial;
         double squared = 0;
         for (int axis = 0; axis < 3; ++axis) {
             const int32_t delta = signed32(uint32_t(center[axis]) - uint32_t(light.position[axis]));
             squared += double(delta) * delta;
         }
-        const int32_t normal_dot = od_radial_normal_dot(normal, &light);
+        const int32_t normal_dot = od_light_normal_dot(normal, &lights[i]);
         const float distance = float(std::sqrt(squared));
-        const int32_t product =
-            signed32((uint32_t(plane) - uint32_t(normal_dot)) * uint32_t(light.intensity));
-        int32_t contribution = chop(double(product) / distance);
+        const int32_t product = signed32(
+            (lights[i].type == 2 ? uint32_t(normal_dot) : uint32_t(plane) - uint32_t(normal_dot)) *
+            uint32_t(light.intensity));
+        int32_t contribution =
+            lights[i].type == 2 ? product / 32768 : chop(double(product) / distance);
         if (distance > double(light.inner_radius)) {
             if (distance >= float(light.outer_radius))
                 contribution = 0;
@@ -229,6 +242,17 @@ int od_radial_flat_shade(const int32_t *vertices, const int32_t *normal, int32_t
         total = -31;
     *shade = uint8_t(0u - uint32_t(total));
     return 1;
+}
+int od_radial_flat_shade(const int32_t *vertices, const int32_t *normal, int32_t plane,
+                         const od_radial_light *lights, size_t count, uint8_t *shade) {
+    if (count > 8 || (count && !lights))
+        return 0;
+    od_local_light local[8]{};
+    for (size_t i = 0; i < count; ++i) {
+        local[i].radial = lights[i];
+        local[i].type = 1;
+    }
+    return od_flat_light_shade(vertices, normal, plane, local, count, shade);
 }
 int od_radial_light_local(const float *world, const int32_t *position, int32_t *local) {
     if (!world || !position || !local)
@@ -247,4 +271,13 @@ int od_radial_light_local(const float *world, const int32_t *position, int32_t *
     }
     std::copy_n(result, 3, local);
     return 1;
+}
+int od_oriented_light_axis(const float *world, const int32_t *orientation, int32_t *local) {
+    if (!world || !orientation || !local)
+        return 0;
+    float rotation[12];
+    std::copy_n(world, 12, rotation);
+    rotation[3] = rotation[7] = rotation[11] = 0;
+    const int32_t axis[3] = {orientation[2], orientation[5], orientation[8]};
+    return od_radial_light_local(rotation, axis, local);
 }

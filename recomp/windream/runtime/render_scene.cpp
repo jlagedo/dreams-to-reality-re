@@ -144,6 +144,10 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
             continue;
         if (result.nodes.size() >= max_nodes || node_indices.count(entry.address))
             return fail(error, "cyclic, duplicate or oversized node tree");
+        // Capture the consumed retail prefix only. The demo's 0xdc-byte
+        // object adds virtual-vertex fields at +d4/+d8; both are zero in
+        // our retail captures and its relocator does not relocate +d8.
+        // See debug-renderer-contracts.md; do not infer an extra vertex pool.
         uint8_t node[0xd4];
         if (!read.bytes(entry.address, node, sizeof node))
             return false;

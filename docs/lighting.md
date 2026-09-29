@@ -134,7 +134,10 @@ also affect the final byte. Another 500 cases verify that the light-to-node step
 uses the rotation **transpose**, including non-unit matrices, rather than a
 general matrix inverse. The recomp adapter now uses these kernels for supported
 radial-lit textured nodes, including shade/normal-dot feedback and stale-head
-palette selection. Type-2/Gouraud and the restrictions below remain partial.
+palette selection. The demo-informed follow-up adds type-2 flat lighting:
+1,063 mixed shade/normal cases and 400 direction-transform cases match retail
+x86, and controlled live rotation/unbinding passes. Gouraud and full camera-chain
+feedback remain partial. See [the contract and evidence](specs/006-recomp-glide-renderer/debug-renderer-contracts.md).
 
 The shade used for a lit Glide block comes from the **head of its face list**.
 That entry may have the culled flag set: `REND_LightObject` skips it and retains

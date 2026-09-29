@@ -1,0 +1,18 @@
+[
+  {
+    "name": "MDL_Node",
+    "size": 212,
+    "scope": "Consumed prefix; do not infer the complete allocation extent",
+    "evidence": "docs/specs/006-recomp-glide-renderer/debug-renderer-contracts.md",
+    "fields": [
+      {"name": "uv_count", "offset": 132, "size": 4},
+      {"name": "uvs", "offset": 136, "size": 4},
+      {"name": "shade", "offset": 208, "size": 4}
+    ]
+  },
+  {
+    "name": "MDL_UV",
+    "size": 8,
+    "fields": []
+  }
+]

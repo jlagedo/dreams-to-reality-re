@@ -54,6 +54,12 @@ void require(bool ok, const char *message) {
     if (!ok)
         fatal(message);
 }
+// Bind the string itself when the other argument may replace its storage.
+// error.c_str() evaluated before that operation could leave a dangling pointer.
+void require(bool ok, const std::string &message) {
+    if (!ok)
+        fatal(message);
+}
 uint32_t word(uint32_t address) {
     uint32_t value;
     require(wd_render_read_arena(nullptr, address, &value, 4), "unmapped renderer control");
@@ -105,8 +111,7 @@ Surface &shadow_surface(uint32_t base) {
 }
 void draw_shadow(const wd::SceneSnapshot &scene, Surface &surface) {
     std::string error;
-    require(wd::SceneDraw::submit_shadow(state.renderer, scene, surface.target, error),
-            error.c_str());
+    require(wd::SceneDraw::submit_shadow(state.renderer, scene, surface.target, error), error);
     ++surface.version;
     ++state.shadows;
 }
@@ -201,7 +206,7 @@ SDL_WindowFlags wd_render_window_flags(void) {
     if (!wd_render_requested())
         return 0;
     std::string error;
-    require(od::GraphicsBackend::configure_window(error), error.c_str());
+    require(od::GraphicsBackend::configure_window(error), error);
     return od::GraphicsBackend::window_flags();
 }
 int wd_render_open(SDL_Window *window) {
@@ -319,7 +324,7 @@ void wd_render_begin_present(uint32_t base) {
 void wd_render_end_present(void) {
     if (state.pending_present) {
         std::string error;
-        require(state.backend.present(error), error.c_str());
+        require(state.backend.present(error), error);
         state.pending_present = false;
     }
 }
@@ -329,7 +334,7 @@ void wd_render_capture(const char *path) {
         return;
     }
     std::string error;
-    require(state.backend.capture(path, error), error.c_str());
+    require(state.backend.capture(path, error), error);
     std::fprintf(stderr, "[direct] explicit output capture: %s\n", path);
 }
 void wd_render_mouse(SDL_Event *event) {
@@ -375,7 +380,7 @@ void wd_render_ui(const uint32_t raw[8], uint32_t entry) {
                     : entry == 0x40368b
                         ? wd::normalize_gauge(reader, registers, batch, error)
                         : wd::normalize_sprite(reader, registers, entry == 0x403bcd, batch, error);
-    require(ok, error.c_str());
+    require(ok, error);
     auto &surface = exact(batch.target_address);
     resize(surface);
     for (const auto &write : batch.metadata)
@@ -412,7 +417,7 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
     if (thumbnail)
         wd_render_bind_surface(destination, 8192, 64, 64, 128, int(word(0x49da1c)), 0);
     require(wd::capture_scene({nullptr, wd_render_read_arena, gpu_image}, root, scene, error),
-            error.c_str());
+            error);
     scene.fog.enabled = state.fog.table_mode;
     scene.fog.colour = ((state.fog.color >> 16) & 255u) | (state.fog.color & 0xff00u) |
                        ((state.fog.color & 255u) << 16);
@@ -432,18 +437,18 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
         fatal("lit frame callback sequencing is not validated");
     const char *capture = std::getenv("WD_SCENE_CAPTURE");
     if (!state.captured_scene && main_frame && capture && *capture) {
-        require(wd::write_scene(scene, capture, error), error.c_str());
+        require(wd::write_scene(scene, capture, error), error);
         state.captured_scene = true;
         std::fprintf(stderr, "[render-capture] captured original scene inputs to %s\n", capture);
     }
     std::vector<wd::SceneLightingWrite> lighting_writes;
     require(state.scene.submit(state.renderer, scene, surface->target, surface->physical_width,
                                surface->physical_height, main_frame != 0, error, &lighting_writes),
-            error.c_str());
+            error);
     for (const auto &write : lighting_writes)
         wd_render_write_arena_at(write.entry, write.address, &write.value, write.bytes);
     if (!lighting_writes.empty() && (state.scenes == 0 || state.scenes % 25 == 0))
-        std::fprintf(stderr, "[direct] radial_lighting writes=%zu\n", lighting_writes.size());
+        std::fprintf(stderr, "[direct] flat_lighting writes=%zu\n", lighting_writes.size());
     if (thumbnail) {
         const od_readback_request request{
             surface->target, {0, 0, 64, 64}, OD_READBACK_THUMBNAIL, caller};
@@ -452,7 +457,7 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
         sg_commit(); // explicit CPU consumer; does not present or advance game time
         require(state.backend.read_image(od_renderer_image(state.renderer, request.target), 0, 0,
                                          64, 64, rgba, error),
-                error.c_str());
+                error);
         std::vector<uint16_t> packed(rgba.size());
         for (size_t i = 0; i < rgba.size(); ++i)
             packed[i] = od_pack_colour(rgba[i], surface->format);

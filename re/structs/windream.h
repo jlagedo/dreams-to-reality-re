@@ -215,8 +215,8 @@ typedef struct MDL_Node {
     dreams_i32 view_rot[3][3]; /* +0x58 */
     dreams_u32 vertex_count;   /* +0x7c */
     MDL_Vertex *vertices;      /* +0x80 */
-    dreams_u32 unknown_84;
-    MDL_Vertex *vertices_end;  /* +0x88 */
+    dreams_u32 uv_count;       /* +0x84 demo o_nbr_uvtext; retail corner-range checks */
+    MDL_UV *uvs;              /* +0x88 demo o_ptr_uvtext; often adjacent to vertex end */
     dreams_u32 vnormal_count;  /* +0x8c */
     MDL_Normal *vnormals;      /* +0x90 */
     dreams_u32 fnormal_count;  /* +0x94 */

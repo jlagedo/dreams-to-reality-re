@@ -9,8 +9,8 @@ struct SceneLighting {
     std::vector<uint8_t> shades;
     std::vector<SceneLightingWrite> writes;
 };
-bool prepare_radial_lighting(const SceneSnapshot &, const float view_projection[16],
-                             SceneLighting &, std::string &error, bool require_metadata = false);
+bool prepare_flat_lighting(const SceneSnapshot &, const float view_projection[16], SceneLighting &,
+                           std::string &error, bool require_metadata = false);
 
 // Host adapter owns the Windows palette-row convention and material bindings.
 // GPU handles are immutable content versions and never contain guest pointers.

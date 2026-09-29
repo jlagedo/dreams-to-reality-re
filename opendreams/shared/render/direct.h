@@ -140,6 +140,16 @@ typedef struct od_radial_light {
     int32_t position[3]; /* owner-local, after the recovered light transform */
     int32_t inner_radius, outer_radius, intensity;
 } od_radial_light;
+typedef struct od_local_light {
+    od_radial_light radial;
+    uint32_t type;   /* retail 1 radial, 2 oriented with radial range */
+    int32_t axis[3]; /* owner-local Q15 direction, retail l_ldirection */
+} od_local_light;
+int od_flat_light_shade(const int32_t vertices[9], const int32_t normal[3], int32_t plane,
+                        const od_local_light *, size_t count, uint8_t *shade);
+int32_t od_light_normal_dot(const int32_t normal[3], const od_local_light *light);
+int od_oriented_light_axis(const float world_affine[12], const int32_t orientation[9],
+                           int32_t local_axis[3]);
 /* Retail flat-shade kernel. Original local corners/normal/plane, including
  * integer centroid and multiply wrapping. Returns the resulting shade byte. */
 int od_radial_flat_shade(const int32_t vertices[9], const int32_t normal[3], int32_t plane,

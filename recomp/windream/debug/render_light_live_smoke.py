@@ -4,6 +4,7 @@ Uses a captured submitted node; does not emulate an unmodified actor-effect
 input route. The retained retail view transform sees the same active prefix.
 """
 
+import argparse
 import ctypes as c
 import json
 import os
@@ -27,7 +28,11 @@ from dreams import paths  # noqa: E402
 
 
 def main():
-    run = recomp_env.out_dir("windream", "run-direct-radial-light")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--oriented", action="store_true")
+    args = parser.parse_args()
+    kind = "oriented" if args.oriented else "radial"
+    run = recomp_env.out_dir("windream", f"run-direct-{kind}-light")
     capture = run / "input.wds"
     capture.unlink(missing_ok=True)
     env = dict(
@@ -53,7 +58,7 @@ def main():
         fn.restype = c.c_int
     report = {
         "passed": False,
-        "controlled_inputs": "one radial light and one submitted node binding",
+        "controlled_inputs": f"one {kind} light and one submitted node binding",
     }
     log = run / "stderr.txt"
     with log.open("wb") as err, (run / "stdout.txt").open("wb") as stdout:
@@ -137,7 +142,7 @@ def main():
                     ]
                     position = list(struct.unpack("<3i", read(word(0x661EE8) + 0x1C, 12)))
                     record = bytearray(0x94)
-                    struct.pack_into("<I3i", record, 0, 1, *position)
+                    struct.pack_into("<I3i", record, 0, 2 if args.oriented else 1, *position)
                     struct.pack_into("<9i", record, 0x10, 32768, 0, 0, 0, 32768, 0, 0, 0, 32768)
                     struct.pack_into("<3i", record, 0x88, 60000, 60000, 31)
                     write(0x672700, bytes(record))
@@ -154,28 +159,31 @@ def main():
                     assert changed > 0 and any(
                         a != b for a, b in zip(before_dots, after_dots, strict=True)
                     ), "no lighting metadata changed"
-                    assert "radial_lighting writes=" in text
+                    assert "flat_lighting writes=" in text
                     report["changed_face_shades"] = changed
                     position = [
                         value + delta
                         for value, delta in zip(position, (200, 300, 400), strict=True)
                     ]
                     write(0x672704, struct.pack("<3i", *position))
+                    if args.oriented:
+                        write(0x672710, struct.pack("<9i", 0, 0, 32768, 0, 32768, 0, -32768, 0, 0))
                     stage = 2
                     transition = elapsed
                 elif stage == 2 and elapsed - transition > 5:
                     moved = [read(a, 4) for a in normal_addresses]
                     changed = sum(a != b for a, b in zip(after_dots, moved, strict=True))
-                    assert changed > 0, "moving light did not update normals"
+                    assert changed > 0, "moving/rotating light did not update normals"
                     report["changed_normal_dots_after_move"] = changed
                     write(node + 0xC4, original[0][1])
-                    for address, data in original[1:]:
-                        write(address, data)
+                    # A frame may already have captured the old binding. Keep its
+                    # source slot/prefix valid while it finishes; this isolated
+                    # child is terminated below, so no external state survives.
                     stage = 3
                     transition = elapsed
-                    count_before = text.count("radial_lighting writes=")
+                    count_before = text.count("flat_lighting writes=")
                 elif stage == 3 and elapsed - transition > 3:
-                    assert text.count("radial_lighting writes=") <= count_before + 1, (
+                    assert text.count("flat_lighting writes=") <= count_before + 1, (
                         "lighting persisted after unbind"
                     )
                     assert "routine_readbacks=0" in text
