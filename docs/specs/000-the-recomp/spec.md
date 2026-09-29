@@ -11,13 +11,14 @@ from, rather than an OpenDreams deliverable.
 
 ## Purpose and boundary
 
-We run three experiments beside Ghidra, all under the gitignored
-`out/recomp/`:
+We run three experiments beside Ghidra. The recompilation and difftest
+sources are in `recomp/`; their outputs and the matching decompilation are
+under the gitignored `out/recomp/`:
 
 | Instrument | Directory | What it is |
 |---|---|---|
-| **Static recompilation** | `out/recomp/windream/` | `GDIDREAM.EXE` lifted instruction by instruction to C with pcrecomp's `lift32`, built with clang-cl against hand-written Win32 shims, and run. |
-| **Differential tests** | `out/recomp/difftest/` | Small Watcom programs run natively and recompiled; the outputs are diffed to find lifter bugs. |
+| **Static recompilation** | `recomp/windream/` | `GDIDREAM.EXE` lifted instruction by instruction to C with pcrecomp's `lift32`, built with clang-cl against hand-written Win32 shims, and run. |
+| **Differential tests** | `recomp/difftest/` | Small Watcom programs run natively and recompiled; the outputs are diffed to find lifter bugs. |
 | **Matching decompilation** | `out/recomp/matchdecomp/` | C written for one retail function, compiled with a real Watcom compiler, and compared byte for byte with `WINDREAM.EXE`. |
 
 This spec records what those instruments are and what they have shown so far,
@@ -71,10 +72,10 @@ were built before 11.0 was pinned down; W1 moved them to it.
   for kernel, threads, files (write sandbox), user, GDI (emulated DIB and
   `StretchBlt`), WinMM (timer, joystick, emulated CD audio) and DirectSound.
   `gen_imports.py` generates the 109 import bridges.
-  - Build: `build.ps1` (clang-cl, Ninja).
-  - Run: `run.ps1` (scripted keys, BMP snapshots). Presents are capped at
-    25 fps (`-Fps`, `WD_FPS`; 0 = uncapped) and a crash writes a full-memory
-    minidump (`-Dump`, `WD_DUMP=mini|0`).
+  - Build: `build.py` (clang-cl, Ninja; one unoptimized build).
+  - Run: `run.py` (scripted keys, BMP snapshots). Presents are capped at
+    25 fps (`--fps`, `WD_FPS`; 0 = uncapped) and a crash writes a full-memory
+    minidump (`--dump`, `WD_DUMP=mini|0`).
 - **Result:** the recompiled game plays `INTRO.HNM` and `GENERIC.HNM`, takes
   scripted Esc/Return and reaches the first level in game. Since the
   collision fix below, Duncan lands on the ground at level start and a
@@ -285,7 +286,7 @@ involved).
     Take the compiler from `DREAMS_WATCOM_COMPILER` in `.dreams.local.env`
     (already set to `wc110\11.0`) and the EXE from `DREAMS_DISC1`.
   - Add both variables to `dev/paths.example.env`.
-  - `difftest/wat.ps1`: build with 11.0 and the game's two flag profiles.
+  - `difftest/wat.py` (then `wat.ps1`): build with 11.0 and the game's two flag profiles.
   - Re-run `t_core` and `t_switch` against the 11.0 runtime. The math
     failures so far are in 10.6's library routines, not the ones the game
     links.
@@ -525,10 +526,12 @@ involved).
 |---|---|
 | `out/recomp/pcrecomp/` | Upstream toolbox clone (`tools/lift`, `tools/disasm`, `tools/ghidra/DumpBounds.java`, `runtime/recomp32`) |
 | `out/recomp/nocturne/`, `out/recomp/pod-recomp/` | Reference Watcom recomp projects |
-| `out/recomp/windream/` | `lift.py` (`HOOKS`, `PROBES`, `PATCH_SITES`), `bounds.csv`, `gen/`, `runtime/` (`phys_hook.c`: collision hooks, `WD_PHYS_INVARIANT`, `WD_PHYS_CAPTURE`), `build.ps1`, `run.ps1`, `run/` |
-| `out/recomp/windream/debug/` | Dump analysis: `mdmp.py` (guest memory from a full dump; arena base 0 for a retail dump), `colliders.py` (candidate lists per collider), `invariant.py` (axis bits against brute-force overlap), `sortcheck.py`, `replay_sweep.py` and `replay_full.py` (one `PHYS_SweepAxis` call in Unicorn), `x86dis.py` |
+| `recomp/windream/` | `lift.py` (`HOOKS`, `PROBES`, `PATCH_SITES`), `bounds.csv`, `runtime/` (`phys_hook.c`: collision hooks, `WD_PHYS_INVARIANT`, `WD_PHYS_CAPTURE`), `build.py`, `run.py`, `recomp_env.py` (one level up) |
+| `out/recomp/windream/` | Outputs: `gen/` (lifted C), `build-*/`, `run/` (logs, sandbox, crash dumps) |
+| `recomp/windream/debug/` | Dump analysis: `mdmp.py` (guest memory from a full dump; arena base 0 for a retail dump), `colliders.py` (candidate lists per collider), `invariant.py` (axis bits against brute-force overlap), `sortcheck.py`, `replay_sweep.py` and `replay_full.py` (one `PHYS_SweepAxis` call in Unicorn), `x86dis.py` |
 | `tools/fps_limit_launcher.py` | Starts the retail Windows build with a frame limiter patched in memory; used for the retail dumps |
-| `out/recomp/difftest/` | `difftest.ps1`, `wat.ps1`, `t_*.c`, `cov.txt`, `flagdiff.txt` |
+| `recomp/difftest/` | `difftest.py`, `wat.py`, `t_core.c`, `t_switch.c`, `gen_insn.py`, `coverage.py`, `flagdiff.py`, `consumers.py` |
+| `out/recomp/difftest/` | Work directories (`<name>-<tag>/`), the generated `t_insn.c`, `cov.txt`, `flagdiff.txt` |
 | `out/recomp/matchdecomp/` | `match.py`, `flagsweep.py`, `cases.txt`, `src/`, `blind/`, the toolchain evidence scripts |
 | `out/dev/research/pcrecomp/` | Notes on the pcrecomp pipeline and the hybrid approach |
 | `out/decomp/` | `DecompileAll.java` output for both Windows programs, `pre110/` baseline, `compare.py` |

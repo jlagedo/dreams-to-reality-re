@@ -13,7 +13,7 @@
  * with [NAME] (tools/check_names.py) replaces the previous [NAME] paragraph
  * instead of adding another. A missing function
  * is created at the address; if that fails it is reported and skipped.
- * Run tools\re-checkpoint.ps1 afterwards to persist the names to re/symbols/.
+ * Run tools/re_checkpoint.py afterwards to persist the names to re/symbols/.
  *
  * @category Dreams
  */

@@ -24,6 +24,7 @@ VARIABLES = {
     "out": "DREAMS_OUT",
     "ghidra": "DREAMS_GHIDRA_ROOT",
     "na_game_tool": "DREAMS_NA_GAME_TOOL",
+    "pcrecomp": "DREAMS_PCRECOMP",
 }
 
 # Installed Watcom compilers under DREAMS_WATCOM, used when the compiler
@@ -75,6 +76,8 @@ def configured(key: str) -> Path | None:
         return Path(raw).expanduser().resolve()
     if key == "out":
         return REPO_ROOT / "out"
+    if key == "pcrecomp":
+        return get("out") / "recomp" / "pcrecomp"
     if key == "extract":
         work = _value("DREAMS_WORK_ROOT", local)
         return Path(work).expanduser().resolve() / "extract" if work else None
@@ -118,6 +121,7 @@ def describe() -> list[tuple[str, Path | None, bool]]:
         "out",
         "ghidra",
         "na_game_tool",
+        "pcrecomp",
     )
     rows = []
     for key in keys:

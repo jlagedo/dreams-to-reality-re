@@ -244,10 +244,8 @@ uv run python out/boot/xref2.py   <disc1>/WINDREAM.EXE   # code refs into them
 
 Decompilation (from the repo root, per `AGENTS.md`):
 
-```powershell
-. .\tools\dreams-env.ps1
-& (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') ghidra dreams `
-  -process WINDREAM.EXE -noanalysis -readOnly -scriptPath ghidra_scripts `
+```sh
+uv run python tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis -readOnly \
   -postScript Decompile.java 0041745e 00436481 00435fae 004240ba
 ```
 

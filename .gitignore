@@ -146,7 +146,7 @@ Thumbs.db
 #
 # A Ghidra project is an opaque binary blob that git cannot merge and that
 # embeds copies of the analysed executables. Treat it as a BUILD ARTIFACT:
-# regenerate it from the discs with tools/ghidra-import.ps1.
+# regenerate it from the discs with tools/ghidra_import.py.
 #
 # The SOURCE of truth for our analysis is re/ - exported symbols, struct
 # definitions and notes, all diffable text. Commit those.

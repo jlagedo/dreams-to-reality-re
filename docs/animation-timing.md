@@ -82,13 +82,10 @@ dispatcher `0x11` and the `timeGetTime`-based counter.
 
 ## Reproduce and guard the finding
 
-```powershell
-. .\tools\dreams-env.ps1
-& (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') `
-  ghidra dreams -process WINDREAM.EXE -noanalysis -readOnly `
-  -scriptPath ghidra_scripts `
-  -postScript Decompile.java 00440802 00440890 00424b4f 0043a306 004058d5 004068be `
-  -postScript Inspect.java range:004170a6-004172a2 data:004c41c4 data:004c41cc `
+```sh
+uv run python tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis -readOnly \
+  -postScript Decompile.java 00440802 00440890 00424b4f 0043a306 004058d5 004068be \
+  -postScript Inspect.java range:004170a6-004172a2 data:004c41c4 data:004c41cc \
   range:00407026-00407038
 
 uv run pytest tests/test_animation_timing.py tests/test_animation.py tests/test_animation_harness.py

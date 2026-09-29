@@ -12,10 +12,8 @@ the Glide library are outside this audit. The larger rendering behavior is in
 
 Reproduce the inventory from the local project without writing to Ghidra:
 
-```powershell
-. .\tools\dreams-env.ps1
-$ghidra = Get-DreamsSetting DREAMS_GHIDRA_ROOT
-& (Join-Path $ghidra 'support\analyzeHeadless.bat') ghidra dreams -process DREAMSFX.EXE -noanalysis -readOnly -scriptPath ghidra_scripts -postScript Inspect.java refs:000b8a81 refs:000b8a90 refs:000b89dc refs:000b89be refs:000b89c8
+```sh
+uv run python tools/ghidra_headless.py -process DREAMSFX.EXE -noanalysis -readOnly -postScript Inspect.java refs:000b8a81 refs:000b8a90 refs:000b89dc refs:000b89be refs:000b89c8
 ```
 
 The full audit used the same command with all 35 import addresses below and

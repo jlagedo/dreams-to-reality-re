@@ -71,19 +71,17 @@ current values. It preserves `[NAME]`, `[DOCS_SYNC]`, manual notes and every
 unrelated tag. Run it in Ghidra's Script Manager for each program after changing
 the map, or run it through headless Ghidra without `-readOnly`:
 
-```powershell
-. .\tools\dreams-env.ps1
-$ghidra = Get-DreamsSetting DREAMS_GHIDRA_ROOT
-& (Join-Path $ghidra 'support\analyzeHeadless.bat') ghidra dreams -process WINDREAM.EXE -noanalysis -scriptPath ghidra_scripts -postScript ApplyPortMap.java
-& (Join-Path $ghidra 'support\analyzeHeadless.bat') ghidra dreams -process GDIDREAM.EXE -noanalysis -scriptPath ghidra_scripts -postScript ApplyPortMap.java
-& (Join-Path $ghidra 'support\analyzeHeadless.bat') ghidra dreams -process DREAMSFX.EXE -noanalysis -scriptPath ghidra_scripts -postScript ApplyPortMap.java
+```sh
+uv run python tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis -postScript ApplyPortMap.java
+uv run python tools/ghidra_headless.py -process GDIDREAM.EXE -noanalysis -postScript ApplyPortMap.java
+uv run python tools/ghidra_headless.py -process DREAMSFX.EXE -noanalysis -postScript ApplyPortMap.java
 ```
 
-`tools/ghidra-import.ps1 -ImportSymbols` also runs `ApplyPortMap.java` after
+`tools/ghidra_import.py --import-symbols` also runs `ApplyPortMap.java` after
 restoring names. `ExportSymbols.java` exports comments but not function tags;
 the TSV rebuilds both on a fresh project. Keep implementation status in the
 TSV, not solely in Ghidra or its symbol export. Commit `port-map.tsv` with the
-C++ change it describes; `tools/re-checkpoint.ps1` stages `re/` and `docs/`,
+C++ change it describes; `tools/re_checkpoint.py` stages `re/` and `docs/`,
 not `opendreams/`.
 
 ## One-function port loop

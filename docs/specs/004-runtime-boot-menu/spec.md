@@ -239,18 +239,15 @@ chunk lengths on the configured Disc 1 files; the same walk is visible in
 `src/dreams/formats/video.py::extract_sd_audio` and the ported video walker.
 These are file observations, not a retail playthrough recording.
 
-From the repository root in PowerShell, reproduce the movie chunk count with:
+From the repository root, reproduce the movie chunk count with:
 
-```powershell
-. .\tools\dreams-env.ps1
-$disc = Get-DreamsSetting DREAMS_DISC1
-@'
+```sh
+uv run python - <<'EOF'
 from collections import Counter
-from pathlib import Path
 from struct import unpack_from
-import sys
+from dreams import paths
 for name in ('INTRO.HNM', 'GENERIC.HNM', 'TETE_E~1.HNM'):
-    data = (Path(sys.argv[1]) / 'DATA' / 'HNM' / name).read_bytes()
+    data = (paths.disc(1) / 'DATA' / 'HNM' / name).read_bytes()
     pos, counts = 64, Counter()
     while pos + 4 <= len(data):
         outer = unpack_from('<I', data, pos)[0] & 0xffffff
@@ -263,7 +260,7 @@ for name in ('INTRO.HNM', 'GENERIC.HNM', 'TETE_E~1.HNM'):
             inner += (size + 3) & ~3
         pos += outer
     print(name, counts)
-'@ | uv run python - $disc
+EOF
 ```
 
 ### New Game to Project 0 — 2026-09-27

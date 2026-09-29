@@ -17,7 +17,7 @@ So the split is:
 
 | Path | Committed? | What it is |
 |---|---|---|
-| `ghidra/` | **no** | the Ghidra project — regenerate with `tools/ghidra-import.ps1` |
+| `ghidra/` | **no** | the Ghidra project — regenerate with `tools/ghidra_import.py` |
 | `ghidra_scripts/` | yes | our Ghidra scripts |
 | `re/symbols/*.tsv` | yes | function names and comments we assigned |
 | `re/structs/*.h` | yes | C struct definitions for the formats |
@@ -25,8 +25,8 @@ So the split is:
 | `docs/` | yes | findings |
 
 Round trip: annotate in Ghidra → `ExportSymbols.java` → commit the TSV; C layouts
-live in `re/structs/*.h`. A fresh project runs `ghidra-import.ps1 -ImportSymbols
--ImportStructs` to restore both kinds of analysis from the discs and text sources.
+live in `re/structs/*.h`. A fresh project runs `ghidra_import.py --import-symbols
+--import-structs` to restore both kinds of analysis from the discs and text sources.
 
 ## Installed on this machine
 
@@ -43,11 +43,11 @@ through headless.
 
 For anything reproducible, prefer headless over the GUI:
 
-```powershell
-.\tools\ghidra-import.ps1                     # create project, import, analyse
-.\tools\ghidra-import.ps1 -ImportSymbols      # …and re-apply saved names
-.\tools\ghidra-import.ps1 -ImportSymbols -ImportStructs # restore symbols and C layouts
-.\tools\ghidra-import.ps1 -Analyze:$false     # skip auto-analysis
+```sh
+uv run python tools/ghidra_import.py                   # create project, import, analyse
+uv run python tools/ghidra_import.py --import-symbols  # …and re-apply saved names
+uv run python tools/ghidra_import.py --import-symbols --import-structs # restore symbols and C layouts
+uv run python tools/ghidra_import.py --no-analyze      # skip auto-analysis
 ```
 
 Defaults to importing `WINDREAM.EXE`, `GDIDREAM.EXE`, `SETUP.EXE` and
@@ -128,15 +128,15 @@ from source; at commit `60bae51` it compiles against 12.1.3 unchanged.
 ```powershell
 git clone https://github.com/yetmorecode/ghidra-lx-loader E:\tools\src\ghidra-lx-loader
 Copy-Item tools\lx-loader-watcom.cspec E:\tools\src\ghidra-lx-loader\data\languages\watcom.cspec
-$g = Get-DreamsSetting DREAMS_GHIDRA_ROOT   # after . .\tools\dreams-env.ps1
+$g = uv run python -c "from dreams import paths; print(paths.get('ghidra'))"
 Push-Location E:\tools\src\ghidra-lx-loader
 & "$g\support\gradle\gradlew.bat" "-PGHIDRA_INSTALL_DIR=$g" buildExtension
 Pop-Location
 Expand-Archive E:\tools\src\ghidra-lx-loader\dist\*.zip "$g\Ghidra\Extensions" -Force
-.\tools\ghidra-import.ps1 -Binaries (Join-Path (Get-DreamsSetting DREAMS_DISC1) DREAMSFX.EXE)
+uv run python tools/ghidra_import.py --binaries $(uv run python -c "from dreams import paths; print(paths.disc(1) / 'DREAMSFX.EXE')")
 ```
 
-`-Binaries` imports only the listed files, so the existing programs are left
+`--binaries` imports only the listed files, so the existing programs are left
 alone. Restart Ghidra afterwards.
 
 **Replace the loader's `watcom.cspec`** with `tools/lx-loader-watcom.cspec`, as
@@ -160,12 +160,10 @@ Run after importing `DREAMSFX.EXE`, against a checkout of the released Glide
 source. The headers are 3dfx-licensed and stay outside the repo; the parsed
 archive goes to `out/ghidra/glide2x.gdt`.
 
-```powershell
-git clone --depth 1 https://github.com/sezero/glide E:\tools\src\glide
-$env:DREAMS_REPO = (Get-Location).Path
-& (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') `
-  ghidra dreams -process DREAMSFX.EXE -noanalysis `
-  -scriptPath ghidra_scripts -postScript ApplyGlideImports.java E:\tools\src\glide
+```sh
+git clone --depth 1 https://github.com/sezero/glide E:/tools/src/glide
+uv run python tools/ghidra_headless.py -process DREAMSFX.EXE -noanalysis \
+  -postScript ApplyGlideImports.java E:/tools/src/glide
 ```
 
 It parses `glide2x/sst1` (Voodoo Graphics) with `__WATCOMC__`/`__DOS__`
@@ -199,16 +197,14 @@ functions have a twin in each build at another address. Identical code is rare
 function, and register allocation differs), but constants, strings, instruction
 shape and the call graph survive.
 
-```powershell
-$env:DREAMS_REPO = (Get-Location).Path
-$h = Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat'
-foreach ($p in 'DREAMSFX.EXE','WINDREAM.EXE') {
-  & $h ghidra dreams -process $p -noanalysis -readOnly `
-    -scriptPath ghidra_scripts -postScript ExportFunctionFeatures.java
-}
+```sh
+for p in DREAMSFX.EXE WINDREAM.EXE; do
+  uv run python tools/ghidra_headless.py -process $p -noanalysis -readOnly \
+    -postScript ExportFunctionFeatures.java
+done
 uv run python tools/match_functions.py DREAMSFX.EXE WINDREAM.EXE --renames
-& $h ghidra dreams -process DREAMSFX.EXE -noanalysis -scriptPath ghidra_scripts `
-  -postScript Rename.java "@$PWD\out\ghidra\match\renames-DREAMSFX.EXE.tsv"
+uv run python tools/ghidra_headless.py -process DREAMSFX.EXE -noanalysis \
+  -postScript Rename.java @out/ghidra/match/renames-DREAMSFX.EXE.tsv
 ```
 
 - `ExportFunctionFeatures.java` writes `out/ghidra/features/<program>.json`:
@@ -241,9 +237,9 @@ code was linked into two binaries — hand-written assembly survives any
 compiler — a much stricter test applies, and it is the only one a name
 transfer between *different* products should rest on.
 
-```powershell
-& $h ghidra dreams -process CRYO.DLL -noanalysis -readOnly `
-  -scriptPath ghidra_scripts -postScript ExportFunctionFeatures.java
+```sh
+uv run python tools/ghidra_headless.py -process CRYO.DLL -noanalysis -readOnly \
+  -postScript ExportFunctionFeatures.java
 uv run --with capstone python tools/match_identical.py CRYO.DLL WINDREAM.EXE --insn
 ```
 
@@ -328,15 +324,15 @@ would be false if the identification were wrong:
 | `ref:<hex>` | reads or writes the data address |
 | `size:<n>` | is `n` bytes long |
 
-```powershell
+```sh
 # refresh the dump first (it now also records imports, large constants and data refs)
-& $h ghidra dreams -process WINDREAM.EXE -noanalysis -readOnly `
-  -scriptPath ghidra_scripts -postScript ExportFunctionFeatures.java
+uv run python tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis -readOnly \
+  -postScript ExportFunctionFeatures.java
 uv run python tools/check_names.py WINDREAM.EXE --renames --twin GDIDREAM.EXE
-& $h ghidra dreams -process WINDREAM.EXE -noanalysis -scriptPath ghidra_scripts `
-  -postScript Rename.java "@out\ghidra\match\names-WINDREAM.EXE.tsv"
-& $h ghidra dreams -process GDIDREAM.EXE -noanalysis -scriptPath ghidra_scripts `
-  -postScript Rename.java "@out\ghidra\match\names-GDIDREAM.EXE.tsv"
+uv run python tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis \
+  -postScript Rename.java "@out/ghidra/match/names-WINDREAM.EXE.tsv"
+uv run python tools/ghidra_headless.py -process GDIDREAM.EXE -noanalysis \
+  -postScript Rename.java "@out/ghidra/match/names-GDIDREAM.EXE.tsv"
 ```
 
 - **Failed rows** are reported and left out of the rename file.
@@ -376,10 +372,10 @@ wrap rejected or historical material in `<!-- docs-sync: off -->` and
 `<!-- docs-sync: on -->` (or leave it off through EOF) to keep it out of live
 comments while retaining it for research history:
 
-```powershell
+```sh
 uv run python tools/sync_doc_comments.py WINDREAM.EXE
-& $h ghidra dreams -process WINDREAM.EXE -noanalysis -scriptPath ghidra_scripts `
-  -postScript ApplyDocComments.java "@out\ghidra\match\docsync-WINDREAM.EXE.tsv"
+uv run python tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis \
+  -postScript ApplyDocComments.java "@out/ghidra/match/docsync-WINDREAM.EXE.tsv"
 ```
 
 ### `FixWatcomBss.java` — the Windows `.bss` is truncated
@@ -390,11 +386,11 @@ section runs to `.reloc` at `0x6b2000`, and the game keeps globals up to
 `~0x6726f8` (window handle, DirectSound buffers, frame pointer). Those
 1.1 MB were unmapped memory in every earlier analysis: references survived,
 but nothing there could be typed. The script extends an uninitialized `.bss`
-to the next block; it is a no-op otherwise. `ghidra-import.ps1` now runs it as
+to the next block; it is a no-op otherwise. `ghidra_import.py` now runs it as
 `-preScript` on every import. On an existing project:
 
-```powershell
-& $h ghidra dreams -process WINDREAM.EXE -noanalysis -scriptPath ghidra_scripts -postScript FixWatcomBss.java
+```sh
+uv run python tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis -postScript FixWatcomBss.java
 ```
 
 ### Watcom runtime: `ApplyWatcomSigs.java`, then `ApplyWatcomHeaders.java`
@@ -456,12 +452,10 @@ and cannot be read at all.
    `__watcall` prototype model. Re-apply after any Ghidra upgrade, then restart.
 2. Run the script, pointing it at the Watcom library match:
 
-```powershell
-. .\tools\dreams-env.ps1
-& (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') `
-  ghidra dreams -process WINDREAM.EXE -noanalysis `
-  -scriptPath ghidra_scripts -postScript ApplyWatcall.java `
-  (Join-Path (Get-DreamsSetting DREAMS_WATCOM) 'sigs\windream.csv')
+```sh
+uv run python tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis \
+  -postScript ApplyWatcall.java \
+  "$(uv run python -c "from dreams import paths; print(paths.get('watcom') / 'sigs' / 'windream.csv')")"
 ```
 
 It sets `__watcall` on every function except:
@@ -530,12 +524,11 @@ tail are marked `recorded`.
 Chain `CreateWatcomFunctions.java apply` after it: new functions contain
 switch dispatches whose tables nothing had defined.
 
-```powershell
-& (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') `
-  ghidra dreams -process WINDREAM.EXE -noanalysis -scriptPath ghidra_scripts `
-  -postScript ApplyBoundaries.java re\boundaries\WINDREAM.EXE.tsv `
-  -postScript CreateWatcomFunctions.java apply `
-  -postScript ReportBoundaries.java out\ghidra\boundaries\WINDREAM.EXE.tsv re\boundaries\WINDREAM.EXE.tsv
+```sh
+uv run python tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis \
+  -postScript ApplyBoundaries.java re/boundaries/WINDREAM.EXE.tsv \
+  -postScript CreateWatcomFunctions.java apply \
+  -postScript ReportBoundaries.java out/ghidra/boundaries/WINDREAM.EXE.tsv re/boundaries/WINDREAM.EXE.tsv
 ```
 
 Found and applied on 2026-09-28, both Windows builds (same list):
@@ -611,9 +604,8 @@ function: entry, name, size, convention, signature source, and the number of
 distinct `unaff_`, `extraout_` and `in_` variables and `WARNING` comments. The C
 is game-derived, so keep it under `out/`.
 
-```powershell
-. .\tools\dreams-env.ps1
-& (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') ghidra dreams -process WINDREAM.EXE -noanalysis -readOnly -scriptPath ghidra_scripts -postScript DecompileAll.java out\decomp
+```sh
+uv run python tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis -readOnly -postScript DecompileAll.java out/decomp
 ```
 
 Both Windows programs take about 20 seconds each. Point it at a backup project
@@ -666,9 +658,9 @@ that BSS location is present in the loaded program.
 
 `re/` is the source of truth for recovered symbols and types. The Ghidra
 project is disposable and rebuildable from the discs with
-`ghidra-import.ps1 -ImportSymbols -ImportStructs`.
+`ghidra_import.py --import-symbols --import-structs`.
 For port status, `opendreams/port-map.tsv` is the separate source of truth;
-`-ImportSymbols` runs `ApplyPortMap.java` after restoring names, so Function
+`--import-symbols` runs `ApplyPortMap.java` after restoring names, so Function
 Tags and `[PORT_MAP]` comments are rebuilt from it too.
 
 ### The project lock
@@ -679,8 +671,8 @@ two checkpoint routes.
 
 **GUI closed** — the normal one:
 
-```powershell
-.\tools\re-checkpoint.ps1 -Message "batch rename stream helpers"
+```sh
+uv run python tools/re_checkpoint.py -m "batch rename stream helpers"
 ```
 
 Exports every program headless, then commits. It detects the lock and redirects
@@ -691,9 +683,9 @@ you to the GUI route rather than failing obscurely.
 1. Ctrl+S.
 2. **Window → Script Manager → Dreams → `ExportSymbols.java`** — writes the TSV
    from the live program, no lock conflict.
-3. `.\tools\re-checkpoint.ps1 -SkipExport -Message "name the DSN header reader"`
+3. `uv run python tools/re_checkpoint.py --skip-export -m "name the DSN header reader"`
 
-Flags: `-NoCommit` to inspect first, `-SkipExport` to commit an existing export.
+Flags: `--no-commit` to inspect first, `--skip-export` to commit an existing export.
 
 ### What a checkpoint captures
 
@@ -731,7 +723,7 @@ the TSV round-trip — but it is the native answer and it exists.
   re-importing still matches and a wrong binary warns on import.
 - Auto-generated `FUN_xxxxxxxx` names are skipped, so re-analysis does not churn
   the diff.
-- `re-checkpoint.ps1` **refuses to commit** if anything matching a game-asset
+- `re_checkpoint.py` **refuses to commit** if anything matching a game-asset
   extension appears in the working tree.
 
 ### Discipline

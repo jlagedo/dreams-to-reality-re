@@ -433,14 +433,11 @@ between actor classes; those tables do not supply human-readable names.
 
 ## Reproduce the binary trace
 
-```powershell
-. .\tools\dreams-env.ps1
-& (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') `
-  ghidra dreams -process WINDREAM.EXE -noanalysis -readOnly `
-  -scriptPath ghidra_scripts `
-  -postScript Decompile.java 0040484d 00404d98 00405118 004058d5 `
-  00407089 00407b51 00410e5d 00410f03 004115a1 0041208f 004131a4 `
-  00413b3b 00414646 00414b24 00414d61 00414f6d 00415109 `
+```sh
+uv run python tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis -readOnly \
+  -postScript Decompile.java 0040484d 00404d98 00405118 004058d5 \
+  00407089 00407b51 00410e5d 00410f03 004115a1 0041208f 004131a4 \
+  00413b3b 00414646 00414b24 00414d61 00414f6d 00415109 \
   00442786 00442944 00442e0d 00444b8f 004440aa 00443619
 ```
 
@@ -450,10 +447,8 @@ is initialized at `ANIM_InitStateTable` (`0x40484d`) and populated at `ANIM_Load
 
 Selector census, using the parser field added for this finding:
 
-```powershell
-. .\tools\dreams-env.ps1
-$dat = Join-Path (Get-DreamsSetting DREAMS_DISC1) 'DREAMS.DAT'
-uv run python -c 'import sys; from dreams.formats.project import read; print([(p.index, p.ai_schedule_selector) for p in read(sys.argv[1]) if p.ai_schedule_selector])' $dat
+```sh
+uv run python -c "from dreams import paths; from dreams.formats.project import read; print([(p.index, p.ai_schedule_selector) for p in read(paths.disc(1) / 'DREAMS.DAT') if p.ai_schedule_selector])"
 ```
 
 ## Open questions

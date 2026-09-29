@@ -46,3 +46,10 @@ def test_extract_defaults_under_the_work_root(tmp_path, monkeypatch):
     monkeypatch.delenv("DREAMS_EXTRACT", raising=False)
     monkeypatch.setenv("DREAMS_WORK_ROOT", str(tmp_path / "work"))
     assert paths.get("extract") == (tmp_path / "work").resolve() / "extract"
+
+
+def test_pcrecomp_defaults_under_the_output_root(tmp_path, monkeypatch):
+    monkeypatch.setattr(paths, "LOCAL_ENV", tmp_path / "absent.env")
+    monkeypatch.delenv("DREAMS_PCRECOMP", raising=False)
+    monkeypatch.setenv("DREAMS_OUT", str(tmp_path / "out"))
+    assert paths.get("pcrecomp") == (tmp_path / "out").resolve() / "recomp" / "pcrecomp"
