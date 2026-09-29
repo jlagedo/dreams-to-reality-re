@@ -1505,6 +1505,19 @@ Details and numbers are in [toolchain.md](toolchain.md), steps 3–6.
   - Retail prologues show that Watcom callees preserve every register not
     carrying a parameter. The single `__watcall` model does not, which
     leaves `extraout_` reads (W7).
+- **Whole-program decompilation [verified]**: `DecompileAll.java` re-ran
+  Ghidra's decompiler over both Windows builds (2,065 functions each, none
+  failed). Against the project before the 11.0 move, the same functions
+  lose 46 `unaff_` and 24 `in_` variables, and the 130 proven prototypes
+  halve their `extraout_` reads (86 → 43). Numbers in spec 000.
+- **The recomp's collision bug was a lifter defect [verified]**: Duncan fell
+  through the map at level start and play crashed in
+  `PHYS_CollideSphereTriangle`. Retail memory dumps showed clean candidate
+  lists, and a Unicorn replay of the original code kept every record the
+  recomp lost. pcrecomp's `generate.py` carried static flag state across
+  block starts and lifted `PHYS_RemoveCandidate`'s `jae` at `0x45D398` as
+  `if (1)`, deleting the wrong overlap records. `lift.py` now resets the
+  state at every leader; details in spec 000.
 
 ## Sources
 

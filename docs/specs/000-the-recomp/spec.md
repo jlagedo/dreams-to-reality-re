@@ -1,6 +1,8 @@
 # 000 — The recomp: using the Watcom toolchain and the recompiled game as research instruments
 
-Status: **W1–W3 done 2026-09-28** (results under each item); W4–W7 not started
+Status: **W1–W3 done 2026-09-28** (results under each item); the recomp's
+collision bug found and fixed the same day (lifter defects section); W4–W7
+not started
 Date: 2026-09-28
 Depends on: [toolchain.md](../../toolchain.md) (Watcom 11.0 verdict),
 [re-setup.md](../../re-setup.md) (Ghidra passes). Numbered 000 because it
@@ -70,10 +72,13 @@ were built before 11.0 was pinned down; W1 moved them to it.
   `StretchBlt`), WinMM (timer, joystick, emulated CD audio) and DirectSound.
   `gen_imports.py` generates the 109 import bridges.
   - Build: `build.ps1` (clang-cl, Ninja).
-  - Run: `run.ps1` (scripted keys, BMP snapshots).
+  - Run: `run.ps1` (scripted keys, BMP snapshots). Presents are capped at
+    25 fps (`-Fps`, `WD_FPS`; 0 = uncapped) and a crash writes a full-memory
+    minidump (`-Dump`, `WD_DUMP=mini|0`).
 - **Result:** the recompiled game plays `INTRO.HNM` and `GENERIC.HNM`, takes
-  scripted Esc/Return and reaches level loading. An older run reached the
-  in-game view.
+  scripted Esc/Return and reaches the first level in game. Since the
+  collision fix below, Duncan lands on the ground at level start and a
+  70-second scripted run finishes without a fault.
 - **Unimplemented sites:** 61 instruction sites are unimplemented: `int`,
   `bound`, far `jmp`/`call`, `aas`, `ins`, `into`, `salc`, `cli`/`sti`,
   `pushf`/`popf`. **[inferred]** almost all are data decoded as code.
@@ -132,6 +137,119 @@ support. The parts that serve decompilation:
 
 Neither reference project turned lifted code into readable C. Their names came
 from assert strings (Nocturne) and IDA FLIRT (POD).
+
+### Ghidra decompilation after W1–W3 **[verified 2026-09-28]**
+
+`ghidra_scripts/DecompileAll.java` regenerated the whole decompilation of both
+Windows programs into `out/decomp/` (`<program>.c`, `<program>.tsv`). The
+same script ran on `out/ghidra-backup-20260928-pre-watcall110/` (the project
+before the 11.0 move) for comparison (`out/decomp/compare.py`). WINDREAM.EXE
+figures follow; GDIDREAM.EXE has the same bounds and near-identical numbers.
+
+| WINDREAM.EXE | Before 11.0 | Now |
+|---|---:|---:|
+| Functions decompiled (externals excluded), failures | 1,798, 0 | 2,065, 0 |
+| `__watcall` / unknown convention | 1,269 / 504 | 1,903 / 25 |
+| `USER_DEFINED` signatures | 0 | 130 |
+| Same 1,798 functions: `unaff_` variables (functions) | 433 (213) | 387 (194) |
+| Same 1,798 functions: `extraout_` (functions) | 2,367 (657) | 2,370 (628) |
+| Same 1,798 functions: `in_` (functions) | 238 (153) | 214 (132) |
+| The 130 proven prototypes: `extraout_` (functions) | 86 (63) | 43 (23) |
+
+- **The 267 new functions** from W2 (dead functions and missed entries)
+  decompile without failures.
+  - 109 are import thunks, which Ghidra reports as "Treating indirect jump as
+    call". That accounts for the rise in that warning, from 57 to 164.
+- **`extraout_` barely moved outside the proven set.** This is the W7 kill-set
+  problem: every unproven `__watcall` still kills `EDX`, `EBX` and `ECX`.
+- **Remaining warnings** worth a later look:
+  - 28 "Could not find normalized switch variable" in `HNM5_DecodeFrame640`
+    and `HNM6_DecodeCoefficients` (hand-written decoders).
+  - 70 "Read-only address is written", at 41 addresses (`0x4029d8`–`0x402e48`)
+    in five blitters (`FUN_004024b8` …). The blitters patch their own code.
+    This is a retail trait, not an analysis error.
+- **The recomp needs no re-lift.** The fresh `DumpBounds` export is
+  byte-identical to the `windream/bounds.csv` behind the current `gen/`.
+
+### Lifter defects found by play-testing **[verified 2026-09-28]**
+
+**Symptom.** In the recomp Duncan fell through the map at level start
+(retail lands him on the ground); after flying back up, collision worked.
+Play then crashed within a minute in `PHYS_CollideSphereTriangle`
+(`0x45E745`, `mov eax, [ebx+4]` with EBX a small value). Four crashes, at
+30 and 25 fps, with manual and scripted input.
+
+**Collision data.** Each collider keeps a binary tree of 24-byte overlap
+records (collider `+0x2C`: triangle, axis bits, right, left, wall node,
+floor node) and two lists of 12-byte nodes (walls `+0x30` for records with
+all three axis bits, floors `+0x34` for bits 0 and 2).
+`PHYS_SweepAxis` (`0x45D420`) moves the collider's interval through the
+sorted endpoint arrays and calls `PHYS_AddCandidate` (`0x45D10C`) and
+`PHYS_RemoveCandidate` (`0x45D25C`). The collision world is the global at
+`0x66E01C` (triangle count, three endpoint arrays, the collider array at
+`+0x10` and its count at `+0x40C`), the same address in both Windows
+builds.
+
+**How it was traced.**
+
+1. **Full-memory dumps of the recomp.** The crashing "triangle" was a live
+   overlap record or a freed one; the camera collider's wall list held 274
+   nodes for 143 qualifying records, 131 of them orphans.
+2. **Read-only hooks** (`lift.py` `HOOKS`, `runtime/phys_hook.c`): 27% of
+   `PHYS_AddCandidate` calls set an axis bit that was already set, from all
+   three add sites, on every moving collider. Retail never checks the bit,
+   so each such call with all bits set leaks a node, which dangles once its
+   record is freed.
+3. **Retail as the reference.** Two full dumps of the running retail
+   `GDIDREAM.EXE` (launched through `tools/fps_limit_launcher.py`, which
+   changes only the call at `0x4170B7`; the rest of the code section is
+   byte-identical to the EXE) after 40 seconds and after 8 minutes of play:
+   on all 8 colliders, one node per qualifying record and no orphans. A
+   triangle has an axis bit exactly when it strictly overlaps the
+   collider's `[c−r, c+r]` on that axis (a handful of exact ties aside).
+   So the fault was in the recomp.
+4. **The same invariant inside the recomp** (`WD_PHYS_INVARIANT=1`, checked
+   after every sweep) failed on the very first sweep after a level reset:
+   230 adds, then 218 records missing.
+5. **Replay on real x86 semantics.** The Unicorn emulator ran the original
+   `PHYS_SweepAxis`, `PHYS_AddCandidate`, `PHYS_RemoveCandidate` and
+   `malloc_` bytes on the state from the recomp's dump
+   (`WD_PHYS_CAPTURE=1` forces the dump): all 230 records kept.
+6. **The recomp's event log** showed the 230 adds followed by 648 removes of
+   triangles never added. A correct remove finds nothing and returns.
+
+**Cause: static flag state carried across labels.** pcrecomp's
+`generate.py` tracks which instruction last set the flags and folds
+conditions from it, but did not reset that state at block starts. At
+`0x45D398`, reached by `cmp eax, ebp; jbe` from the tree search, the
+instruction before it in address order is `test ecx, ecx; …; jmp`. After a
+`test`, CF is 0, so the `jae` there was lifted as `if (1)`.
+`PHYS_RemoveCandidate` then took every larger key in its search as a match
+and deleted the wrong overlap records. The first sweep after a reset removes
+hundreds of absent triangles, so colliders lost their floor triangles at
+level start. The leaked, later dangling nodes caused the crashes.
+
+**Fix** (`lift.py`, `WinDreamLifter`): the static flag state is dropped at
+every block leader, so conditions there are decided at run time from the
+lifted flag record (`recomp_cond_cf`). This changed 227 lifted lines across
+the program. Afterwards a 70-second scripted run had no invariant
+violation, no re-add and no crash, and Duncan lands on the ground (seen in
+snapshots and in play). The upstream `generate.py` still has the defect.
+
+**Also fixed: self-modifying blitters.** Five span blitters (`0x4024B8`,
+`0x40254D`, `0x4027B8`, `0x40294D`, `0x4029AF`) write their texture
+steps, pointer steps and loop limits into their own instructions through
+a register (`lea ebx, [0x4029D8]`, then a store). The lift kept the
+placeholders (`sub dl, 0x12`, `cmp ebx, 0x12345678`). `lift.py` now
+reads those 41 operands (33 imm8, 8 imm32; Ghidra's "Read-only address is
+written" warnings) from guest memory. pod-recomp hit the same pattern but
+finds only absolute 32-bit stores. These blitters did not run in the
+tested level, so this was not the collision bug.
+
+**Checked and correct** along the way: the sweep's jump table, byte shifts
+and bit clears, register preservation across `malloc_`/`free_`, the
+endpoint sort, the reset after mesh add/remove, and every flag the lifter
+computes wrongly (no game code reads one; `difftest/consumers.py`).
 
 ## Drift between the recomp and Ghidra **[verified 2026-09-28; resolved by W1 and W2]**
 
@@ -192,7 +310,8 @@ involved).
     they are **lifter bugs, not 10.6 library differences**. W6 owns them.
   - **Recomp:** re-lifted from each new Ghidra export. The last lift has
     2,065 Ghidra ranges and 2,314 functions, and the recompiled game still
-    reaches level loading (`OMBRE.3DC`, `xh_.DAN`, `GR00.3DC`).
+    loads the first level (`OMBRE.3DC`, `xh_.DAN`, `GR00.3DC`) and plays it
+    in game with the HUD and the opening dialogue.
 
 ### W2 — Close the boundary gap
 
@@ -350,6 +469,12 @@ involved).
   and PF, which the game's code probably never reads.
 - **Check:** a per-instruction-form list records whether the game reads the
   flag. Every form whose flags the game reads is exact.
+- **Progress 2026-09-28:** `difftest/consumers.py` finds no game code that
+  reads a flag `t_insn` shows wrong. Beyond single instructions, the
+  collision bug exposed a lift-level flag defect (state carried across block
+  starts), now fixed; see the lifter defects section. The approach that
+  found it: an invariant checked against retail memory dumps, then a replay
+  of one call in Unicorn.
 
 ### W7 — Per-arity `__watcall` models
 
@@ -391,6 +516,8 @@ involved).
 3. Should the scripted-run traces (W4) become a committed tool with a fixed
    script, like `tools/check_names.py`, so they can be re-checked on another
    machine with the discs?
+4. The flag-state defect is in upstream pcrecomp (`tools/lift/generate.py`).
+   Report it there? Not done: it is outward-facing.
 
 ## File map
 
@@ -398,7 +525,10 @@ involved).
 |---|---|
 | `out/recomp/pcrecomp/` | Upstream toolbox clone (`tools/lift`, `tools/disasm`, `tools/ghidra/DumpBounds.java`, `runtime/recomp32`) |
 | `out/recomp/nocturne/`, `out/recomp/pod-recomp/` | Reference Watcom recomp projects |
-| `out/recomp/windream/` | `lift.py`, `bounds.csv`, `gen/`, `runtime/`, `build.ps1`, `run.ps1`, `run/` |
+| `out/recomp/windream/` | `lift.py` (`HOOKS`, `PROBES`, `PATCH_SITES`), `bounds.csv`, `gen/`, `runtime/` (`phys_hook.c`: collision hooks, `WD_PHYS_INVARIANT`, `WD_PHYS_CAPTURE`), `build.ps1`, `run.ps1`, `run/` |
+| `out/recomp/windream/debug/` | Dump analysis: `mdmp.py` (guest memory from a full dump; arena base 0 for a retail dump), `colliders.py` (candidate lists per collider), `invariant.py` (axis bits against brute-force overlap), `sortcheck.py`, `replay_sweep.py` and `replay_full.py` (one `PHYS_SweepAxis` call in Unicorn), `x86dis.py` |
+| `tools/fps_limit_launcher.py` | Starts the retail Windows build with a frame limiter patched in memory; used for the retail dumps |
 | `out/recomp/difftest/` | `difftest.ps1`, `wat.ps1`, `t_*.c`, `cov.txt`, `flagdiff.txt` |
 | `out/recomp/matchdecomp/` | `match.py`, `flagsweep.py`, `cases.txt`, `src/`, `blind/`, the toolchain evidence scripts |
 | `out/dev/research/pcrecomp/` | Notes on the pcrecomp pipeline and the hybrid approach |
+| `out/decomp/` | `DecompileAll.java` output for both Windows programs, `pre110/` baseline, `compare.py` |

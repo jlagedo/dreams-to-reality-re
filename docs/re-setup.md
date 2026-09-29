@@ -602,6 +602,23 @@ registers after calls, because the single `__watcall` model kills all four
 argument registers while Watcom only clobbers the ones carrying parameters
 ([spec 000](specs/000-the-recomp/spec.md), W7).
 
+### Whole-program decompilation: `DecompileAll.java`
+
+Read-only. It decompiles every non-external function with the program's own
+decompiler options, in parallel. The output goes to `<out-dir>/<program>.c`
+(address order) and `<out-dir>/<program>.tsv`. The TSV has one row per
+function: entry, name, size, convention, signature source, and the number of
+distinct `unaff_`, `extraout_` and `in_` variables and `WARNING` comments. The C
+is game-derived, so keep it under `out/`.
+
+```powershell
+. .\tools\dreams-env.ps1
+& (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') ghidra dreams -process WINDREAM.EXE -noanalysis -readOnly -scriptPath ghidra_scripts -postScript DecompileAll.java out\decomp
+```
+
+Both Windows programs take about 20 seconds each. Point it at a backup project
+to get a before-and-after comparison; spec 000 records the Watcom 11.0 one.
+
 ### `SetWatcall.java`
 
 Same convention on one function at a time, printing before and after. Useful

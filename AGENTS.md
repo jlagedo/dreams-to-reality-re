@@ -20,7 +20,7 @@
 | `re/boundaries/*.tsv` | Reviewed function-boundary fixes (missing entries, jump tables, data decoded as code, shared tails) for `ApplyBoundaries.java` |
 | `re/prototypes/*.tsv` | Prototypes proven by byte-exact Watcom 11.0 compiles, for `ApplyPrototypes.java` |
 | `ghidra_scripts/` | Java scripts for Ghidra |
-| `tools/` | Ghidra import and checkpoint PowerShell scripts; `lx-loader-watcom.cspec` for the DOS-build LE loader; `match_functions.py` cross-build function matcher; `match_identical.py` byte-identical code shared between binaries (CryoLib in the game); `find_modules.py` source-file blocks; `check_names.py` checks and applies the name registry; `sync_doc_comments.py` copies doc text into Ghidra comments |
+| `tools/` | Ghidra import and checkpoint PowerShell scripts; `lx-loader-watcom.cspec` for the DOS-build LE loader; `match_functions.py` cross-build function matcher; `match_identical.py` byte-identical code shared between binaries (CryoLib in the game); `find_modules.py` source-file blocks; `check_names.py` checks and applies the name registry; `sync_doc_comments.py` copies doc text into Ghidra comments; `fps_limit_launcher.py` starts the retail Windows build with a frame limiter patched in memory |
 | `ghidra/` | Local Ghidra project (gitignored) |
 | `out/` | Default toolkit output (gitignored) |
 
@@ -52,7 +52,7 @@ lives under the gitignored `out/` (generated code is game-derived; never commit)
 | Path | What |
 |---|---|
 | `out/recomp/pcrecomp/` | Upstream toolbox clone (github.com/sp00nznet/pcrecomp); `tools/lift/` lift32 lifter, `tools/ghidra/DumpBounds.java` |
-| `out/recomp/windream/` | GDIDREAM.EXE recomp build: `lift.py` (bounds.csv → `gen/`), `build.ps1` (clang-cl + Ninja), `run.ps1` (sandboxed run, scripted keys, snapshots), `runtime/` (hand-written Win32/DSound/GDI shims) |
+| `out/recomp/windream/` | GDIDREAM.EXE recomp build: `lift.py` (bounds.csv → `gen/`), `build.ps1` (clang-cl + Ninja), `run.ps1` (sandboxed run, scripted keys, snapshots), `runtime/` (hand-written Win32/DSound/GDI shims; `phys_hook.c` collision hooks), `debug/` (full-dump readers, collision invariant, Unicorn replay of one call) |
 | `out/recomp/difftest/` | Differential tests: a Watcom 11.0 test program (`-Cc wc106` for 10.6) native vs recompiled (`difftest.ps1`, `wat.ps1`, `coverage.py`) |
 | `out/recomp/nocturne/`, `out/recomp/pod-recomp/` | Reference recomp projects from the same author |
 | `out/dev/research/pcrecomp/` | Notes copied from pcrecomp and related projects (pipeline, hybrid approach, philosophy) |
