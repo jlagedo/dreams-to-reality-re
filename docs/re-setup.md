@@ -499,6 +499,109 @@ prototype model is.
 Ground truth: `FUN_0045c278` is `memcpy_` per the library match, and under
 `__watcall` it decompiles as a textbook `memcpy(dst, src, len)`.
 
+After the boundary pass below added 267 functions (2026-09-28), the re-run
+set 1,808 `__watcall` on both builds, kept the same 4 callbacks and 91 typed
+signatures, and skipped 162 (the new import thunks among them).
+
+### Function boundaries: `ReportBoundaries.java`, `ApplyBoundaries.java`
+
+`ReportBoundaries.java <out.tsv> [re\boundaries\<program>.tsv]` (read-only)
+lists every place control flow leaves a function body other than by a
+return, a jump to a function entry or a call to one:
+
+- **Leaving a body:** a fall-through out of it, a branch into another body
+  off its entry, a branch or call to code in no function.
+- **Code nobody owns:** runs of instructions in no function, and runs of
+  undefined non-filler bytes in the code section.
+
+With the fix list as second argument, rows whose target is a recorded shared
+tail are marked `recorded`.
+
+`ApplyBoundaries.java re\boundaries\<program>.tsv` applies the reviewed fixes:
+
+| Action | What it does |
+|---|---|
+| `function` | Create a missing entry. |
+| `body` | Rebuild a body from its flow. |
+| `data`, `guid` | Clear code decoded from data. `guid` also types the bytes as GUIDs, so later passes stop taking COM interface-ID pointers for code pointers. |
+| `table` | Resolve a hand-written jump table `CreateWatcomFunctions` does not recognise. |
+| `tail` | Record a Watcom shared epilogue. |
+
+Chain `CreateWatcomFunctions.java apply` after it: new functions contain
+switch dispatches whose tables nothing had defined.
+
+```powershell
+& (Join-Path (Get-DreamsSetting DREAMS_GHIDRA_ROOT) 'support\analyzeHeadless.bat') `
+  ghidra dreams -process WINDREAM.EXE -noanalysis -scriptPath ghidra_scripts `
+  -postScript ApplyBoundaries.java re\boundaries\WINDREAM.EXE.tsv `
+  -postScript CreateWatcomFunctions.java apply `
+  -postScript ReportBoundaries.java out\ghidra\boundaries\WINDREAM.EXE.tsv re\boundaries\WINDREAM.EXE.tsv
+```
+
+Found and applied on 2026-09-28, both Windows builds (same list):
+
+| Measure | Before | After |
+|---|---:|---:|
+| Functions | 1,907 | 2,174 |
+| Instructions in no function | 17,880 bytes | 1 byte (the `int3` pad at `0x401000`) |
+| Undefined non-filler bytes in the code section | 33,966 | 9,095 |
+
+What was wrong:
+
+- **Missing entries after a Watcom switch table** (`0x473360`, 11,471 bytes;
+  `0x47e384`, `Build_Obj_Miror_` in the localized OMF records;
+  `0x463ec4`; `0x4564e4`; `0x458734`; `0x4588d4`). Their case code had been
+  disassembled from the tables' relocated pointers but belonged to no
+  function.
+- **Uncalled runtime helpers:** three reached from `freopen_`, `tmpfile_`
+  and `signal_`.
+- **HNM6 refills outside the decoders:** the seven HNM6 inter-block decoders'
+  out-of-line bit-reader refills (27-byte stubs that jump back) were outside
+  their bodies (`HNM6_DecodeInterBlock8x8` grows from 1,190 to 1,649 bytes).
+- **An unresolved blitter table:** the hand-written blitter `FUN_00401090`
+  dispatches 16 variants through `jmp [eax+0x40148a]`, a table
+  `CreateWatcomFunctions` cannot see; its body grows from 182 to 1,017
+  bytes.
+- **GUIDs decoded as code:** ten DirectDraw interface IDs at `0x4452f8` were
+  decoded as instructions.
+- **Dead functions:** 249 were never called, jumped to or pointed at. These
+  are 107 import thunks, 105 functions with ordinary prologues (among them
+  `Update_Obj_` `0x47e634` and `Update_Hierarchie_` `0x47e7ac`), and small
+  runtime helpers. They were proposed with Ghidra's `isValidSubroutine`
+  test, and nine fragments were rejected by hand.
+- **Shared tails:** 40 targets of cross-function jumps are recorded as
+  tails. They are Watcom runtime epilogues, the HNM6 inter decoders jumping
+  into the intra decoders, `MDL_BindTreeMaterials` into `MDL_RelocNodeTree`,
+  and the `pop fs; popad; ret` exit of the `0x402xxx` assembly.
+
+What is left undefined is mostly **dead blocks inside functions**: code a
+prologue jumps over and nothing reaches, such as 1,206 bytes in
+`TEXT_LoadLanguageIni` and 3,409 in `FUN_00431db5`. They are not boundary
+errors and are left alone.
+
+### Proven prototypes: `ApplyPrototypes.java`
+
+`re/prototypes/<program>.tsv` lists functions whose C, compiled with Watcom
+11.0 under the game's flags, is byte-identical to retail
+(`out/recomp/matchdecomp/match.py`; see
+[spec 000](specs/000-the-recomp/spec.md), W3). Such a match fixes the
+parameter count, each parameter's width and signedness, and the return type.
+`ApplyPrototypes.java re\prototypes\<program>.tsv` applies them as
+`USER_DEFINED` `__watcall` signatures without touching names, skips
+float/double prototypes as `ApplyWatcomHeaders.java` does, and writes a
+`[PROTO]` plate paragraph with the flags and evidence. `ApplyWatcall.java`
+keeps `USER_DEFINED` signatures, so the order of the two does not matter.
+Variadic prototypes are applied as `__cdecl`: Watcom passes variadic
+arguments on the stack, and the caller cleans up.
+
+On 2026-09-28 the list held 131 prototypes. They came from the `MATH_`
+pilot, the blind test and 107 port-map functions. 130 are applied to both
+Windows programs; `ANIM_ApplyEase` returns `float` and is skipped. None of
+the 131 decompiles with an `unaff_` register. Some still read `extraout_`
+registers after calls, because the single `__watcall` model kills all four
+argument registers while Watcom only clobbers the ones carrying parameters
+([spec 000](specs/000-the-recomp/spec.md), W7).
+
 ### `SetWatcall.java`
 
 Same convention on one function at a time, printing before and after. Useful

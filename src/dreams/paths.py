@@ -17,11 +17,20 @@ VARIABLES = {
     "disc2": "DREAMS_DISC2",
     "install_root": "DREAMS_INSTALL_ROOT",
     "watcom": "DREAMS_WATCOM",
+    "watcom_compiler": "DREAMS_WATCOM_COMPILER",
+    "watcom_compiler_106": "DREAMS_WATCOM_COMPILER_106",
     "work_root": "DREAMS_WORK_ROOT",
     "extract": "DREAMS_EXTRACT",
     "out": "DREAMS_OUT",
     "ghidra": "DREAMS_GHIDRA_ROOT",
     "na_game_tool": "DREAMS_NA_GAME_TOOL",
+}
+
+# Installed Watcom compilers under DREAMS_WATCOM, used when the compiler
+# variables are unset. The Windows builds are 11.0; the DOS builds link 10.6.
+COMPILERS = {
+    "watcom_compiler": Path("wc110", "11.0"),
+    "watcom_compiler_106": Path("wc106", "watcom10.6"),
 }
 
 
@@ -69,6 +78,9 @@ def configured(key: str) -> Path | None:
     if key == "extract":
         work = _value("DREAMS_WORK_ROOT", local)
         return Path(work).expanduser().resolve() / "extract" if work else None
+    if key in COMPILERS:
+        watcom = _value("DREAMS_WATCOM", local)
+        return Path(watcom).expanduser().resolve() / COMPILERS[key] if watcom else None
     return None
 
 
@@ -99,6 +111,8 @@ def describe() -> list[tuple[str, Path | None, bool]]:
         "disc2",
         "install_root",
         "watcom",
+        "watcom_compiler",
+        "watcom_compiler_106",
         "work_root",
         "extract",
         "out",

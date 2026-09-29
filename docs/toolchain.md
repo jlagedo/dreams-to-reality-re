@@ -24,8 +24,11 @@ game is not 10.5, and the DOS builds do link the 10.6 runtime. Steps 3–6 are
 the evidence for the revised verdict.
 
 Compiler flags for matching Windows code (step 6): most of Cryo's Windows code
-was compiled **unoptimized with stack checking**, reproduced by `-5r -od`
-(each function starts `push N; call __CHK`). The optimized modules are
+was compiled **unoptimized with stack checking and full debug info**,
+reproduced by `-5r -d2` (each function starts `push N; call __CHK`). `-d2`
+implies `-od` and also turns off the jump folding and register reuse that
+plain `-od` still does. 92 byte-exact unoptimized functions all match under
+`-5r -d2`, and 56 of them only under it (step 6). The optimized modules are
 reproduced by `-5r -otexan -s`; `-4r`/`-6r` and `-oaxt`/`-oneatx` give the
 same bytes, while `-3r` and plain `-ox` do not.
 
@@ -202,8 +205,28 @@ byte for byte with retail; relocated bytes are wildcards. **[verified]**
   runtime's `scanf` code that may be unrecognised library code: `0x4896ec`
   (10.6-exact) and two hand-written assembly routines, `0x48a64a` and
   `0x48d7e8`. Besides those two, `0x40464f` and `VID_Lock` (`0x445bf2`)
-  matched under neither compiler: retail has a `je +2; jmp` branch that
-  neither produces from any C tried.
+  matched under neither compiler with the `-5r -od` the test used. Retail
+  has a `je +2; jmp` branch there. Rescored under 11.0 `-5r -d2` on
+  2026-09-28, five attempts at each are exact; `-d2` keeps the conditional
+  jump over a `jmp` that `-od` folds.
+- **Port-map sweep, 126 functions** (2026-09-28;
+  [spec 000](specs/000-the-recomp/spec.md), W3). Every retail function in
+  `opendreams/port-map.tsv` of at most 500 bytes, runtime library excluded,
+  was written as C from the Ghidra decompilation and compiled under 11.0
+  (at most 10 compiles each). This is not blind: the writers knew the
+  compiler.
+
+  | Outcome | Functions |
+  |---|---:|
+  | Byte-exact, unoptimized (`-5r -d2`) | 92 |
+  | Byte-exact, optimized (`-5r -otexan -s`) | 15 |
+  | Hand-written assembly: `pushad`, results in `EDI`, `stc`/`adc` bit refills | 9 |
+  | Optimized, only register allocation or instruction order differs | 9 |
+  | Unoptimized, off by two stack slots | 1 |
+
+  Two of the hand-written routines match only as a naked `_asm` body.
+
+  The same 107 exact sources compiled with 10.6 (same flags) give 15 exact.
 
 The scripts for steps 3–6 are in `out/recomp/matchdecomp/` (local, not
 committed): `libversion.py`, `linkver.ps1`, `fpscan.py`, `fpruns.py`,
@@ -417,10 +440,11 @@ residue in `engine.md`. Confirming it needs a different technique.
 4. ~~The Windows runtime-name pass still uses the 10.6 libraries.~~ Resolved
    2026-09-28: 11.0's libraries and headers, applied to both Windows programs
    (above).
-5. Some retail debug-built code has a `je +2; jmp` branch (`VID_Lock`
-   `0x445bf2`, `CD_ResumeAudio` `0x40464f`) and reloads locals the way only
-   `volatile` reproduces. Neither `-od`, `-d1` nor `-d2` explains this, so
-   the Windows debug flags are not fully known. **[unverified]**
+5. ~~Some retail debug-built code has a `je +2; jmp` branch and reloads
+   locals the way only `volatile` reproduces.~~ Resolved 2026-09-28: 11.0
+   `-5r -d2` produces both (`VID_Lock` `0x445bf2`, `CD_ResumeAudio`
+   `0x40464f` and 56 port-map functions match only with it). `-d1+` and `-d3`
+   give the same code; `-d1` does not. **[verified]**
 6. Which object files in `DREAMS.EXE` and `DREAMSFX.EXE` are 10.6 and which
    11.0 is known only as address runs (step 5), not mapped to source files
    (`tools/find_modules.py`).

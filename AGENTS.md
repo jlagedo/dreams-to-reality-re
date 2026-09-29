@@ -17,6 +17,8 @@
 | `re/symbols/*.tsv` | Saved Ghidra symbols and comments |
 | `re/names/*.tsv` | Function-name registry: each name's kind, sources and machine-checked facts (`tools/check_names.py`) |
 | `re/structs/` | C layouts and typed-global lists for Ghidra (`windream.h`, `directx.h`, `windream-globals.tsv`) |
+| `re/boundaries/*.tsv` | Reviewed function-boundary fixes (missing entries, jump tables, data decoded as code, shared tails) for `ApplyBoundaries.java` |
+| `re/prototypes/*.tsv` | Prototypes proven by byte-exact Watcom 11.0 compiles, for `ApplyPrototypes.java` |
 | `ghidra_scripts/` | Java scripts for Ghidra |
 | `tools/` | Ghidra import and checkpoint PowerShell scripts; `lx-loader-watcom.cspec` for the DOS-build LE loader; `match_functions.py` cross-build function matcher; `match_identical.py` byte-identical code shared between binaries (CryoLib in the game); `find_modules.py` source-file blocks; `check_names.py` checks and applies the name registry; `sync_doc_comments.py` copies doc text into Ghidra comments |
 | `ghidra/` | Local Ghidra project (gitignored) |
@@ -51,12 +53,12 @@ lives under the gitignored `out/` (generated code is game-derived; never commit)
 |---|---|
 | `out/recomp/pcrecomp/` | Upstream toolbox clone (github.com/sp00nznet/pcrecomp); `tools/lift/` lift32 lifter, `tools/ghidra/DumpBounds.java` |
 | `out/recomp/windream/` | GDIDREAM.EXE recomp build: `lift.py` (bounds.csv → `gen/`), `build.ps1` (clang-cl + Ninja), `run.ps1` (sandboxed run, scripted keys, snapshots), `runtime/` (hand-written Win32/DSound/GDI shims) |
-| `out/recomp/difftest/` | Differential tests: Watcom 10.6 test program native vs recompiled (`difftest.ps1`, `wat.ps1`, `coverage.py`) |
+| `out/recomp/difftest/` | Differential tests: a Watcom 11.0 test program (`-Cc wc106` for 10.6) native vs recompiled (`difftest.ps1`, `wat.ps1`, `coverage.py`) |
 | `out/recomp/nocturne/`, `out/recomp/pod-recomp/` | Reference recomp projects from the same author |
 | `out/dev/research/pcrecomp/` | Notes copied from pcrecomp and related projects (pipeline, hybrid approach, philosophy) |
-| `out/recomp/matchdecomp/` | Matching decompilation: `match.py <c> <func_> <va> --cc wc110 --flags "-5r -otexan -s"` byte-diffs a compiled function against WINDREAM.EXE; `flagsweep.py`, `cases.txt`, `src/` |
+| `out/recomp/matchdecomp/` | Matching decompilation: `match.py <c> <func_> <va> [--flags "-5r -otexan -s"]` byte-diffs a compiled function against WINDREAM.EXE (defaults: Watcom 11.0 from `DREAMS_WATCOM_COMPILER`, `-5r -d2`); `flagsweep.py`, `cases.txt`, `src/`, `proto/` (spec 000 W3 prototype matches) |
 
-Toolchains (evidence: `matchdecomp/fpscan.py`, `fpruns.py`, `libversion.py`, `linkver.ps1`): WINDREAM/GDIDREAM are **Watcom 11.0** throughout (compiler, linker, runtime; not 11.0a); DREAMS.EXE and DREAMSFX.EXE link the 10.6 runtime and mix 10.6- and 11.0-compiled object files by address range (DREAMSFX's 10.6 code uses `-d1+`). Match flags: most Windows game code is unoptimized and stack-checked, `-5r -od` (retail starts `push N; call __CHK`); optimized modules use `-5r -otexan -s`. Blind 24-function test and its scripts: `matchdecomp/blind/` (`tally.py`). Compilers under `DREAMS_WATCOM`: `wc106`, `wc110\11.0`, `wc110\11.0a`. Evidence and flags: `docs/toolchain.md`.
+Toolchains (evidence: `matchdecomp/fpscan.py`, `fpruns.py`, `libversion.py`, `linkver.ps1`): WINDREAM/GDIDREAM are **Watcom 11.0** throughout (compiler, linker, runtime; not 11.0a); DREAMS.EXE and DREAMSFX.EXE link the 10.6 runtime and mix 10.6- and 11.0-compiled object files by address range (DREAMSFX's 10.6 code uses `-d1+`). Match flags: most Windows game code is unoptimized, stack-checked and built with debug info, `-5r -d2` (retail starts `push N; call __CHK`; plain `-od` misses the `je +2; jmp` branches); optimized modules use `-5r -otexan -s`. Blind 24-function test and its scripts: `matchdecomp/blind/` (`tally.py`). Compilers under `DREAMS_WATCOM`: `wc106`, `wc110\11.0`, `wc110\11.0a`. Evidence and flags: `docs/toolchain.md`.
 
 ## Local paths
 
@@ -65,6 +67,7 @@ Toolchains (evidence: `matchdecomp/fpscan.py`, `fpruns.py`, `libversion.py`, `li
 | `DREAMS_DISC1`, `DREAMS_DISC2` | Extracted game discs |
 | `DREAMS_INSTALL_ROOT` | Optional retail installation/cache tree for local comparisons; never a disc source |
 | `DREAMS_WATCOM` | Watcom reference files |
+| `DREAMS_WATCOM_COMPILER`, `DREAMS_WATCOM_COMPILER_106` | Optional; the 11.0 and 10.6 compilers for matching decompilation (default `DREAMS_WATCOM\wc110\11.0`, `DREAMS_WATCOM\wc106\watcom10.6`) |
 | `DREAMS_WORK_ROOT` | Scratch and generated content; extraction defaults to its `extract/` subdirectory |
 | `DREAMS_GHIDRA_ROOT` | Ghidra installation |
 | `DREAMS_EXTRACT`, `DREAMS_OUT` | Optional output overrides (`extract/`, `out/`) |
@@ -200,6 +203,10 @@ accepts `-SkipExport` when the Ghidra GUI has the project open and `-Programs`
 both programs first. Type passes that `ImportSymbols.java` does not restore
 (re-run on a fresh project): `FixWatcomBss.java` (automatic on import),
 `ApplyWatcomSigs.java` + `ApplyWatcomHeaders.java` (Watcom runtime, from
-`DREAMS_WATCOM`), `ApplyTypes.java re/structs/directx.h
+`DREAMS_WATCOM`), `ApplyBoundaries.java re/boundaries/<program>.tsv` then
+`CreateWatcomFunctions.java apply` (reviewed function-boundary fixes; check
+with `ReportBoundaries.java`), `ApplyPrototypes.java
+re/prototypes/<program>.tsv` (prototypes proven by byte-exact Watcom 11.0
+compiles), `ApplyWatcall.java`, `ApplyTypes.java re/structs/directx.h
 re/structs/windream-globals.tsv` (Windows DirectX globals). See
 `docs/re-setup.md` for the full command reference.

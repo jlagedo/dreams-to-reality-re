@@ -1459,7 +1459,9 @@ Details and numbers are in [toolchain.md](toolchain.md), steps 3–6.
   byte-exact in `DREAMS.EXE`; built with 10.6 and `-d1+`, six of seven are
   byte-exact in `DREAMSFX.EXE`.
 - **Build settings [verified]**: most of the Windows game code is unoptimized
-  with stack checking (`-5r -od`); optimized modules match `-5r -otexan -s`.
+  with stack checking and debug info. The first reading was `-5r -od`; the
+  port-map sweep below corrected it to `-5r -d2`. Optimized modules match
+  `-5r -otexan -s`.
 - The Open Watcom v2 and 1.9 compilers were tried first. Both prefer ECX but
   never split memory operands the way retail does, which pointed to a
   compiler between 10.6 and the open-source line.
@@ -1475,6 +1477,34 @@ Details and numbers are in [toolchain.md](toolchain.md), steps 3–6.
   it and was still on Ghidra's `__stdcall`/`__fastcall` guesses. Four Win32
   callbacks, the WndProc among them, are now `__stdcall`; they had been
   unset. Details in `re-setup.md`.
+- **The recomp instruments on 11.0 [verified]**
+  ([spec 000](specs/000-the-recomp/spec.md), W1):
+  - `match.py` and `difftest` build with 11.0 by default.
+  - The recompiled game, re-lifted from the new function lists, still
+    reaches level loading.
+  - The differential tests' x87 math failures persist under 11.0, so they
+    are lifter bugs.
+- **Function boundaries [verified]** (W2):
+  - `ReportBoundaries.java` found 17,880 bytes of instructions in no
+    function. Most were whole functions whose entry sits after a Watcom
+    switch table; there were also HNM6 refill stubs outside their decoders,
+    an unscaled blitter jump table, and DirectDraw GUIDs decoded as code.
+  - `ApplyBoundaries.java` applies the reviewed list in `re/boundaries/`.
+    Both Windows builds go from 1,907 to 2,174 functions, including 249 dead
+    ones.
+  - The dead functions include `Update_Obj_` and `Update_Hierarchie_`, named
+    in the Dutch and Spanish OMF records.
+- **Proven prototypes [verified]** (W3):
+  - 107 of 126 port-map functions compile byte-identical under 11.0. The
+    same sources give 15 under 10.6.
+  - All 92 unoptimized matches need nothing beyond `-5r -d2`, and 56 need
+    it. `-d2` also turns the blind test's two "neither compiler" functions
+    exact.
+  - 131 prototypes are tracked in `re/prototypes/` and applied by
+    `ApplyPrototypes.java`.
+  - Retail prologues show that Watcom callees preserve every register not
+    carrying a parameter. The single `__watcall` model does not, which
+    leaves `extraout_` reads (W7).
 
 ## Sources
 

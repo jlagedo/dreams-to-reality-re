@@ -8,6 +8,7 @@ docs do.
 | Doc | Contents |
 |---|---|
 | [north-star.md](north-star.md) | **OpenDreams, the engine we are building**: goal, decisions (C++17, SDL3, sokol_gfx, native loaders), the original game code ported as a fixed-step loop with a free GPU renderer, milestones, the RE work it depends on |
+| [Spec 000 — the recomp](specs/000-the-recomp/spec.md) | The static recompilation, differential tests and matching decompilation under `out/recomp/`; W1–W3 done: tools on Watcom 11.0, function boundaries fixed in Ghidra, 131 prototypes proven by byte-exact compiles |
 | [Spec 001 — project initialization](specs/001-project-init/spec.md) | C/C++ foundation, build/dependencies and two runnable Hello World applications through SDL3, sokol and Dear ImGui |
 | [Spec 002 — disc and source-asset navigation](specs/002-disc-navigation/spec.md) | Browser requirements for cue/bin images, source files, indexed entries, project references and tracks; no media previews or playback |
 | [Spec 003 — ODViewer asset previews and playback](specs/003-level-load-preview/spec.md) | Single viewer implementation spec; CAI/Project 71, HNM5/HNM6 movies, static image previews, and FSB/DRD/CD audio playback are implemented |

@@ -1,0 +1,312 @@
+# Function-boundary fixes for GDIDREAM.EXE (same bytes at these addresses as WINDREAM.EXE), applied by ghidra_scripts/ApplyBoundaries.java.
+# Found with ReportBoundaries.java; see docs/specs/000-the-recomp/spec.md (W2).
+address	action	length	note
+00401010	function		unreferenced: no call, jump or relocated pointer reaches it (42 bytes, starts push ebx)
+004014fb	function		unreferenced: no call, jump or relocated pointer reaches it (41 bytes, starts push eax)
+0040214c	function		unreferenced: no call, jump or relocated pointer reaches it (149 bytes, starts mov edx,dword ptr [ebp + 0x14])
+00403385	function		unreferenced: no call, jump or relocated pointer reaches it (774 bytes, starts pushad)
+004040c8	function		unreferenced: no call, jump or relocated pointer reaches it (55 bytes, starts pushad)
+00404100	function		unreferenced: no call, jump or relocated pointer reaches it (21 bytes, starts pushad)
+00455254	function		unreferenced: no call, jump or relocated pointer reaches it (6 bytes, starts mov eax,[0x00661ee4])
+00455274	function		unreferenced: no call, jump or relocated pointer reaches it (4 bytes, starts mov eax,dword ptr [eax + 0x4])
+00455288	function		unreferenced: no call, jump or relocated pointer reaches it (27 bytes, starts push edx)
+004552a4	function		unreferenced: no call, jump or relocated pointer reaches it (95 bytes, starts push ebx)
+004553c8	function		unreferenced: no call, jump or relocated pointer reaches it (45 bytes, starts push ebx)
+004564e4	function		entry after a 6-entry switch table at 004564cc; called from 00456855
+0045682c	function		unreferenced: no call, jump or relocated pointer reaches it (79 bytes, starts push ecx)
+0045687c	function		unreferenced: no call, jump or relocated pointer reaches it (40 bytes, starts push edx)
+00456a48	function		unreferenced: no call, jump or relocated pointer reaches it (14 bytes, starts mov eax,dword ptr [esp + 0x4])
+00456e0c	function		unreferenced: no call, jump or relocated pointer reaches it (24 bytes, starts cmp eax,0x43443346)
+004573d4	function		unreferenced: no call, jump or relocated pointer reaches it (72 bytes, starts push ebx)
+00457468	function		unreferenced: no call, jump or relocated pointer reaches it (28 bytes, starts call 0x00455358)
+0045749c	function		unreferenced: no call, jump or relocated pointer reaches it (22 bytes, starts call 0x00455358)
+004574b4	function		unreferenced: no call, jump or relocated pointer reaches it (28 bytes, starts call 0x00455358)
+004574d0	function		unreferenced: no call, jump or relocated pointer reaches it (28 bytes, starts call 0x00455358)
+004574ec	function		unreferenced: no call, jump or relocated pointer reaches it (230 bytes, starts push ecx)
+004575d4	function		unreferenced: no call, jump or relocated pointer reaches it (179 bytes, starts push esi)
+0045774c	function		unreferenced: no call, jump or relocated pointer reaches it (127 bytes, starts push ecx)
+00457884	function		unreferenced: no call, jump or relocated pointer reaches it (19 bytes, starts push edx)
+00457898	function		unreferenced: no call, jump or relocated pointer reaches it (101 bytes, starts push ecx)
+00457b44	function		unreferenced: no call, jump or relocated pointer reaches it (78 bytes, starts push ecx)
+00457b94	function		unreferenced: no call, jump or relocated pointer reaches it (97 bytes, starts push ecx)
+00457bf8	function		unreferenced: no call, jump or relocated pointer reaches it (65 bytes, starts push ebx)
+00457c90	function		unreferenced: no call, jump or relocated pointer reaches it (64 bytes, starts push ecx)
+00457cd0	function		unreferenced: no call, jump or relocated pointer reaches it (82 bytes, starts push ecx)
+00457d24	function		unreferenced: no call, jump or relocated pointer reaches it (236 bytes, starts push ecx)
+00457e10	function		unreferenced: no call, jump or relocated pointer reaches it (711 bytes, starts push ecx)
+0045815c	function		unreferenced: entry after the 19-byte function at 00458148
+004581ac	function		unreferenced: entry after the ret at 004581ab
+004581fc	function		unreferenced: no call, jump or relocated pointer reaches it (49 bytes, starts push ecx)
+00458230	function		unreferenced: no call, jump or relocated pointer reaches it (339 bytes, starts push ecx)
+00458384	function		unreferenced: no call, jump or relocated pointer reaches it (60 bytes, starts push ebx)
+004583c0	function		unreferenced: no call, jump or relocated pointer reaches it (17 bytes, starts push edx)
+004583d4	function		unreferenced: no call, jump or relocated pointer reaches it (6 bytes, starts mov [0x006726d8],eax)
+004583dc	function		unreferenced: no call, jump or relocated pointer reaches it (77 bytes, starts push ebx)
+0045842c	function		unreferenced: no call, jump or relocated pointer reaches it (6 bytes, starts mov [0x004aa704],eax)
+00458434	function		unreferenced: no call, jump or relocated pointer reaches it (584 bytes, starts push ecx)
+00458734	function		entry after a 46-entry switch table at 0045867c; called from 0042c23f
+004588d4	function		unreferenced: entry after a 46-entry switch table at 0045881c
+004592fc	function		unreferenced: no call, jump or relocated pointer reaches it (35 bytes, starts push edx)
+00459460	function		unreferenced: no call, jump or relocated pointer reaches it (526 bytes, starts push esi)
+00459670	function		unreferenced: no call, jump or relocated pointer reaches it (400 bytes, starts push esi)
+0045a570	function		unreferenced: no call, jump or relocated pointer reaches it (952 bytes, starts push esi)
+0045afa0	function		unreferenced: no call, jump or relocated pointer reaches it (153 bytes, starts push ebx)
+0045b0fc	function		unreferenced: no call, jump or relocated pointer reaches it (40 bytes, starts push ecx)
+0045b124	function		unreferenced: no call, jump or relocated pointer reaches it (40 bytes, starts push ecx)
+0045b14c	function		unreferenced: no call, jump or relocated pointer reaches it (8 bytes, starts mov eax,dword ptr [eax*0x4 + 0x661ff0])
+0045b508	function		unreferenced: no call, jump or relocated pointer reaches it (448 bytes, starts push ecx)
+0045b6c8	function		unreferenced: no call, jump or relocated pointer reaches it (419 bytes, starts push ecx)
+0045b9cc	function		unreferenced: no call, jump or relocated pointer reaches it (65 bytes, starts push ecx)
+0045ba38	function		unreferenced: no call, jump or relocated pointer reaches it (53 bytes, starts push ecx)
+0045baf8	function		unreferenced: no call, jump or relocated pointer reaches it (79 bytes, starts push esi)
+0045bbd4	function		unreferenced: no call, jump or relocated pointer reaches it (47 bytes, starts push ebx)
+0045bc04	function		unreferenced: no call, jump or relocated pointer reaches it (35 bytes, starts push ebx)
+0045c150	function		unreferenced: no call, jump or relocated pointer reaches it (63 bytes, starts sub esp,0x4)
+0045c1fc	function		unreferenced: no call, jump or relocated pointer reaches it (12 bytes, starts fld double ptr [esp + 0x4])
+0045c238	function		unreferenced: no call, jump or relocated pointer reaches it (2 bytes, starts mov al,0x3)
+0045ccd4	function		unreferenced: no call, jump or relocated pointer reaches it (12 bytes, starts sub dword ptr [0x004aa9bc],0x18)
+0045ccf4	function		unreferenced: no call, jump or relocated pointer reaches it (12 bytes, starts sub dword ptr [0x004aa9c0],0xc)
+0045cd00	function		unreferenced: no call, jump or relocated pointer reaches it (29 bytes, starts push edx)
+0045de54	function		unreferenced: no call, jump or relocated pointer reaches it (292 bytes, starts push ebp)
+0045e8e8	function		unreferenced: no call, jump or relocated pointer reaches it (103 bytes, starts push ecx)
+0045e950	function		unreferenced: no call, jump or relocated pointer reaches it (176 bytes, starts push esi)
+0045ea00	function		unreferenced: no call, jump or relocated pointer reaches it (1796 bytes, starts push esi)
+0045f104	function		unreferenced: no call, jump or relocated pointer reaches it (352 bytes, starts push esi)
+0045f264	function		unreferenced: no call, jump or relocated pointer reaches it (57 bytes, starts push ecx)
+0045f52c	function		unreferenced: no call, jump or relocated pointer reaches it (11 bytes, starts mov byte ptr [eax + 0x10],dl)
+0045ffdf	function		runtime helper called by freopen_
+0046115c	function		unreferenced: no call, jump or relocated pointer reaches it (471 bytes, starts push ebx)
+00461334	function		unreferenced: no call, jump or relocated pointer reaches it (377 bytes, starts push edi)
+004614b0	function		unreferenced: no call, jump or relocated pointer reaches it (107 bytes, starts push ebx)
+0046151c	function		unreferenced: no call, jump or relocated pointer reaches it (12 bytes, starts call 0x00455358)
+00461528	function		unreferenced: no call, jump or relocated pointer reaches it (39 bytes, starts push ecx)
+00461550	function		unreferenced: no call, jump or relocated pointer reaches it (346 bytes, starts push esi)
+00463e6c	function		unreferenced: no call, jump or relocated pointer reaches it (5 bytes, starts xor eax,eax)
+00463ec4	function		entry after a 20-entry switch table at 00463e74; called from 004653b8, 00465480
+004642e0	function		unreferenced: no call, jump or relocated pointer reaches it (82 bytes, starts push edx)
+00464334	function		unreferenced: no call, jump or relocated pointer reaches it (71 bytes, starts push ebx)
+0046437c	function		unreferenced: no call, jump or relocated pointer reaches it (452 bytes, starts push ebx)
+00464540	function		unreferenced: no call, jump or relocated pointer reaches it (762 bytes, starts push ecx)
+0046483c	function		unreferenced: no call, jump or relocated pointer reaches it (84 bytes, starts push ebx)
+00464890	function		unreferenced: no call, jump or relocated pointer reaches it (114 bytes, starts push ebx)
+00464904	function		unreferenced: no call, jump or relocated pointer reaches it (102 bytes, starts push esi)
+0046496c	function		unreferenced: no call, jump or relocated pointer reaches it (121 bytes, starts push esi)
+004649e8	function		unreferenced: no call, jump or relocated pointer reaches it (2185 bytes, starts push ebx)
+00465274	function		unreferenced: no call, jump or relocated pointer reaches it (415 bytes, starts push esi)
+00465414	function		unreferenced: no call, jump or relocated pointer reaches it (192 bytes, starts push esi)
+004655b0	function		unreferenced: no call, jump or relocated pointer reaches it (234 bytes, starts push esi)
+00466104	function		unreferenced: no call, jump or relocated pointer reaches it (111 bytes, starts push ebx)
+00466174	function		unreferenced: no call, jump or relocated pointer reaches it (400 bytes, starts push ebx)
+00466304	function		unreferenced: no call, jump or relocated pointer reaches it (400 bytes, starts push ebx)
+00466500	function		unreferenced: no call, jump or relocated pointer reaches it (159 bytes, starts push ebx)
+004665c0	function		unreferenced: no call, jump or relocated pointer reaches it (6 bytes, starts mov [0x004ac748],eax)
+00473360	function		unreferenced: entry after a 46-entry switch table at 004732a8
+0047673c	function		unreferenced: no call, jump or relocated pointer reaches it (120 bytes, starts push ebx)
+004767b4	function		unreferenced: no call, jump or relocated pointer reaches it (93 bytes, starts push ebx)
+00477448	function		unreferenced: no call, jump or relocated pointer reaches it (16 bytes, starts push edx)
+00477dc4	function		unreferenced: no call, jump or relocated pointer reaches it (35 bytes, starts push ecx)
+00477de8	function		unreferenced: no call, jump or relocated pointer reaches it (44 bytes, starts push ebx)
+00477e98	function		unreferenced: no call, jump or relocated pointer reaches it (35 bytes, starts push ecx)
+00477ebc	function		unreferenced: no call, jump or relocated pointer reaches it (35 bytes, starts push ecx)
+004786c6	function		unreferenced: no call, jump or relocated pointer reaches it (11 bytes, starts test edx,edx)
+0047b304	function		unreferenced: no call, jump or relocated pointer reaches it (202 bytes, starts push ebx)
+0047e384	function		unreferenced: entry after a 46-entry switch table at 0047e2cc; Build_Obj_Miror_ in the Dutch and Spanish OMF records
+0047e634	function		Update_Obj_ in the Dutch and Spanish OMF records; unreferenced: no call, jump or relocated pointer reaches it (201 bytes, starts push ebx)
+0047e7ac	function		Update_Hierarchie_ in the Dutch and Spanish OMF records; unreferenced: no call, jump or relocated pointer reaches it (118 bytes, starts push ebx)
+0047e824	function		unreferenced: no call, jump or relocated pointer reaches it (301 bytes, starts push ecx)
+0047e98f	function		unreferenced: no call, jump or relocated pointer reaches it (12 bytes, starts fld double ptr [esp + 0x4])
+0047eb1d	function		unreferenced: no call, jump or relocated pointer reaches it (10 bytes, starts cmp byte ptr [0x004aa76d],0x0)
+0047fa10	function		unreferenced: no call, jump or relocated pointer reaches it (132 bytes, starts xor esi,esi)
+0047fada	function		unreferenced: no call, jump or relocated pointer reaches it (70 bytes, starts push ebx)
+00485a63	function		unreferenced: no call, jump or relocated pointer reaches it (11 bytes, starts mov dword ptr [0x004c2844],0x1)
+00486630	function		unreferenced: no call, jump or relocated pointer reaches it (25 bytes, starts cmp eax,0xf)
+0048664c	function		unreferenced: no call, jump or relocated pointer reaches it (6 bytes, starts mov [0x006808f4],eax)
+00486654	function		unreferenced: no call, jump or relocated pointer reaches it (234 bytes, starts push ebx)
+00486740	function		unreferenced: no call, jump or relocated pointer reaches it (94 bytes, starts push ecx)
+004867a0	function		unreferenced: no call, jump or relocated pointer reaches it (212 bytes, starts push ecx)
+00486874	function		unreferenced: no call, jump or relocated pointer reaches it (41 bytes, starts push edx)
+004868a0	function		unreferenced: no call, jump or relocated pointer reaches it (41 bytes, starts push edx)
+004868cc	function		unreferenced: no call, jump or relocated pointer reaches it (241 bytes, starts push ebx)
+00488ae4	function		unreferenced: no call, jump or relocated pointer reaches it (2 bytes, starts mov al,0x4)
+00488b46	function		unreferenced: no call, jump or relocated pointer reaches it (12 bytes, starts fld double ptr [esp + 0x4])
+0048a0dd	function		runtime helper called by tmpfile_
+0048a0e7	function		unreferenced: no call, jump or relocated pointer reaches it (10 bytes, starts call dword ptr [0x004ac764])
+0048a617	function		unreferenced: no call, jump or relocated pointer reaches it (24 bytes, starts push eax)
+0048a62f	function		unreferenced: no call, jump or relocated pointer reaches it (17 bytes, starts pushad)
+00497c5f	function		unreferenced: no call, jump or relocated pointer reaches it (5 bytes, starts jmp 0x004602d5)
+00497e68	function		runtime helper called by signal_
+00498640	function		unreferenced: no call, jump or relocated pointer reaches it (6 bytes, starts mov [0x004c3070],eax)
+004995e4	function		unreferenced: no call, jump or relocated pointer reaches it (38 bytes, starts push eax)
+0049960c	function		unreferenced: no call, jump or relocated pointer reaches it (11 bytes, starts shl eax,0x4)
+00499618	function		unreferenced: no call, jump or relocated pointer reaches it (6 bytes, starts mov [0x006811fc],eax)
+00499620	function		unreferenced: no call, jump or relocated pointer reaches it (18 bytes, starts call 0x004995e4)
+00499634	function		unreferenced: no call, jump or relocated pointer reaches it (54 bytes, starts push ecx)
+0049966c	function		unreferenced: no call, jump or relocated pointer reaches it (69 bytes, starts push ecx)
+004996b4	function		unreferenced: no call, jump or relocated pointer reaches it (48 bytes, starts push ebx)
+004996e4	function		unreferenced: no call, jump or relocated pointer reaches it (33 bytes, starts push edx)
+00499708	function		unreferenced: no call, jump or relocated pointer reaches it (238 bytes, starts push ecx)
+004997f8	function		unreferenced: no call, jump or relocated pointer reaches it (121 bytes, starts push ebx)
+00499874	function		unreferenced: no call, jump or relocated pointer reaches it (96 bytes, starts push esi)
+004998e0	function		unreferenced: no call, jump or relocated pointer reaches it (263 bytes, starts push ebx)
+004999e8	function		unreferenced: no call, jump or relocated pointer reaches it (349 bytes, starts push ebx)
+00499c2c	function		unreferenced: no call, jump or relocated pointer reaches it (7 bytes, starts call dword ptr [0x004c3110])
+00499da0	function		unreferenced: no call, jump or relocated pointer reaches it (6 bytes, starts call dword ptr [0x004c311c])
+00499e09	function		unreferenced: no call, jump or relocated pointer reaches it (12 bytes, starts mov eax,0x83)
+00499e41	function		unreferenced: no call, jump or relocated pointer reaches it (12 bytes, starts mov eax,0x83)
+0049a359	function		unreferenced: no call, jump or relocated pointer reaches it (10 bytes, starts push ecx)
+0049b06c	function		unreferenced import thunk (jmp dword ptr [0x0049c350])
+0049b072	function		unreferenced import thunk (jmp dword ptr [0x0049c3f4])
+0049b078	function		unreferenced import thunk (jmp dword ptr [0x0049c364])
+0049b07e	function		unreferenced import thunk (jmp dword ptr [0x0049c2f8])
+0049b084	function		unreferenced import thunk (jmp dword ptr [0x0049c384])
+0049b08a	function		unreferenced import thunk (jmp dword ptr [0x0049c3d4])
+0049b090	function		unreferenced import thunk (jmp dword ptr [0x0049c398])
+0049b096	function		unreferenced import thunk (jmp dword ptr [0x0049c310])
+0049b09c	function		unreferenced import thunk (jmp dword ptr [0x0049c320])
+0049b0a2	function		unreferenced import thunk (jmp dword ptr [0x0049c324])
+0049b0a8	function		unreferenced import thunk (jmp dword ptr [0x0049c378])
+0049b0ae	function		unreferenced import thunk (jmp dword ptr [0x0049c344])
+0049b0b4	function		unreferenced import thunk (jmp dword ptr [0x0049c340])
+0049b0ba	function		unreferenced import thunk (jmp dword ptr [0x0049c370])
+0049b0c0	function		unreferenced import thunk (jmp dword ptr [0x0049c388])
+0049b0c6	function		unreferenced import thunk (jmp dword ptr [0x0049c35c])
+0049b0cc	function		unreferenced import thunk (jmp dword ptr [0x0049c318])
+0049b0d2	function		unreferenced import thunk (jmp dword ptr [0x0049c3dc])
+0049b0d8	function		unreferenced import thunk (jmp dword ptr [0x0049c3b8])
+0049b0de	function		unreferenced import thunk (jmp dword ptr [0x0049c348])
+0049b0e4	function		unreferenced import thunk (jmp dword ptr [0x0049c3ac])
+0049b0ea	function		unreferenced import thunk (jmp dword ptr [0x0049c3a4])
+0049b0f0	function		unreferenced import thunk (jmp dword ptr [0x0049c3bc])
+0049b0f6	function		unreferenced import thunk (jmp dword ptr [0x0049c3f8])
+0049b0fc	function		unreferenced import thunk (jmp dword ptr [0x0049c40c])
+0049b102	function		unreferenced import thunk (jmp dword ptr [0x0049c3cc])
+0049b108	function		unreferenced import thunk (jmp dword ptr [0x0049c36c])
+0049b10e	function		unreferenced import thunk (jmp dword ptr [0x0049c3b0])
+0049b114	function		unreferenced import thunk (jmp dword ptr [0x0049c2f4])
+0049b11a	function		unreferenced import thunk (jmp dword ptr [0x0049c2fc])
+0049b120	function		unreferenced import thunk (jmp dword ptr [0x0049c330])
+0049b126	function		unreferenced import thunk (jmp dword ptr [0x0049c328])
+0049b12c	function		unreferenced import thunk (jmp dword ptr [0x0049c32c])
+0049b132	function		unreferenced import thunk (jmp dword ptr [0x0049c2d4])
+0049b138	function		unreferenced import thunk (jmp dword ptr [0x0049c2a4])
+0049b13e	function		unreferenced import thunk (jmp dword ptr [0x0049c2e0])
+0049b144	function		unreferenced import thunk (jmp dword ptr [0x0049c2ec])
+0049b14a	function		unreferenced import thunk (jmp dword ptr [0x0049c2e4])
+0049b150	function		unreferenced import thunk (jmp dword ptr [0x0049c2bc])
+0049b156	function		unreferenced import thunk (jmp dword ptr [0x0049c2a0])
+0049b15c	function		unreferenced import thunk (jmp dword ptr [0x0049c298])
+0049b162	function		unreferenced import thunk (jmp dword ptr [0x0049c2d8])
+0049b168	function		unreferenced import thunk (jmp dword ptr [0x0049c268])
+0049b16e	function		unreferenced import thunk (jmp dword ptr [0x0049c2c0])
+0049b174	function		unreferenced import thunk (jmp dword ptr [0x0049c2c4])
+0049b17a	function		unreferenced import thunk (jmp dword ptr [0x0049c300])
+0049b180	function		unreferenced import thunk (jmp dword ptr [0x0049c25c])
+0049b186	function		unreferenced import thunk (jmp dword ptr [0x0049c26c])
+0049b18c	function		unreferenced import thunk (jmp dword ptr [0x0049c2dc])
+0049b192	function		unreferenced import thunk (jmp dword ptr [0x0049c274])
+0049b198	function		unreferenced import thunk (jmp dword ptr [0x0049c2b0])
+0049b19e	function		unreferenced import thunk (jmp dword ptr [0x0049c270])
+0049b1a4	function		unreferenced import thunk (jmp dword ptr [0x0049c2b4])
+0049b1aa	function		unreferenced import thunk (jmp dword ptr [0x0049c258])
+0049b1b0	function		unreferenced import thunk (jmp dword ptr [0x0049c260])
+0049b1b6	function		unreferenced import thunk (jmp dword ptr [0x0049c264])
+0049b1bc	function		unreferenced import thunk (jmp dword ptr [0x0049c27c])
+0049b1c2	function		unreferenced import thunk (jmp dword ptr [0x0049c284])
+0049b1c8	function		unreferenced import thunk (jmp dword ptr [0x0049c280])
+0049b1ce	function		unreferenced import thunk (jmp dword ptr [0x0049c290])
+0049b1d4	function		unreferenced import thunk (jmp dword ptr [0x0049c2ac])
+0049b1da	function		unreferenced import thunk (jmp dword ptr [0x0049c2b8])
+0049b1e0	function		unreferenced import thunk (jmp dword ptr [0x0049c2a8])
+0049b1e6	function		unreferenced import thunk (jmp dword ptr [0x0049c2e8])
+0049b1ec	function		unreferenced import thunk (jmp dword ptr [0x0049c2d0])
+0049b1f2	function		unreferenced import thunk (jmp dword ptr [0x0049c3a8])
+0049b1f8	function		unreferenced import thunk (jmp dword ptr [0x0049c28c])
+0049b1fe	function		unreferenced import thunk (jmp dword ptr [0x0049c2cc])
+0049b204	function		unreferenced import thunk (jmp dword ptr [0x0049c288])
+0049b20a	function		unreferenced import thunk (jmp dword ptr [0x0049c2c8])
+0049b210	function		unreferenced import thunk (jmp dword ptr [0x0049c3c4])
+0049b216	function		unreferenced import thunk (jmp dword ptr [0x0049c29c])
+0049b21c	function		unreferenced import thunk (jmp dword ptr [0x0049c3c0])
+0049b222	function		unreferenced import thunk (jmp dword ptr [0x0049c31c])
+0049b228	function		unreferenced import thunk (jmp dword ptr [0x0049c400])
+0049b22e	function		unreferenced import thunk (jmp dword ptr [0x0049c304])
+0049b234	function		unreferenced import thunk (jmp dword ptr [0x0049c358])
+0049b23a	function		unreferenced import thunk (jmp dword ptr [0x0049c3c8])
+0049b240	function		unreferenced import thunk (jmp dword ptr [0x0049c33c])
+0049b246	function		unreferenced import thunk (jmp dword ptr [0x0049c37c])
+0049b24c	function		unreferenced import thunk (jmp dword ptr [0x0049c338])
+0049b252	function		unreferenced import thunk (jmp dword ptr [0x0049c408])
+0049b258	function		unreferenced import thunk (jmp dword ptr [0x0049c3b4])
+0049b25e	function		unreferenced import thunk (jmp dword ptr [0x0049c404])
+0049b264	function		unreferenced import thunk (jmp dword ptr [0x0049c34c])
+0049b26a	function		unreferenced import thunk (jmp dword ptr [0x0049c368])
+0049b270	function		unreferenced import thunk (jmp dword ptr [0x0049c39c])
+0049b276	function		unreferenced import thunk (jmp dword ptr [0x0049c360])
+0049b27c	function		unreferenced import thunk (jmp dword ptr [0x0049c334])
+0049b282	function		unreferenced import thunk (jmp dword ptr [0x0049c3d8])
+0049b288	function		unreferenced import thunk (jmp dword ptr [0x0049c3f0])
+0049b28e	function		unreferenced import thunk (jmp dword ptr [0x0049c380])
+0049b294	function		unreferenced import thunk (jmp dword ptr [0x0049c394])
+0049b29a	function		unreferenced import thunk (jmp dword ptr [0x0049c3fc])
+0049b2a0	function		unreferenced import thunk (jmp dword ptr [0x0049c3a0])
+0049b2a6	function		unreferenced import thunk (jmp dword ptr [0x0049c374])
+0049b2ac	function		unreferenced import thunk (jmp dword ptr [0x0049c3e4])
+0049b2b2	function		unreferenced import thunk (jmp dword ptr [0x0049c3ec])
+0049b2b8	function		unreferenced import thunk (jmp dword ptr [0x0049c3e0])
+0049b2be	function		unreferenced import thunk (jmp dword ptr [0x0049c3d0])
+0049b2c4	function		unreferenced import thunk (jmp dword ptr [0x0049c3e8])
+0049b2ca	function		unreferenced import thunk (jmp dword ptr [0x0049c390])
+0049b2d0	function		unreferenced import thunk (jmp dword ptr [0x0049c314])
+0049b2d6	function		unreferenced import thunk (jmp dword ptr [0x0049c38c])
+0049b2dc	function		unreferenced import thunk (jmp dword ptr [0x0049c354])
+0049b2e2	function		unreferenced import thunk (jmp dword ptr [0x0049c308])
+0049b2e8	function		unreferenced import thunk (jmp dword ptr [0x0049c30c])
+004452f8	guid	160	ten DirectDraw interface IDs (IID_IDirectDraw2 at 00445328 and others); 0044531d-0044534e had been decoded as code
+0040148a	table	16	hand-written blitter FUN_00401090 dispatches its 16 variants with jmp [eax+0040148a] (eax = row*16 + column*4)
+0048033c	body		HNM6_DecodeInterBlock8x8: out-of-line bit-reader refills
+004807f0	body		HNM6_DecodeInterBlock8x4: out-of-line bit-reader refills
+00480aa4	body		HNM6_DecodeInterBlock4x8: out-of-line bit-reader refills
+00480d70	body		HNM6_DecodeInterBlock4x4: out-of-line bit-reader refills
+00480fd4	body		HNM6_DecodeInterBlock4x2: out-of-line bit-reader refills
+00481138	body		HNM6_DecodeInterBlock2x4: out-of-line bit-reader refills
+004812b8	body		HNM6_DecodeInterBlock2x2: out-of-line bit-reader refills
+00402b1d	tail		shared tail inside FUN_004029af, jumped to from FUN_00402407, FUN_00402644, FUN_0040273f (hand-written assembly exit: pop fs; popad; ret)
+00402c26	tail		shared tail inside FUN_0040273f, jumped to from FUN_004024b8
+00402de3	tail		shared tail inside FUN_0040273f, jumped to from FUN_004024b8
+00455eac	tail		shared tail inside MDL_RelocNodeTree, jumped to from MDL_BindTreeMaterials
+004574a5	tail		shared tail inside FUN_0045749c, jumped to from FUN_004574b4, FUN_004574d0
+004604c6	tail		shared tail inside __MkTmpFile_, jumped to from __doclose_
+004608b9	tail		shared tail inside FUN_00460876, jumped to from qsort_
+0047b2fb	tail		shared tail inside REND_ProjectVertices, jumped to from FUN_0047b304
+0047e7a0	tail		shared tail inside REND_DrawScene, jumped to from FUN_0047e7ac
+00481521	tail		shared tail inside HNM6_DecodeIntraBlock8x8, jumped to from HNM6_DecodeInterBlock8x8
+004815b7	tail		shared tail inside HNM6_DecodeIntraBlock8x4, jumped to from HNM6_DecodeInterBlock8x4
+0048165f	tail		shared tail inside HNM6_DecodeIntraBlock4x8, jumped to from HNM6_DecodeInterBlock4x8
+00481702	tail		shared tail inside HNM6_DecodeIntraBlock4x4, jumped to from HNM6_DecodeInterBlock4x4
+0048186d	tail		shared tail inside HNM6_DecodeIntraBlock4x4, jumped to from HNM6_DecodeInterBlock2x2
+004818b8	tail		shared tail inside HNM6_DecodeIntraBlock4x2, jumped to from HNM6_DecodeInterBlock4x2
+00481990	tail		shared tail inside HNM6_DecodeIntraBlock2x4, jumped to from HNM6_DecodeInterBlock2x4
+00485728	tail		alternate entry inside fcloseall_, called from FUN_00485717
+00487da5	tail		shared tail inside FUN_00487cca, jumped to from FUN_00487dac, FUN_00488096
+00488b15	tail		shared tail inside __@DEXP, jumped to from FUN_00488adc
+0048959e	tail		shared tail inside __NTRemoveThread_, jumped to from _InitFunctionPointers_
+0048c8ee	tail		shared tail inside FUN_0048c810, jumped to from FUN_0048ce0b
+0048ce1b	tail		shared tail inside FUN_0048ce0b, jumped to from FUN_0048c810
+0048ce73	tail		shared tail inside FUN_0048ce0b, jumped to from FUN_0048c810
+0048cf69	tail		shared tail inside FUN_0048ce80, jumped to from FUN_0048d4ac
+0048d4f1	tail		shared tail inside FUN_0048d4ac, jumped to from FUN_0048ce80
+0048daa3	tail		shared tail inside FUN_0048da4b, jumped to from FUN_0048ce80
+0048db3c	tail		shared tail inside FUN_0048da4b, jumped to from FUN_0048ce80
+00497be2	tail		shared tail inside __RemoveThreadData_, jumped to from __FreeThreadDataList_
+00497dfa	tail		shared tail inside FUN_00497df5, jumped to from FUN_00497dd0
+004982e0	tail		shared tail inside __FDA, jumped to from __FDM
+00498711	tail		shared tail inside FUN_004986bd, jumped to from FUN_0049871a
+00498a31	tail		shared tail inside __LDcvt_, jumped to from FUN_00498b0e
+00498b24	tail		shared tail inside FUN_00498b0e, jumped to from __LDcvt_
+00498c24	tail		shared tail inside FUN_00498b0e, jumped to from __LDcvt_
+00498e3c	tail		shared tail inside FUN_00498c37, jumped to from FUN_00498e55
+00499e32	tail		shared tail inside _F8RetInf_, jumped to from __FDD
+00499e5e	tail		shared tail inside F4OverFlow, jumped to from FUN_00499e41
+0049a35c	tail		shared tail inside FUN_0049a359, jumped to from strtol_
+0049a50d	tail		shared tail inside putenv_, jumped to from __putenv_
+0049aa56	tail		shared tail inside _wputenv_, jumped to from __wputenv_
