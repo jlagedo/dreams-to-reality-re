@@ -1,0 +1,440 @@
+[
+  {
+    "name": "WIP_C3D_VERTEX",
+    "size": 40,
+    "source_module": "E:\\ENGINE\\BEN11\\3DC_FX.C",
+    "fields": [
+      {
+        "name": "v_flags",
+        "offset": 0,
+        "size": 4
+      },
+      {
+        "name": "v_local",
+        "offset": 4,
+        "size": 12
+      },
+      {
+        "name": "v_global",
+        "offset": 16,
+        "size": 12
+      },
+      {
+        "name": "v_screen",
+        "offset": 28,
+        "size": 8
+      },
+      {
+        "name": "v_unz",
+        "offset": 36,
+        "size": 4
+      }
+    ]
+  },
+  {
+    "name": "WIP_C3D_BOX",
+    "size": 280,
+    "source_module": "E:\\ENGINE\\BEN11\\3DC_FX.C",
+    "fields": [
+      {
+        "name": "v0",
+        "offset": 0,
+        "size": 96
+      },
+      {
+        "name": "Xe",
+        "offset": 96,
+        "size": 32
+      },
+      {
+        "name": "Ye",
+        "offset": 128,
+        "size": 32
+      },
+      {
+        "name": "v",
+        "offset": 160,
+        "size": 96
+      },
+      {
+        "name": "minv",
+        "offset": 256,
+        "size": 12
+      },
+      {
+        "name": "maxv",
+        "offset": 268,
+        "size": 12
+      }
+    ]
+  },
+  {
+    "name": "WIP_objet",
+    "size": 220,
+    "source_module": "E:\\ENGINE\\BEN11\\3DC_FX.C",
+    "fields": [
+      {
+        "name": "o_nom",
+        "offset": 0,
+        "size": 12
+      },
+      {
+        "name": "o_flags",
+        "offset": 12,
+        "size": 4
+      },
+      {
+        "name": "o_ptr_pere",
+        "offset": 16,
+        "size": 4
+      },
+      {
+        "name": "o_ptr_fils",
+        "offset": 20,
+        "size": 4
+      },
+      {
+        "name": "o_ptr_frere",
+        "offset": 24,
+        "size": 4
+      },
+      {
+        "name": "o_lpos",
+        "offset": 28,
+        "size": 12
+      },
+      {
+        "name": "o_lmat",
+        "offset": 40,
+        "size": 36
+      },
+      {
+        "name": "o_gpos",
+        "offset": 76,
+        "size": 12
+      },
+      {
+        "name": "o_gmat",
+        "offset": 88,
+        "size": 36
+      },
+      {
+        "name": "o_nbr_vertex",
+        "offset": 124,
+        "size": 4
+      },
+      {
+        "name": "o_ptr_vertex",
+        "offset": 128,
+        "size": 4
+      },
+      {
+        "name": "o_nbr_uvtext",
+        "offset": 132,
+        "size": 4
+      },
+      {
+        "name": "o_ptr_uvtext",
+        "offset": 136,
+        "size": 4
+      },
+      {
+        "name": "o_nbr_vnorm",
+        "offset": 140,
+        "size": 4
+      },
+      {
+        "name": "o_ptr_vnorm",
+        "offset": 144,
+        "size": 4
+      },
+      {
+        "name": "o_nbr_fnorm",
+        "offset": 148,
+        "size": 4
+      },
+      {
+        "name": "o_ptr_fnorm",
+        "offset": 152,
+        "size": 4
+      },
+      {
+        "name": "o_nbr_box",
+        "offset": 156,
+        "size": 4
+      },
+      {
+        "name": "o_ptr_box",
+        "offset": 160,
+        "size": 4
+      },
+      {
+        "name": "o_ptr_face",
+        "offset": 164,
+        "size": 4
+      },
+      {
+        "name": "o_ptr_edge",
+        "offset": 168,
+        "size": 4
+      },
+      {
+        "name": "o_user",
+        "offset": 172,
+        "size": 4
+      },
+      {
+        "name": "o_rayon",
+        "offset": 176,
+        "size": 4
+      },
+      {
+        "name": "o_center",
+        "offset": 180,
+        "size": 12
+      },
+      {
+        "name": "o_size_vertex",
+        "offset": 192,
+        "size": 4
+      },
+      {
+        "name": "o_nb_lights",
+        "offset": 196,
+        "size": 4
+      },
+      {
+        "name": "o_light",
+        "offset": 200,
+        "size": 8
+      },
+      {
+        "name": "o_illum",
+        "offset": 208,
+        "size": 4
+      },
+      {
+        "name": "o_nbr_virt_vertex",
+        "offset": 212,
+        "size": 4
+      },
+      {
+        "name": "o_ptr_virt_vertex",
+        "offset": 216,
+        "size": 4
+      }
+    ]
+  },
+  {
+    "name": "WIP_light",
+    "size": 148,
+    "source_module": "E:\\ENGINE\\BEN11\\3DC_LIGH.C",
+    "fields": [
+      {
+        "name": "l_flags",
+        "offset": 0,
+        "size": 4
+      },
+      {
+        "name": "l_lpos",
+        "offset": 4,
+        "size": 12
+      },
+      {
+        "name": "l_lmat",
+        "offset": 16,
+        "size": 36
+      },
+      {
+        "name": "l_gpos",
+        "offset": 52,
+        "size": 12
+      },
+      {
+        "name": "l_gmat",
+        "offset": 64,
+        "size": 36
+      },
+      {
+        "name": "l_temp",
+        "offset": 100,
+        "size": 12
+      },
+      {
+        "name": "l_ldirection",
+        "offset": 112,
+        "size": 12
+      },
+      {
+        "name": "l_gdirection",
+        "offset": 124,
+        "size": 12
+      },
+      {
+        "name": "l_near",
+        "offset": 136,
+        "size": 4
+      },
+      {
+        "name": "l_far",
+        "offset": 140,
+        "size": 4
+      },
+      {
+        "name": "l_intensity",
+        "offset": 144,
+        "size": 4
+      }
+    ]
+  },
+  {
+    "name": "WIP_CSPHERE",
+    "size": 56,
+    "source_module": "E:\\ENGINE\\BEN11\\3DC_COL2.C",
+    "fields": [
+      {
+        "name": "v",
+        "offset": 0,
+        "size": 12
+      },
+      {
+        "name": "r",
+        "offset": 12,
+        "size": 4
+      },
+      {
+        "name": "flag",
+        "offset": 16,
+        "size": 1
+      },
+      {
+        "name": "axis_position",
+        "offset": 20,
+        "size": 24
+      },
+      {
+        "name": "overlap_head",
+        "offset": 44,
+        "size": 4
+      },
+      {
+        "name": "collision_head",
+        "offset": 48,
+        "size": 4
+      },
+      {
+        "name": "over_head",
+        "offset": 52,
+        "size": 4
+      }
+    ]
+  },
+  {
+    "name": "WIP_C3D_ANIM_ROT",
+    "size": 20,
+    "source_module": "E:\\ENGINE\\BEN11\\3DC_MEM.C",
+    "fields": [
+      {
+        "name": "key",
+        "offset": 0,
+        "size": 4
+      },
+      {
+        "name": "rot",
+        "offset": 4,
+        "size": 16
+      }
+    ]
+  },
+  {
+    "name": "WIP_C3D_ANIM_POS",
+    "size": 16,
+    "source_module": "E:\\ENGINE\\BEN11\\3DC_MEM.C",
+    "fields": [
+      {
+        "name": "key",
+        "offset": 0,
+        "size": 4
+      },
+      {
+        "name": "pos",
+        "offset": 4,
+        "size": 12
+      }
+    ]
+  },
+  {
+    "name": "WIP_C3D_ANIM_ROT2",
+    "size": 60,
+    "source_module": "E:\\ENGINE\\BEN11\\3DC_MEM.C",
+    "fields": [
+      {
+        "name": "key",
+        "offset": 0,
+        "size": 4
+      },
+      {
+        "name": "rot",
+        "offset": 4,
+        "size": 16
+      },
+      {
+        "name": "easeTo",
+        "offset": 20,
+        "size": 4
+      },
+      {
+        "name": "easeFrom",
+        "offset": 24,
+        "size": 4
+      },
+      {
+        "name": "ta",
+        "offset": 28,
+        "size": 16
+      },
+      {
+        "name": "tb",
+        "offset": 44,
+        "size": 16
+      }
+    ]
+  },
+  {
+    "name": "WIP_C3D_ANIM_POS2",
+    "size": 48,
+    "source_module": "E:\\ENGINE\\BEN11\\3DC_MEM.C",
+    "fields": [
+      {
+        "name": "key",
+        "offset": 0,
+        "size": 4
+      },
+      {
+        "name": "pos",
+        "offset": 4,
+        "size": 12
+      },
+      {
+        "name": "easeTo",
+        "offset": 16,
+        "size": 4
+      },
+      {
+        "name": "easeFrom",
+        "offset": 20,
+        "size": 4
+      },
+      {
+        "name": "din",
+        "offset": 24,
+        "size": 12
+      },
+      {
+        "name": "dout",
+        "offset": 36,
+        "size": 12
+      }
+    ]
+  }
+]

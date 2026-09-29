@@ -1,0 +1,2 @@
+address	name	kind	sources	facts	note
+0044b23b	__CHK	recovered	Retail WINDREAM.EXE __CHK at 00454feb; literal 16-byte match; Watcom stack-check prologue call sites	size:16; const:4; call:0044b24b	Stack-check entry wrapper; source and imported demo function bodies are byte-identical to the established retail runtime wrapper.

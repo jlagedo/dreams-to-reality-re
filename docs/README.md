@@ -27,6 +27,8 @@ docs do.
 | [localized-build-symbols.md](localized-build-symbols.md) | **Dutch and Spanish OMF symbol residue**: original renderer names, source paths and four missed English function entries |
 | [edition-comparison.md](edition-comparison.md) | **Four retail editions**: project-bank revisions, shared visuals versus dubbed movie audio, extra voice/font assets and isolated byte anomalies |
 | [binary-edition-comparison.md](binary-edition-comparison.md) | **Game executable differences across editions**: PE/LE sizes and layouts, imports, function matching and decompilation implications |
+| [wip-editor-discovery.md](wip-editor-discovery.md) | **July demo editor discovery**: separate Ghidra project, 5,147 original function names, the 351-node editor, native mouse input, active EDITOR.DAT, recovered type layouts and 35 more retail names |
+| [wip-binary-comparison.md](wip-binary-comparison.md) | **July 1997 demo vs retail**: embedded Watcom symbols, 1,151 Windows body matches, six verified original names applied to both Windows builds, and surviving engine type tables |
 | [cryolib.md](cryolib.md) | `CRYO.DLL` = CryoLib: 165 exports incl. a working **HNM6 decoder** |
 | [game-content.md](game-content.md) | 150 levels, 30 inventory items, save system, from `DREAMS.INI` |
 | [boot-sequence.md](boot-sequence.md) | **Boot flow decompiled** — intro → generic → menu → new game → head video → first map, with videos and menus named |

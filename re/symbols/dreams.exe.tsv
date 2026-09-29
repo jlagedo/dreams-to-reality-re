@@ -1,0 +1,630 @@
+#program	DREAMS.EXE
+#sha256	dfcdb1a70240bc57e8e0537245ce2fb0d102b1df340ba805081cb03d0f18d0aa
+#imagebase	0
+FUNC	12610	ANI_CopyAnimObjet_	undefined ANI_CopyAnimObjet_(void)	[NAME] Name recovered. Original module: C:\DREAMS\src\ANIM.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:40.
+FUNC	21a0c	WOR_RLEDecompress_	undefined WOR_RLEDecompress_(void)	[NAME] Name recovered. Original module: C:\DREAMS\src\WORKS.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:87.
+FUNC	29fb0	dms_L1TacticalMovLeader_	undefined dms_L1TacticalMovLeader_(void)	[NAME] Name recovered. Original module: C:\DREAMS\src\DMS_EVIL.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:52.
+FUNC	2bcdc	dms_L1Strategic_	undefined dms_L1Strategic_(void)	[NAME] Name recovered. Original module: C:\DREAMS\src\DMS_EVIL.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:282.
+FUNC	31134	PHY_SetPhy23D_	undefined PHY_SetPhy23D_(void)	[NAME] Name recovered. Original module: C:\DREAMS\src\PHYSIQUE.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:38.
+FUNC	313d8	WEA_TestActiveEpeeObject_	undefined WEA_TestActiveEpeeObject_(void)	[NAME] Name recovered. Original module: C:\DREAMS\src\WEAPON.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:32.
+FUNC	31914	WEA_TestActiveArcObject_	undefined WEA_TestActiveArcObject_(void)	[NAME] Name recovered. Original module: C:\DREAMS\src\WEAPON.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:32.
+FUNC	31de0	WEA_TestActiveGunObject_	undefined WEA_TestActiveGunObject_(void)	[NAME] Name recovered. Original module: C:\DREAMS\src\WEAPON.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:32.
+FUNC	42c34	SYM_TestSymbole_	undefined SYM_TestSymbole_(void)	[NAME] Name recovered. Original module: C:\DREAMS\src\SYMBOLE.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:208.
+FUNC	49358	MMS_MallocMem_	undefined MMS_MallocMem_(void)	[NAME] Name recovered. Original module: C:\DREAMS\src\MMSYSTEM.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:47.
+FUNC	56a00	printf_	undefined printf_(void)	Watcom 10.6 runtime: printf_ (module printf, 34 bytes, full match; dreams.csv).
+FUNC	56c04	int386_	undefined int386_(void)	Watcom 10.6 runtime: int386_ (module int386, 29 bytes, full match; dreams.csv).
+FUNC	57d98	Init_CSphere_	undefined Init_CSphere_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_COL2.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:67.
+FUNC	57e8c	Distance_To_Edge_	undefined Distance_To_Edge_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_COL2.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:103.
+FUNC	5a56c	ProjectionOnLine_	undefined ProjectionOnLine_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_COLL.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:312.
+FUNC	5a770	PlaneLineIntersection_	undefined PlaneLineIntersection_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_COLL.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:267.
+FUNC	5f044	Update_Header_Object_	undefined Update_Header_Object_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MEM.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:36.
+FUNC	63dbe	sprintf_	undefined sprintf_(void)	Watcom 10.6 runtime: sprintf_ (module sprintf, 48 bytes, full match; dreams.csv).
+FUNC	63dee	fprintf_	undefined fprintf_(void)	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; dreams.csv).
+FUNC	63e10	__CHP	undefined __CHP(void)	Watcom 10.6 runtime: __CHP (module fchop, 29 bytes, full match; dreams.csv).
+FUNC	63e52	ultoa_	undefined ultoa_(void)	Watcom 10.6 runtime: ultoa_, utoa_ (module itoa, 74 bytes, full match; dreams.csv).
+FUNC	63e9c	_itoa_	undefined _itoa_(void)	Watcom 10.6 runtime: _itoa_, _ltoa_ (module itoa, 27 bytes, full match; dreams.csv).
+FUNC	63eb8	_entry	undefined _entry(void)	
+FUNC	64149	__do_exit_with_msg__	undefined __do_exit_with_msg__(void)	Watcom 10.6 runtime: __do_exit_with_msg__ (module cstrt386, 59 bytes, full match; dreams.csv).
+FUNC	6419a	_dos_findfirst_	undefined _dos_findfirst_(void)	Watcom 10.6 runtime: _dos_findfirst_ (module find386, 29 bytes, full match; dreams.csv).
+FUNC	641b7	_dos_findnext_	undefined _dos_findnext_(void)	Watcom 10.6 runtime: _dos_findnext_ (module find386, 28 bytes, full match; dreams.csv).
+FUNC	641d3	_dos_findclose_	undefined _dos_findclose_(void)	Watcom 10.6 runtime: _dos_findclose_ (module find386, 73 bytes, full match; dreams.csv).
+FUNC	6421c	strncpy_	undefined strncpy_(void)	Watcom 10.6 runtime: strncpy_ (module strncpy, 37 bytes, full match; dreams.csv).
+FUNC	64241	atoi_	undefined atoi_(void)	Watcom 10.6 runtime: atoi_, atol_ (module atoi, 109 bytes, full match; dreams.csv).
+FUNC	64e2c	MatMulVectFloat_	undefined MatMulVectFloat_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_ANIM.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:95.
+FUNC	65fa4	Mat_Id_	undefined Mat_Id_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:63.
+FUNC	666bc	Mat_Mul_	undefined Mat_Mul_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:116.
+FUNC	66730	Mat_Transpose_	undefined Mat_Transpose_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:72.
+FUNC	667b8	Vect_Add_	undefined Vect_Add_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:36.
+FUNC	667dc	Vect_Sub_	undefined Vect_Sub_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:36.
+FUNC	66800	Vect_Neg_	undefined Vect_Neg_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:27.
+FUNC	66860	Vect_Scalar_	undefined Vect_Scalar_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:38.
+FUNC	669d4	Vect_Cpy_	undefined Vect_Cpy_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:19.
+FUNC	669e8	Mat_Cpy_	undefined Mat_Cpy_(void)	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:32.
+FUNC	66fdf	strncmp_	undefined strncmp_(void)	Watcom 10.6 runtime: strncmp_ (module strncmp, 41 bytes, full match; dreams.csv).
+FUNC	67962	_splitpath_	undefined _splitpath_(void)	Watcom 10.6 runtime: _splitpath_ (module splitpat, 192 bytes, full match; dreams.csv).
+FUNC	67a40	strcmp_	undefined strcmp_(void)	Watcom 10.6 runtime: strcmp_ (module cmp386, 161 bytes, full match; dreams.csv).
+FUNC	67ae1	_strupr_	undefined _strupr_(void)	Watcom 10.6 runtime: _strupr_ (module strupr, 37 bytes, full match; dreams.csv).
+FUNC	67b06	open_	undefined open_(void)	Watcom 10.6 runtime: open_ (module open, 36 bytes, full match; dreams.csv).
+FUNC	67b2a	sopen_	undefined sopen_(void)	Watcom 10.6 runtime: sopen_ (module open, 192 bytes, full match; dreams.csv).
+FUNC	67d13	__set_binary_	undefined __set_binary_(void)	Watcom 10.6 runtime: __set_binary_ (module open, 101 bytes, full match; dreams.csv).
+FUNC	67d78	filelength_	undefined filelength_(void)	Watcom 10.6 runtime: filelength_ (module filelen, 61 bytes, full match; dreams.csv).
+FUNC	67db5	read_	undefined read_(void)	Watcom 10.6 runtime: read_ (module read, 192 bytes, full match; dreams.csv).
+FUNC	67eb0	close_	undefined close_(void)	Watcom 10.6 runtime: close_ (module close, 32 bytes, full match; dreams.csv).
+FUNC	67ed0	memset_	undefined memset_(void)	Watcom 10.6 runtime: memset_ (module set386, 24 bytes, full match; dreams.csv).
+FUNC	67eee	rand_	undefined rand_(void)	Watcom 10.6 runtime: rand_ (module rand, 36 bytes, full match; dreams.csv).
+FUNC	67f12	srand_	undefined srand_(void)	Watcom 10.6 runtime: srand_ (module rand, 16 bytes, full match; dreams.csv).
+FUNC	6849f	calloc_	undefined calloc_(void)	Watcom 10.6 runtime: calloc_ (module calloc, 24 bytes, full match; dreams.csv).
+FUNC	684c0	__STOSB	undefined __STOSB(void)	Watcom 10.6 runtime: __STOSB (module __stos, 55 bytes, full match; dreams.csv).
+FUNC	684f7	__STOSD	undefined __STOSD(void)	Watcom 10.6 runtime: __STOSD (module __stos, 108 bytes, full match; dreams.csv).
+FUNC	797e0	free_	undefined free_(void)	Watcom 10.6 runtime: free_ (module nfree, 130 bytes, full match; dreams.csv).
+FUNC	79862	malloc_	undefined malloc_(void)	Watcom 10.6 runtime: malloc_ (module nmalloc, 192 bytes, full match; dreams.csv).
+FUNC	79945	__open_flags_	undefined __open_flags_(void)	Watcom 10.6 runtime: __open_flags_ (module fopen, 192 bytes, full match; dreams.csv).
+FUNC	79ada	_fsopen_	undefined _fsopen_(void)	Watcom 10.6 runtime: _fsopen_ (module fopen, 57 bytes, full match; dreams.csv).
+FUNC	79b13	fopen_	undefined fopen_(void)	Watcom 10.6 runtime: fopen_ (module fopen, 114 bytes, full match; dreams.csv).
+FUNC	79b85	freopen_	undefined freopen_(void)	Watcom 10.6 runtime: freopen_ (module fopen, 66 bytes, full match; dreams.csv).
+FUNC	79bc7	fwrite_	undefined fwrite_(void)	Watcom 10.6 runtime: fwrite_ (module fwrite, 192 bytes, full match; dreams.csv).
+FUNC	79d87	fclose_	undefined fclose_(void)	Watcom 10.6 runtime: fclose_ (module fclose, 45 bytes, full match; dreams.csv).
+FUNC	79db4	__shutdown_stream_	undefined __shutdown_stream_(void)	Watcom 10.6 runtime: __shutdown_stream_ (module fclose, 33 bytes, full match; dreams.csv).
+FUNC	79dd5	__MkTmpFile_	undefined __MkTmpFile_(void)	Watcom 10.6 runtime: __MkTmpFile_ (module fclose, 101 bytes, full match; dreams.csv).
+FUNC	79e3a	__doclose_	undefined __doclose_(void)	Watcom 10.6 runtime: __doclose_ (module fclose, 144 bytes, full match; dreams.csv).
+FUNC	79eca	int386x_	undefined int386x_(void)	Watcom 10.6 runtime: int386x_ (module intx386, 25 bytes, full match; dreams.csv).
+FUNC	79ee9	getch_	undefined getch_(void)	Watcom 10.6 runtime: getch_ (module getch, 29 bytes, full match; dreams.csv).
+FUNC	79f06	_gettextposition	undefined _gettextposition(void)	Watcom 10.6 runtime: _gettextposition, _gettextposition_ (module textposr, 50 bytes, full match; dreams.csv).
+FUNC	79f38	_settextposition_	undefined _settextposition_(void)	Watcom 10.6 runtime: _settextposition_ (module textposr, 152 bytes, full match; dreams.csv).
+FUNC	79fdf	_L2clearscreen_	undefined _L2clearscreen_(void)	Watcom 10.6 runtime: _L2clearscreen_ (module clearscrr, 192 bytes, full match; dreams.csv).
+FUNC	7a0aa	_clearscreen_	undefined _clearscreen_(void)	Watcom 10.6 runtime: _clearscreen_ (module clearscrr, 128 bytes, full match; dreams.csv).
+FUNC	7a12a	_GrClear_	undefined _GrClear_(void)	Watcom 10.6 runtime: _GrClear_ (module clearscrr, 94 bytes, full match; dreams.csv).
+FUNC	7a188	_TxtClear_	undefined _TxtClear_(void)	Watcom 10.6 runtime: _TxtClear_ (module clearscrr, 191 bytes, full match; dreams.csv).
+FUNC	7a247	kbhit_	undefined kbhit_(void)	Watcom 10.6 runtime: kbhit_ (module kbhit, 23 bytes, full match; dreams.csv).
+FUNC	7a2dc	qsort_	undefined qsort_(void)	Watcom 10.6 runtime: qsort_ (module qsort, 192 bytes, full match; dreams.csv).
+FUNC	7a889	exit_	undefined exit_(void)	Watcom 10.6 runtime: exit_ (module exit, 24 bytes, full match; dreams.csv).
+FUNC	7a8a1	_exit_	undefined _exit_(void)	Watcom 10.6 runtime: _exit_ (module exit, 22 bytes, full match; dreams.csv).
+FUNC	844ea	__CHK	undefined __CHK(void)	Watcom 10.6 runtime: __CHK (module stk386, 16 bytes, full match; dreams.csv).
+FUNC	844fd	__STK	undefined __STK(void)	Watcom 10.6 runtime: __STK (module stk386, 30 bytes, full match; dreams.csv).
+FUNC	84e00	_heapshrink_	undefined _heapshrink_(void)	Watcom 10.6 runtime: _heapshrink_ (module nheapmin, 192 bytes, full match; dreams.csv).
+FUNC	84f5b	__NHeapWalk_	undefined __NHeapWalk_(void)	Watcom 10.6 runtime: __NHeapWalk_ (module nheapwal, 157 bytes, full match; dreams.csv).
+FUNC	84ff8	_lseek_	undefined _lseek_(void)	Watcom 10.6 runtime: _lseek_ (module lseek, 67 bytes, full match; dreams.csv).
+FUNC	8503b	strstr_	undefined strstr_(void)	Watcom 10.6 runtime: strstr_ (module strstr, 190 bytes, full match; dreams.csv).
+FUNC	8510c	vsprintf_	undefined vsprintf_(void)	Watcom 10.6 runtime: vsprintf_ (module vsprintf, 21 bytes, full match; dreams.csv).
+FUNC	85121	strcmpi_	undefined strcmpi_(void)	Watcom 10.6 runtime: strcmpi_ (module stricmp, 71 bytes, full match; dreams.csv).
+FUNC	85168	memmove_	undefined memmove_(void)	Watcom 10.6 runtime: memmove_ (module memmove, 77 bytes, full match; dreams.csv).
+FUNC	851f7	fseek_	undefined fseek_(void)	Watcom 10.6 runtime: fseek_ (module fseek, 192 bytes, full match; dreams.csv).
+FUNC	852f3	fread_	undefined fread_(void)	Watcom 10.6 runtime: fread_ (module fread, 192 bytes, full match; dreams.csv).
+FUNC	857b8	tell_	undefined tell_(void)	Watcom 10.6 runtime: tell_ (module tell, 17 bytes, full match; dreams.csv).
+FUNC	857c9	write_	undefined write_(void)	Watcom 10.6 runtime: write_ (module write, 192 bytes, full match; dreams.csv).
+FUNC	8599e	realloc_	undefined realloc_(void)	Watcom 10.6 runtime: realloc_ (module nrealloc, 158 bytes, full match; dreams.csv).
+FUNC	85a3c	chdir_	undefined chdir_(void)	Watcom 10.6 runtime: chdir_ (module chdir, 33 bytes, full match; dreams.csv).
+FUNC	85a5e	_dos_getdrive_	undefined _dos_getdrive_(void)	Watcom 10.6 runtime: _dos_getdrive_ (module drive386, 20 bytes, full match; dreams.csv).
+FUNC	85a72	_dos_setdrive_	undefined _dos_setdrive_(void)	Watcom 10.6 runtime: _dos_setdrive_ (module drive386, 20 bytes, full match; dreams.csv).
+FUNC	85ae7	vfscanf_	undefined vfscanf_(void)	Watcom 10.6 runtime: vfscanf_, vsscanf_ (module sscanf, 39 bytes, full match; dreams.csv).
+FUNC	85b0e	fprintf_	undefined fprintf_(void)	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; dreams.csv).
+FUNC	85b2f	ftell_	undefined ftell_(void)	Watcom 10.6 runtime: ftell_ (module ftell, 66 bytes, full match; dreams.csv).
+FUNC	85b71	floor_	undefined floor_(void)	Watcom 10.6 runtime: floor_ (module floor, 60 bytes, full match; dreams.csv).
+FUNC	85bad	ceil_	undefined ceil_(void)	Watcom 10.6 runtime: ceil_ (module ceil, 27 bytes, full match; dreams.csv).
+FUNC	85bd9	__fprtf_	undefined __fprtf_(void)	Watcom 10.6 runtime: __fprtf_ (module fprtf, 127 bytes, full match; dreams.csv).
+FUNC	8697e	segread_	undefined segread_(void)	Watcom 10.6 runtime: segread_ (module segread, 40 bytes, full match; dreams.csv).
+FUNC	8da2a	_GR_strnicmp_	undefined _GR_strnicmp_(void)	Watcom 10.6 runtime: _GR_strnicmp_, _strnicmp_ (module strnicmp, 83 bytes, full match; dreams.csv).
+FUNC	8da7d	_Full_at_exit_rtn_	undefined _Full_at_exit_rtn_(void)	Watcom 10.6 runtime: _Full_at_exit_rtn_ (module atexit, 59 bytes, full match; dreams.csv).
+FUNC	8dab8	atexit_	undefined atexit_(void)	Watcom 10.6 runtime: atexit_ (module atexit, 60 bytes, full match; dreams.csv).
+FUNC	8ee10	__prtf_	undefined __prtf_(void)	Watcom 10.6 runtime: __prtf_ (module prtf, 192 bytes, full match; dreams.csv).
+FUNC	8f9ee	__CMain	undefined __CMain(void)	Watcom 10.6 runtime: __CMain (module cmain386, 79 bytes, full match; dreams.csv).
+FUNC	8fa3e	__InitRtns	undefined __InitRtns(void)	Watcom 10.6 runtime: __InitRtns (module inirt386, 75 bytes, full match; dreams.csv).
+FUNC	8fa89	__FiniRtns	undefined __FiniRtns(void)	Watcom 10.6 runtime: __FiniRtns (module inirt386, 79 bytes, full match; dreams.csv).
+FUNC	8faf4	__sys_init_387_emulator	undefined __sys_init_387_emulator(void)	Watcom 10.6 runtime: __sys_init_387_emulator (module dosinite, 192 bytes, full match; dreams.csv).
+FUNC	8fc79	__sys_fini_387_emulator	undefined __sys_fini_387_emulator(void)	Watcom 10.6 runtime: __sys_fini_387_emulator (module dosinite, 192 bytes, full match; dreams.csv).
+FUNC	8fd58	__init_8087_	undefined __init_8087_(void)	Watcom 10.6 runtime: __init_8087_ (module chk8087, 49 bytes, full match; dreams.csv).
+FUNC	8fd93	__chk8087_	undefined __chk8087_(void)	Watcom 10.6 runtime: __chk8087_ (module chk8087, 74 bytes, full match; dreams.csv).
+FUNC	8fdde	__doserror_	undefined __doserror_(void)	Watcom 10.6 runtime: __doserror_ (module error386, 19 bytes, full match; dreams.csv).
+FUNC	8fdf2	IF@ACOS	undefined IF@ACOS(void)	Watcom 10.6 runtime: IF@ACOS (module acos387, 35 bytes, full match; dreams.csv).
+FUNC	8fe22	IF@POW	undefined IF@POW(void)	Watcom 10.6 runtime: IF@POW (module pow387, 192 bytes, full match; dreams.csv).
+FUNC	8ff78	pow_	undefined pow_(void)	Watcom 10.6 runtime: pow_ (module pow387, 16 bytes, full match; dreams.csv).
+FUNC	8ff88	_mbsnccnt_	undefined _mbsnccnt_(void)	Watcom 10.6 runtime: _mbsnccnt_ (module mbncnt, 62 bytes, full match; dreams.csv).
+FUNC	8ffc6	_mbsnbcnt_	undefined _mbsnbcnt_(void)	Watcom 10.6 runtime: _mbsnbcnt_ (module mbncnt, 49 bytes, full match; dreams.csv).
+FUNC	8fff7	_mbsninc_	undefined _mbsninc_(void)	Watcom 10.6 runtime: _mbsninc_ (module mbncnt, 25 bytes, full match; dreams.csv).
+FUNC	90010	__mbsninc_	undefined __mbsninc_(void)	Watcom 10.6 runtime: __mbsninc_ (module mbncnt, 69 bytes, full match; dreams.csv).
+FUNC	90055	_mbscat_	undefined _mbscat_(void)	Watcom 10.6 runtime: _mbscat_ (module mbscat, 81 bytes, full match; dreams.csv).
+FUNC	900a6	_mbscpy_	undefined _mbscpy_(void)	Watcom 10.6 runtime: _mbscpy_ (module mbscat, 31 bytes, full match; dreams.csv).
+FUNC	900c5	_mbsdup_	undefined _mbsdup_(void)	Watcom 10.6 runtime: _mbsdup_ (module mbscat, 65 bytes, full match; dreams.csv).
+FUNC	90106	_mbsncat_	undefined _mbsncat_(void)	Watcom 10.6 runtime: _mbsncat_ (module mbscat, 93 bytes, full match; dreams.csv).
+FUNC	90163	_mbsnbcat_	undefined _mbsnbcat_(void)	Watcom 10.6 runtime: _mbsnbcat_ (module mbscat, 192 bytes, full match; dreams.csv).
+FUNC	90255	_mbsncpy_	undefined _mbsncpy_(void)	Watcom 10.6 runtime: _mbsncpy_ (module mbscat, 31 bytes, full match; dreams.csv).
+FUNC	90274	_mbsnbcpy_	undefined _mbsnbcpy_(void)	Watcom 10.6 runtime: _mbsnbcpy_ (module mbscat, 180 bytes, full match; dreams.csv).
+FUNC	90328	_mbptov_	undefined _mbptov_(void)	Watcom 10.6 runtime: _mbptov_ (module mbconv, 62 bytes, full match; dreams.csv).
+FUNC	90366	_mbvtop_	undefined _mbvtop_(void)	Watcom 10.6 runtime: _mbvtop_ (module mbconv, 26 bytes, full match; dreams.csv).
+FUNC	90380	__mbvtop_	undefined __mbvtop_(void)	Watcom 10.6 runtime: __mbvtop_ (module mbconv, 52 bytes, full match; dreams.csv).
+FUNC	904ef	isatty_	undefined isatty_(void)	Watcom 10.6 runtime: isatty_ (module isatt, 39 bytes, full match; dreams.csv).
+FUNC	9052e	__set_EINVAL_	undefined __set_EINVAL_(void)	Watcom 10.6 runtime: __set_EINVAL_ (module seterrno, 16 bytes, full match; dreams.csv).
+FUNC	90555	__set_errno_dos_	undefined __set_errno_dos_(void)	Watcom 10.6 runtime: __set_errno_dos_ (module dosret, 113 bytes, full match; dreams.csv).
+FUNC	905c6	__IOMode_	undefined __IOMode_(void)	Watcom 10.6 runtime: __IOMode_ (module iomode, 85 bytes, full match; dreams.csv).
+FUNC	9061b	__SetIOMode_	undefined __SetIOMode_(void)	Watcom 10.6 runtime: __SetIOMode_ (module iomode, 21 bytes, full match; dreams.csv).
+FUNC	90630	__close_	undefined __close_(void)	Watcom 10.6 runtime: __close_ (module _clse, 53 bytes, full match; dreams.csv).
+FUNC	90665	__flush_	undefined __flush_(void)	Watcom 10.6 runtime: __flush_ (module flush, 192 bytes, full match; dreams.csv).
+FUNC	90743	__flushall_	undefined __flushall_(void)	Watcom 10.6 runtime: __flushall_ (module flushall, 47 bytes, full match; dreams.csv).
+FUNC	90b66	__MemAllocator	undefined __MemAllocator(void)	Watcom 10.6 runtime: __MemAllocator (module memalloc, 168 bytes, full match; dreams.csv).
+FUNC	90c0e	__MemFree	undefined __MemFree(void)	Watcom 10.6 runtime: __MemFree (module memalloc, 192 bytes, full match; dreams.csv).
+FUNC	90d6a	__FreeDPMIBlocks_	undefined __FreeDPMIBlocks_(void)	Watcom 10.6 runtime: __FreeDPMIBlocks_ (module grownear, 92 bytes, full match; dreams.csv).
+FUNC	90dc6	__ReAllocDPMIBlock_	undefined __ReAllocDPMIBlock_(void)	Watcom 10.6 runtime: __ReAllocDPMIBlock_ (module grownear, 192 bytes, full match; dreams.csv).
+FUNC	90f39	__LastFree_	undefined __LastFree_(void)	Watcom 10.6 runtime: __LastFree_ (module grownear, 192 bytes, full match; dreams.csv).
+FUNC	9110a	__ExpandDGROUP_	undefined __ExpandDGROUP_(void)	Watcom 10.6 runtime: __ExpandDGROUP_ (module grownear, 192 bytes, full match; dreams.csv).
+FUNC	912e4	__allocfp_	undefined __allocfp_(void)	Watcom 10.6 runtime: __allocfp_ (module allocfp, 166 bytes, full match; dreams.csv).
+FUNC	9138a	__freefp_	undefined __freefp_(void)	Watcom 10.6 runtime: __freefp_ (module allocfp, 57 bytes, full match; dreams.csv).
+FUNC	913c3	__purgefp_	undefined __purgefp_(void)	Watcom 10.6 runtime: __purgefp_ (module allocfp, 30 bytes, full match; dreams.csv).
+FUNC	913e1	__chktty_	undefined __chktty_(void)	Watcom 10.6 runtime: __chktty_ (module chktty, 49 bytes, full match; dreams.csv).
+FUNC	91412	__ioalloc_	undefined __ioalloc_(void)	Watcom 10.6 runtime: __ioalloc_ (module ioalloc, 119 bytes, full match; dreams.csv).
+FUNC	91489	__qwrite_	undefined __qwrite_(void)	Watcom 10.6 runtime: __qwrite_ (module qwrit, 116 bytes, full match; dreams.csv).
+FUNC	91509	fputc_	undefined fputc_(void)	Watcom 10.6 runtime: fputc_ (module fputc, 164 bytes, full match; dreams.csv).
+FUNC	915b4	__int386x_	undefined __int386x_(void)	Watcom 10.6 runtime: __int386x_ (module intxa386, 93 bytes, full match; dreams.csv).
+FUNC	91611	_DoINTR_	undefined _DoINTR_(void)	Watcom 10.6 runtime: _DoINTR_ (module intxa386, 192 bytes, full match; dreams.csv).
+FUNC	91992	__delay_init_	undefined __delay_init_(void)	Watcom 10.6 runtime: __delay_init_ (module delay, 50 bytes, full match; dreams.csv).
+FUNC	919c4	__delay_	undefined __delay_(void)	Watcom 10.6 runtime: __delay_ (module delay, 54 bytes, full match; dreams.csv).
+FUNC	919fa	_getvideoconfig_	undefined _getvideoconfig_(void)	Watcom 10.6 runtime: _getvideoconfig_ (module getconfr, 34 bytes, full match; dreams.csv).
+FUNC	91a1c	_CalcNumPages_	undefined _CalcNumPages_(void)	Watcom 10.6 runtime: _CalcNumPages_ (module getconfr, 117 bytes, full match; dreams.csv).
+FUNC	91a91	_GetState_	undefined _GetState_(void)	Watcom 10.6 runtime: _GetState_ (module getconfr, 192 bytes, full match; dreams.csv).
+FUNC	91bbd	_InitState_	undefined _InitState_(void)	Watcom 10.6 runtime: _InitState_ (module getconfr, 137 bytes, full match; dreams.csv).
+FUNC	91c46	_GrInit_	undefined _GrInit_(void)	Watcom 10.6 runtime: _GrInit_ (module getconfr, 113 bytes, full match; dreams.csv).
+FUNC	91cb7	_CursorOn_	undefined _CursorOn_(void)	Watcom 10.6 runtime: _CursorOn_ (module cursorr, 46 bytes, full match; dreams.csv).
+FUNC	91ce5	_CursorOff_	undefined _CursorOff_(void)	Watcom 10.6 runtime: _CursorOff_ (module cursorr, 192 bytes, full match; dreams.csv).
+FUNC	91e12	_GraphMode	undefined _GraphMode(void)	Watcom 10.6 runtime: _GraphMode, _GraphMode_ (module devutilsr, 36 bytes, full match; dreams.csv).
+FUNC	91e36	_GrProlog	undefined _GrProlog(void)	Watcom 10.6 runtime: _GrProlog, _GrProlog_ (module devutilsr, 36 bytes, full match; dreams.csv).
+FUNC	91ea2	_getplotaction	undefined _getplotaction(void)	Watcom 10.6 runtime: _getplotaction, _getplotaction_ (module plotactnr, 44 bytes, full match; dreams.csv).
+FUNC	91ece	_setplotaction_	undefined _setplotaction_(void)	Watcom 10.6 runtime: _setplotaction_ (module plotactnr, 81 bytes, full match; dreams.csv).
+FUNC	91f1f	_getfillmask_	undefined _getfillmask_(void)	Watcom 10.6 runtime: _getfillmask_ (module fillmaskr, 42 bytes, full match; dreams.csv).
+FUNC	91f49	_setfillmask_	undefined _setfillmask_(void)	Watcom 10.6 runtime: _setfillmask_ (module fillmaskr, 119 bytes, full match; dreams.csv).
+FUNC	91fc7	_setcolor_	undefined _setcolor_(void)	Watcom 10.6 runtime: _setcolor_ (module colorr, 30 bytes, full match; dreams.csv).
+FUNC	91fe5	_L2setcolor_	undefined _L2setcolor_(void)	Watcom 10.6 runtime: _L2setcolor_ (module colorr, 30 bytes, full match; dreams.csv).
+FUNC	92003	_L1Block_	undefined _L1Block_(void)	Watcom 10.6 runtime: _L1Block_ (module l1blockr, 73 bytes, full match; dreams.csv).
+FUNC	9204c	getenv_	undefined getenv_(void)	Watcom 10.6 runtime: getenv_ (module getenv, 97 bytes, full match; dreams.csv).
+FUNC	93a5a	time_	undefined time_(void)	Watcom 10.6 runtime: time_ (module time, 47 bytes, full match; dreams.csv).
+FUNC	93a89	_localtime_	undefined _localtime_(void)	Watcom 10.6 runtime: _localtime_ (module localtim, 81 bytes, full match; dreams.csv).
+FUNC	93b1a	_asctime_	undefined _asctime_(void)	Watcom 10.6 runtime: _asctime_ (module asctime, 192 bytes, full match; dreams.csv).
+FUNC	93c07	_ctime_	undefined _ctime_(void)	Watcom 10.6 runtime: _ctime_ (module asctime, 25 bytes, full match; dreams.csv).
+FUNC	9d25f	__fatal_runtime_error_	undefined __fatal_runtime_error_(void)	Watcom 10.6 runtime: __fatal_runtime_error_ (module xmsg, 29 bytes, full match; dreams.csv).
+FUNC	a392b	sbrk_	undefined sbrk_(void)	Watcom 10.6 runtime: sbrk_ (module sbrk386, 192 bytes, full match; dreams.csv).
+FUNC	a39f3	__brk_	undefined __brk_(void)	Watcom 10.6 runtime: __brk_ (module sbrk386, 192 bytes, full match; dreams.csv).
+FUNC	a3abe	__qread_	undefined __qread_(void)	Watcom 10.6 runtime: __qread_ (module qread, 31 bytes, full match; dreams.csv).
+FUNC	a3add	fgetc_	undefined fgetc_(void)	Watcom 10.6 runtime: fgetc_ (module fgetc, 137 bytes, full match; dreams.csv).
+FUNC	a3b66	__filbuf_	undefined __filbuf_(void)	Watcom 10.6 runtime: __filbuf_ (module fgetc, 47 bytes, full match; dreams.csv).
+FUNC	a3b95	__fill_buffer_	undefined __fill_buffer_(void)	Watcom 10.6 runtime: __fill_buffer_ (module fgetc, 172 bytes, full match; dreams.csv).
+FUNC	a3c53	_expand_	undefined _expand_(void)	Watcom 10.6 runtime: _expand_ (module nexpand, 56 bytes, full match; dreams.csv).
+FUNC	a3c8b	__HeapManager_expand_	undefined __HeapManager_expand_(void)	Watcom 10.6 runtime: __HeapManager_expand_ (module nexpand, 192 bytes, full match; dreams.csv).
+FUNC	a3e83	unlink_	undefined unlink_(void)	Watcom 10.6 runtime: unlink_ (module unlnk, 33 bytes, full match; dreams.csv).
+FUNC	a3ea4	ungetc_	undefined ungetc_(void)	Watcom 10.6 runtime: ungetc_ (module ungetc, 130 bytes, full match; dreams.csv).
+FUNC	a3f35	__scnf_	undefined __scnf_(void)	Watcom 10.6 runtime: __scnf_ (module scnf, 192 bytes, full match; dreams.csv).
+FUNC	a4b58	modf_	undefined modf_(void)	Watcom 10.6 runtime: modf_ (module modf387, 25 bytes, full match; dreams.csv).
+FUNC	a5c74	spawnl_	undefined spawnl_(void)	Watcom 10.6 runtime: spawnl_ (module spl, 30 bytes, full match; dreams.csv).
+FUNC	a5c92	strrchr_	undefined strrchr_(void)	Watcom 10.6 runtime: strrchr_ (module strrchr, 26 bytes, full match; dreams.csv).
+FUNC	a6874	_Not_Enough_Memory_	undefined _Not_Enough_Memory_(void)	Watcom 10.6 runtime: _Not_Enough_Memory_ (module nomem, 18 bytes, full match; dreams.csv).
+FUNC	a68ab	ultoa_	undefined ultoa_(void)	Watcom 10.6 runtime: ultoa_, utoa_ (module itoa, 74 bytes, core match; dreams.csv).
+FUNC	a68f5	_itoa_	undefined _itoa_(void)	Watcom 10.6 runtime: _itoa_, _ltoa_ (module itoa, 27 bytes, full match; dreams.csv).
+FUNC	a691e	__InitFiles_	undefined __InitFiles_(void)	Watcom 10.6 runtime: __InitFiles_ (module initfile, 119 bytes, full match; dreams.csv).
+FUNC	a69a1	fcloseall_	undefined fcloseall_(void)	Watcom 10.6 runtime: fcloseall_ (module ioexit, 93 bytes, full match; dreams.csv).
+FUNC	a69fe	__CommonInit_	undefined __CommonInit_(void)	Watcom 10.6 runtime: __CommonInit_ (module cinit, 105 bytes, full match; dreams.csv).
+FUNC	a6a67	_EFG_Format_	undefined _EFG_Format_(void)	Watcom 10.6 runtime: _EFG_Format_ (module efgfmt, 192 bytes, full match; dreams.csv).
+FUNC	a6f38	__int7_pl3	undefined __int7_pl3(void)	Watcom 10.6 runtime: __int7_pl3 (module emu387, 36 bytes, full match; dreams.csv).
+FUNC	a6f5c	__int7_X32VM	undefined __int7_X32VM(void)	Watcom 10.6 runtime: __int7_X32VM (module emu387, 76 bytes, full match; dreams.csv).
+FUNC	a6fa8	__int7	undefined __int7(void)	Watcom 10.6 runtime: __int7 (module emu387, 192 bytes, full match; dreams.csv).
+FUNC	a7b00	caseD_2	undefined caseD_2(void)	
+FUNC	a7b32	caseD_0	undefined caseD_0(void)	
+FUNC	a81bf	caseD_3	undefined caseD_3(void)	
+FUNC	a86f0	__FLDA	undefined __FLDA(void)	Watcom 10.6 runtime: __FLDA (module 386flda, 42 bytes, full match; dreams.csv).
+FUNC	a871a	__FLDAC	undefined __FLDAC(void)	Watcom 10.6 runtime: __FLDAC (module 386flda, 48 bytes, full match; dreams.csv).
+FUNC	a894f	__FLDD	undefined __FLDD(void)	Watcom 10.6 runtime: __FLDD, __FLDM (module 386fldd, 42 bytes, full match; dreams.csv).
+FUNC	a8b24	__FLDD	undefined __FLDD(void)	Watcom 10.6 runtime: __FLDD, __FLDM (module 386fldd, 42 bytes, full match; dreams.csv).
+FUNC	a9de6	__hook387	undefined __hook387(void)	Watcom 10.6 runtime: __hook387 (module hook387, 192 bytes, full match; dreams.csv).
+FUNC	a9eba	__unhook387	undefined __unhook387(void)	Watcom 10.6 runtime: __unhook387 (module hook387, 89 bytes, full match; dreams.csv).
+FUNC	a9f14	__init_80x87	undefined __init_80x87(void)	Watcom 10.6 runtime: __init_80x87 (module ini87386, 39 bytes, full match; dreams.csv).
+FUNC	a9f3c	IF@DATAN	undefined IF@DATAN(void)	Watcom 10.6 runtime: IF@DATAN (module atan387, 21 bytes, full match; dreams.csv).
+FUNC	a9f51	IF@DATAN2	undefined IF@DATAN2(void)	Watcom 10.6 runtime: IF@DATAN2 (module atan387, 21 bytes, full match; dreams.csv).
+FUNC	a9f72	atan2_	undefined atan2_(void)	Watcom 10.6 runtime: atan2_ (module atan387, 16 bytes, full match; dreams.csv).
+FUNC	a9f82	sqrt_	undefined sqrt_(void)	Watcom 10.6 runtime: sqrt_ (module sqrt387, 48 bytes, full match; dreams.csv).
+FUNC	a9fb4	__@DSQRT	undefined __@DSQRT(void)	Watcom 10.6 runtime: __@DSQRT (module sqrt387, 53 bytes, full match; dreams.csv).
+FUNC	a9fea	__pow87_err_	undefined __pow87_err_(void)	Watcom 10.6 runtime: __pow87_err_ (module pow87e, 137 bytes, full match; dreams.csv).
+FUNC	aa07e	__@DEXP	undefined __@DEXP(void)	Watcom 10.6 runtime: __@DEXP (module exp387, 96 bytes, full match; dreams.csv).
+FUNC	aa203	__fdiv_fpr	undefined __fdiv_fpr(void)	Watcom 10.6 runtime: __fdiv_fpr (module chipd32, 192 bytes, full match; dreams.csv).
+FUNC	aa69f	__fdivp_sti_st	undefined __fdivp_sti_st(void)	Library Function - Single Match\n __fdivp_sti_st\n\nLibrary: Visual Studio
+FUNC	aa6c5	__fdiv_chk	undefined __fdiv_chk(void)	Watcom 10.6 runtime: __fdiv_chk (module chipd32, 19 bytes, full match; dreams.csv).
+FUNC	aa6d8	__fdiv_m32	undefined __fdiv_m32(void)	Watcom 10.6 runtime: __fdiv_m32 (module chipd32, 76 bytes, full match; dreams.csv).
+FUNC	aa724	__fdiv_m64	undefined __fdiv_m64(void)	Library Function - Single Match\n __adj_fdiv_m64\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, Visual Studio 2003 Debug, Visual Studio 2003 Release\n\nWatcom 10.6 runtime: __fdiv_m64 (module chipd32, 76 bytes, full match; dreams.csv).
+FUNC	aa770	__fdiv_m32r	undefined __fdiv_m32r(void)	Watcom 10.6 runtime: __fdiv_m32r (module chipd32, 76 bytes, full match; dreams.csv).
+FUNC	aa7bc	__fdiv_m64r	undefined __fdiv_m64r(void)	Watcom 10.6 runtime: __fdiv_m64r (module chipd32, 76 bytes, full match; dreams.csv).
+FUNC	aa808	_mbgetcode_	undefined _mbgetcode_(void)	Watcom 10.6 runtime: _mbgetcode_ (module mbsinc, 109 bytes, full match; dreams.csv).
+FUNC	aa875	_mbsnextc_	undefined _mbsnextc_(void)	Watcom 10.6 runtime: _mbsnextc_ (module mbsinc, 82 bytes, full match; dreams.csv).
+FUNC	aa8c7	_mbsinc_	undefined _mbsinc_(void)	Watcom 10.6 runtime: _mbsinc_ (module mbsinc, 70 bytes, full match; dreams.csv).
+FUNC	aa90d	_mbsdec_	undefined _mbsdec_(void)	Watcom 10.6 runtime: _mbsdec_ (module mbsinc, 134 bytes, full match; dreams.csv).
+FUNC	aa993	strncat_	undefined strncat_(void)	Watcom 10.6 runtime: strncat_ (module strncat, 63 bytes, full match; dreams.csv).
+FUNC	b7cde	_SysMonType_	undefined _SysMonType_(void)	Watcom 10.6 runtime: _SysMonType_ (module sysmtyper, 192 bytes, full match; dreams.csv).
+FUNC	b7f97	_InitSegments_	undefined _InitSegments_(void)	Watcom 10.6 runtime: _InitSegments_ (module seginitr, 192 bytes, full match; dreams.csv).
+FUNC	b808b	_L1SLine_	undefined _L1SLine_(void)	Watcom 10.6 runtime: _L1SLine_ (module l1liner, 65 bytes, full match; dreams.csv).
+FUNC	b80cc	_L1Line_	undefined _L1Line_(void)	Watcom 10.6 runtime: _L1Line_ (module l1liner, 192 bytes, full match; dreams.csv).
+FUNC	b824d	_L1Fill_	undefined _L1Fill_(void)	Watcom 10.6 runtime: _L1Fill_ (module l1fillr, 192 bytes, full match; dreams.csv).
+FUNC	b8323	_L1ClipFill_	undefined _L1ClipFill_(void)	Watcom 10.6 runtime: _L1ClipFill_ (module l1fillr, 69 bytes, full match; dreams.csv).
+FUNC	b8368	__getctime_	undefined __getctime_(void)	Watcom 10.6 runtime: __getctime_ (module gtctm, 192 bytes, full match; dreams.csv).
+FUNC	b842b	mktime_	undefined mktime_(void)	Watcom 10.6 runtime: mktime_ (module mktime, 192 bytes, full match; dreams.csv).
+FUNC	b857f	__CacheOSTZ_	undefined __CacheOSTZ_(void)	Watcom 10.6 runtime: __CacheOSTZ_ (module tzset, 108 bytes, full match; dreams.csv).
+FUNC	b85f9	__parse_tz_	undefined __parse_tz_(void)	Watcom 10.6 runtime: __parse_tz_ (module tzset, 192 bytes, full match; dreams.csv).
+FUNC	b894f	__brktime_	undefined __brktime_(void)	Watcom 10.6 runtime: __brktime_ (module gmtime, 192 bytes, full match; dreams.csv).
+FUNC	b8a64	_gmtime_	undefined _gmtime_(void)	Watcom 10.6 runtime: _gmtime_ (module gmtime, 30 bytes, full match; dreams.csv).
+FUNC	b8a8f	__leapyear_	undefined __leapyear_(void)	Watcom 10.6 runtime: __leapyear_ (module timeutil, 192 bytes, full match; dreams.csv).
+FUNC	b8be3	__isindst_	undefined __isindst_(void)	Watcom 10.6 runtime: __isindst_ (module timeutil, 192 bytes, full match; dreams.csv).
+FUNC	baf9b	__EnterWVIDEO_	undefined __EnterWVIDEO_(void)	Watcom 10.6 runtime: __EnterWVIDEO_ (module enterdb, 38 bytes, full match; dreams.csv).
+FUNC	bafc1	getche_	undefined getche_(void)	Watcom 10.6 runtime: getche_ (module gtche, 29 bytes, full match; dreams.csv).
+FUNC	bafde	_GR__FDFS	undefined _GR__FDFS(void)	Watcom 10.6 runtime: _GR__FDFS, __FDFS (module fdfs386, 76 bytes, full match; dreams.csv).
+FUNC	bb02a	__Slash_C_	undefined __Slash_C_(void)	Watcom 10.6 runtime: __Slash_C_ (module spve, 120 bytes, full match; dreams.csv).
+FUNC	bb0a2	spawnve_	undefined spawnve_(void)	Watcom 10.6 runtime: spawnve_ (module spve, 192 bytes, full match; dreams.csv).
+FUNC	bb923	__DPMI_hosted_	undefined __DPMI_hosted_(void)	Watcom 10.6 runtime: __DPMI_hosted_ (module sigsy, 148 bytes, full match; dreams.csv).
+FUNC	bb9b7	__restore_int23_	undefined __restore_int23_(void)	Watcom 10.6 runtime: __restore_int23_ (module sigsy, 192 bytes, full match; dreams.csv).
+FUNC	bbb6d	__restore_int_ctrl_break_	undefined __restore_int_ctrl_break_(void)	Watcom 10.6 runtime: __restore_int_ctrl_break_ (module sigsy, 56 bytes, full match; dreams.csv).
+FUNC	bbba5	__grab_int23_	undefined __grab_int23_(void)	Watcom 10.6 runtime: __grab_int23_, __grab_int_ctrl_break_ (module sigsy, 192 bytes, full match; dreams.csv).
+FUNC	bbddb	_SetMaxPrec_	undefined _SetMaxPrec_(void)	Watcom 10.6 runtime: _SetMaxPrec_ (module ftos, 192 bytes, full match; dreams.csv).
+FUNC	bbf58	_FtoS_	undefined _FtoS_(void)	Watcom 10.6 runtime: _FtoS_ (module ftos, 192 bytes, full match; dreams.csv).
+FUNC	bc192	strtod_	undefined strtod_(void)	Watcom 10.6 runtime: strtod_ (module strtod, 192 bytes, full match; dreams.csv).
+FUNC	bc385	_dos_setvect_	undefined _dos_setvect_(void)	Watcom 10.6 runtime: _dos_setvect_ (module d_setvec, 45 bytes, full match; dreams.csv).
+FUNC	bc3b4	__fpatan_wrap	undefined __fpatan_wrap(void)	Watcom 10.6 runtime: __fpatan_wrap (module chipw32, 52 bytes, full match; dreams.csv).
+FUNC	bc3e8	__math87_err_	undefined __math87_err_(void)	Watcom 10.6 runtime: __math87_err_ (module math87e, 123 bytes, full match; dreams.csv).
+FUNC	bc463	verify_pentium_fdiv_bug_	undefined verify_pentium_fdiv_bug_(void)	Watcom 10.6 runtime: verify_pentium_fdiv_bug_ (module chipbug, 85 bytes, full match; dreams.csv).
+FUNC	bc4c2	__math2err_	undefined __math2err_(void)	Watcom 10.6 runtime: __math2err_ (module math2err, 192 bytes, full match; dreams.csv).
+FUNC	bcb05	_SuperVGAType_	undefined _SuperVGAType_(void)	Watcom 10.6 runtime: _SuperVGAType_ (module svgainfor, 192 bytes, full match; dreams.csv).
+FUNC	bcf46	_FastMap_	undefined _FastMap_(void)	Watcom 10.6 runtime: _FastMap_ (module fast256r, 169 bytes, full match; dreams.csv).
+FUNC	bcfef	_RMAlloc_	undefined _RMAlloc_(void)	Watcom 10.6 runtime: _RMAlloc_ (module fast256r, 134 bytes, full match; dreams.csv).
+FUNC	bd075	_RMFree_	undefined _RMFree_(void)	Watcom 10.6 runtime: _RMFree_ (module fast256r, 47 bytes, full match; dreams.csv).
+FUNC	bd0a4	_RMInterrupt_	undefined _RMInterrupt_(void)	Watcom 10.6 runtime: _RMInterrupt_ (module fast256r, 185 bytes, full match; dreams.csv).
+FUNC	bd15d	_RMInterrupt2_	undefined _RMInterrupt2_(void)	Watcom 10.6 runtime: _RMInterrupt2_ (module fast256r, 141 bytes, full match; dreams.csv).
+FUNC	bd1ea	_L1OutCode_	undefined _L1OutCode_(void)	Watcom 10.6 runtime: _L1OutCode_ (module l1clipr, 167 bytes, full match; dreams.csv).
+FUNC	bd291	_L0LineClip_	undefined _L0LineClip_(void)	Watcom 10.6 runtime: _L0LineClip_ (module l1clipr, 192 bytes, full match; dreams.csv).
+FUNC	bd47f	_L0BlockClip_	undefined _L0BlockClip_(void)	Watcom 10.6 runtime: _L0BlockClip_ (module l1clipr, 125 bytes, full match; dreams.csv).
+FUNC	bd4fc	_L0DrawLine_	undefined _L0DrawLine_(void)	Watcom 10.6 runtime: _L0DrawLine_ (module l0drwlinr, 192 bytes, full match; dreams.csv).
+FUNC	bd6b9	__setenvp_	undefined __setenvp_(void)	Watcom 10.6 runtime: __setenvp_ (module setenvp, 192 bytes, full match; dreams.csv).
+FUNC	bd79c	__cenvarg_	undefined __cenvarg_(void)	Watcom 10.6 runtime: __cenvarg_ (module cenvarg, 192 bytes, full match; dreams.csv).
+FUNC	bd8d4	__ccmdline_	undefined __ccmdline_(void)	Watcom 10.6 runtime: __ccmdline_ (module cenvarg, 83 bytes, full match; dreams.csv).
+FUNC	bd927	__dospawn	undefined __dospawn(void)	Watcom 10.6 runtime: __dospawn (module spawn386, 192 bytes, full match; dreams.csv).
+FUNC	bd9f5	strlen_	undefined strlen_(void)	Watcom 10.6 runtime: strlen_ (module strlen, 25 bytes, full match; dreams.csv).
+FUNC	bda60	_splitpath2_	undefined _splitpath2_(void)	Watcom 10.6 runtime: _splitpath2_ (module split2, 192 bytes, full match; dreams.csv).
+FUNC	bdb4f	_makepath_	undefined _makepath_(void)	Watcom 10.6 runtime: _makepath_ (module makepath, 192 bytes, full match; dreams.csv).
+FUNC	bdd44	__sigfpe_handler_	undefined __sigfpe_handler_(void)	Watcom 10.6 runtime: __sigfpe_handler_ (module signl, 53 bytes, full match; dreams.csv).
+FUNC	bdd79	signal_	undefined signal_(void)	Watcom 10.6 runtime: signal_ (module signl, 181 bytes, full match; dreams.csv).
+FUNC	bde2e	raise_	undefined raise_(void)	Watcom 10.6 runtime: raise_ (module signl, 192 bytes, full match; dreams.csv).
+FUNC	bdef0	_chain_intr_	undefined _chain_intr_(void)	Watcom 10.6 runtime: _chain_intr_ (module chint386, 25 bytes, full match; dreams.csv).
+FUNC	bdf09	_dos_getvect_	undefined _dos_getvect_(void)	Watcom 10.6 runtime: _dos_getvect_ (module d_getvec, 50 bytes, full match; dreams.csv).
+FUNC	bdf3b	__Nan_Inf_	undefined __Nan_Inf_(void)	Watcom 10.6 runtime: __Nan_Inf_ (module nan_inf, 146 bytes, full match; dreams.csv).
+FUNC	bdfce	IF@DLOG	undefined IF@DLOG(void)	Watcom 10.6 runtime: IF@DLOG (module log387, 67 bytes, full match; dreams.csv).
+FUNC	be03d	_Scale_	undefined _Scale_(void)	Watcom 10.6 runtime: _Scale_ (module scale, 65 bytes, full match; dreams.csv).
+FUNC	be07e	_Scale10V_	undefined _Scale10V_(void)	Watcom 10.6 runtime: _Scale10V_ (module scale, 192 bytes, full match; dreams.csv).
+FUNC	be19b	__cvt_	undefined __cvt_(void)	Watcom 10.6 runtime: __cvt_ (module cvt, 192 bytes, full match; dreams.csv).
+FUNC	be378	__ModF	undefined __ModF(void)	Watcom 10.6 runtime: __ModF (module amodf386, 144 bytes, full match; dreams.csv).
+FUNC	be408	__ZBuf2F	undefined __ZBuf2F(void)	Watcom 10.6 runtime: __ZBuf2F (module amodf386, 156 bytes, full match; dreams.csv).
+FUNC	be4b0	__fpatan_chk	undefined __fpatan_chk(void)	Watcom 10.6 runtime: __fpatan_chk (module chipa32, 192 bytes, full match; dreams.csv).
+FUNC	be6b6	__rterrmsg_	undefined __rterrmsg_(void)	Watcom 10.6 runtime: __rterrmsg_ (module _matherr, 72 bytes, full match; dreams.csv).
+FUNC	be6fe	_matherr_	undefined _matherr_(void)	Watcom 10.6 runtime: _matherr_ (module _matherr, 47 bytes, full match; dreams.csv).
+FUNC	be733	strcpy_	undefined strcpy_(void)	Watcom 10.6 runtime: strcpy_ (module strcpy, 31 bytes, full match; dreams.csv).
+FUNC	be758	__terminate_	undefined __terminate_(void)	Watcom 10.6 runtime: __terminate_ (module abort, 18 bytes, full match; dreams.csv).
+FUNC	be76f	__log87_err_	undefined __log87_err_(void)	Watcom 10.6 runtime: __log87_err_ (module log87e, 60 bytes, full match; dreams.csv).
+FUNC	be7ac	__CmpBigInt	undefined __CmpBigInt(void)	Watcom 10.6 runtime: __CmpBigInt (module i64ts386, 58 bytes, full match; dreams.csv).
+FUNC	be7e6	__Rnd2Int	undefined __Rnd2Int(void)	Watcom 10.6 runtime: __Rnd2Int (module i64ts386, 107 bytes, full match; dreams.csv).
+FUNC	be851	__Bin2String	undefined __Bin2String(void)	Watcom 10.6 runtime: __Bin2String (module i64ts386, 192 bytes, full match; dreams.csv).
+FUNC	be972	frexp_	undefined frexp_(void)	Watcom 10.6 runtime: frexp_ (module frexp, 111 bytes, full match; dreams.csv).
+FUNC	be9e7	__get_std_stream_	undefined __get_std_stream_(void)	Watcom 10.6 runtime: __get_std_stream_ (module iobaddr, 31 bytes, full match; dreams.csv).
+FUNC	bea06	fputs_	undefined fputs_(void)	Watcom 10.6 runtime: fputs_ (module fputs, 123 bytes, full match; dreams.csv).
+FUNC	bea81	__GrabFP87_	undefined __GrabFP87_(void)	Watcom 10.6 runtime: __GrabFP87_ (module grabfp87, 49 bytes, full match; dreams.csv).
+FUNC	beab6	__Init_FPE_handler_	undefined __Init_FPE_handler_(void)	Watcom 10.6 runtime: __Init_FPE_handler_ (module fpe387, 93 bytes, full match; dreams.csv).
+FUNC	beb13	__Fini_FPE_handler_	undefined __Fini_FPE_handler_(void)	Watcom 10.6 runtime: __Fini_FPE_handler_ (module fpe387, 92 bytes, full match; dreams.csv).
+FUNC	beb70	__Enable_FPE_	undefined __Enable_FPE_(void)	Watcom 10.6 runtime: __Enable_FPE_ (module fpeinth, 21 bytes, full match; dreams.csv).
+FUNC	beb92	__FPE2Handler_	undefined __FPE2Handler_(void)	Watcom 10.6 runtime: __FPE2Handler_ (module fpeinth, 192 bytes, full match; dreams.csv).
+FUNC	bedd0	__Phar_hook_init_	undefined __Phar_hook_init_(void)	Watcom 10.6 runtime: __Phar_hook_init_ (module fpephar, 192 bytes, full match; dreams.csv).
+FUNC	bee93	__Phar_hook_fini_	undefined __Phar_hook_fini_(void)	Watcom 10.6 runtime: __Phar_hook_fini_ (module fpephar, 45 bytes, full match; dreams.csv).
+FUNC	beec0	__DOS4G_hook_init_	undefined __DOS4G_hook_init_(void)	Watcom 10.6 runtime: __DOS4G_hook_init_ (module fpedos4g, 45 bytes, full match; dreams.csv).
+FUNC	beeed	__DOS4G_hook_fini_	undefined __DOS4G_hook_fini_(void)	Watcom 10.6 runtime: __DOS4G_hook_fini_, __Ergo_hook_fini_ (module fpedos4g, 25 bytes, full match; dreams.csv).
+FUNC	bef06	__Ergo_hook_init_	undefined __Ergo_hook_init_(void)	Watcom 10.6 runtime: __Ergo_hook_init_ (module fpeergo, 62 bytes, full match; dreams.csv).
+FUNC	bef44	__DOS4G_hook_fini_	undefined __DOS4G_hook_fini_(void)	Watcom 10.6 runtime: __DOS4G_hook_fini_, __Ergo_hook_fini_ (module fpedos4g, 25 bytes, full match; dreams.csv).
+FUNC	bef5e	__Intel_hook_init_	undefined __Intel_hook_init_(void)	Watcom 10.6 runtime: __Intel_hook_init_ (module fpeintel, 88 bytes, full match; dreams.csv).
+CMT	12610	plate	[NAME] Name recovered. Original module: C:\DREAMS\src\ANIM.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:40.
+CMT	21a0c	plate	[NAME] Name recovered. Original module: C:\DREAMS\src\WORKS.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:87.
+CMT	29fb0	plate	[NAME] Name recovered. Original module: C:\DREAMS\src\DMS_EVIL.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:52.
+CMT	2bcdc	plate	[NAME] Name recovered. Original module: C:\DREAMS\src\DMS_EVIL.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:282.
+CMT	31134	plate	[NAME] Name recovered. Original module: C:\DREAMS\src\PHYSIQUE.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:38.
+CMT	313d8	plate	[NAME] Name recovered. Original module: C:\DREAMS\src\WEAPON.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:32.
+CMT	31914	plate	[NAME] Name recovered. Original module: C:\DREAMS\src\WEAPON.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:32.
+CMT	31de0	plate	[NAME] Name recovered. Original module: C:\DREAMS\src\WEAPON.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:32.
+CMT	42c34	plate	[NAME] Name recovered. Original module: C:\DREAMS\src\SYMBOLE.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:208.
+CMT	49358	plate	[NAME] Name recovered. Original module: C:\DREAMS\src\MMSYSTEM.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:47.
+CMT	56a00	plate	Watcom 10.6 runtime: printf_ (module printf, 34 bytes, full match; dreams.csv).
+CMT	56c04	plate	Watcom 10.6 runtime: int386_ (module int386, 29 bytes, full match; dreams.csv).
+CMT	57d98	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_COL2.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:67.
+CMT	57e8c	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_COL2.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:103.
+CMT	5a56c	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_COLL.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:312.
+CMT	5a770	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_COLL.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:267.
+CMT	5f044	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MEM.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:36.
+CMT	63dbe	plate	Watcom 10.6 runtime: sprintf_ (module sprintf, 48 bytes, full match; dreams.csv).
+CMT	63dee	plate	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; dreams.csv).
+CMT	63e10	plate	Watcom 10.6 runtime: __CHP (module fchop, 29 bytes, full match; dreams.csv).
+CMT	63e52	plate	Watcom 10.6 runtime: ultoa_, utoa_ (module itoa, 74 bytes, full match; dreams.csv).
+CMT	63e9c	plate	Watcom 10.6 runtime: _itoa_, _ltoa_ (module itoa, 27 bytes, full match; dreams.csv).
+CMT	64149	plate	Watcom 10.6 runtime: __do_exit_with_msg__ (module cstrt386, 59 bytes, full match; dreams.csv).
+CMT	6419a	plate	Watcom 10.6 runtime: _dos_findfirst_ (module find386, 29 bytes, full match; dreams.csv).
+CMT	641b7	plate	Watcom 10.6 runtime: _dos_findnext_ (module find386, 28 bytes, full match; dreams.csv).
+CMT	641d3	plate	Watcom 10.6 runtime: _dos_findclose_ (module find386, 73 bytes, full match; dreams.csv).
+CMT	6421c	plate	Watcom 10.6 runtime: strncpy_ (module strncpy, 37 bytes, full match; dreams.csv).
+CMT	64241	plate	Watcom 10.6 runtime: atoi_, atol_ (module atoi, 109 bytes, full match; dreams.csv).
+CMT	64e2c	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_ANIM.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:95.
+CMT	65fa4	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:63.
+CMT	666bc	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:116.
+CMT	66730	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:72.
+CMT	667b8	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:36.
+CMT	667dc	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:36.
+CMT	66800	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:27.
+CMT	66860	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:38.
+CMT	669d4	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:19.
+CMT	669e8	plate	[NAME] Name recovered. Original module: C:\SOURCES\BEN11\3DC_MATH.C. No prototype or owner review inferred. Sources: July 1997 DREAMS.EXE original debug symbol; literal-byte match; re/reviews/wip-dos-byte-matches.tsv; tools/check_wip_names.py. Facts (tools/check_names.py): size:32.
+CMT	66fdf	plate	Watcom 10.6 runtime: strncmp_ (module strncmp, 41 bytes, full match; dreams.csv).
+CMT	67962	plate	Watcom 10.6 runtime: _splitpath_ (module splitpat, 192 bytes, full match; dreams.csv).
+CMT	67a40	plate	Watcom 10.6 runtime: strcmp_ (module cmp386, 161 bytes, full match; dreams.csv).
+CMT	67ae1	plate	Watcom 10.6 runtime: _strupr_ (module strupr, 37 bytes, full match; dreams.csv).
+CMT	67b06	plate	Watcom 10.6 runtime: open_ (module open, 36 bytes, full match; dreams.csv).
+CMT	67b2a	plate	Watcom 10.6 runtime: sopen_ (module open, 192 bytes, full match; dreams.csv).
+CMT	67d13	plate	Watcom 10.6 runtime: __set_binary_ (module open, 101 bytes, full match; dreams.csv).
+CMT	67d78	plate	Watcom 10.6 runtime: filelength_ (module filelen, 61 bytes, full match; dreams.csv).
+CMT	67db5	plate	Watcom 10.6 runtime: read_ (module read, 192 bytes, full match; dreams.csv).
+CMT	67eb0	plate	Watcom 10.6 runtime: close_ (module close, 32 bytes, full match; dreams.csv).
+CMT	67ed0	plate	Watcom 10.6 runtime: memset_ (module set386, 24 bytes, full match; dreams.csv).
+CMT	67eee	plate	Watcom 10.6 runtime: rand_ (module rand, 36 bytes, full match; dreams.csv).
+CMT	67f12	plate	Watcom 10.6 runtime: srand_ (module rand, 16 bytes, full match; dreams.csv).
+CMT	6849f	plate	Watcom 10.6 runtime: calloc_ (module calloc, 24 bytes, full match; dreams.csv).
+CMT	684c0	plate	Watcom 10.6 runtime: __STOSB (module __stos, 55 bytes, full match; dreams.csv).
+CMT	684f7	plate	Watcom 10.6 runtime: __STOSD (module __stos, 108 bytes, full match; dreams.csv).
+CMT	797e0	plate	Watcom 10.6 runtime: free_ (module nfree, 130 bytes, full match; dreams.csv).
+CMT	79862	plate	Watcom 10.6 runtime: malloc_ (module nmalloc, 192 bytes, full match; dreams.csv).
+CMT	79945	plate	Watcom 10.6 runtime: __open_flags_ (module fopen, 192 bytes, full match; dreams.csv).
+CMT	79ada	plate	Watcom 10.6 runtime: _fsopen_ (module fopen, 57 bytes, full match; dreams.csv).
+CMT	79b13	plate	Watcom 10.6 runtime: fopen_ (module fopen, 114 bytes, full match; dreams.csv).
+CMT	79b85	plate	Watcom 10.6 runtime: freopen_ (module fopen, 66 bytes, full match; dreams.csv).
+CMT	79bc7	plate	Watcom 10.6 runtime: fwrite_ (module fwrite, 192 bytes, full match; dreams.csv).
+CMT	79d87	plate	Watcom 10.6 runtime: fclose_ (module fclose, 45 bytes, full match; dreams.csv).
+CMT	79db4	plate	Watcom 10.6 runtime: __shutdown_stream_ (module fclose, 33 bytes, full match; dreams.csv).
+CMT	79dd5	plate	Watcom 10.6 runtime: __MkTmpFile_ (module fclose, 101 bytes, full match; dreams.csv).
+CMT	79e3a	plate	Watcom 10.6 runtime: __doclose_ (module fclose, 144 bytes, full match; dreams.csv).
+CMT	79eca	plate	Watcom 10.6 runtime: int386x_ (module intx386, 25 bytes, full match; dreams.csv).
+CMT	79ee9	plate	Watcom 10.6 runtime: getch_ (module getch, 29 bytes, full match; dreams.csv).
+CMT	79f06	plate	Watcom 10.6 runtime: _gettextposition, _gettextposition_ (module textposr, 50 bytes, full match; dreams.csv).
+CMT	79f38	plate	Watcom 10.6 runtime: _settextposition_ (module textposr, 152 bytes, full match; dreams.csv).
+CMT	79fdf	plate	Watcom 10.6 runtime: _L2clearscreen_ (module clearscrr, 192 bytes, full match; dreams.csv).
+CMT	7a0aa	plate	Watcom 10.6 runtime: _clearscreen_ (module clearscrr, 128 bytes, full match; dreams.csv).
+CMT	7a12a	plate	Watcom 10.6 runtime: _GrClear_ (module clearscrr, 94 bytes, full match; dreams.csv).
+CMT	7a188	plate	Watcom 10.6 runtime: _TxtClear_ (module clearscrr, 191 bytes, full match; dreams.csv).
+CMT	7a247	plate	Watcom 10.6 runtime: kbhit_ (module kbhit, 23 bytes, full match; dreams.csv).
+CMT	7a2dc	plate	Watcom 10.6 runtime: qsort_ (module qsort, 192 bytes, full match; dreams.csv).
+CMT	7a889	plate	Watcom 10.6 runtime: exit_ (module exit, 24 bytes, full match; dreams.csv).
+CMT	7a8a1	plate	Watcom 10.6 runtime: _exit_ (module exit, 22 bytes, full match; dreams.csv).
+CMT	844ea	plate	Watcom 10.6 runtime: __CHK (module stk386, 16 bytes, full match; dreams.csv).
+CMT	844fd	plate	Watcom 10.6 runtime: __STK (module stk386, 30 bytes, full match; dreams.csv).
+CMT	84e00	plate	Watcom 10.6 runtime: _heapshrink_ (module nheapmin, 192 bytes, full match; dreams.csv).
+CMT	84f5b	plate	Watcom 10.6 runtime: __NHeapWalk_ (module nheapwal, 157 bytes, full match; dreams.csv).
+CMT	84ff8	plate	Watcom 10.6 runtime: _lseek_ (module lseek, 67 bytes, full match; dreams.csv).
+CMT	8503b	plate	Watcom 10.6 runtime: strstr_ (module strstr, 190 bytes, full match; dreams.csv).
+CMT	8510c	plate	Watcom 10.6 runtime: vsprintf_ (module vsprintf, 21 bytes, full match; dreams.csv).
+CMT	85121	plate	Watcom 10.6 runtime: strcmpi_ (module stricmp, 71 bytes, full match; dreams.csv).
+CMT	85168	plate	Watcom 10.6 runtime: memmove_ (module memmove, 77 bytes, full match; dreams.csv).
+CMT	851f7	plate	Watcom 10.6 runtime: fseek_ (module fseek, 192 bytes, full match; dreams.csv).
+CMT	852f3	plate	Watcom 10.6 runtime: fread_ (module fread, 192 bytes, full match; dreams.csv).
+CMT	857b8	plate	Watcom 10.6 runtime: tell_ (module tell, 17 bytes, full match; dreams.csv).
+CMT	857c9	plate	Watcom 10.6 runtime: write_ (module write, 192 bytes, full match; dreams.csv).
+CMT	8599e	plate	Watcom 10.6 runtime: realloc_ (module nrealloc, 158 bytes, full match; dreams.csv).
+CMT	85a3c	plate	Watcom 10.6 runtime: chdir_ (module chdir, 33 bytes, full match; dreams.csv).
+CMT	85a5e	plate	Watcom 10.6 runtime: _dos_getdrive_ (module drive386, 20 bytes, full match; dreams.csv).
+CMT	85a72	plate	Watcom 10.6 runtime: _dos_setdrive_ (module drive386, 20 bytes, full match; dreams.csv).
+CMT	85ae7	plate	Watcom 10.6 runtime: vfscanf_, vsscanf_ (module sscanf, 39 bytes, full match; dreams.csv).
+CMT	85b0e	plate	Watcom 10.6 runtime: fprintf_, fscanf_, sscanf_ (module sscanf, 33 bytes, full match; dreams.csv).
+CMT	85b2f	plate	Watcom 10.6 runtime: ftell_ (module ftell, 66 bytes, full match; dreams.csv).
+CMT	85b71	plate	Watcom 10.6 runtime: floor_ (module floor, 60 bytes, full match; dreams.csv).
+CMT	85bad	plate	Watcom 10.6 runtime: ceil_ (module ceil, 27 bytes, full match; dreams.csv).
+CMT	85bd9	plate	Watcom 10.6 runtime: __fprtf_ (module fprtf, 127 bytes, full match; dreams.csv).
+CMT	8697e	plate	Watcom 10.6 runtime: segread_ (module segread, 40 bytes, full match; dreams.csv).
+CMT	8da2a	plate	Watcom 10.6 runtime: _GR_strnicmp_, _strnicmp_ (module strnicmp, 83 bytes, full match; dreams.csv).
+CMT	8da7d	plate	Watcom 10.6 runtime: _Full_at_exit_rtn_ (module atexit, 59 bytes, full match; dreams.csv).
+CMT	8dab8	plate	Watcom 10.6 runtime: atexit_ (module atexit, 60 bytes, full match; dreams.csv).
+CMT	8ee10	plate	Watcom 10.6 runtime: __prtf_ (module prtf, 192 bytes, full match; dreams.csv).
+CMT	8f9ee	plate	Watcom 10.6 runtime: __CMain (module cmain386, 79 bytes, full match; dreams.csv).
+CMT	8fa3e	plate	Watcom 10.6 runtime: __InitRtns (module inirt386, 75 bytes, full match; dreams.csv).
+CMT	8fa89	plate	Watcom 10.6 runtime: __FiniRtns (module inirt386, 79 bytes, full match; dreams.csv).
+CMT	8faf4	plate	Watcom 10.6 runtime: __sys_init_387_emulator (module dosinite, 192 bytes, full match; dreams.csv).
+CMT	8fc79	plate	Watcom 10.6 runtime: __sys_fini_387_emulator (module dosinite, 192 bytes, full match; dreams.csv).
+CMT	8fd58	plate	Watcom 10.6 runtime: __init_8087_ (module chk8087, 49 bytes, full match; dreams.csv).
+CMT	8fd93	plate	Watcom 10.6 runtime: __chk8087_ (module chk8087, 74 bytes, full match; dreams.csv).
+CMT	8fdde	plate	Watcom 10.6 runtime: __doserror_ (module error386, 19 bytes, full match; dreams.csv).
+CMT	8fdf2	plate	Watcom 10.6 runtime: IF@ACOS (module acos387, 35 bytes, full match; dreams.csv).
+CMT	8fe22	plate	Watcom 10.6 runtime: IF@POW (module pow387, 192 bytes, full match; dreams.csv).
+CMT	8ff78	plate	Watcom 10.6 runtime: pow_ (module pow387, 16 bytes, full match; dreams.csv).
+CMT	8ff88	plate	Watcom 10.6 runtime: _mbsnccnt_ (module mbncnt, 62 bytes, full match; dreams.csv).
+CMT	8ffc6	plate	Watcom 10.6 runtime: _mbsnbcnt_ (module mbncnt, 49 bytes, full match; dreams.csv).
+CMT	8fff7	plate	Watcom 10.6 runtime: _mbsninc_ (module mbncnt, 25 bytes, full match; dreams.csv).
+CMT	90010	plate	Watcom 10.6 runtime: __mbsninc_ (module mbncnt, 69 bytes, full match; dreams.csv).
+CMT	90055	plate	Watcom 10.6 runtime: _mbscat_ (module mbscat, 81 bytes, full match; dreams.csv).
+CMT	900a6	plate	Watcom 10.6 runtime: _mbscpy_ (module mbscat, 31 bytes, full match; dreams.csv).
+CMT	900c5	plate	Watcom 10.6 runtime: _mbsdup_ (module mbscat, 65 bytes, full match; dreams.csv).
+CMT	90106	plate	Watcom 10.6 runtime: _mbsncat_ (module mbscat, 93 bytes, full match; dreams.csv).
+CMT	90163	plate	Watcom 10.6 runtime: _mbsnbcat_ (module mbscat, 192 bytes, full match; dreams.csv).
+CMT	90255	plate	Watcom 10.6 runtime: _mbsncpy_ (module mbscat, 31 bytes, full match; dreams.csv).
+CMT	90274	plate	Watcom 10.6 runtime: _mbsnbcpy_ (module mbscat, 180 bytes, full match; dreams.csv).
+CMT	90328	plate	Watcom 10.6 runtime: _mbptov_ (module mbconv, 62 bytes, full match; dreams.csv).
+CMT	90366	plate	Watcom 10.6 runtime: _mbvtop_ (module mbconv, 26 bytes, full match; dreams.csv).
+CMT	90380	plate	Watcom 10.6 runtime: __mbvtop_ (module mbconv, 52 bytes, full match; dreams.csv).
+CMT	904ef	plate	Watcom 10.6 runtime: isatty_ (module isatt, 39 bytes, full match; dreams.csv).
+CMT	9052e	plate	Watcom 10.6 runtime: __set_EINVAL_ (module seterrno, 16 bytes, full match; dreams.csv).
+CMT	90555	plate	Watcom 10.6 runtime: __set_errno_dos_ (module dosret, 113 bytes, full match; dreams.csv).
+CMT	905c6	plate	Watcom 10.6 runtime: __IOMode_ (module iomode, 85 bytes, full match; dreams.csv).
+CMT	9061b	plate	Watcom 10.6 runtime: __SetIOMode_ (module iomode, 21 bytes, full match; dreams.csv).
+CMT	90630	plate	Watcom 10.6 runtime: __close_ (module _clse, 53 bytes, full match; dreams.csv).
+CMT	90665	plate	Watcom 10.6 runtime: __flush_ (module flush, 192 bytes, full match; dreams.csv).
+CMT	90743	plate	Watcom 10.6 runtime: __flushall_ (module flushall, 47 bytes, full match; dreams.csv).
+CMT	90b66	plate	Watcom 10.6 runtime: __MemAllocator (module memalloc, 168 bytes, full match; dreams.csv).
+CMT	90c0e	plate	Watcom 10.6 runtime: __MemFree (module memalloc, 192 bytes, full match; dreams.csv).
+CMT	90d6a	plate	Watcom 10.6 runtime: __FreeDPMIBlocks_ (module grownear, 92 bytes, full match; dreams.csv).
+CMT	90dc6	plate	Watcom 10.6 runtime: __ReAllocDPMIBlock_ (module grownear, 192 bytes, full match; dreams.csv).
+CMT	90f39	plate	Watcom 10.6 runtime: __LastFree_ (module grownear, 192 bytes, full match; dreams.csv).
+CMT	9110a	plate	Watcom 10.6 runtime: __ExpandDGROUP_ (module grownear, 192 bytes, full match; dreams.csv).
+CMT	912e4	plate	Watcom 10.6 runtime: __allocfp_ (module allocfp, 166 bytes, full match; dreams.csv).
+CMT	9138a	plate	Watcom 10.6 runtime: __freefp_ (module allocfp, 57 bytes, full match; dreams.csv).
+CMT	913c3	plate	Watcom 10.6 runtime: __purgefp_ (module allocfp, 30 bytes, full match; dreams.csv).
+CMT	913e1	plate	Watcom 10.6 runtime: __chktty_ (module chktty, 49 bytes, full match; dreams.csv).
+CMT	91412	plate	Watcom 10.6 runtime: __ioalloc_ (module ioalloc, 119 bytes, full match; dreams.csv).
+CMT	91489	plate	Watcom 10.6 runtime: __qwrite_ (module qwrit, 116 bytes, full match; dreams.csv).
+CMT	91509	plate	Watcom 10.6 runtime: fputc_ (module fputc, 164 bytes, full match; dreams.csv).
+CMT	915b4	plate	Watcom 10.6 runtime: __int386x_ (module intxa386, 93 bytes, full match; dreams.csv).
+CMT	91611	plate	Watcom 10.6 runtime: _DoINTR_ (module intxa386, 192 bytes, full match; dreams.csv).
+CMT	91992	plate	Watcom 10.6 runtime: __delay_init_ (module delay, 50 bytes, full match; dreams.csv).
+CMT	919c4	plate	Watcom 10.6 runtime: __delay_ (module delay, 54 bytes, full match; dreams.csv).
+CMT	919fa	plate	Watcom 10.6 runtime: _getvideoconfig_ (module getconfr, 34 bytes, full match; dreams.csv).
+CMT	91a1c	plate	Watcom 10.6 runtime: _CalcNumPages_ (module getconfr, 117 bytes, full match; dreams.csv).
+CMT	91a91	plate	Watcom 10.6 runtime: _GetState_ (module getconfr, 192 bytes, full match; dreams.csv).
+CMT	91bbd	plate	Watcom 10.6 runtime: _InitState_ (module getconfr, 137 bytes, full match; dreams.csv).
+CMT	91c46	plate	Watcom 10.6 runtime: _GrInit_ (module getconfr, 113 bytes, full match; dreams.csv).
+CMT	91cb7	plate	Watcom 10.6 runtime: _CursorOn_ (module cursorr, 46 bytes, full match; dreams.csv).
+CMT	91ce5	plate	Watcom 10.6 runtime: _CursorOff_ (module cursorr, 192 bytes, full match; dreams.csv).
+CMT	91e12	plate	Watcom 10.6 runtime: _GraphMode, _GraphMode_ (module devutilsr, 36 bytes, full match; dreams.csv).
+CMT	91e36	plate	Watcom 10.6 runtime: _GrProlog, _GrProlog_ (module devutilsr, 36 bytes, full match; dreams.csv).
+CMT	91ea2	plate	Watcom 10.6 runtime: _getplotaction, _getplotaction_ (module plotactnr, 44 bytes, full match; dreams.csv).
+CMT	91ece	plate	Watcom 10.6 runtime: _setplotaction_ (module plotactnr, 81 bytes, full match; dreams.csv).
+CMT	91f1f	plate	Watcom 10.6 runtime: _getfillmask_ (module fillmaskr, 42 bytes, full match; dreams.csv).
+CMT	91f49	plate	Watcom 10.6 runtime: _setfillmask_ (module fillmaskr, 119 bytes, full match; dreams.csv).
+CMT	91fc7	plate	Watcom 10.6 runtime: _setcolor_ (module colorr, 30 bytes, full match; dreams.csv).
+CMT	91fe5	plate	Watcom 10.6 runtime: _L2setcolor_ (module colorr, 30 bytes, full match; dreams.csv).
+CMT	92003	plate	Watcom 10.6 runtime: _L1Block_ (module l1blockr, 73 bytes, full match; dreams.csv).
+CMT	9204c	plate	Watcom 10.6 runtime: getenv_ (module getenv, 97 bytes, full match; dreams.csv).
+CMT	93a5a	plate	Watcom 10.6 runtime: time_ (module time, 47 bytes, full match; dreams.csv).
+CMT	93a89	plate	Watcom 10.6 runtime: _localtime_ (module localtim, 81 bytes, full match; dreams.csv).
+CMT	93b1a	plate	Watcom 10.6 runtime: _asctime_ (module asctime, 192 bytes, full match; dreams.csv).
+CMT	93c07	plate	Watcom 10.6 runtime: _ctime_ (module asctime, 25 bytes, full match; dreams.csv).
+CMT	9d25f	plate	Watcom 10.6 runtime: __fatal_runtime_error_ (module xmsg, 29 bytes, full match; dreams.csv).
+CMT	a392b	plate	Watcom 10.6 runtime: sbrk_ (module sbrk386, 192 bytes, full match; dreams.csv).
+CMT	a39f3	plate	Watcom 10.6 runtime: __brk_ (module sbrk386, 192 bytes, full match; dreams.csv).
+CMT	a3abe	plate	Watcom 10.6 runtime: __qread_ (module qread, 31 bytes, full match; dreams.csv).
+CMT	a3add	plate	Watcom 10.6 runtime: fgetc_ (module fgetc, 137 bytes, full match; dreams.csv).
+CMT	a3b66	plate	Watcom 10.6 runtime: __filbuf_ (module fgetc, 47 bytes, full match; dreams.csv).
+CMT	a3b95	plate	Watcom 10.6 runtime: __fill_buffer_ (module fgetc, 172 bytes, full match; dreams.csv).
+CMT	a3c53	plate	Watcom 10.6 runtime: _expand_ (module nexpand, 56 bytes, full match; dreams.csv).
+CMT	a3c8b	plate	Watcom 10.6 runtime: __HeapManager_expand_ (module nexpand, 192 bytes, full match; dreams.csv).
+CMT	a3e83	plate	Watcom 10.6 runtime: unlink_ (module unlnk, 33 bytes, full match; dreams.csv).
+CMT	a3ea4	plate	Watcom 10.6 runtime: ungetc_ (module ungetc, 130 bytes, full match; dreams.csv).
+CMT	a3f35	plate	Watcom 10.6 runtime: __scnf_ (module scnf, 192 bytes, full match; dreams.csv).
+CMT	a4b58	plate	Watcom 10.6 runtime: modf_ (module modf387, 25 bytes, full match; dreams.csv).
+CMT	a5c74	plate	Watcom 10.6 runtime: spawnl_ (module spl, 30 bytes, full match; dreams.csv).
+CMT	a5c92	plate	Watcom 10.6 runtime: strrchr_ (module strrchr, 26 bytes, full match; dreams.csv).
+CMT	a6874	plate	Watcom 10.6 runtime: _Not_Enough_Memory_ (module nomem, 18 bytes, full match; dreams.csv).
+CMT	a68ab	plate	Watcom 10.6 runtime: ultoa_, utoa_ (module itoa, 74 bytes, core match; dreams.csv).
+CMT	a68f5	plate	Watcom 10.6 runtime: _itoa_, _ltoa_ (module itoa, 27 bytes, full match; dreams.csv).
+CMT	a691e	plate	Watcom 10.6 runtime: __InitFiles_ (module initfile, 119 bytes, full match; dreams.csv).
+CMT	a69a1	plate	Watcom 10.6 runtime: fcloseall_ (module ioexit, 93 bytes, full match; dreams.csv).
+CMT	a69fe	plate	Watcom 10.6 runtime: __CommonInit_ (module cinit, 105 bytes, full match; dreams.csv).
+CMT	a6a67	plate	Watcom 10.6 runtime: _EFG_Format_ (module efgfmt, 192 bytes, full match; dreams.csv).
+CMT	a6f38	plate	Watcom 10.6 runtime: __int7_pl3 (module emu387, 36 bytes, full match; dreams.csv).
+CMT	a6f5c	plate	Watcom 10.6 runtime: __int7_X32VM (module emu387, 76 bytes, full match; dreams.csv).
+CMT	a6fa8	plate	Watcom 10.6 runtime: __int7 (module emu387, 192 bytes, full match; dreams.csv).
+CMT	a86f0	plate	Watcom 10.6 runtime: __FLDA (module 386flda, 42 bytes, full match; dreams.csv).
+CMT	a871a	plate	Watcom 10.6 runtime: __FLDAC (module 386flda, 48 bytes, full match; dreams.csv).
+CMT	a894f	plate	Watcom 10.6 runtime: __FLDD, __FLDM (module 386fldd, 42 bytes, full match; dreams.csv).
+CMT	a8b24	plate	Watcom 10.6 runtime: __FLDD, __FLDM (module 386fldd, 42 bytes, full match; dreams.csv).
+CMT	a9de6	plate	Watcom 10.6 runtime: __hook387 (module hook387, 192 bytes, full match; dreams.csv).
+CMT	a9eba	plate	Watcom 10.6 runtime: __unhook387 (module hook387, 89 bytes, full match; dreams.csv).
+CMT	a9f14	plate	Watcom 10.6 runtime: __init_80x87 (module ini87386, 39 bytes, full match; dreams.csv).
+CMT	a9f3c	plate	Watcom 10.6 runtime: IF@DATAN (module atan387, 21 bytes, full match; dreams.csv).
+CMT	a9f51	plate	Watcom 10.6 runtime: IF@DATAN2 (module atan387, 21 bytes, full match; dreams.csv).
+CMT	a9f72	plate	Watcom 10.6 runtime: atan2_ (module atan387, 16 bytes, full match; dreams.csv).
+CMT	a9f82	plate	Watcom 10.6 runtime: sqrt_ (module sqrt387, 48 bytes, full match; dreams.csv).
+CMT	a9fb4	plate	Watcom 10.6 runtime: __@DSQRT (module sqrt387, 53 bytes, full match; dreams.csv).
+CMT	a9fea	plate	Watcom 10.6 runtime: __pow87_err_ (module pow87e, 137 bytes, full match; dreams.csv).
+CMT	aa07e	plate	Watcom 10.6 runtime: __@DEXP (module exp387, 96 bytes, full match; dreams.csv).
+CMT	aa203	plate	Watcom 10.6 runtime: __fdiv_fpr (module chipd32, 192 bytes, full match; dreams.csv).
+CMT	aa69f	plate	Library Function - Single Match\n __fdivp_sti_st\n\nLibrary: Visual Studio
+CMT	aa6c5	plate	Watcom 10.6 runtime: __fdiv_chk (module chipd32, 19 bytes, full match; dreams.csv).
+CMT	aa6d8	plate	Watcom 10.6 runtime: __fdiv_m32 (module chipd32, 76 bytes, full match; dreams.csv).
+CMT	aa724	plate	Library Function - Single Match\n __adj_fdiv_m64\n\nLibraries: Visual Studio 1998 Debug, Visual Studio 1998 Release, Visual Studio 2003 Debug, Visual Studio 2003 Release\n\nWatcom 10.6 runtime: __fdiv_m64 (module chipd32, 76 bytes, full match; dreams.csv).
+CMT	aa770	plate	Watcom 10.6 runtime: __fdiv_m32r (module chipd32, 76 bytes, full match; dreams.csv).
+CMT	aa7bc	plate	Watcom 10.6 runtime: __fdiv_m64r (module chipd32, 76 bytes, full match; dreams.csv).
+CMT	aa808	plate	Watcom 10.6 runtime: _mbgetcode_ (module mbsinc, 109 bytes, full match; dreams.csv).
+CMT	aa875	plate	Watcom 10.6 runtime: _mbsnextc_ (module mbsinc, 82 bytes, full match; dreams.csv).
+CMT	aa8c7	plate	Watcom 10.6 runtime: _mbsinc_ (module mbsinc, 70 bytes, full match; dreams.csv).
+CMT	aa90d	plate	Watcom 10.6 runtime: _mbsdec_ (module mbsinc, 134 bytes, full match; dreams.csv).
+CMT	aa993	plate	Watcom 10.6 runtime: strncat_ (module strncat, 63 bytes, full match; dreams.csv).
+CMT	b7cde	plate	Watcom 10.6 runtime: _SysMonType_ (module sysmtyper, 192 bytes, full match; dreams.csv).
+CMT	b7f97	plate	Watcom 10.6 runtime: _InitSegments_ (module seginitr, 192 bytes, full match; dreams.csv).
+CMT	b808b	plate	Watcom 10.6 runtime: _L1SLine_ (module l1liner, 65 bytes, full match; dreams.csv).
+CMT	b80cc	plate	Watcom 10.6 runtime: _L1Line_ (module l1liner, 192 bytes, full match; dreams.csv).
+CMT	b824d	plate	Watcom 10.6 runtime: _L1Fill_ (module l1fillr, 192 bytes, full match; dreams.csv).
+CMT	b8323	plate	Watcom 10.6 runtime: _L1ClipFill_ (module l1fillr, 69 bytes, full match; dreams.csv).
+CMT	b8368	plate	Watcom 10.6 runtime: __getctime_ (module gtctm, 192 bytes, full match; dreams.csv).
+CMT	b842b	plate	Watcom 10.6 runtime: mktime_ (module mktime, 192 bytes, full match; dreams.csv).
+CMT	b857f	plate	Watcom 10.6 runtime: __CacheOSTZ_ (module tzset, 108 bytes, full match; dreams.csv).
+CMT	b85f9	plate	Watcom 10.6 runtime: __parse_tz_ (module tzset, 192 bytes, full match; dreams.csv).
+CMT	b894f	plate	Watcom 10.6 runtime: __brktime_ (module gmtime, 192 bytes, full match; dreams.csv).
+CMT	b8a64	plate	Watcom 10.6 runtime: _gmtime_ (module gmtime, 30 bytes, full match; dreams.csv).
+CMT	b8a8f	plate	Watcom 10.6 runtime: __leapyear_ (module timeutil, 192 bytes, full match; dreams.csv).
+CMT	b8be3	plate	Watcom 10.6 runtime: __isindst_ (module timeutil, 192 bytes, full match; dreams.csv).
+CMT	baf9b	plate	Watcom 10.6 runtime: __EnterWVIDEO_ (module enterdb, 38 bytes, full match; dreams.csv).
+CMT	bafc1	plate	Watcom 10.6 runtime: getche_ (module gtche, 29 bytes, full match; dreams.csv).
+CMT	bafde	plate	Watcom 10.6 runtime: _GR__FDFS, __FDFS (module fdfs386, 76 bytes, full match; dreams.csv).
+CMT	bb02a	plate	Watcom 10.6 runtime: __Slash_C_ (module spve, 120 bytes, full match; dreams.csv).
+CMT	bb0a2	plate	Watcom 10.6 runtime: spawnve_ (module spve, 192 bytes, full match; dreams.csv).
+CMT	bb923	plate	Watcom 10.6 runtime: __DPMI_hosted_ (module sigsy, 148 bytes, full match; dreams.csv).
+CMT	bb9b7	plate	Watcom 10.6 runtime: __restore_int23_ (module sigsy, 192 bytes, full match; dreams.csv).
+CMT	bbb6d	plate	Watcom 10.6 runtime: __restore_int_ctrl_break_ (module sigsy, 56 bytes, full match; dreams.csv).
+CMT	bbba5	plate	Watcom 10.6 runtime: __grab_int23_, __grab_int_ctrl_break_ (module sigsy, 192 bytes, full match; dreams.csv).
+CMT	bbcc0	plate	Watcom 10.6 runtime: __grab_int23_, __grab_int_ctrl_break_ (module sigsy, 192 bytes, core match; dreams.csv).
+CMT	bbddb	plate	Watcom 10.6 runtime: _SetMaxPrec_ (module ftos, 192 bytes, full match; dreams.csv).
+CMT	bbf58	plate	Watcom 10.6 runtime: _FtoS_ (module ftos, 192 bytes, full match; dreams.csv).
+CMT	bc192	plate	Watcom 10.6 runtime: strtod_ (module strtod, 192 bytes, full match; dreams.csv).
+CMT	bc385	plate	Watcom 10.6 runtime: _dos_setvect_ (module d_setvec, 45 bytes, full match; dreams.csv).
+CMT	bc3b4	plate	Watcom 10.6 runtime: __fpatan_wrap (module chipw32, 52 bytes, full match; dreams.csv).
+CMT	bc3e8	plate	Watcom 10.6 runtime: __math87_err_ (module math87e, 123 bytes, full match; dreams.csv).
+CMT	bc463	plate	Watcom 10.6 runtime: verify_pentium_fdiv_bug_ (module chipbug, 85 bytes, full match; dreams.csv).
+CMT	bc4c2	plate	Watcom 10.6 runtime: __math2err_ (module math2err, 192 bytes, full match; dreams.csv).
+CMT	bcb05	plate	Watcom 10.6 runtime: _SuperVGAType_ (module svgainfor, 192 bytes, full match; dreams.csv).
+CMT	bcf46	plate	Watcom 10.6 runtime: _FastMap_ (module fast256r, 169 bytes, full match; dreams.csv).
+CMT	bcfef	plate	Watcom 10.6 runtime: _RMAlloc_ (module fast256r, 134 bytes, full match; dreams.csv).
+CMT	bd075	plate	Watcom 10.6 runtime: _RMFree_ (module fast256r, 47 bytes, full match; dreams.csv).
+CMT	bd0a4	plate	Watcom 10.6 runtime: _RMInterrupt_ (module fast256r, 185 bytes, full match; dreams.csv).
+CMT	bd15d	plate	Watcom 10.6 runtime: _RMInterrupt2_ (module fast256r, 141 bytes, full match; dreams.csv).
+CMT	bd1ea	plate	Watcom 10.6 runtime: _L1OutCode_ (module l1clipr, 167 bytes, full match; dreams.csv).
+CMT	bd291	plate	Watcom 10.6 runtime: _L0LineClip_ (module l1clipr, 192 bytes, full match; dreams.csv).
+CMT	bd47f	plate	Watcom 10.6 runtime: _L0BlockClip_ (module l1clipr, 125 bytes, full match; dreams.csv).
+CMT	bd4fc	plate	Watcom 10.6 runtime: _L0DrawLine_ (module l0drwlinr, 192 bytes, full match; dreams.csv).
+CMT	bd6b9	plate	Watcom 10.6 runtime: __setenvp_ (module setenvp, 192 bytes, full match; dreams.csv).
+CMT	bd79c	plate	Watcom 10.6 runtime: __cenvarg_ (module cenvarg, 192 bytes, full match; dreams.csv).
+CMT	bd8d4	plate	Watcom 10.6 runtime: __ccmdline_ (module cenvarg, 83 bytes, full match; dreams.csv).
+CMT	bd927	plate	Watcom 10.6 runtime: __dospawn (module spawn386, 192 bytes, full match; dreams.csv).
+CMT	bd9f5	plate	Watcom 10.6 runtime: strlen_ (module strlen, 25 bytes, full match; dreams.csv).
+CMT	bda60	plate	Watcom 10.6 runtime: _splitpath2_ (module split2, 192 bytes, full match; dreams.csv).
+CMT	bdb4f	plate	Watcom 10.6 runtime: _makepath_ (module makepath, 192 bytes, full match; dreams.csv).
+CMT	bdd44	plate	Watcom 10.6 runtime: __sigfpe_handler_ (module signl, 53 bytes, full match; dreams.csv).
+CMT	bdd79	plate	Watcom 10.6 runtime: signal_ (module signl, 181 bytes, full match; dreams.csv).
+CMT	bde2e	plate	Watcom 10.6 runtime: raise_ (module signl, 192 bytes, full match; dreams.csv).
+CMT	bdef0	plate	Watcom 10.6 runtime: _chain_intr_ (module chint386, 25 bytes, full match; dreams.csv).
+CMT	bdf09	plate	Watcom 10.6 runtime: _dos_getvect_ (module d_getvec, 50 bytes, full match; dreams.csv).
+CMT	bdf3b	plate	Watcom 10.6 runtime: __Nan_Inf_ (module nan_inf, 146 bytes, full match; dreams.csv).
+CMT	bdfce	plate	Watcom 10.6 runtime: IF@DLOG (module log387, 67 bytes, full match; dreams.csv).
+CMT	be03d	plate	Watcom 10.6 runtime: _Scale_ (module scale, 65 bytes, full match; dreams.csv).
+CMT	be07e	plate	Watcom 10.6 runtime: _Scale10V_ (module scale, 192 bytes, full match; dreams.csv).
+CMT	be19b	plate	Watcom 10.6 runtime: __cvt_ (module cvt, 192 bytes, full match; dreams.csv).
+CMT	be378	plate	Watcom 10.6 runtime: __ModF (module amodf386, 144 bytes, full match; dreams.csv).
+CMT	be408	plate	Watcom 10.6 runtime: __ZBuf2F (module amodf386, 156 bytes, full match; dreams.csv).
+CMT	be4b0	plate	Watcom 10.6 runtime: __fpatan_chk (module chipa32, 192 bytes, full match; dreams.csv).
+CMT	be6b6	plate	Watcom 10.6 runtime: __rterrmsg_ (module _matherr, 72 bytes, full match; dreams.csv).
+CMT	be6fe	plate	Watcom 10.6 runtime: _matherr_ (module _matherr, 47 bytes, full match; dreams.csv).
+CMT	be733	plate	Watcom 10.6 runtime: strcpy_ (module strcpy, 31 bytes, full match; dreams.csv).
+CMT	be758	plate	Watcom 10.6 runtime: __terminate_ (module abort, 18 bytes, full match; dreams.csv).
+CMT	be76f	plate	Watcom 10.6 runtime: __log87_err_ (module log87e, 60 bytes, full match; dreams.csv).
+CMT	be7ac	plate	Watcom 10.6 runtime: __CmpBigInt (module i64ts386, 58 bytes, full match; dreams.csv).
+CMT	be7e6	plate	Watcom 10.6 runtime: __Rnd2Int (module i64ts386, 107 bytes, full match; dreams.csv).
+CMT	be851	plate	Watcom 10.6 runtime: __Bin2String (module i64ts386, 192 bytes, full match; dreams.csv).
+CMT	be972	plate	Watcom 10.6 runtime: frexp_ (module frexp, 111 bytes, full match; dreams.csv).
+CMT	be9e7	plate	Watcom 10.6 runtime: __get_std_stream_ (module iobaddr, 31 bytes, full match; dreams.csv).
+CMT	bea06	plate	Watcom 10.6 runtime: fputs_ (module fputs, 123 bytes, full match; dreams.csv).
+CMT	bea81	plate	Watcom 10.6 runtime: __GrabFP87_ (module grabfp87, 49 bytes, full match; dreams.csv).
+CMT	beab6	plate	Watcom 10.6 runtime: __Init_FPE_handler_ (module fpe387, 93 bytes, full match; dreams.csv).
+CMT	beb13	plate	Watcom 10.6 runtime: __Fini_FPE_handler_ (module fpe387, 92 bytes, full match; dreams.csv).
+CMT	beb70	plate	Watcom 10.6 runtime: __Enable_FPE_ (module fpeinth, 21 bytes, full match; dreams.csv).
+CMT	beb92	plate	Watcom 10.6 runtime: __FPE2Handler_ (module fpeinth, 192 bytes, full match; dreams.csv).
+CMT	bedd0	plate	Watcom 10.6 runtime: __Phar_hook_init_ (module fpephar, 192 bytes, full match; dreams.csv).
+CMT	bee93	plate	Watcom 10.6 runtime: __Phar_hook_fini_ (module fpephar, 45 bytes, full match; dreams.csv).
+CMT	beec0	plate	Watcom 10.6 runtime: __DOS4G_hook_init_ (module fpedos4g, 45 bytes, full match; dreams.csv).
+CMT	beeed	plate	Watcom 10.6 runtime: __DOS4G_hook_fini_, __Ergo_hook_fini_ (module fpedos4g, 25 bytes, full match; dreams.csv).
+CMT	bef06	plate	Watcom 10.6 runtime: __Ergo_hook_init_ (module fpeergo, 62 bytes, full match; dreams.csv).
+CMT	bef44	plate	Watcom 10.6 runtime: __DOS4G_hook_fini_, __Ergo_hook_fini_ (module fpedos4g, 25 bytes, full match; dreams.csv).
+CMT	bef5e	plate	Watcom 10.6 runtime: __Intel_hook_init_ (module fpeintel, 88 bytes, full match; dreams.csv).

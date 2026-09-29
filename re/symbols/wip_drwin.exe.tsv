@@ -1,0 +1,358 @@
+#program	WIP_DRWIN.EXE
+#sha256	c4d17181f8132f6aa6faafdbff316772083f1cb65cfeea28bb3a0dd8815d1364
+#imagebase	400000
+FUNC	4b23b	__CHK	undefined4 __CHK(void)	[NAME] Name recovered. Stack-check entry wrapper; source and imported demo function bodies are byte-identical to the established retail runtime wrapper. Sources: Retail WINDREAM.EXE __CHK at 00454feb; literal 16-byte match; Watcom stack-check prologue call sites. Facts (tools/check_names.py): size:16; const:4; call:0044b24b.
+FUNC	5b8e8	entry	undefined entry(void)	
+CMT	178	eol	AUTO
+CMT	1a0	eol	.idata
+CMT	1c8	eol	DGROUP
+CMT	1f0	eol	.bss
+CMT	218	eol	.reloc
+CMT	9108c	eol	IMAGE_THUNK_DATA32
+CMT	91090	eol	IMAGE_THUNK_DATA32
+CMT	91094	eol	IMAGE_THUNK_DATA32
+CMT	91098	eol	IMAGE_THUNK_DATA32
+CMT	9109c	eol	IMAGE_THUNK_DATA32
+CMT	910a0	eol	IMAGE_THUNK_DATA32
+CMT	910a4	eol	IMAGE_THUNK_DATA32
+CMT	910a8	eol	IMAGE_THUNK_DATA32
+CMT	910b0	eol	IMAGE_THUNK_DATA32
+CMT	910b4	eol	IMAGE_THUNK_DATA32
+CMT	910b8	eol	IMAGE_THUNK_DATA32
+CMT	910bc	eol	IMAGE_THUNK_DATA32
+CMT	910c0	eol	IMAGE_THUNK_DATA32
+CMT	910c4	eol	IMAGE_THUNK_DATA32
+CMT	910cc	eol	IMAGE_THUNK_DATA32
+CMT	910d0	eol	IMAGE_THUNK_DATA32
+CMT	910d4	eol	IMAGE_THUNK_DATA32
+CMT	910d8	eol	IMAGE_THUNK_DATA32
+CMT	910dc	eol	IMAGE_THUNK_DATA32
+CMT	910e0	eol	IMAGE_THUNK_DATA32
+CMT	910e4	eol	IMAGE_THUNK_DATA32
+CMT	910e8	eol	IMAGE_THUNK_DATA32
+CMT	910ec	eol	IMAGE_THUNK_DATA32
+CMT	910f0	eol	IMAGE_THUNK_DATA32
+CMT	910f4	eol	IMAGE_THUNK_DATA32
+CMT	910f8	eol	IMAGE_THUNK_DATA32
+CMT	910fc	eol	IMAGE_THUNK_DATA32
+CMT	91100	eol	IMAGE_THUNK_DATA32
+CMT	91104	eol	IMAGE_THUNK_DATA32
+CMT	91108	eol	IMAGE_THUNK_DATA32
+CMT	9110c	eol	IMAGE_THUNK_DATA32
+CMT	91110	eol	IMAGE_THUNK_DATA32
+CMT	91114	eol	IMAGE_THUNK_DATA32
+CMT	91118	eol	IMAGE_THUNK_DATA32
+CMT	9111c	eol	IMAGE_THUNK_DATA32
+CMT	91120	eol	IMAGE_THUNK_DATA32
+CMT	91124	eol	IMAGE_THUNK_DATA32
+CMT	91128	eol	IMAGE_THUNK_DATA32
+CMT	91130	eol	IMAGE_THUNK_DATA32
+CMT	91134	eol	IMAGE_THUNK_DATA32
+CMT	91138	eol	IMAGE_THUNK_DATA32
+CMT	9113c	eol	IMAGE_THUNK_DATA32
+CMT	91140	eol	IMAGE_THUNK_DATA32
+CMT	91144	eol	IMAGE_THUNK_DATA32
+CMT	91148	eol	IMAGE_THUNK_DATA32
+CMT	9114c	eol	IMAGE_THUNK_DATA32
+CMT	91150	eol	IMAGE_THUNK_DATA32
+CMT	91154	eol	IMAGE_THUNK_DATA32
+CMT	91158	eol	IMAGE_THUNK_DATA32
+CMT	9115c	eol	IMAGE_THUNK_DATA32
+CMT	91160	eol	IMAGE_THUNK_DATA32
+CMT	91164	eol	IMAGE_THUNK_DATA32
+CMT	91168	eol	IMAGE_THUNK_DATA32
+CMT	9116c	eol	IMAGE_THUNK_DATA32
+CMT	91170	eol	IMAGE_THUNK_DATA32
+CMT	91174	eol	IMAGE_THUNK_DATA32
+CMT	91178	eol	IMAGE_THUNK_DATA32
+CMT	9117c	eol	IMAGE_THUNK_DATA32
+CMT	91180	eol	IMAGE_THUNK_DATA32
+CMT	91184	eol	IMAGE_THUNK_DATA32
+CMT	91188	eol	IMAGE_THUNK_DATA32
+CMT	9118c	eol	IMAGE_THUNK_DATA32
+CMT	91190	eol	IMAGE_THUNK_DATA32
+CMT	91194	eol	IMAGE_THUNK_DATA32
+CMT	91198	eol	IMAGE_THUNK_DATA32
+CMT	9119c	eol	IMAGE_THUNK_DATA32
+CMT	911a0	eol	IMAGE_THUNK_DATA32
+CMT	911a4	eol	IMAGE_THUNK_DATA32
+CMT	911a8	eol	IMAGE_THUNK_DATA32
+CMT	911ac	eol	IMAGE_THUNK_DATA32
+CMT	911b0	eol	IMAGE_THUNK_DATA32
+CMT	911b4	eol	IMAGE_THUNK_DATA32
+CMT	911b8	eol	IMAGE_THUNK_DATA32
+CMT	911bc	eol	IMAGE_THUNK_DATA32
+CMT	911c0	eol	IMAGE_THUNK_DATA32
+CMT	911c4	eol	IMAGE_THUNK_DATA32
+CMT	911c8	eol	IMAGE_THUNK_DATA32
+CMT	911cc	eol	IMAGE_THUNK_DATA32
+CMT	911d0	eol	IMAGE_THUNK_DATA32
+CMT	911d4	eol	IMAGE_THUNK_DATA32
+CMT	911d8	eol	IMAGE_THUNK_DATA32
+CMT	911dc	eol	IMAGE_THUNK_DATA32
+CMT	911e0	eol	IMAGE_THUNK_DATA32
+CMT	911e4	eol	IMAGE_THUNK_DATA32
+CMT	911e8	eol	IMAGE_THUNK_DATA32
+CMT	911ec	eol	IMAGE_THUNK_DATA32
+CMT	911f0	eol	IMAGE_THUNK_DATA32
+CMT	911f4	eol	IMAGE_THUNK_DATA32
+CMT	911f8	eol	IMAGE_THUNK_DATA32
+CMT	911fc	eol	IMAGE_THUNK_DATA32
+CMT	91200	eol	IMAGE_THUNK_DATA32
+CMT	91204	eol	IMAGE_THUNK_DATA32
+CMT	91208	eol	IMAGE_THUNK_DATA32
+CMT	9120c	eol	IMAGE_THUNK_DATA32
+CMT	91210	eol	IMAGE_THUNK_DATA32
+CMT	91214	eol	IMAGE_THUNK_DATA32
+CMT	91218	eol	IMAGE_THUNK_DATA32
+CMT	9121c	eol	IMAGE_THUNK_DATA32
+CMT	91220	eol	IMAGE_THUNK_DATA32
+CMT	91224	eol	IMAGE_THUNK_DATA32
+CMT	91228	eol	IMAGE_THUNK_DATA32
+CMT	9122c	eol	IMAGE_THUNK_DATA32
+CMT	91230	eol	IMAGE_THUNK_DATA32
+CMT	91234	eol	IMAGE_THUNK_DATA32
+CMT	91238	eol	IMAGE_THUNK_DATA32
+CMT	9123c	eol	IMAGE_THUNK_DATA32
+CMT	91240	eol	IMAGE_THUNK_DATA32
+CMT	91244	eol	IMAGE_THUNK_DATA32
+CMT	91248	eol	IMAGE_THUNK_DATA32
+CMT	9124c	eol	IMAGE_THUNK_DATA32
+CMT	91254	eol	IMAGE_THUNK_DATA32
+CMT	9125c	eol	IMAGE_THUNK_DATA32
+CMT	91264	pre	1  CreateCompatibleDC  <<not bound>>
+CMT	91268	pre	2  CreateDIBSection  <<not bound>>
+CMT	9126c	pre	3  DeleteDC  <<not bound>>
+CMT	91270	pre	4  DeleteObject  <<not bound>>
+CMT	91274	pre	5  GetStockObject  <<not bound>>
+CMT	91278	pre	6  SelectObject  <<not bound>>
+CMT	9127c	pre	7  SetBkMode  <<not bound>>
+CMT	91280	pre	8  StretchBlt  <<not bound>>
+CMT	91288	pre	1  joyGetDevCapsA  <<not bound>>
+CMT	9128c	pre	2  joyGetNumDevs  <<not bound>>
+CMT	91290	pre	3  joyGetPosEx  <<not bound>>
+CMT	91294	pre	4  mciGetErrorStringA  <<not bound>>
+CMT	91298	pre	5  mciSendCommandA  <<not bound>>
+CMT	9129c	pre	6  timeGetTime  <<not bound>>
+CMT	912a4	pre	1  AdjustWindowRectEx  <<not bound>>
+CMT	912a8	pre	2  CharUpperBuffA  <<not bound>>
+CMT	912ac	pre	3  CreateWindowExA  <<not bound>>
+CMT	912b0	pre	4  DefWindowProcA  <<not bound>>
+CMT	912b4	pre	5  DispatchMessageA  <<not bound>>
+CMT	912b8	pre	6  GetAsyncKeyState  <<not bound>>
+CMT	912bc	pre	7  GetClientRect  <<not bound>>
+CMT	912c0	pre	8  GetCursorPos  <<not bound>>
+CMT	912c4	pre	9  GetDC  <<not bound>>
+CMT	912c8	pre	10  GetFocus  <<not bound>>
+CMT	912cc	pre	11  GetSystemMetrics  <<not bound>>
+CMT	912d0	pre	12  LoadCursorA  <<not bound>>
+CMT	912d4	pre	13  LoadIconA  <<not bound>>
+CMT	912d8	pre	14  MessageBeep  <<not bound>>
+CMT	912dc	pre	15  MessageBoxA  <<not bound>>
+CMT	912e0	pre	16  PeekMessageA  <<not bound>>
+CMT	912e4	pre	17  PostQuitMessage  <<not bound>>
+CMT	912e8	pre	18  RegisterClassA  <<not bound>>
+CMT	912ec	pre	19  ReleaseDC  <<not bound>>
+CMT	912f0	pre	20  ScreenToClient  <<not bound>>
+CMT	912f4	pre	21  ShowCursor  <<not bound>>
+CMT	912f8	pre	22  ShowWindow  <<not bound>>
+CMT	912fc	pre	23  TranslateMessage  <<not bound>>
+CMT	91300	pre	24  UpdateWindow  <<not bound>>
+CMT	91308	pre	1  CloseHandle  <<not bound>>
+CMT	9130c	pre	2  CreateEventA  <<not bound>>
+CMT	91310	pre	3  CreateFileA  <<not bound>>
+CMT	91314	pre	4  CreateThread  <<not bound>>
+CMT	91318	pre	5  DeleteCriticalSection  <<not bound>>
+CMT	9131c	pre	6  DeleteFileA  <<not bound>>
+CMT	91320	pre	7  DosDateTimeToFileTime  <<not bound>>
+CMT	91324	pre	8  EnterCriticalSection  <<not bound>>
+CMT	91328	pre	9  ExitProcess  <<not bound>>
+CMT	9132c	pre	10  ExitThread  <<not bound>>
+CMT	91330	pre	11  FileTimeToDosDateTime  <<not bound>>
+CMT	91334	pre	12  FileTimeToLocalFileTime  <<not bound>>
+CMT	91338	pre	13  FindClose  <<not bound>>
+CMT	9133c	pre	14  FindFirstFileA  <<not bound>>
+CMT	91340	pre	15  FindNextFileA  <<not bound>>
+CMT	91344	pre	16  FlushFileBuffers  <<not bound>>
+CMT	91348	pre	17  GetACP  <<not bound>>
+CMT	9134c	pre	18  GetCPInfo  <<not bound>>
+CMT	91350	pre	19  GetCommandLineA  <<not bound>>
+CMT	91354	pre	20  GetCommandLineW  <<not bound>>
+CMT	91358	pre	21  GetConsoleMode  <<not bound>>
+CMT	9135c	pre	22  GetCurrentDirectoryA  <<not bound>>
+CMT	91360	pre	23  GetCurrentProcessId  <<not bound>>
+CMT	91364	pre	24  GetCurrentThreadId  <<not bound>>
+CMT	91368	pre	25  GetCurrentThread  <<not bound>>
+CMT	9136c	pre	26  GetDriveTypeA  <<not bound>>
+CMT	91370	pre	27  GetEnvironmentStrings  <<not bound>>
+CMT	91374	pre	28  GetFileAttributesA  <<not bound>>
+CMT	91378	pre	29  GetFileType  <<not bound>>
+CMT	9137c	pre	30  GetFullPathNameA  <<not bound>>
+CMT	91380	pre	31  GetLastError  <<not bound>>
+CMT	91384	pre	32  GetLogicalDrives  <<not bound>>
+CMT	91388	pre	33  GetModuleFileNameA  <<not bound>>
+CMT	9138c	pre	34  GetModuleFileNameW  <<not bound>>
+CMT	91390	pre	35  GetModuleHandleA  <<not bound>>
+CMT	91394	pre	36  GetOEMCP  <<not bound>>
+CMT	91398	pre	37  GetProcAddress  <<not bound>>
+CMT	9139c	pre	38  GetStdHandle  <<not bound>>
+CMT	913a0	pre	39  GetVersion  <<not bound>>
+CMT	913a4	pre	40  InitializeCriticalSection  <<not bound>>
+CMT	913a8	pre	41  LeaveCriticalSection  <<not bound>>
+CMT	913ac	pre	42  LoadLibraryA  <<not bound>>
+CMT	913b0	pre	43  LocalFileTimeToFileTime  <<not bound>>
+CMT	913b4	pre	44  MoveFileA  <<not bound>>
+CMT	913b8	pre	45  MultiByteToWideChar  <<not bound>>
+CMT	913bc	pre	46  PeekConsoleInputA  <<not bound>>
+CMT	913c0	pre	47  QueryPerformanceCounter  <<not bound>>
+CMT	913c4	pre	48  ReadConsoleInputA  <<not bound>>
+CMT	913c8	pre	49  ReadFile  <<not bound>>
+CMT	913cc	pre	50  SetConsoleCtrlHandler  <<not bound>>
+CMT	913d0	pre	51  SetConsoleMode  <<not bound>>
+CMT	913d4	pre	52  SetCurrentDirectoryA  <<not bound>>
+CMT	913d8	pre	53  SetEnvironmentVariableA  <<not bound>>
+CMT	913dc	pre	54  SetEnvironmentVariableW  <<not bound>>
+CMT	913e0	pre	55  SetEvent  <<not bound>>
+CMT	913e4	pre	56  SetFilePointer  <<not bound>>
+CMT	913e8	pre	57  SetLastError  <<not bound>>
+CMT	913ec	pre	58  SetStdHandle  <<not bound>>
+CMT	913f0	pre	59  SetUnhandledExceptionFilter  <<not bound>>
+CMT	913f4	pre	60  Sleep  <<not bound>>
+CMT	913f8	pre	61  TlsAlloc  <<not bound>>
+CMT	913fc	pre	62  TlsFree  <<not bound>>
+CMT	91400	pre	63  TlsGetValue  <<not bound>>
+CMT	91404	pre	64  TlsSetValue  <<not bound>>
+CMT	91408	pre	65  UnhandledExceptionFilter  <<not bound>>
+CMT	9140c	pre	66  VirtualAlloc  <<not bound>>
+CMT	91410	pre	67  VirtualFree  <<not bound>>
+CMT	91414	pre	68  VirtualQuery  <<not bound>>
+CMT	91418	pre	69  WaitForSingleObject  <<not bound>>
+CMT	9141c	pre	70  WideCharToMultiByte  <<not bound>>
+CMT	91420	pre	71  WriteConsoleA  <<not bound>>
+CMT	91424	pre	72  WriteFile  <<not bound>>
+CMT	9142c	pre	1  Ordinal_1  <<not bound>>
+CMT	91434	pre	1  DirectDrawCreate  <<not bound>>
+CMT	4b23b	plate	[NAME] Name recovered. Stack-check entry wrapper; source and imported demo function bodies are byte-identical to the established retail runtime wrapper. Sources: Retail WINDREAM.EXE __CHK at 00454feb; literal 16-byte match; Watcom stack-check prologue call sites. Facts (tools/check_names.py): size:16; const:4; call:0044b24b.
+CMT	91000	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	91014	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	91028	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	9103c	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	91050	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	91064	plate	IMAGE_IMPORT_DESCRIPTOR
+CMT	9143c	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	91446	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	91450	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	9145b	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	91468	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	91473	plate	IMAGE_IMPORT_DESCRIPTOR - DLL NAME
+CMT	9147e	plate	IMAGE_IMPORT_BY_NAME
+CMT	91494	plate	IMAGE_IMPORT_BY_NAME
+CMT	914a8	plate	IMAGE_IMPORT_BY_NAME
+CMT	914b4	plate	IMAGE_IMPORT_BY_NAME
+CMT	914c4	plate	IMAGE_IMPORT_BY_NAME
+CMT	914d6	plate	IMAGE_IMPORT_BY_NAME
+CMT	914e6	plate	IMAGE_IMPORT_BY_NAME
+CMT	914f2	plate	IMAGE_IMPORT_BY_NAME
+CMT	91500	plate	IMAGE_IMPORT_BY_NAME
+CMT	91512	plate	IMAGE_IMPORT_BY_NAME
+CMT	91522	plate	IMAGE_IMPORT_BY_NAME
+CMT	91530	plate	IMAGE_IMPORT_BY_NAME
+CMT	91546	plate	IMAGE_IMPORT_BY_NAME
+CMT	91558	plate	IMAGE_IMPORT_BY_NAME
+CMT	91566	plate	IMAGE_IMPORT_BY_NAME
+CMT	9157c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9158e	plate	IMAGE_IMPORT_BY_NAME
+CMT	915a0	plate	IMAGE_IMPORT_BY_NAME
+CMT	915b2	plate	IMAGE_IMPORT_BY_NAME
+CMT	915c6	plate	IMAGE_IMPORT_BY_NAME
+CMT	915da	plate	IMAGE_IMPORT_BY_NAME
+CMT	915ea	plate	IMAGE_IMPORT_BY_NAME
+CMT	915fa	plate	IMAGE_IMPORT_BY_NAME
+CMT	91602	plate	IMAGE_IMPORT_BY_NAME
+CMT	9160e	plate	IMAGE_IMPORT_BY_NAME
+CMT	91622	plate	IMAGE_IMPORT_BY_NAME
+CMT	91630	plate	IMAGE_IMPORT_BY_NAME
+CMT	9163c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9164a	plate	IMAGE_IMPORT_BY_NAME
+CMT	91658	plate	IMAGE_IMPORT_BY_NAME
+CMT	91668	plate	IMAGE_IMPORT_BY_NAME
+CMT	9167a	plate	IMAGE_IMPORT_BY_NAME
+CMT	9168c	plate	IMAGE_IMPORT_BY_NAME
+CMT	91698	plate	IMAGE_IMPORT_BY_NAME
+CMT	916aa	plate	IMAGE_IMPORT_BY_NAME
+CMT	916b8	plate	IMAGE_IMPORT_BY_NAME
+CMT	916c6	plate	IMAGE_IMPORT_BY_NAME
+CMT	916da	plate	IMAGE_IMPORT_BY_NAME
+CMT	916ea	plate	IMAGE_IMPORT_BY_NAME
+CMT	916f8	plate	IMAGE_IMPORT_BY_NAME
+CMT	91708	plate	IMAGE_IMPORT_BY_NAME
+CMT	91716	plate	IMAGE_IMPORT_BY_NAME
+CMT	91726	plate	IMAGE_IMPORT_BY_NAME
+CMT	9173e	plate	IMAGE_IMPORT_BY_NAME
+CMT	9174c	plate	IMAGE_IMPORT_BY_NAME
+CMT	91764	plate	IMAGE_IMPORT_BY_NAME
+CMT	9177c	plate	IMAGE_IMPORT_BY_NAME
+CMT	9178a	plate	IMAGE_IMPORT_BY_NAME
+CMT	91798	plate	IMAGE_IMPORT_BY_NAME
+CMT	917b0	plate	IMAGE_IMPORT_BY_NAME
+CMT	917ca	plate	IMAGE_IMPORT_BY_NAME
+CMT	917d6	plate	IMAGE_IMPORT_BY_NAME
+CMT	917e8	plate	IMAGE_IMPORT_BY_NAME
+CMT	917f8	plate	IMAGE_IMPORT_BY_NAME
+CMT	9180c	plate	IMAGE_IMPORT_BY_NAME
+CMT	91816	plate	IMAGE_IMPORT_BY_NAME
+CMT	91822	plate	IMAGE_IMPORT_BY_NAME
+CMT	91834	plate	IMAGE_IMPORT_BY_NAME
+CMT	91846	plate	IMAGE_IMPORT_BY_NAME
+CMT	91858	plate	IMAGE_IMPORT_BY_NAME
+CMT	91870	plate	IMAGE_IMPORT_BY_NAME
+CMT	91886	plate	IMAGE_IMPORT_BY_NAME
+CMT	9189c	plate	IMAGE_IMPORT_BY_NAME
+CMT	918b0	plate	IMAGE_IMPORT_BY_NAME
+CMT	918c0	plate	IMAGE_IMPORT_BY_NAME
+CMT	918d8	plate	IMAGE_IMPORT_BY_NAME
+CMT	918ee	plate	IMAGE_IMPORT_BY_NAME
+CMT	918fc	plate	IMAGE_IMPORT_BY_NAME
+CMT	91910	plate	IMAGE_IMPORT_BY_NAME
+CMT	91920	plate	IMAGE_IMPORT_BY_NAME
+CMT	91934	plate	IMAGE_IMPORT_BY_NAME
+CMT	9194a	plate	IMAGE_IMPORT_BY_NAME
+CMT	91960	plate	IMAGE_IMPORT_BY_NAME
+CMT	91974	plate	IMAGE_IMPORT_BY_NAME
+CMT	91980	plate	IMAGE_IMPORT_BY_NAME
+CMT	91992	plate	IMAGE_IMPORT_BY_NAME
+CMT	919a2	plate	IMAGE_IMPORT_BY_NAME
+CMT	919b0	plate	IMAGE_IMPORT_BY_NAME
+CMT	919cc	plate	IMAGE_IMPORT_BY_NAME
+CMT	919e4	plate	IMAGE_IMPORT_BY_NAME
+CMT	919f4	plate	IMAGE_IMPORT_BY_NAME
+CMT	91a0e	plate	IMAGE_IMPORT_BY_NAME
+CMT	91a1a	plate	IMAGE_IMPORT_BY_NAME
+CMT	91a30	plate	IMAGE_IMPORT_BY_NAME
+CMT	91a44	plate	IMAGE_IMPORT_BY_NAME
+CMT	91a5e	plate	IMAGE_IMPORT_BY_NAME
+CMT	91a72	plate	IMAGE_IMPORT_BY_NAME
+CMT	91a7e	plate	IMAGE_IMPORT_BY_NAME
+CMT	91a96	plate	IMAGE_IMPORT_BY_NAME
+CMT	91aa8	plate	IMAGE_IMPORT_BY_NAME
+CMT	91ac0	plate	IMAGE_IMPORT_BY_NAME
+CMT	91ada	plate	IMAGE_IMPORT_BY_NAME
+CMT	91af4	plate	IMAGE_IMPORT_BY_NAME
+CMT	91b00	plate	IMAGE_IMPORT_BY_NAME
+CMT	91b12	plate	IMAGE_IMPORT_BY_NAME
+CMT	91b22	plate	IMAGE_IMPORT_BY_NAME
+CMT	91b32	plate	IMAGE_IMPORT_BY_NAME
+CMT	91b50	plate	IMAGE_IMPORT_BY_NAME
+CMT	91b58	plate	IMAGE_IMPORT_BY_NAME
+CMT	91b64	plate	IMAGE_IMPORT_BY_NAME
+CMT	91b6e	plate	IMAGE_IMPORT_BY_NAME
+CMT	91b7c	plate	IMAGE_IMPORT_BY_NAME
+CMT	91b8a	plate	IMAGE_IMPORT_BY_NAME
+CMT	91ba6	plate	IMAGE_IMPORT_BY_NAME
+CMT	91bb6	plate	IMAGE_IMPORT_BY_NAME
+CMT	91bc4	plate	IMAGE_IMPORT_BY_NAME
+CMT	91bd4	plate	IMAGE_IMPORT_BY_NAME
+CMT	91bea	plate	IMAGE_IMPORT_BY_NAME
+CMT	91c00	plate	IMAGE_IMPORT_BY_NAME
+CMT	91c10	plate	IMAGE_IMPORT_BY_NAME
+CMT	91c1c	plate	IMAGE_IMPORT_BY_NAME
