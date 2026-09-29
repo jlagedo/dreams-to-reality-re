@@ -62,7 +62,9 @@ you learn transfers to the DOS builds. See [engine.md](engine.md).
 
 `DREAMS.EXE` and `DREAMSFX.EXE` are LE (DOS/4GW) and need a loader extension
 Ghidra does not ship; see [LE loader for the DOS builds](#le-loader-for-the-dos-builds).
-`DREAMSFX.EXE` is imported and analysed in the local project. Use the DOS
+`DREAMSFX.EXE` and `DREAMS.EXE` are imported and analysed in the local
+project (`DREAMS.EXE` since 2026-09-29, runtime named with
+`ApplyWatcomSigs.java …\sigs\dreams.csv`). Use the DOS
 builds to answer DOS-specific questions (hardware access, the 3dfx path) and
 as a cross-check; `WINDREAM.EXE` stays the main target.
 
@@ -303,6 +305,27 @@ single functions with no evidence either way, and 18 proven boundaries.
 
 The PE relocation table supplies the data references, so the tool handles
 only the Windows builds for now.
+
+### Backend cut: `find_cut.py`
+
+Where two builds link different code into the same place, that is a backend.
+`find_cut.py` takes two feature dumps and their `match_functions.py` table:
+
+```powershell
+uv run python tools/find_cut.py DREAMS.EXE DREAMSFX.EXE --third WINDREAM.EXE
+```
+
+- **Slots.** The longest run of matched pairs in the same order in both
+  builds anchors the link order. The unmatched functions between two anchors
+  fill the same slot in both builds.
+- **Modified.** Matched pairs whose masked code differs, with the unmatched
+  functions each side calls.
+- **Edges.** Calls and function-pointer references from matched code into
+  unmatched code.
+
+The report goes to `out/ghidra/cut/`. It works best between the two DOS
+builds (same compilers and flags). Results are in
+[spec 006](specs/006-recomp-glide-renderer/spec.md).
 
 ### Naming functions: `re/names/`, `check_names.py`
 
