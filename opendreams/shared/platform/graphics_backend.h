@@ -4,6 +4,8 @@
 #include <sokol_gfx.h>
 
 #include <string>
+#include <vector>
+#include <cstdint>
 
 namespace od {
 
@@ -18,6 +20,9 @@ public:
     FrameState acquire(SDL_Window* window, sg_swapchain& swapchain, std::string& error);
     // Capture the completed swapchain frame without reading the desktop.
     bool capture(const std::string& png_path, std::string& error);
+    // Explicit CPU export only. Caller submits prior GPU work before calling.
+    bool read_image(sg_image image, int x, int y, int width, int height,
+                    std::vector<uint32_t>& rgba, std::string& error);
     bool present(std::string& error);
     void shutdown();
 

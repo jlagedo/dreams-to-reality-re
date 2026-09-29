@@ -48,13 +48,14 @@ if(NOT _od_actual_sha STREQUAL _od_expected_sha)
 endif()
 
 function(od_generate_shader output_var source_path)
+    get_filename_component(source_path "${source_path}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
     get_filename_component(_od_name "${source_path}" NAME_WE)
     set(_od_output "${CMAKE_CURRENT_BINARY_DIR}/generated/${_od_name}.glsl.h")
     file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
     add_custom_command(
         OUTPUT "${_od_output}"
-        COMMAND "${OD_SHDC_EXECUTABLE}" --input "${CMAKE_CURRENT_SOURCE_DIR}/${source_path}" --output "${_od_output}" --slang glsl410:glsl300es:hlsl5:metal_macos
-        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${source_path}" "${OD_SHDC_EXECUTABLE}"
+        COMMAND "${OD_SHDC_EXECUTABLE}" --input "${source_path}" --output "${_od_output}" --slang glsl410:glsl300es:hlsl5:metal_macos
+        DEPENDS "${source_path}" "${OD_SHDC_EXECUTABLE}"
         VERBATIM
     )
     set(${output_var} "${_od_output}" PARENT_SCOPE)

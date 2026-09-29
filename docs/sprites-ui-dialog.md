@@ -66,6 +66,14 @@ weight. Straight alpha cannot reproduce the exact per-channel sum, whose two
 weights total 31 before division by 32, so the preview can differ by a small
 amount in blended edge pixels.
 
+The [GPU 2D boundary audit](specs/006-recomp-glide-renderer/2d-cut.md) further
+checks these rules against original x86: the RGB565 helper extracts green with
+`>>6` and writes it with `<<6`, dropping its low bit. Flag 1 is an opaque
+indexed copy and includes index zero. The flag-zero keyed font branch writes
+a DWORD per nonzero source texel, including a right-neighbour shadow value;
+it is not equivalent to a plain colour-key quad. These distinctions matter
+when replacing the CPU drawing leaves.
+
 `PYRAM.ALP` has a second special case: in slots 0 (`pyrambo`) and 5
 (`exprbor`), coverage values `0xff`, `0xfe`, and `0xfd` are compositor
 commands, not opacity. `UI_DrawPyramidGauge` (`0x40368b`), called from `UI_UpdatePyramidGauge` (`0x427859`), resolves

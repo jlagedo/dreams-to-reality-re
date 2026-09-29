@@ -15,6 +15,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include "render_boundary.h"
+/* GPU-aware bulk transfers; these do not modify the guest register file. */
+int wd_render_copy(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, int);
+int wd_render_fill(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, int);
 
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -899,6 +903,7 @@ extern uint32_t g_icall_count;
 
 /* Lookup functions */
 recomp_func_t recomp_lookup(uint32_t va);          /* binary search in dispatch table */
+recomp_func_t recomp_lookup_reference(uint32_t va); /* original body of a replaceable entry */
 recomp_func_t recomp_lookup_manual(uint32_t va);    /* manual overrides */
 recomp_func_t recomp_lookup_import(uint32_t va);    /* import bridges */
 

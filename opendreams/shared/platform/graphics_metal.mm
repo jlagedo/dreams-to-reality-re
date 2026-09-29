@@ -91,6 +91,9 @@ bool GraphicsBackend::present(std::string&) {
     return true;
 }
 
+bool GraphicsBackend::read_image(sg_image,int,int,int,int,std::vector<uint32_t>&,std::string& error) {
+    error="explicit image export is not implemented on the Metal backend yet";return false;
+}
 void GraphicsBackend::shutdown() {
     auto* state = static_cast<MetalState*>(state_);
     if (!state) return;

@@ -1110,7 +1110,10 @@ void preview_pane(ViewerUi& state) {
             od::sync_level_materials(state.level_materials,state.model_preview);
             if (!state.glide_fog) state.model_preview.set_fog({});
         }
-        state.model_preview.draw(framed);
+        if(!state.model_preview.draw(framed,state.preview_error)) {
+            ImGui::TextWrapped("%s",state.preview_error.c_str());
+            return;
+        }
         ImGui::Image(simgui_imtextureid(state.model_preview.texture_view()),image_space);
         if (!joints.empty()) {
             const ImVec2 origin=ImGui::GetItemRectMin();
@@ -1200,7 +1203,7 @@ void preview_pane(ViewerUi& state) {
 
 void workspace_pane(ViewerUi& state) {
     const ImVec2 available = ImGui::GetContentRegionAvail();
-    const float upper_height = std::clamp(available.y * 0.55f, 190.0f,
+    const float upper_height = std::clamp(available.y * (state.animation_preview.has_clip()?0.8f:0.55f), 190.0f,
                                           std::max(190.0f, available.y - 190.0f));
     ImGui::BeginChild("inspection", ImVec2(0, upper_height), ImGuiChildFlags_None);
     if (available.x >= 900.0f) {
@@ -1751,10 +1754,11 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     if (result==SDL_APP_SUCCESS && ui.required_animation_smoke &&
         (!ui.animation_preview.has_clip() ||
          ui.animation_preview.frame()<=1.0f ||
+         ui.model_preview.renderer_stats().scene_triangles==0 ||
          !ui.animation_error.empty())) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
             "animation playback smoke failed: %s",
-            ui.animation_error.empty() ? "frame did not advance" :
+            ui.animation_error.empty() ? "frame did not advance or no geometry was submitted" :
             ui.animation_error.c_str());
         return SDL_APP_FAILURE;
     }

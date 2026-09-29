@@ -34,6 +34,9 @@ uint32_t g_icall_trace_idx, g_icall_count;
 
 
 static uint32_t g_image_span;
+void wd_scene_probe_init(void);
+void wd_render_install(void);
+void wd_render_close(void);
 const char* g_wd_exe;
 uint32_t wd_image_span(void) { return g_image_span; }
 
@@ -253,10 +256,13 @@ int main(int argc, char** argv) {
     g_wd_exe = argv[1];
     files_init(argv[1]);
     host_init();
+    wd_scene_probe_init();
+    wd_render_install();
     fprintf(stderr, "[*] entering the program at 0x%08X\n", entry);
     PUSH32(g_esp, RECOMP_RETADDR);
     entry_fn();
     fprintf(stderr, "[*] entry returned, eax=%08X\n", g_eax);
     recomp_trace_flush();
+    wd_render_close();
     return (int)g_eax;
 }

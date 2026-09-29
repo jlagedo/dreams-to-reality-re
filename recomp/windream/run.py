@@ -43,6 +43,14 @@ def read_roots() -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Run the recompiled game.")
     ap.add_argument("--exe", help="guest exe (default DREAMS_DISC1/GDIDREAM.EXE)")
+    ap.add_argument("--renderer", choices=("software", "direct"), default="software")
+    ap.add_argument("--tag", help="isolated run directory suffix under DREAMS_OUT/recomp/windream")
+    ap.add_argument("--render-audit", action="store_true", help="run the build-audit executable")
+    ap.add_argument(
+        "--capture-scene",
+        action="store_true",
+        help="capture original scene inputs on the first main 3D frame",
+    )
     ap.add_argument("--read-roots", help="extra read roots, ';'-separated")
     ap.add_argument("--seconds", type=int, default=0, help="stop after N s (0 = play)")
     ap.add_argument("--keys", default="", help="scripted keys, ms:KEY,...")
@@ -76,6 +84,8 @@ def main() -> int:
         help="write a dword into the loaded image before the entry point (repeatable)",
     )  # fmt: skip
     args = ap.parse_args()
+    if args.tag and not re.fullmatch(r"[A-Za-z0-9_-]+", args.tag):
+        ap.error("--tag must contain only letters, numbers, underscores or hyphens")
 
     # GAME_TickFrame draws Frame Rate/Mem 3DTR if 0x49d5c0 != 0 and the editor
     # flag 0x4a477c is 0; DBG_DrawObjectInfo (0x416606) needs 0x49d5d0 != 0;
@@ -85,8 +95,10 @@ def main() -> int:
     pokes = (overlays if args.overlays else []) + args.poke
     exe = args.exe or str(paths.disc(1) / "GDIDREAM.EXE")
     out = recomp_env.out_dir("windream")
-    run = out / "run"
+    run = out / ("run-" + args.tag if args.tag else "run")
     run.mkdir(exist_ok=True)
+    if args.capture_scene:
+        (run / "direct-scene.wds").unlink(missing_ok=True)
     for snap in run.glob("snap_*.bmp"):
         snap.unlink()
     unattended = args.seconds > 0
@@ -103,10 +115,16 @@ def main() -> int:
         WD_DEADZONE=args.deadzone,
         WD_DUMP=args.dump,
         WD_POKE=",".join(pokes),
+        WD_RENDERER=args.renderer,
+        WD_SCENE_CAPTURE=str(run / "direct-scene.wds") if args.capture_scene else "",
         WD_QUIET="1" if unattended else "",
         WD_FOCUS="1" if unattended else "",
     )
-    binary = out / "build" / recomp_env.exe_name("windream_recomp")
+    binary = (
+        out
+        / ("build-audit" if args.render_audit else "build")
+        / recomp_env.exe_name("windream_recomp")
+    )
     with open(run / "stderr.txt", "wb") as err, open(run / "stdout.txt", "wb") as so:
         p = subprocess.Popen([str(binary), exe, "--run"], cwd=run, env=env, stdout=so, stderr=err)
         try:
@@ -124,6 +142,12 @@ def main() -> int:
     else:
         worth = [line for line in log if re.search(r"MessageBox|unresolved|ExitProcess", line)]
         print("\n".join(worth[:10]))
+    if args.capture_scene:
+        captured = [line for line in log if "[render-capture] captured" in line]
+        print("\n".join(captured))
+        if not captured or at is not None:
+            print("scene capture failed or the run crashed", file=sys.stderr)
+            return 1
     return 0
 
 

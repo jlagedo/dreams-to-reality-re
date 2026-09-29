@@ -25,6 +25,10 @@ import re
 import sys
 import time
 
+from render_audit import memory_probes
+from render_bulk import wrap_bulk
+from replacements import RENDER_ENTRIES, wrap_entry
+
 from dreams import paths  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -150,9 +154,26 @@ class WinDreamLifter(Lifter):
         return super()._fmt_read(op)
 
     def lift_instruction(self, insn):
+        probes = memory_probes(insn, self._fmt_mem_addr)
+        body = self._lift_game_instruction(insn)
+        return wrap_bulk(insn, body, probes) or (probes + body)
+
+    def _lift_game_instruction(self, insn):
         if insn.address in self.leaders:  # see _lift_instruction
             self._flag_state = None
         m = insn.mnemonic
+        if m in ("push", "pop") and len(insn.operands) == 1:
+            op = insn.operands[0]
+            if op.type == X86_OP_REG:
+                segment = self._fmt_read(op)
+                if segment.startswith("_seg_") and 0x66 not in insn.bytes:
+                    # Segment selectors are 16 bits, but default operand size
+                    # in this 32-bit image reserves FOUR stack bytes. Capstone's
+                    # operand width alone made memcpy_'s return address drift.
+                    comment = f"/* 0x{insn.address:08X}: {m} {insn.op_str} */"
+                    if m == "push":
+                        return [f"PUSH32(esp, (uint32_t){segment}); {comment}"]
+                    return [f"{segment} = (uint16_t)POP32_VAL(esp); {comment}"]
         if m in ("bsr", "bsf") and len(insn.operands) == 2:
             dst, src = insn.operands
             if dst.type == X86_OP_REG and dst.size == 4:
@@ -657,6 +678,9 @@ def main():
         "uint32_t, uint32_t);\n"
     )
     head += "".join(f"void {fn}(void);\n" for fn in sorted(set(CALLS.values()))) + "\n"
+    head += '#include "render_boundary.h"\n'
+    for address in RENDER_ENTRIES.intersection(bodies):
+        bodies[address] = wrap_entry(bodies[address], address)
     for n in os.listdir(out):
         if re.match(r"recomp_\d{4}\.c$", n):
             os.remove(os.path.join(out, n))
@@ -670,6 +694,8 @@ def main():
         f.write("#pragma once\n")
         for a in lifted:
             f.write(f"void sub_{a:08X}(void);\n")
+            if a in RENDER_ENTRIES:
+                f.write(f"void wd_original_{a:08X}(void);\n")
     with open(os.path.join(out, "recomp_dispatch.c"), "w") as f:
         f.write(
             '#include "recomp_types.h"\n#include "recomp_funcs.h"\n'
@@ -678,6 +704,10 @@ def main():
         for a in lifted:
             f.write(f"    {{ 0x{a:08X}u, sub_{a:08X} }},\n")
         f.write(f"}};\nconst uint32_t recomp_dispatch_count = {len(lifted)};\n")
+        f.write("recomp_func_t recomp_lookup_reference(uint32_t va) { switch (va) {\n")
+        for a in sorted(RENDER_ENTRIES.intersection(lifted)):
+            f.write(f"case 0x{a:08X}u: return wd_original_{a:08X};\n")
+        f.write("default: return NULL; } }\n")
     json.dump(
         {
             "ghidra": len(ghidra),

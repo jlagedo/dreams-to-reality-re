@@ -21,6 +21,7 @@
  */
 #define RECOMP_GENERATED_CODE
 #include "host.h"
+#include "render_live.h"
 
 #define FAKE_TAG   0x7E000000u
 #define FAKE_MASK  0xFF000000u
@@ -35,11 +36,13 @@ typedef struct {
     int used, w, h, topdown, bpp;
     uint32_t bits, size, pitch;
     SDL_PixelFormat fmt;
+    wd_surface_id surface;
 } Dib;
 typedef struct { int used; uint32_t sel; } MemDC;
 static Dib g_dib[MAX_OBJ];
 static MemDC g_dc[MAX_OBJ];
 static uint32_t g_presents;
+static uint64_t g_dib_generation;
 
 static int is_fake(uint32_t h) { return (h & FAKE_MASK) == FAKE_TAG; }
 static Dib* dib_of(uint32_t h) {
@@ -92,6 +95,20 @@ void imp_CreateDIBSection(void) {  /* (hdc, pbmi, usage, ppvBits, hSection, offs
         d->bits = vm_alloc(0, d->size, W32_MEM_COMMIT | W32_MEM_RESERVE, W32_PAGE_READWRITE);
         if (!d->bits) break;
         d->used = 1;
+        if (d->bpp == 16) {
+            wd_surface_desc surface = {d->bits, d->size, (uint32_t)d->w, (uint32_t)d->h,
+                d->pitch, d->fmt == SDL_PIXELFORMAT_RGB565 ? WD_SURFACE_565 : WD_SURFACE_555,
+                ++g_dib_generation};
+            d->surface = wd_surface_register(&surface);
+            if (!d->surface) {
+                fprintf(stderr, "[gdi] cannot register DIB surface\n");
+                vm_free(d->bits, 0, W32_MEM_RELEASE);
+                d->used = 0;
+                break;
+            }
+            wd_render_bind_surface(d->bits,d->size,d->w,d->h,(int)d->pitch,
+                d->fmt == SDL_PIXELFORMAT_RGB565 ? 0 : 1,1);
+        }
         if (ARG(3)) MEM32(ARG(3)) = d->bits;
         fprintf(stderr, "[gdi] CreateDIBSection %dx%d %d bpp%s -> bits 0x%08X (%s)\n", d->w, hh, d->bpp,
                 comp == W32_BI_BITFIELDS ? " bitfields" : "", d->bits, SDL_GetPixelFormatName(d->fmt));
@@ -109,7 +126,11 @@ void imp_SelectObject(void) {  /* (hdc, obj) -> previous */
 }
 void imp_DeleteObject(void) {
     Dib* d = dib_of(ARG(0));
-    if (d) { vm_free(d->bits, 0, W32_MEM_RELEASE); d->used = 0; }
+    if (d) {
+        wd_render_forget_surface(d->bits);
+        if (d->surface) wd_surface_unregister(d->surface);
+        vm_free(d->bits, 0, W32_MEM_RELEASE); d->used = 0;
+    }
     RET(1); STDRET(1);
 }
 void imp_GetStockObject(void) { RET(FAKE_TAG | FAKE_STOCK | (ARG(0) & 0xFF)); STDRET(1); }
@@ -117,6 +138,11 @@ void imp_SetBkMode(void) { RET(W32_OPAQUE); STDRET(2); }
 
 /* ---- snapshots: the DIB as a 24-bit BMP, for checking a run without watching it ---- */
 static void snap(const Dib* d) {
+    if(wd_render_requested()) {
+        char path[64];SDL_snprintf(path,sizeof path,"snap_%05u_%06ums.png",g_presents,host_elapsed_ms());
+        wd_render_capture(path);return;
+    }
+    WD_AUDIT_MEMORY(0x004458BBu, d->bits, d->size, 0);
     char name[64];
     SDL_snprintf(name, sizeof name, "snap_%05u_%06ums.bmp", g_presents, host_elapsed_ms());
     SDL_Surface* s = SDL_CreateSurfaceFrom(d->w, d->h, d->fmt, PTR(d->bits), (int)d->pitch);
@@ -167,6 +193,7 @@ static SDL_ScaleMode scale_mode(void) {
 }
 
 static void upload(const Dib* d) {
+    WD_AUDIT_MEMORY(0x004458BBu, d->bits, d->size, 0);
     const uint8_t* bits = (const uint8_t*)PTR(d->bits);
     if (d->topdown) { SDL_UpdateTexture(g_tex, NULL, bits, (int)d->pitch); return; }
     void* px;
@@ -206,8 +233,10 @@ void imp_StretchBlt(void) {  /* (dst, x, y, w, h, src, sx, sy, sw, sh, rop) */
     int r = 0;
     if (d && ARG(0) == FAKE_WDC) {
         host_pump();
-        present(d, (int)ARG(6), (int)ARG(7), (int)ARG(8), (int)ARG(9));
+        if(wd_render_requested())wd_render_begin_present(d->bits);
+        else present(d, (int)ARG(6), (int)ARG(7), (int)ARG(8), (int)ARG(9));
         present_hook(d);
+        if(wd_render_requested())wd_render_end_present();
         r = 1;
     } else {
         static int warned;

@@ -124,6 +124,25 @@ the corner shade bytes. Software selects row `31-shade`; Glide uses the
 separate palette/iterated-RGB contract. Project RGB triplets are not direction
 vectors passed to this normal calculation.
 
+The direct-renderer oracle now verifies the radial flat branch against original
+Windows x86 in 1,033 cases. It uses integer centroid division, truncated normal
+dot/distance quotients and wrapped 32-bit products/accumulation. Outside the inner
+radius, the multiplier is `(outer-distance)/outer`, **not** a normalization by
+`outer-inner`; the discontinuity at a nonzero inner radius is observable. At a
+zero-length vector, x87 integer-indefinite conversion and accumulation wrapping
+also affect the final byte. Another 500 cases verify that the light-to-node step
+uses the rotation **transpose**, including non-unit matrices, rather than a
+general matrix inverse. The recomp adapter now uses these kernels for supported
+radial-lit textured nodes, including shade/normal-dot feedback and stale-head
+palette selection. Type-2/Gouraud and the restrictions below remain partial.
+
+The shade used for a lit Glide block comes from the **head of its face list**.
+That entry may have the culled flag set: `REND_LightObject` skips it and retains
+its earlier shade. Original-code replays show a culled head retaining 19 while
+the next drawable face becomes 31, and `GLIDE_DrawObjectFaces` requesting row 19.
+Do not replace this with the first newly shaded/drawable face. See the current
+[lighting implementation evidence](specs/006-recomp-glide-renderer/implementation.md#radial-lighting-kernels-and-capture).
+
 ## Validation
 
 Checked all 150 raw project records; 95 scene palettes (527,104 RGB565 entries);

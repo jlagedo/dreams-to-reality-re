@@ -1,484 +1,345 @@
-# 006 — The developers' backend cut, and a Glide-derived sokol renderer for the recomp
+# 006 — Direct 3D and GPU 2D renderer for the recomp
 
-Status: **Exploration; no decisions taken.** `DREAMS.EXE` imported into Ghidra;
-the three builds compared with `tools/find_cut.py`; the cut tabulated; how 2D
-is drawn over 3D traced in the retail code and the Glide 2 source; options for
-2D composition, look, platforms and where the renderer lives surveyed, with
-external practice. No renderer code written. Every choice is listed under
-"Open questions".
-Date: 2026-09-29
-Depends on: [000 the recomp](../000-the-recomp/spec.md),
-[glide-renderer.md](../../glide-renderer.md),
-[glide-call-inventory.md](../../glide-call-inventory.md),
-[engine.md](../../engine.md) ("Renderer backends", "Presentation and 2D"),
-[north-star.md](../../north-star.md)
+Status: **Live direct first-scene slice implemented; full R0–R4 acceptance
+remains partial. Software stays the default reference.**
+Date: 2026-09-29.
 
-## Goal and boundary
+The renderer is built directly for the modernized frame:
 
-The recomp runs `GDIDREAM.EXE`, whose software rasterizer draws every pixel
-into a RAM frame that the SDL3 host uploads. `DREAMSFX.EXE`, the DOS 3dfx
-build, draws the same scenes through Glide with bilinear filtering, a depth
-buffer, fog and a deferred translucent pass. The goal is a recomp whose 3D goes
-through sokol_gfx, driven by the rules of the Glide build, with a clear line
-between retail-derived code and host glue, on Windows, Linux, macOS and the web
-(WebGL2).
+**posed scene -> direct GPU 3D -> GPU sprites/text/UI -> output correction -> present**
 
-Cryo shipped three builds of one engine, so instead of guessing where to cut,
-we find where **they** cut: code that is the same in all three is the engine,
-and what differs is a backend.
+The owner has chosen this architecture. A Glide-call wrapper, a software
+Voodoo renderer, routine scene readback and a changed-pixel overlay are not
+implementation stages. The existing software recomp and original game remain
+independent comparison tools. No production renderer integration is complete;
+the existing CPU/GPU smokes establish only their recorded contracts.
 
-| Build | Platform | 3D |
-|---|---|---|
-| `DREAMS.EXE` | DOS/4GW | software rasterizer on a VESA linear framebuffer (SciTech UniVBE) |
-| `DREAMSFX.EXE` | DOS/4GW | Glide 2 (Voodoo) |
-| `WINDREAM.EXE` / `GDIDREAM.EXE` | Win32 | software rasterizer on DirectDraw or a GDI DIB |
+Dependencies and evidence:
 
-The two DOS builds differ only in the renderer, and they come from the same
-compilers and flags, so their comparison is exact enough to show the renderer
-cut. Comparing `DREAMS.EXE` with `WINDREAM.EXE` gives the platform cut (same
-rasterizer, different OS), with the weaker matching that the Windows build's
-unoptimized `-d2` code allows.
+- [000: the recomp](../000-the-recomp/spec.md), [north star](../../north-star.md).
+- [3D boundary and smoke evidence](modern-cut.md).
+- [2D function/address map, contracts and smoke evidence](2d-cut.md).
+- [Implementation status, interfaces and validation](implementation.md).
+- [Glide appearance rules](../../glide-renderer.md),
+  [Glide call inventory](../../glide-call-inventory.md),
+  [engine](../../engine.md), [port-map policy](../../../opendreams/PORT_MAP.md).
+- [Historical backend exploration](backend-exploration.md): the three-build
+  comparison, original backend slots and alternative approaches.
 
-Like the rest of the recomp (spec 000), this is a research instrument. A
-running implementation of the Glide contract inside the original game would
-give OpenDreams a behavioural reference. [north-star.md](../../north-star.md)
-rejects the Glide cut **for OpenDreams** because it keeps 4:3, the original FOV
-and 640×480 culling; the same limit applies to the recomp.
+This file is the implementation authority for 006. The companion investigations
+retain their evidence and limitations; their earlier staging suggestions are
+superseded wherever they conflict with this decision.
 
-## Method **[verified]**
+## Decisions
 
-1. `DREAMS.EXE` imported with the LE loader (`tools/ghidra_import.py
-   --binaries …\DREAMS.EXE`, 57 s of auto-analysis). `ApplyWatcomSigs.java
-   …\sigs\dreams.csv` named 284 runtime functions and labelled 2, with none
-   unmapped. `ExportFunctionFeatures.java` exported 1,536 functions.
-   `DREAMSFX.EXE` was re-exported (1,566 functions).
-2. `tools/match_functions.py` on the three pairs:
+| Area | Selected design |
+|---|---|
+| Renderer | A shared direct renderer built on sokol_gfx; SDL3 remains the platform layer |
+| Sharing | Extract the required rendering core from existing shared rendering code; OpenDreams and the recomp supply separate input adapters |
+| 3D boundary | Before retail visual culling, clipping and integer projection; consume original geometry, posed transforms, camera, materials and lighting state |
+| Visual ownership | The modern renderer owns geometry processing, visibility, projection, clipping, shading, fog, transparency and rasterization, including offscreen 3D |
+| 2D boundary | Replace pixel-producing leaves and classified surface fills/copies; keep lifted layout, selection, formatting, timing and control flow |
+| Normal frame | GPU 3D, GPU UI composition, one present; no recurring framebuffer download |
+| Resolution | Render the scene at drawable/internal resolution from the first integrated slice; target size is a parameter, not hard-coded to 640x480 |
+| Aspect | Hor+ widescreen: retain original vertical FOV and reveal more at the sides; retain a 4:3 comparison view |
+| UI layout | Center the original logical 4:3 layout/artwork over the wider scene; keep proportions and map input through that same canvas; preserve movie aspect |
+| Appearance | Retain recovered material, palette, fog, depth and ordering rules; preserve tested integer 2D arithmetic |
+| Display correction | Apply gamma/output correction after 3D and UI composition |
+| Colour precision | Correction-free RGBA8 scene targets; quantize only where a packed-pixel operation requires it, leaving untouched 3D pixels at modern precision |
+| Readback | Explicit CPU output or diagnosed compatibility barrier only; never the ordinary bridge from 3D to UI |
+| Platforms | D3D11, Metal, GL core and WebGL2; one shader/core design, validated per backend. Remaining recomp OS/runtime portability is separate work |
 
-   | Pair | Functions | Matched | Identical masked code |
-   |---|---|---:|---:|
-   | `DREAMS` ↔ `DREAMSFX` | 1,536 / 1,566 | 1,341 | 933 |
-   | `DREAMS` ↔ `WINDREAM` | 1,536 / 1,944 | 692 | 262 |
-   | `DREAMSFX` ↔ `WINDREAM` | 1,566 / 1,944 | 636 | 95 |
+Windows/D3D11 gameplay is the first delivery gate. The shared renderer is then
+validated independently on Metal, GL core and WebGL2 in R4; unavailable hardware
+is recorded as unvalidated, never counted as a runtime pass from shader generation.
 
-3. `tools/find_cut.py DREAMS.EXE DREAMSFX.EXE --third WINDREAM.EXE`:
-   - **Link slots.** Watcom links each file's functions in source order. The
-     longest run of matched pairs that are in the same order in both builds
-     (1,322 of 1,341) therefore anchors the link order. Unmatched code between
-     two anchors fills the same slot in both builds, so it is that build's
-     implementation of the slot.
-   - **Modified shared functions.** Matched pairs whose code differs, with the
-     unmatched functions each side calls.
-   - **Edges.** Calls and function-pointer stores from matched code into
-     unmatched code.
-   - Result: 54 slots differ (28 swaps, 14 `DREAMS`-only, 12 `DREAMSFX`-only),
-     221 modified pairs and 86 edges.
+Direct rendering does not mean changing the artwork, lighting style, animation
+system or game rules. It also does not require every renderer calculation to
+be a GPU kernel: CPU packet preparation or visibility inside the new renderer
+is an implementation choice. Visual ownership and independence from the old
+projected/culled output are the requirements.
 
-   Outputs are `out/ghidra/cut/<a>--<b>.{slots,modified,edges}.tsv`, and the
-   decompilations read are in `out/ghidra/cut/decomp/`.
-4. The unnamed functions on each side of the video slots were decompiled and
-   read. The roles below come from that code.
+## What stays with the game
 
-Against the DOS pair, the Windows link order is poor evidence: only 298 of its
-692 pairs lie on one chain. Windows columns therefore come from matched callers
-and the existing names, not from slots.
+Keep resource loading/relocation, entity state, animation evaluation, camera
+gameplay, collision, sound, palette-state updates and RNG consumption lifted.
+Keep HUD/menu/dialogue/movie decisions and logical layout lifted. CPU movie
+decoding and generation of sprite/palette data produce uploads; they do not
+require scene downloads.
 
-## The cut
+One renderer-era side effect is especially important: node `+0x4c` contains a
+camera-space position read by sound and line-of-sight code on the following
+game update. Preserve its original arithmetic, visitation and timing, including
+stale values in skipped subtrees. The validated transform helper can perform
+the compatibility composition without rendering. This belongs to the
+game-facing adapter, not to the display camera or interpolation path.
 
-`DREAMS.EXE` and `DREAMSFX.EXE` addresses are LE loader addresses. Names on
-DOS-build addresses are those of their matched twin in the other builds;
-`DREAMS.EXE` has no names of its own yet. `WINDREAM.EXE` addresses also hold
-for `GDIDREAM.EXE` and are the hook points in the recomp.
+The retained hierarchy walk may perform that update and collect scene input.
+It must not invoke the old visual culling/projection/shading tail. The renderer
+must not use the gameplay feedback fields as its authoritative visual pose:
+pass local/posed transforms and camera separately, with an explicit coordinate
+space contract. Apply the camera once. Do not add an authored-root transform
+or reinterpret encoded pointer `1` as null.
 
-### The frame pointer contract **[verified in code]**
+Account for frame callbacks, scratch lifetime, node-box/debug outputs and the
+diagnostic collector branch at their actual callers. Preserve or explicitly
+replace their contracts; do not discard them when bypassing the pixel backend.
+In particular, retain collision separation in `GAME_DrawFrame`.
 
-Every build draws 2D (HUD, text, sprites, menus, movie frames) with the CPU into
-a **current frame pointer**, with the frame's width, height and pitch in
-globals. What changes by build is only what that pointer points at:
+006 preserves the recomp's existing simulation timing and frame limiting.
+A faster GPU is not authorization to uncap physics, substitute OpenDreams'
+fixed-step loop, or move state/RNG updates to the display clock. Independent
+render interpolation or scheduling is a later, separately validated change.
 
-| | `DREAMS.EXE` | `DREAMSFX.EXE` | `WINDREAM.EXE` |
-|---|---|---|---|
-| back buffer pointer | `0x13fcf4`, into the VESA linear framebuffer `0x294044` | `0x159ff4`, set from `grLfbLock` | `g_frameBuffer` `0x5e549c`, RAM |
-| set by | `VID_Swap` `0x10308`: toggle page `0x13fcf0`, VBE set-display-start `0x62bcc`, recompute back and front (`0x13fcdc`) pointers | `0x2025c`: toggle page, `GLIDE_LockBackBuffer`, pitch/2 → `0xf5988`, unlock | `VID_Swap` `0x4158e2` → `VID_Present` |
+## Renderer and adapter structure
 
-So the 2D code is shared, and on Glide it writes into the Voodoo back buffer
-after the 3D scene has been rasterized there.
-
-### Slots
-
-| # | Slot | `DREAMS.EXE` (VESA) | `DREAMSFX.EXE` (Glide) | `WINDREAM.EXE` |
-|---|---|---|---|---|
-| 1 | Device open | `0x10248` from `GAME_Init`: `MGM_SendMessage(0x1a, "data\\univbe")`, find a 16-bit mode (then 15-bit) at the current resolution (`0xd608c`×`0xd6090`) with `0x56a9d`, set it with MGM `0x16`, swap twice | `0x67468` → `GLIDE_Open`, from `0x70d04` (the twin of `RES_InitArena`) with `GLIDE_SetDepthWrite` and `GLIDE_ResetTextureState`. `0x670e8`, called from `GAME_Init` and `MENU_HandleSystemPageInput`, is an empty stub | `VID_Init` `0x446019` |
-| 2 | Device close | `0x10060` from `GAME_Shutdown`: restore the mode (`0x56a79`), `int 10h` mode 3 | `GLIDE_Close` from `GAME_Shutdown` `0x201b8` | `VID_ReleaseSurfaces` `0x4453ec` |
-| 3 | Swap | `VID_Swap` `0x10308` (above) | `0x2025c` for the pointer, and `GLIDE_UnlockBackBuffer` + `GLIDE_Swap` inline at every caller | `VID_Swap` `0x4158e2` |
-| 4 | 2D loops that present | `MENU_Tick`, `BOOT_TickFrame`, `CD_PrepareLevel`, `CD_PromptSwap`, `MENU_RunGameMenu`, `MENJ_PlayVoiceCaptions`, `0x4ce40` call `VID_Swap` | the same functions call Lock / GetLfbPitch / Unlock / Swap directly | the same functions call `VID_Swap`; Windows also wraps text and blit routines in `VID_Lock`/`VID_Unlock` (DirectDraw) |
-| 5 | In-game frame | `0x1d3e8`: `REND_DrawFrame(back)`, letterbox bands, message | `0x2d458`: `GLIDE_Clear` (if `0xf5978`), `REND_DrawFrame(0x159ff4, …, 640, 480)`, reset clip, lock LFB, `UI_DrawHud(1)`, message, `GLIDE_Swap`, unlock | `GAME_DrawFrame` `0x423f60`: `PHYS_ResolveCollisions`, `VID_Lock`, `REND_DrawFrame(g_frameBuffer)`, letterbox, `GAME_DrawMessage`, `VID_Unlock` |
-| 6 | Scene draw | `REND_DrawFrame` `0x624b0` / `…Ex` `0x62534`: software hooks, then span flush `0x78a60` (stored as a pointer by `0x62470`, the twin of `SW_SelectFlush`) | `REND_DrawFrame` `0x737e8` / `…Ex` `0x738d0`: `GLIDE_ClearToBackground`, hook = `GLIDE_DrawObjectFaces`, after the scene `GLIDE_DrawTranslucentFaces` | `REND_DrawFrame` `0x459320` / `…Ex` `0x4593a4`: `SW_DrawObjectFaces` + `SW_DrawObjectFacesPost`, flush through `0x4aa708` |
-| 7 | Texture residency | none: the rasterizer reads RAM | `MDL_LoadMaterials` `0x7040c` → `GLIDE_AllocTexture`; `SCENE_LoadLevel` `0x2935c` → `GLIDE_UploadAllTextures`; `SCENE_StartAnimTexture` `0x3f290`, `SCENE_StartPageScroll` `0x3f508` and `SCENE_StartPageBlend` `0x3f5bc` → `GLIDE_SetTextureAnimated`; `0x70d04` → `GLIDE_ResetTextureState` | none (`MDL_LoadMaterials` `0x456038`, `SCENE_LoadLevel` `0x41f9db`, `SCENE_StartAnimTexture` `0x42dae2`, `SCENE_StartPageScroll` `0x42dea3`, `SCENE_StartPageBlend` `0x42dfa0`) |
-| 8 | Fog | none | `SCENE_SetFog` `0x29288`, from `SCENE_LoadLevel` and from `0x2c904` (water-mode change) | none; the twin of `0x2c904` is `0x42315a` |
-| 9 | Menu background | `0x52790`–`0x52914`: allocate, free, save front/back, restore, dim (565 and 555 variants) | `0x62a68` (clears the pointer `0x159ff4`), `0x62b14` (copies a saved frame into it); `MENU_RunGameMenu` calls `GLIDE_ClearToBackground` | `VID_AllocBackground` `0x417e18` … `VID_RestoreBackground` `0x417fe7`, `VID_DrawDimmedBackground` `0x418060` |
-| 10 | Movie frame blit | `0x34f98` (HNM6), `0x3bbbc` (HNM5) | `VID_BlitHnm6Frame` `0x4b678`, `VID_BlitHnm5Frame` `0x4b8dc` (LFB pitch, rows 90–389) | `VID_BlitHnm6Frame` `0x4268ac`, `0x42665a` (HNM5) |
-| 11 | Per-level material overrides | absent | `0x26e4c` from `SCENE_FindSkyNode` | `0x41ce67` via `0x41cdb8`: sets face type −7 (translucent) or 9 (wrapped decal) on named nodes of the current level |
-
-Slot 11 is Glide-look data that the Windows build also has; the DOS software
-build lacks it. **[verified in code; purpose inferred from the face types in
-glide-renderer.md]**
-
-The Glide `REND_DrawFrameEx` (`0x738d0`) shows how small the 3D swap is:
-profiler start, `0x6f634`, `GLIDE_ClearToBackground`, second hook cleared, hook
-= `GLIDE_DrawObjectFaces`, `REND_DrawScene`, `0x6b1b0`,
-`GLIDE_DrawTranslucentFaces`, profiler stop. **[verified in code]**
-
-### Not part of the cut
-
-- `0x967c4`/`0x9680c` and their neighbours `0x96700`–`0x969b8`, in
-  `DREAMSFX.EXE` only, are called from `PHYS_*`, `ANIM_*`, `REND_DrawFrame` and
-  `RES_InitArena` in start/stop pairs. **[inferred]** This is the DOS 3dfx
-  profiler (spec 005). `SW_CollectFaceTriangles` sits in the same block.
-- Swaps of 3–15 bytes (`_dos_findclose_`, `_SetMaxPrec_`, `IF@DLOG`, near and
-  far plane setters) are the same functions that the matcher left unpaired.
-- `DREAMS.EXE` `0x625b0`–`0x63b54` (24 functions, 4.7 KB) and its runtime-area
-  blocks are the VBE and DPMI support behind slots 1–3. `DREAMSFX.EXE`
-  `0x81584`–`0x84070` and `DREAMS.EXE` `0x75404`–`0x78a60` are each build's
-  software rasterizer. `DREAMSFX.EXE` keeps its rasterizer only as the object
-  hook's initial value (engine.md).
-
-## 2D over 3D
-
-### The 2D code reads the pixels under it **[verified in code]**
-
-- **50% sprites.** `SPR_BlitSprite` (Windows `0x401935`, Glide `0x2e085`)
-  flag 2 writes `((src & 0xf7df) + (dst & 0xf7df)) >> 1`.
-- **Per-pixel alpha sprites and faded text.** `SPR_BlitSprite` flag `0x10`
-  and `TEXT_BlitGlyphFaded` (`0x403bcd`) read the destination and mix it
-  through `SPR_BlendPixel` (`0x401524`) and `SPR_BlendChannel` (`0x4014d0`).
-- **Dimmed menu background.** `VID_DrawDimmedBackground` (`0x418060`) redraws
-  a saved copy of the finished frame, darkened.
-- **Same code in every build.** Matched as identical code: `SPR_BlendPixel` and
-  `SPR_BlendChannel` between `DREAMSFX` and `WINDREAM`; `SPR_BlitSprite`,
-  `SPR_BlendPixel` and `TEXT_BlitGlyphFaded` between `DREAMS` and `WINDREAM`.
-- **The Glide build blends against the framebuffer too.** Its `SPR_BlitSprite`
-  (`0x2e085`) reads the destination through `0x159ff4`, the locked LFB pointer.
-- **Frame order in Windows.** `GAME_DrawFrame` (`0x423f60`) runs
-  `REND_DrawFrame(g_frameBuffer)` first; the letterbox bands and
-  `GAME_DrawMessage` write afterwards. `REND_DrawFrame` (`0x459320`) and
-  `REND_DrawFrameEx` (`0x4593a4`) end with the span flush through `0x4aa708`.
-- **The "real shadow" is a second 3D render.** `ENT_RenderShadowTexture`
-  (`0x43eb67`, Glide twin `0x5736c`) sets `REND_SetScreenSize(0x80, 0x100)`,
-  swaps material 2 for `0x1b`, calls `REND_DrawFrameEx` and restores the
-  viewport. Where its pixels land, and how the shadow texture is read from
-  them, is **[unverified]**.
-
-So an overlay that does not know the 3D pixel under each 2D pixel cannot
-reproduce these blends.
-
-### How the 3dfx build composes a frame **[verified in code]**
-
-In-game (`0x2d458`):
-
-1. **3D on the card.** `GLIDE_Clear` when `0xf5978` is set, then
-   `REND_DrawFrame`, whose Glide version draws the scene and the deferred
-   translucent pass into the back buffer with depth and fog.
-2. **Lock.** `GLIDE_LockBackBuffer` calls `grLfbLock(WRITE_ONLY, BACKBUFFER,
-   565, UPPER_LEFT, pixel pipeline off)`. The game points `0x159ff4` at the
-   returned address and sets the width from the pitch.
-3. **2D.** `UI_DrawHud(1)`, the message and the FPS text run the shared CPU
-   code into the card's memory. With the pixel pipeline off the writes are raw:
-   no depth test, fog or blending. They replace the 3D pixels they touch.
-4. **Present.** `GLIDE_Swap(0)`, then `GLIDE_UnlockBackBuffer`.
-
-Screens without 3D (menus, boot, CD swap, captions) lock, draw, unlock and
-swap. Movies write their 640×300 frame into rows 90–389 the same way.
-
-### What its blends read on a Voodoo 1 **[inferred from the Glide 2 SST-1 source]**
-
-From the Glide 2 source (`E:/tools/src/glide`, `glide2x/sst1`):
-
-- Read and write locks return the same LFB window, `gc->lfb_ptr`
-  (`glide/src/glfb.c:204` and `:313`).
-- A write lock changes only the write-buffer select, origin, format and pixel
-  pipeline bits of `lfbMode` (`glfb.c:241`). The read-buffer select is left
-  as it was.
-- Glide starts `lfbMode` at 0 (`glide/src/gsst.c:842`); read select 0 is the
-  **front** buffer (`incsrc/sst.h:109`).
-- A lock idles the chip unless `GR_LFB_NOIDLE` is passed (`glfb.c:151`).
-- Dreams takes no read lock. `grLfbLock` is called only from
-  `GLIDE_LockBackBuffer`, write-only, back buffer
-  ([glide-call-inventory.md](../../glide-call-inventory.md)).
-
-So on a Voodoo 1 the Glide build's blends would read the **front** buffer,
-which holds the previous finished frame. Translucent 2D would blend against
-last frame's image, and a static 50% sprite would converge toward opaque over a
-few frames. Not observed on hardware. The Voodoo Rush (SST-96) Glide takes
-another path, and Glide wrappers and emulators each choose their own
-behaviour.
-
-### Options for the recomp
-
-| # | Option | How | Assessment |
-|---|---|---|---|
-| 1 | Colour-key overlay | 2D draws into a buffer cleared to a marker colour; non-marker pixels go over the GPU 3D | Blends read the marker instead of the scene: fringes on 50% sprites and faded text, wrong dimmed menu. A real pixel equal to the marker disappears |
-| 2 | Written-pixel tracking | Instrument frame stores or guard pages to know which pixels 2D touched | Knows where, not what was underneath; blends still wrong on its own |
-| 3 | 2D as GPU draws | Replace every 2D writer with sokol quads | Every writer must be found (blitter modes, three text paths, masked copies, dimming, movie blits, letterbox fills, debug and editor draws); a missed one is invisible; replaces retail code with host code |
-| 4 | Readback | Host `REND_DrawFrame` renders with sokol at 640×480, reads the image back and converts it to 565 in `g_frameBuffer`; the lifted 2D and present run unchanged | Keeps `REND_DrawFrame`'s software-build contract; blends, dimming, letterbox exact. 3D capped at 640×480 (as on the Voodoo); one CPU wait per frame (about 1.2 MB); per-backend readback code; a 565 conversion rule to choose (truncate or Voodoo-like dither) |
-| 5 | Readback + changed-pixel overlay | As 4, and keep the pre-2D copy. At present, pixels that differ from it are 2D (blends included); show the high-res GPU 3D with only those pixels on top | High-res 3D where no 2D is drawn. A 2D pixel written with the 3D's own value shows the high-res 3D (looks the same). Black bands over black 3D count as unchanged, so the bands come from the letterbox globals (`0x49d9f8`). One 600 KB compare per frame |
-| 6 | CPU Voodoo rasterizer | A host Glide backend that rasterizes on the CPU with Voodoo rules into `g_frameBuffer` (DOSBox Staging's approach; MAME's Voodoo code is a possible source, licence unchecked) | Most authentic (dithering, the front-buffer read quirk if wanted, exact filtering); no GPU sync; the 2D problem disappears. CPU cost; 640×480 only; separate from any high-res path |
-
-Under options 4 and 5 the in-game frame function (slot 5) and the Windows
-present path could stay lifted, so only slots 6–8 would change and no emulated
-LFB would be needed. The blends would match the software builds, not the
-Voodoo 1 front-buffer behaviour: the game uses one pointer for reads and
-writes, so previous-frame reads cannot be reproduced without changing the
-blitters.
-
-### CPU access to GPU memory
-
-The CPU can write GPU memory: uploads (`sg_update_image`), shared memory on
-integrated GPUs and Apple Silicon, Resizable BAR (D3D12 GPU-upload heaps,
-Vulkan device-local host-visible memory), `VK_EXT_host_image_copy`. What it
-cannot portably do is what the Voodoo LFB offered, a linear pointer into the
-live render target for in-place reads and writes. Render targets are usually
-tiled or compressed, the GPU runs a frame or more behind the CPU, reads from
-mapped video memory are uncached, and sokol exposes only uploads. Option 4 is
-the portable form of an LFB lock: lock is "wait and copy down", unlock is
-"upload".
-
-### How other projects do it **[sourced]**
-
-| Approach | Who | Mechanism |
-|---|---|---|
-| Colour-key overlay | OpenGlide | Write lock returns a CPU buffer filled with `BLUE_SCREEN` `0x07FF`; unlock uploads pixels that differ and draws them with an alpha test; read locks use `glReadPixels` |
-| Colour-key overlay | dethrace (Carmageddon), "3dfx mode" through BRender's OpenGL driver `glrend` | Locked pixels start as magenta `BR_COLOUR_565(31,0,31)`; flush uploads them to an overlay texture and draws it full-screen "ignoring purple pixels", then refills |
-| Readback to CPU memory | Glide64 / GLideN64 (N64), Dolphin (GameCube EFB peeks) | GLideN64 blits the high-res image down to native resolution and reads it, synchronously (exact) or asynchronously (one frame late); Dolphin reads 64×64 tiles into a cache on GL, synchronised per peek on D3D11 |
-| Keep buffers on the GPU | GLideN64 hardware framebuffer emulation, RT64 | Track which memory is a framebuffer and keep it as a GPU texture; copy only when the game samples it |
-| CPU drawing over GPU | GLideN64 | Upload the CPU-drawn area and alpha-blend it over the frame, clearing it each frame |
-| 2D as GPU operations | BRender `glrend` (pixelmap copies as texture uploads), GLQuake-style ports | Every 2D path goes through the driver |
-
-Predicted, not tested: `DREAMSFX.EXE` under a colour-key wrapper such as
-OpenGlide should show marker-coloured fringes on its blended 2D. The combination
-in option 5 (readback as the key) was not found in these projects.
-
-Not established: dgVoodoo 2's mechanism (its Glide readme advertises "perfect
-lfb access" and "true PCI access" emulation but could not be fetched; a VOGONS
-post lists LFB modes full, read, write and none). nGlide is closed source.
-
-Sources:
-[OpenGlide `grguLfb.cpp`](https://github.com/voyageur/openglide/blob/master/grguLfb.cpp);
-[BRender v1.3.2 `drivers/glrend/devpixmp.c`](https://github.com/dethrace-labs/BRender-v1.3.2)
-and [dethrace PR #434](https://github.com/dethrace-labs/dethrace/pull/434);
-[GLideN64 frame buffer emulation I](http://gliden64.blogspot.com/2013/11/frame-buffer-emulation-part-i.html),
-[II](http://gliden64.blogspot.com/2014/01/frame-buffer-emulation-part-ii.html),
-[New Public Release III](http://gliden64.blogspot.com/2016/11/new-public-release-part-iii.html);
-[Dolphin: The New Era of Video Backends](https://dolphin-emu.org/blog/2019/04/01/the-new-era-of-video-backends/),
-[`FramebufferManager.cpp`](https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/VideoCommon/FramebufferManager.cpp);
-[RT64](https://github.com/rt64/rt64);
-[dgVoodoo2 Glide readme](https://dege.freeweb.hu/dgVoodoo2/ReadmeGlide/),
-[VOGONS dgVoodoo thread](https://www.vogons.org/viewtopic.php?t=34931&start=80);
-[nGlide](https://www.zeus-software.com/downloads/nglide).
-
-### DOSBox **[sourced]**
-
-| Path | Where | Mechanism |
-|---|---|---|
-| Low-level software Voodoo | DOSBox Staging (only mode); DOSBox-X software mode | The card is emulated on the CPU (code from MAME's Voodoo emulator; Staging spreads it over up to 16 threads). The framebuffer is host memory; triangles are rasterized into it; LFB reads and writes follow the card's `lfbMode`, so the front-buffer read should be reproduced; only the finished frame goes to the host GPU. No readback. Native resolution |
-| OpenGL Voodoo | DOSBox-X `voodoo_opengl.cpp` | Registers emulated, triangles drawn with OpenGL at window resolution. LFB writes become `GL_POINTS` blocks (`voodoo_ogl_draw_pixel`); reads are `glReadPixels` of a whole scanline, cached per row, from the front or back buffer as `lfbMode` selects (`voodoo_ogl_read_pixel`) |
-| Glide pass-through | DOSBox-X `glide=true` | Glide calls go to a host wrapper (OpenGlide, nGlide, dgVoodoo), which decides LFB handling |
-
-DOSBox Staging, modelling the hardware rather than a wrapper, is the candidate
-reference for parity screenshots of `DREAMSFX.EXE`.
-
-Sources:
-[DOSBox Staging 3dfx Voodoo manual](https://github.com/dosbox-staging/dosbox-staging/blob/main/website/docs/0.83/manual/graphics/3dfx-voodoo.md),
-[DOSBox Staging `voodoo.cpp`](https://github.com/dosbox-staging/dosbox-staging/blob/main/src/hardware/video/voodoo.cpp),
-[DOSBox-X `voodoo_opengl.cpp`](https://github.com/joncampbell123/dosbox-x/blob/master/src/hardware/voodoo_opengl.cpp),
-[DOSBox-X Voodoo guide](https://github.com/joncampbell123/dosbox-x/wiki/Guide:Setting-up-3dfx-Voodoo-in-DOSBox%E2%80%90X).
-
-## Look
-
-### Screen-space vertices are whole pixels **[verified in code]**
-
-`GLIDE_DrawObjectFaces` (`0x67568`) fills each `GrVertex` from integers the
-engine computed at 640×480, and `oow` from the float camera-space z at
-`+0x18`:
-
-```c
-GStack_128.x   = (float)*(int *)(vertex + 0x1c);
-GStack_128.y   = (float)*(int *)(vertex + 0x20);
-GStack_128.oow = 1.0 / *(float *)(vertex + 0x18);
+```mermaid
+flowchart TD
+    G["Lifted game, animation and camera"] --> A["Recomp adapter: preserve feedback and capture scene"]
+    A --> R["Shared direct 3D renderer"]
+    O["OpenDreams scene adapter"] --> R
+    R --> T["GPU colour, depth and offscreen targets"]
+    L["Lifted HUD, menu, dialogue and movie control"] --> U["2D adapter: ordered draw and copy requests"]
+    T --> C["GPU 2D composition"]
+    U --> C
+    C --> P["Output correction and one present"]
+    T -. "explicit CPU consumer only" .-> X["Readback/export barrier"]
+    C -. "requested capture" .-> X
 ```
 
-Rendering these at a higher resolution sharpens textures, filtering, fog and
-edges, but every vertex stays on the 640×480 grid, so edges step and shimmer
-by up to half an original pixel as the camera moves. The vertex record also
-holds camera-space x/y/z (`+0x10`); projecting from those in floating point
-would remove the snapping. Nothing outside the render path reads vertex data
-(engine.md), so that would change only the picture, by up to half an original
-pixel: an enhancement, not the faithful look.
+The shared renderer accepts host-owned descriptions and resource IDs, not guest
+addresses, `ModelGraph` ownership, GDI handles or the recomp register file.
+Provide a narrow C-compatible interface for the C recomp, backed by shared
+C++ rendering code. Reuse appearance/resource code where contracts match,
+while completing the currently partial material and shader paths.
 
-### Assessment by look
+Do not link a second SDL3/sokol instance or import the viewer shell, ImGui and
+asset-loader graph merely to share drawing code. Factor only the needed core;
+existing preview/runtime callers become its adapters. Production shaders use
+the project's shader-generation workflow, not separate hand-written programs
+for each graphics API. The D3D11 smoke shaders remain isolated test prototypes.
 
-| Combination | Look | Cost |
+### Scene input
+
+Each scene submission contains:
+
+- original model-space vertices, normals, stored triangles and signed UVs;
+- posed node transforms and hierarchy/instance identity, including the owner
+  of each face corner (cross-node triangles are common);
+- a camera/projection policy separate from game-facing transform feedback;
+- material/face modes, visibility flags, current texture/palette versions,
+  lighting inputs, fog and render-order information;
+- a typed target, viewport and frame/resource generation.
+
+Use original face records/count/stride, not retail `visible` lists or generated
+clip polygons. Never use integer screen coordinates as modern renderer input.
+The renderer computes visual transforms, enlarged-view visibility, projection
+and clipping. Explicit game hiding remains binding.
+
+Keep the source-to-runtime checks through integration: encoded parent `1`
+resolves to the first player-model node, and the model root lands at the
+project spawn. The adapter must not invent a second placement system.
+
+### 3D scope
+
+The renderer owns the complete visual path: level and actor geometry, posed
+models, sky and effect geometry, material sampling, dynamic pages/palettes,
+lighting, environment mapping, fog, depth and ordered translucent submission.
+Include diagnostic/flat modes where supported; absence from a static corpus
+does not establish that a retail mode can be dropped. Preserve stored triangles.
+
+The Glide rules specify appearance, not a required 35-call API to emulate.
+Implement them directly as renderer state/shaders. Account for `GREATER`
+depth, translucent-pass order and retained depth writes, palette-cache
+behaviour, clipping and environment-map update timing. Any previous-frame
+dependency must remain explicit when the processing moves into the renderer.
+
+All offscreen 3D uses this renderer too. The real shadow is not an optional
+software exception: reproduce its observed palette-index mask/packing on the
+GPU and expose the result to later texture sampling. A save thumbnail is a
+small direct GPU render; its CPU file consumer may then request readback.
+Finishing either target does not present a window.
+
+### 2D scope
+
+The [2D address map](2d-cut.md#main-interception-points) defines the leaves.
+Normal play requires GPU sprites, all text routes, the pyramid compositor,
+masked menu images, fills/bars, captions, captures/restores/dimming, fades and
+movie placement. Include direct framebuffer bypasses in the registry/audit;
+intercepting `SPR_BlitSprite` alone is insufficient.
+
+Use GPU copies for saved/background/caption images and destination-sampling
+passes for integer blends. Never sample an active output attachment: use
+ping-pong targets or an ordered scratch-region copy. Batch only where overlap
+and mutation order permit it.
+
+Preserve RGB565/RGB555 integer rules, palette semantics, keyed neighbour
+stores, clipping/source-step quirks and relevant metadata side effects.
+Ordinary alpha-over is not equivalent. Move the existing preview shader's
+early gamma correction to final output before sharing it.
+
+At high resolution, UI positions/artwork retain the logical canvas. Sample the
+actual GPU destination under each output pixel and apply the declared retail
+integer operation there. This is the selected modern sampling policy; it is
+not a claim of identical pixels to an upscaled 640x480 render. Nearest artwork
+sampling is the initial choice. Native-size rendering is a test setting of
+this same implementation, not a separate implementation milestone.
+
+Pack sampled RGBA8 bytes with RGB565/RGB555 bit shifts and expand results with
+bit replication. This is a declared modern conversion policy, not proof of
+Voodoo scan-out parity. Preserve RGB555's otherwise unused high bit through raw
+copies/fills: the current shared core reserves alpha byte 1 for that bit and
+uses opaque alpha for normal colours. Final output writes opaque alpha; the
+tag must not be treated as UI opacity.
+
+### Resource and surface ownership
+
+Map a guest surface by byte range, allocation generation, dimensions, pitch,
+format, aliases and content version. Main colour, saved images, movie buffers,
+thumbnails and P8 shadow masks have different contracts. The names "front"
+and "back" must not override actual pointer aliasing.
+
+Snapshot or upload CPU-mutated source versions before reuse/free. Commands
+retain GPU resources through completion. Keep ordinary RAM operations lifted;
+translate only classified operations on registered surfaces. Preserve pointer
+and allocator metadata.
+
+Capture target identity and order with each request. Execute queued work before
+dependent copies, 3D passes, CPU consumers and presents. Menus/movies can present
+without 3D. One presentation owner remains at the existing outer boundary.
+
+## Readback and compatibility policy
+
+Readback is allowed for explicit CPU serialization/capture (save thumbnails,
+TGA/BMP output), test comparisons, or a diagnosed unported CPU consumer. Each
+barrier identifies call site, surface, region, byte count and reason. GPU copies
+and CPU-to-GPU uploads are not readbacks.
+
+Compatibility fallbacks are optional diagnostic tools, disabled for the direct
+renderer acceptance run. Unknown access must be reported and fail that run;
+it must not silently materialize every frame. A temporary fallback is tracked
+as remaining work and cannot satisfy a milestone requiring its GPU operation.
+
+A recurring CPU pyramid blend, software shadow pass or whole-scene download
+before UI is not an acceptable completed path. Do not build these as
+prerequisites. A colour-key/changed-pixel overlay, Voodoo emulator or
+screen-space Glide renderer is not an intermediate architecture. Use the
+existing all-lifted build as the comparison tool.
+
+## Implementation sequence
+
+Each stage extends the same direct renderer. No stage produces a separate
+compatibility renderer that later has to be replaced.
+
+| Stage | Work | Exit evidence |
 |---|---|---|
-| Option 5 + float projection | High-res 3D with smooth geometry; 2D at its native 640×480 art with correct blends; translucent 2D blends against the downsampled 3D (visible only under semi-transparent HUD and caption pixels) | Readback, compare, projection change in the host renderer |
-| Option 3 | As above, with translucent 2D blending against the high-res 3D | Rewrite of every 2D writer, for a few pixels under translucent text |
-| Option 5 alone | High-res textures and edges, snapped geometry | Readback, compare |
-| Option 4 | The Voodoo look: everything 640×480, scaled to the window | Smallest |
-| Option 6 | The Voodoo look including dithering and, optionally, the front-buffer blend | CPU rasterizer |
-| Option 1 | As option 5 where it works; fringes on every blended sprite and caption | — |
+| R0 — guest boundary and ownership | Replacement ABI covering registers, stack, flags, x87 and direct/indirect/tail calls; preserve feedback transforms; capture scene inputs; typed surface/resource registry and diagnostics | Existing transform/ABI/player-placement checks pass through the actual adapter; unknown accesses are observable |
+| R1 — direct vertical slice | Extract minimal shared core; connect original geometry/posed transforms and float projection; draw at drawable resolution; connect GPU UI primitives and direct present | Boot/New Game/first scene on the direct path at two sizes including widescreen; no scene download for covered UI; incomplete features explicitly listed |
+| R2 — complete visual 3D | Required face/material modes, lighting, palette/texture animation, environment mapping, fog, transparency and new-frustum visibility; GPU shadow and thumbnail targets | Source-corner and boundary cases checked; widescreen visibility works; shadow sampling/packing agrees with the oracle; game-facing state unchanged |
+| R3 — complete regular GPU 2D | Normal sprite/text variants, pyramid markers, dynamic fire sources, menu/caption lifetimes, fades/bars, HNM placement and memory bypasses | Interleaved oracle comparisons plus gameplay/menu/dialogue/movie runs with zero compatibility readbacks |
+| R4 — integration and platforms | Remaining active debug/rare paths, explicit CPU exports, reload/lifetime checks, performance and backend validation | Acceptance matrix below; no hidden recurring CPU renderer; per-platform results recorded |
 
-In a high-res mode the 2D stays 640×480 art. Nearest-neighbour keeps it crisp;
-a pixel-art scaler on the overlay alone would soften the contrast with the 3D.
+R2 and R3 can develop incrementally around R1. This does not reopen the
+architecture or make an unfinished gauge/shadow a permanent fallback.
+R1 includes the gauge branches and movie/boot paths actually encountered on
+its first-playable route; R3 completes their remaining variants. An absent gauge
+or a hidden CPU gauge fallback does not satisfy the R1 exit evidence.
+Follow `PORT_MAP.md` for actual ports/adaptations. Coverage stays partial while
+known branches/side effects remain; owner review is never inferred from tests
+or this architecture decision.
 
-## Platforms: Windows, Linux, macOS, WebGL2
+## Acceptance
 
-sokol exposes the native texture behind an image on each backend
-(`sg_d3d11_query_image_info`, `sg_mtl_query_image_info`,
-`sg_gl_query_image_info`, `sg_wgpu_query_image_info`; `sokol_gfx.h`
-5758–5813 in the pinned copy), so readback can be written beside sokol without
-forking it. sokol itself has no readback call. **[verified in the header]**
+- Direct native/high-resolution and Hor+ widescreen rendering, independent of
+  old integer projection and frustum rejection. The 640x480 test configuration
+  exercises the same implementation.
+- Main rendering, regular UI, backgrounds and shadow sampling stay on the GPU.
+  Trace **zero routine GPU-to-CPU scene readbacks**, with compatibility
+  fallbacks disabled. Explicit exports/test readbacks are counted separately.
+- Exercise boot, New Game, movement/combat, pause/inventory, gauge changes,
+  dialogue/portraits, movies, resize, save/load thumbnails and level reload.
+  Validate target changes and source mutation, not just isolated pictures.
+- Preserve game-facing transform/timing/RNG effects against the all-lifted
+  reference. Repeat pointer-1/spawn and cross-node geometry checks.
+- Retain packed-pixel 2D oracle cases and independent 3D projection/material/
+  depth checks. Declare high-resolution sampling enhancements; screenshots
+  alone do not establish compatibility.
+- Measure CPU adapter/upload/submission cost, GPU pass/copy cost, resource
+  growth, explicit readbacks and pacing. Isolated smoke timings are not a
+  full-game budget or a cross-platform result.
+- Record native/backend build and smoke results. Keep the API/shaders portable;
+  recomp KERNEL32/thread/browser-loop work is a separate dependency for running
+  on other platforms.
 
-| Option | Windows (D3D11) | Linux (GL core) | macOS (Metal) | Web: WebGL2 | Web: WebGPU |
-|---|---|---|---|---|---|
-| 4 Readback | staging texture + `Map` | `glReadPixels` / PBO | blit to a shared `MTLBuffer`, `waitUntilCompleted` | synchronous `readPixels`; stalls the pipeline; cost at 640×480 unmeasured | `mapAsync` is promise-only: no synchronous readback without yielding mid-frame |
-| 5 Readback + overlay | yes | yes | yes | desktop browsers; heavy on mobile | as above |
-| 6 CPU Voodoo rasterizer | plain C | plain C | plain C | slower in wasm; SIMD and threads help | works (upload only) |
-| 3 2D as GPU draws | yes | yes | yes | yes | yes, no readback needed |
-| 1 Colour key | runs everywhere; blends wrong | | | | |
+## Proven so far and still unproven
 
-OpenDreams already builds for all four targets with SDL3 + sokol (D3D11,
-Metal, GL core, GLES3/WebGL2; `opendreams/CMakeLists.txt`).
+The implementation record distinguishes the new shared-core results from the
+older isolated prototypes. `ODRender`/`ODGraphics` build without ImGui or game
+loaders; both projects link the extracted graphics targets. The shared C API
+implements generation-checked targets/uploads, ordered GPU composition,
+floating-point posed-corner preparation, a basic scene pipeline and final output
+correction. The lifter emits replacement/reference entries and optional memory
+probes; GDI DIB allocation/free registers its surfaces. The opt-in `direct` mode
+now submits the live first scene, HUD and dialogue through GPU targets and the
+shared presentation boundary. Software remains the default. This first working
+slice does not close the remaining acceptance gates.
 
-The web target's larger problems are in the recomp runtime, not the renderer
-(candidates for spec 000):
+`ModelPreview` is now a source adapter for `ODRender`, with the old preview
+shader/pipelines removed. Viewer and recomp share pose preparation, depth,
+material sampling, fog and output correction. Dynamic-batch, mutation, resize
+and model-reload checks pass; see the [adapter evidence](implementation.md#modelpreview-adapter-checkpoint).
 
-1. The game runs its own `PeekMessage` loop and never yields. ASYNCIFY over
-   675,000 lines of generated C would be costly; running the game in a worker
-   (`-sPROXY_TO_PTHREAD`) with an OffscreenCanvas would let it block, which
-   also makes synchronous `readPixels` usable.
-2. The game uses threads (`runtime/threads.c`); wasm threads need
-   `SharedArrayBuffer`, hence COOP/COEP headers.
-3. Guest memory is one arena at `g_mem_base` (16 MB plus a 768 MB heap,
-   `runtime/imports.h:30-35`). Portable and within wasm32, but committed up
-   front in a browser.
-4. KERNEL32 still calls Win32 (spec 000).
-5. If lifted x87 code relies on 80-bit `long double`, arm64 macOS and wasm
-   have only 64-bit doubles; spec 000's x87 differential-test failures make
-   this worth checking.
+The D3D11 thumbnail path now uses a dedicated 64x64 target and one explicit
+8,192-byte packed export at the retail serialization boundary. A controlled
+live autosave test verifies file bytes, the guest copy and restored screen size;
+the production export API passes exhaustive packed-value tests. This is not yet
+full save/load acceptance. See the [thumbnail evidence](implementation.md#explicit-thumbnail-export-checkpoint).
 
-## Where the renderer could live
+The native sprite adapter now covers flag 4's unusual memory stride and
+signed-high blend coverage with immutable GPU lookup tables. The expanded
+original-x86 comparison passes 105 checkpoints and 5,055,744 packed pixels;
+full ABI and allocation-edge closure remain open. See the
+[sprite evidence](implementation.md#remaining-sprite-branches-checkpoint).
 
-### What OpenDreams already has **[verified in port-map.tsv]**
+Type-1 diagnostic 3D now has direct constant-colour submission and new-frustum
+visibility. Original Glide call replay verifies the colour sequence and block
+resets; GPU tests verify winding and Hor+ behavior. Near-plane diagnostic
+numbering and viewer diagnostic-mode coverage remain partial; see the
+[mode evidence](implementation.md#type-1-diagnostic-3d-checkpoint).
 
-| Retail function | OpenDreams port | Status |
-|---|---|---|
-| `GLIDE_DrawObjectFaces` | `shared/port/glide_model.cpp`: GPU batches for face types −7/−6/−5/−4/−3/2/3/9, signed UVs, clamp/wrap/chroma, deferred translucent ordering; checked on 95 scene graphs (157,433 faces) and 191 DAN graphs (50,910 faces) | adapted, partial |
-| `GLIDE_BindTexture`, `GLIDE_ConvertPalette`, `GLIDE_SetTextureAnimated` | `shared/render/model_preview.cpp`: palette texture, per-batch palette row, dynamic pages | replaced |
-| `GLIDE_AllocTexture` | `shared/port/glide_model.cpp` `model_texture_lod` (128×128 LOD) | adapted, partial |
-| `SCENE_SetFog`, `GLIDE_SetFog` | `shared/port/fog.cpp`, fog table in the shader | adapted / replaced |
-| gamma 0.8 | `ModelPreview::set_output_gamma` | in use |
-| `GLIDE_LockBackBuffer`, `…Unlock`, `GLIDE_Clear`, `GLIDE_Swap`, `GLIDE_SetClipWindow` (movies) | `shared/render/glide_compat.cpp` (`od::GlideCompat`) | adapted, partial |
+Fog now follows the original level-load/water-transition call boundary and is
+composed by the shared GPU scene shader using reciprocal-W selection and packed
+delta interpolation. Original-x86 controller tests, 131,072 reference samples
+and controlled live water transitions pass. Zero-density hardware behavior
+and broader natural gameplay coverage remain open. See the
+[fog evidence](implementation.md#fog-control-and-composition-checkpoint).
 
-Differences from what the recomp would need:
+Radial lighting now uses shared arithmetic checked against 1,533 original x86
+cases, with live shade/normal-dot feedback and stale list-head palette binding.
+Controlled live binding/movement tests pass. WDS6 adds feedback addresses and
+the refreshed-light prefix; type-2/Gouraud and callback cases remain open. See
+the [lighting evidence](implementation.md#radial-lighting-kernels-and-capture).
 
-- `GLIDE_DrawObjectFaces(const ModelGraph&, …)` reads OpenDreams' own parsed
-  model data. The recomp has the live engine structures in guest memory: face
-  list at node `+0xa4`, 40-byte vertices at `+0x80`, camera-space coordinates
-  at `+0x10` recomputed each frame.
-- `ModelPreview` projects on the GPU in floating point (`ModelView`), the
-  "one stage earlier" cut from north-star.md.
-- It is a preview renderer (one target), with parts still partial. Depth
-  `GREATER`, readback and 2D composition are not there.
+The new shared compositor independently passes the same 256 checkpoints and
+14,769,600 packed pixels, plus exhaustive CPU and GPU packed-value round trips.
+Production replacement dispatch is exercised by the captured transform replay.
+See [the current gates](implementation.md#stage-status) for everything still
+required before R0/R1 or a playable direct renderer can be declared complete.
 
-### Placements
+The [3D smokes](modern-cut.md#smoke-results-2026-09-29) preserve composed
+transforms for 735 nodes in each of two retail snapshots and exercise the
+lifted helper/ABI/shared tail. They resolve cross-node faces, pointer `1`,
+spawn placement and the observed shadow-mask destination. The isolated D3D11
+test establishes offscreen targets, depth and transfer feasibility.
 
-| | Placement | Notes |
-|---|---|---|
-| A | Recomp-only: a C Glide layer in `recomp/windream/runtime` (the first plan: ports of the `DREAMSFX` Glide file plus the 35 `gr*`/`gu*` calls on sokol) | Self-contained; duplicates what ODShared already implements |
-| B | Shared: factor a renderer out of `ModelPreview` in ODShared (per-frame batches of position, UV, material, palette row and face mode; material pages; fog; gamma; optional readback to RGB565), split the face-type rules in `GLIDE_DrawObjectFaces` from the `ModelGraph` walk, give it a C API, and add a recomp adapter at the `REND_DrawFrame` cut (guest face walk, texture cache keyed by guest page pointer, readback into `g_frameBuffer`) | One renderer for ODRuntime and the recomp; the recomp becomes a whole-game test of it (spec 000's instrument role, W5's hybrid runs). The recomp becomes a C/C++ build linked to ODShared with one SDL3 and sokol. Factoring changes existing port-map entries (`PORT_MAP.md` rules apply; `reviewed` is the owner's) |
-| C | Either of the above, after or alongside the portable recomp runtime (KERNEL32, web) | The runtime work is needed for Linux, macOS and the web regardless of the renderer |
+The [2D smokes](2d-cut.md#smoke-tests-and-results) compare 256 checkpoints and
+14,769,600 packed pixels with zero mismatches, including captured font/sprite
+inputs, overlap, clipping, surface changes, copies, dimming and movie placement.
+Their compositor performs no target readback; validation does read results.
 
-## Candidate work items
-
-None is scheduled. Which apply depends on the open questions.
-
-- **R0 — replacement hooks in `lift.py`.** Today `HOOKS` are read-only and
-  `CALLS` insert calls before an instruction. Replacing `REND_DrawFrame` (and,
-  in some options, slot 5) needs a lifted function replaced by host code that
-  can still call lifted functions (a `REPLACE` table). Spec 000 W5 needs the
-  same. Common to options 3–6.
-- **R1 — present through sokol.** Replace the SDL texture present in
-  `runtime/gdi.c` with a sokol pass that draws the RAM frame.
-- **R2 — renderer.** Placement A: Glide on sokol (the 35 calls). Placement B:
-  the factored ODShared renderer with a C API.
-- **R3 — scene.** Replace `REND_DrawFrame`/`…Ex` (slot 6) at the Windows
-  addresses; texture residency (slot 7) at the Windows call sites; per-level
-  overrides (slot 11) already run in the lifted code.
-- **R4 — fog (slot 8)** at `SCENE_LoadLevel` and `0x42315a`.
-- **R5 — 2D over 3D** by the chosen option (readback per backend, overlay,
-  CPU rasterizer or GPU 2D).
-- **R6 — parity** against reference screenshots at fixed points.
-
-## Measurements that would inform the choices
-
-- **M1** In the current software recomp, snapshot `g_frameBuffer` when
-  `REND_DrawFrame` returns and at `GDI_Present`; log changed pixels and their
-  extent in play, menus and cutscenes. Confirms all 2D falls in that window and
-  sizes option 5's overlay.
-- **M2** Where the 128×256 shadow render of `ENT_RenderShadowTexture` writes,
-  and how the shadow texture is read from it.
-- **M3** Whether anything drawn before `REND_DrawFrame` in a frame is expected
-  to survive under the 3D (menus, `VID_RestoreBackground`).
-- **M4** Synchronous `readPixels` cost at 640×480 in desktop and mobile
-  browsers.
-- **M5** Reference screenshots of `DREAMSFX.EXE` under DOSBox Staging at fixed
-  points (and whether its blends show the front-buffer effect).
-- **M6** Optional: `DREAMSFX.EXE` under a colour-key wrapper, to confirm the
-  predicted fringes.
-
-## Exploration still to do
-
-- **E1** `find_modules.py` for LE (data references from the feature dump,
-  runtime start mapped through the LE page table as `ApplyWatcomSigs.java`
-  does). It would give file boundaries inside each build, beyond the slots.
-- **E2** Names for the `DREAMS.EXE` video functions above and for `0x41ce67`,
-  through the registry and the two-source rule (`re/names/`; `DREAMS.EXE` has
-  no registry yet).
-- **E3** Slot 9 on Glide: what `0x62b14` restores and what the in-game menu
-  shows behind it.
-- **E4** Boundary pass on `DREAMS.EXE` (`ReportBoundaries.java`). Its
-  functions come from auto-analysis alone, so pointer-only functions may be
-  missing.
-- **E5** Where the Windows build calls `UI_DrawHud` relative to
-  `GAME_DrawFrame` (the Glide build calls it inside `0x2d458`).
-- **E6** Licence of MAME's Voodoo code, if option 6 is considered.
-
-## Open questions
-
-1. **Where the renderer lives:** placement A, B or C.
-2. **2D over 3D:** options 1–6.
-3. **Modes:** a faithful mode only, or also an enhanced mode (high internal
-   resolution, option 5, float projection); which is the default.
-4. **Voodoo 1 blend behaviour:** reproduce the front-buffer read (possible only
-   with option 6) or produce the software builds' blends.
-5. **565 conversion** of the readback: truncation or a Voodoo-like dither.
-6. **2D upscaling** in a high-res mode: nearest or a pixel-art scaler.
-7. **Web backend:** WebGL2 or WebGPU, given WebGPU's asynchronous readback;
-   worker thread or ASYNCIFY for the blocking game loop.
-8. **Parity reference:** DOSBox Staging, real hardware, or both.
-9. **Where to present.** Glide presents at slot 5 or 4 through `GLIDE_Swap`,
-   and Windows through `VID_Swap`. The recomp has to own exactly one present
-   per frame.
-10. **Palette animation.** The Glide cache key ignores the palette row
-    (glide-renderer.md): keep the quirk or not, and check it at runtime.
-11. **Relation to north-star.md:** whether a Glide-cut renderer in the recomp
-    stays a research instrument or feeds ODRuntime's renderer (placement B
-    blurs the line).
-
-## File map
-
-| Path | Content |
-|---|---|
-| `tools/find_cut.py` | Link-slot alignment, modified-caller and edge report for two builds, with an optional third |
-| `out/ghidra/features/DREAMS.EXE.json` | Feature dump of the DOS software build |
-| `out/ghidra/match/DREAMS.EXE--{DREAMSFX,WINDREAM}.EXE.tsv` | Pairwise matches |
-| `out/ghidra/cut/` | `find_cut.py` output; `decomp/` holds the decompilations read (`dreams-video.txt`, `dreamsfx-video.txt`, `dreamsfx-2d.txt`) |
-| `E:/tools/src/glide` | Glide 2 source checkout (outside the repo) used for the LFB findings |
+Still unproven: the in-game replacement ABI/metadata closure, renderer-owned
+visual transforms/camera normalization across all data, full material/gauge
+coverage, exact GPU shadow silhouette coverage, full high-res acceptance, complete
+surface access coverage and other backends. These are implementation gates
+within the selected architecture, not reasons to return to the archived
+alternatives. Unresolved contracts remain explicit and partial.

@@ -1,10 +1,14 @@
 /* Read-only binary evidence: refs:<address|symbol>, code:<address>, data:<address>,
+ * bytes:<start>-<end> (inclusive, at most 1 MiB),
+ * annotations:<function-address> (tags and plate comment),
  * field:<hex-offset>. Usage: -postScript Inspect.java refs:timeGetTime refs:005e5388
  * @category Dreams
  */
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.CodeUnit;
+import ghidra.program.model.listing.FunctionTag;
 import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.symbol.Reference;
 import ghidra.program.model.symbol.Symbol;
@@ -47,6 +51,13 @@ public class Inspect extends GhidraScript {
                         ins = ins.getNext();
                     }
                 }
+            } else if (command.equals("annotations")) {
+                Function fn = getFunctionAt(address(value));
+                if (fn == null) throw new IllegalArgumentException("No function at " + value);
+                println("FUNCTION " + fn.getName() + " " + fn.getEntryPoint());
+                for (FunctionTag tag : fn.getTags()) println("TAG " + tag.getName());
+                println("PLATE " + currentProgram.getListing().getComment(
+                    CodeUnit.PLATE_COMMENT, fn.getEntryPoint()));
             } else if (command.equals("code")) {
                 Function fn = getFunctionContaining(address(value));
                 if (fn == null) { println("No function at " + value); continue; }
@@ -59,6 +70,17 @@ public class Inspect extends GhidraScript {
                 for (Instruction ins : currentProgram.getListing().getInstructions(address(bounds[0]), true)) {
                     if (ins.getAddress().compareTo(end) > 0) break;
                     println(ins.getAddress() + " " + ins);
+                }
+            } else if (command.equals("bytes")) {
+                String[] bounds = value.split("-", 2);
+                Address begin = address(bounds[0]), end = address(bounds[1]);
+                long count = end.subtract(begin) + 1;
+                if (count < 1 || count > 1048576) throw new IllegalArgumentException("Byte range limit");
+                for (long offset = 0; offset < count; offset += 32) {
+                    byte[] bytes = getBytes(begin.add(offset), (int)Math.min(32, count-offset));
+                    StringBuilder hex = new StringBuilder();
+                    for (byte b : bytes) hex.append(String.format("%02x", b & 255));
+                    println("BYTES " + begin.add(offset) + " " + hex);
                 }
             } else if (command.equals("data")) {
                 Address addr = address(value);

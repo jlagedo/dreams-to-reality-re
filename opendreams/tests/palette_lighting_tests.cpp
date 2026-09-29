@@ -292,6 +292,9 @@ void test_fog() {
           "water fog branch");
     SCENE_SetFog(fog, water, record.data(), 1.0, 0);
     check(fog.color == 0 && fog.density == 0.0f, "no fog branch");
+    water.phase=3.1f;
+    SCENE_SetFog(fog,water,record.data(),(3.1415926535897-1e-8-water.phase)/.02,2);
+    check(water.phase>0,"water phase compares unrounded x87 value before wrapping");
 }
 
 // Independent byte-level model of the page effects (not the dword code).

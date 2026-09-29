@@ -42,8 +42,12 @@ def build_env() -> dict[str, str]:
     Visual Studio (vcvarsall.bat, which also puts its CMake and Ninja on PATH).
     Elsewhere, or with cl.exe already on PATH, the current environment.
     """
-    env = dict(os.environ)
-    if sys.platform != "win32" or shutil.which("cl.exe"):
+    env = (
+        {key.upper(): value for key, value in os.environ.items()}
+        if sys.platform == "win32"
+        else dict(os.environ)
+    )
+    if sys.platform != "win32" or all(shutil.which(tool) for tool in ("cl.exe", "cmake", "ninja")):
         return env
     vswhere = Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"))
     vswhere = vswhere / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
@@ -60,7 +64,7 @@ def build_env() -> dict[str, str]:
     for line in out.splitlines():
         name, eq, value = line.partition("=")
         if eq:
-            env[name] = value
+            env[name.upper()] = value
     return env
 
 
@@ -118,7 +122,9 @@ def ensure_sdl3() -> Path:
     return install
 
 
-def configure_and_build(build: Path, gen: Path, *, trace: bool = False, quiet: bool = False) -> int:
+def configure_and_build(
+    build: Path, gen: Path, *, trace: bool = False, quiet: bool = False, render_audit: bool = False
+) -> int:
     """Configure (from scratch when the build dir belongs to another source
     tree) and build windream_recomp with clang-cl and Ninja. Returns the exit
     code of the build."""
@@ -131,8 +137,10 @@ def configure_and_build(build: Path, gen: Path, *, trace: bool = False, quiet: b
     fresh = [] if same and (build / "build.ninja").is_file() else ["--fresh"]
     subprocess.run(
         [cmake, *fresh, "-S", str(WINDREAM), "-B", str(build), "-G", "Ninja",
-         "-DCMAKE_BUILD_TYPE=", *_compilers(), f"-DCMAKE_PREFIX_PATH={sdl3}", f"-DWD_GEN_DIR={gen}",
-         f"-DWD_TRACE={'ON' if trace else 'OFF'}"],
+         "-DCMAKE_BUILD_TYPE=", *_compilers(cxx=True), f"-DCMAKE_PREFIX_PATH={sdl3}",
+         f"-DWD_GEN_DIR={gen}",
+         f"-DWD_TRACE={'ON' if trace else 'OFF'}",
+         f"-DWD_RENDER_AUDIT={'ON' if render_audit else 'OFF'}"],
         env=env, check=True, stdout=subprocess.DEVNULL,
     )  # fmt: skip
     p = subprocess.run([cmake, "--build", str(build)], env=env, capture_output=quiet, text=True)

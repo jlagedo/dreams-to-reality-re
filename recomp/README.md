@@ -83,6 +83,75 @@ the centre, so leave the stick alone while the game starts.
 | `windream/CMakeLists.txt`, `build.py`, `run.py` | Build (clang-cl + Ninja) and sandboxed run (scripted keys, snapshots, fps cap, window, pad and dump modes) |
 | `difftest/` | `difftest.py` (compile with Watcom, bounds with Ghidra cached per source/flags/compiler, lift, build, run, diff), `wat.py`, the test programs `t_core.c` and `t_switch.c`, `gen_insn.py` (generates `t_insn.c` into the work root), `coverage.py`, `flagdiff.py`, `consumers.py`, `map2bounds.py` |
 
+## Renderer-boundary smokes
+
+`windream/debug/render_smoke.py` replays original x86 on full retail-process
+dumps, checking the proposed modern renderer cut against the original front
+end. `--lifted` also compiles an isolated replacement-wrapper experiment from
+the current generated functions; `--gpu` tests offscreen sokol/D3D11 depth,
+orientation and RGB565 readback. Neither changes the production recomp.
+
+```sh
+uv run --with unicorn python recomp/windream/debug/render_smoke.py --lifted --gpu out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
+```
+
+The input dumps are local game-derived artifacts, not repository fixtures.
+Generated code, replay inputs and JSON reports go to `DREAMS_OUT/recomp/render-smoke`.
+The native compilation/GPU portions currently require Windows and the existing
+pinned sokol checkout (`--sokol-dir` overrides its location). An optional
+`--shadow-dump` and `--shadow-arena` check the real-shadow mask on a captured
+state. See [the design and measured limits](../docs/specs/006-recomp-glide-renderer/modern-cut.md#smoke-results-2026-09-29).
+
+The second boundary has its own pixel oracle and integer GPU compositor:
+
+```sh
+uv run --with unicorn python recomp/windream/debug/render_2d_smoke.py --gpu
+```
+
+It uses a local retail dump (`--dump`) and an existing decoded movie frame
+(`--movie-rgb565`), creates ordered drawing fixtures, and compares every GPU
+checkpoint with original x86 results. `--tag` keeps another run in a separate
+output directory. Results and generated fixtures live under
+`DREAMS_OUT/recomp/render-2d-smoke`. Validation readbacks are separate from the
+composition benchmark, which uses GPU copies and destination-sampling passes.
+Coverage, fallback requirements and timings are in the
+[GPU 2D design](../docs/specs/006-recomp-glide-renderer/2d-cut.md).
+
+## Shared direct-renderer implementation
+
+The shared `ODRender` / `ODGraphics` targets, generation-checked GPU resources,
+ordered RGBA8 compositor and basic posed-scene pipeline are implemented. The
+game defaults to software rendering. `run.py --renderer direct` runs the tested
+first-scene GPU path, including HUD and introductory dialogue. Full R0–R4 gates
+remain open. See [implementation status](../docs/specs/006-recomp-glide-renderer/implementation.md).
+
+Build and check the shared core without the viewer, loaders or ImGui:
+
+```powershell
+uv run python recomp/windream/debug/direct_render_validate.py --gpu `
+  --fixtures out/recomp/render-2d-smoke `
+  --fixtures out/recomp/render-2d-smoke/long-capture
+```
+
+Omit `--fixtures` for synthetic checks only; omit `--gpu` for CPU checks.
+GPU oracle execution currently requires Windows/D3D11. Shader generation covers
+all four selected dialects. Outputs and fixture hashes are recorded under
+`DREAMS_OUT/recomp/direct-render`.
+
+The lift emits common replacement entries and original-body aliases. No native
+game handlers are installed by default. `build.py --render-audit` produces
+`build-audit`; `run.py --render-audit` selects it. Surface probes are diagnostic
+infrastructure with the coverage limitations recorded in the implementation
+notes, not evidence that every framebuffer access has been intercepted.
+
+`run.py --capture-scene` captures original scene inputs on the first full-sized
+3D frame to `DREAMS_OUT/recomp/windream/run/direct-scene.wds`. It is a diagnostic
+observer: the original frame still renders in software. The native adapter can
+also run against independent retail dumps with `debug/render_scene_smoke.py`;
+`WDSceneGpuTests` renders those packets at native and widescreen sizes with
+diagnostic primitive colours. Commands and limitations are in the implementation
+record above.
+
 ## pcrecomp
 
 pcrecomp is MIT-licensed (`LICENSE-pcrecomp`). `runtime/crash_report.c`,

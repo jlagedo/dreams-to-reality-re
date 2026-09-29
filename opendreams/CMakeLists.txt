@@ -58,25 +58,11 @@ if(MSVC)
     target_compile_options(SDL3-static PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/EHsc>)
 endif()
 
-set(OD_BACKEND_SOURCE "")
-if(EMSCRIPTEN)
-    set(OD_BACKEND_SOURCE shared/platform/graphics_gl.cpp)
-    set(OD_SOKOL_BACKEND SOKOL_GLES3)
-elseif(WIN32)
-    set(OD_BACKEND_SOURCE shared/platform/graphics_d3d11.cpp)
-    set(OD_SOKOL_BACKEND SOKOL_D3D11)
-elseif(APPLE)
-    set(OD_BACKEND_SOURCE shared/platform/graphics_metal.mm)
-    set(OD_SOKOL_BACKEND SOKOL_METAL)
-elseif(UNIX)
-    set(OD_BACKEND_SOURCE shared/platform/graphics_gl.cpp)
-    set(OD_SOKOL_BACKEND SOKOL_GLCORE)
-else()
-    message(FATAL_ERROR "OpenDreams has no graphics backend for this target")
-endif()
+include(cmake/RenderCore.cmake)
+od_project_options(ODRender)
+od_project_options(ODGraphics)
 
 od_generate_shader(OD_BACKGROUND_SHADER shared/render/background.glsl)
-od_generate_shader(OD_MODEL_PREVIEW_SHADER shared/render/model_preview.glsl)
 
 add_library(ODShared STATIC
     shared/disc/image.cpp
@@ -91,7 +77,6 @@ add_library(ODShared STATIC
     shared/port/glide_model.cpp
     shared/port/random.cpp
     shared/port/palette_lighting.cpp
-    shared/port/fog.cpp
     shared/port/level_materials.cpp
     shared/port/animation.cpp
     shared/port/boot_menu.cpp
@@ -128,10 +113,8 @@ add_library(ODShared STATIC
     shared/render/model_preview.cpp
     shared/render/level_materials.cpp
     shared/render/still_preview.cpp
-    shared/render/sokol_impl.cpp
-    ${OD_BACKEND_SOURCE}
+    shared/render/sokol_imgui_impl.cpp
     ${OD_BACKGROUND_SHADER}
-    ${OD_MODEL_PREVIEW_SHADER}
     third_party/lib9660/lib9660.c
 )
 target_include_directories(ODShared
@@ -140,17 +123,8 @@ target_include_directories(ODShared
             third_party/lib9660
 )
 target_compile_definitions(ODShared PRIVATE ${OD_SOKOL_BACKEND} SOKOL_IMGUI_NO_SOKOL_APP)
-target_link_libraries(ODShared PUBLIC SDL3::SDL3-static ODImGui)
+target_link_libraries(ODShared PUBLIC ODGraphics ODImGui)
 od_project_options(ODShared)
-
-if(WIN32)
-    target_link_libraries(ODShared PRIVATE d3d11 dxgi)
-elseif(APPLE)
-    target_link_libraries(ODShared PRIVATE "-framework Metal" "-framework QuartzCore" "-framework Foundation")
-elseif(NOT EMSCRIPTEN)
-    find_package(OpenGL REQUIRED)
-    target_link_libraries(ODShared PRIVATE OpenGL::GL)
-endif()
 
 foreach(app IN ITEMS ODViewer ODRuntime)
     if(app STREQUAL "ODViewer")
@@ -215,6 +189,26 @@ if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
 endif()
 
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
+    add_executable(ODDirectMathTests tests/direct_math_tests.cpp)
+    target_link_libraries(ODDirectMathTests PRIVATE ODRender)
+    od_project_options(ODDirectMathTests)
+    add_test(NAME ODDirectMath COMMAND ODDirectMathTests)
+    add_executable(WDRenderBoundaryTests
+        ../recomp/windream/debug/render_boundary_tests.cpp
+        ../recomp/windream/runtime/render_boundary.cpp)
+    target_include_directories(WDRenderBoundaryTests PRIVATE ../recomp/windream/runtime)
+    od_project_options(WDRenderBoundaryTests)
+    add_test(NAME WDRenderBoundary COMMAND WDRenderBoundaryTests)
+    if(WIN32)
+        add_executable(ODDirectGpuTests tests/direct_gpu_tests.cpp)
+        add_executable(ODModelAdapterTests tests/model_adapter_tests.cpp)
+        target_link_libraries(ODModelAdapterTests PRIVATE ODShared)
+        od_project_options(ODModelAdapterTests)
+        target_link_libraries(ODDirectGpuTests PRIVATE ODRender d3d11)
+        od_project_options(ODDirectGpuTests)
+        # Explicit invocation: requires a hardware graphics device.
+    endif()
+
     add_executable(ODPlayerConeTests tests/player_cone_tests.cpp)
     target_link_libraries(ODPlayerConeTests PRIVATE ODShared)
     od_project_options(ODPlayerConeTests)

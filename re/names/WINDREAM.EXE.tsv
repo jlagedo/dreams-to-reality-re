@@ -1,4 +1,5 @@
 address	name	kind	sources	facts	note
+0041f9ba	SCENE_SetFog	descriptive	docs/specs/006-recomp-glide-renderer/implementation.md fog controller analysis; byte-identical Windows twin match (33 bytes); DREAMSFX named counterpart and corresponding load/water call sites	size:33; caller:SCENE_LoadLevel; caller:0042315a; call:__CHK	Windows no-op fog update slot; DREAMSFX 0x29288 supplies the fog behavior. Both Windows builds preserve the stack-checking stub; direct rendering attaches host fog state at this existing call boundary.
 # Load path: streams and decoders
 004152f2	STRM_Open	descriptive	docs dsn-loader.md; blind review	call:open_; call:0043b111; ref:005df484; caller:DSN_LoadHeader	Opens a file on the 0x2c-byte ring-buffer stream: closes the old fd, open_, resets positions, allocates twice the buffer size from the MEM stack at 0x5df484. Returns 1/0.
 004154db	STRM_Peek	descriptive	docs dsn-loader.md; blind review	call:memmove_; call:00460d82; caller:DSN_LoadHeader; caller:DSN_LoadVertexPool	Returns a pointer to N (EDX) contiguous buffered bytes without consuming them; copies wrapped bytes into the slack area; exits if even the slack is too small.

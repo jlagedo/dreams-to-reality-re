@@ -232,6 +232,40 @@ bool GraphicsBackend::present(std::string& error) {
     return true;
 }
 
+bool GraphicsBackend::read_image(sg_image image,int x,int y,int width,int height,
+                                 std::vector<uint32_t>& rgba,std::string& error) {
+    auto* state=static_cast<D3DState*>(state_);
+    if(!state||!sg_isvalid()||sg_query_image_state(image)!=SG_RESOURCESTATE_VALID||
+       x<0||y<0||width<=0||height<=0){error="invalid GPU export request";return false;}
+    auto* source=static_cast<ID3D11Texture2D*>(const_cast<void*>(sg_d3d11_query_image_info(image).tex2d));
+    if(!state||!source||x<0||y<0||width<=0||height<=0){error="invalid GPU export request";return false;}
+    D3D11_TEXTURE2D_DESC desc{};source->GetDesc(&desc);
+    if(uint64_t(x)+width>desc.Width||uint64_t(y)+height>desc.Height||desc.SampleDesc.Count!=1||
+       (desc.Format!=DXGI_FORMAT_R8G8B8A8_UNORM&&desc.Format!=DXGI_FORMAT_B8G8R8A8_UNORM)) {
+        error="GPU export requires an in-bounds single-sample RGBA8/BGRA8 region";return false;
+    }
+    const bool bgra=desc.Format==DXGI_FORMAT_B8G8R8A8_UNORM;
+    desc.Width=UINT(width);desc.Height=UINT(height);desc.MipLevels=1;desc.ArraySize=1;
+    desc.Usage=D3D11_USAGE_STAGING;desc.BindFlags=0;desc.CPUAccessFlags=D3D11_CPU_ACCESS_READ;desc.MiscFlags=0;
+    ID3D11Texture2D* staging=nullptr;
+    HRESULT hr=state->device->CreateTexture2D(&desc,nullptr,&staging);
+    if(FAILED(hr)){set_hr_error(error,"export staging texture",hr);return false;}
+    const D3D11_BOX box{UINT(x),UINT(y),0,UINT(x+width),UINT(y+height),1};
+    state->context->CopySubresourceRegion(staging,0,0,0,0,source,0,&box);
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    hr=state->context->Map(staging,0,D3D11_MAP_READ,0,&mapped);
+    if(FAILED(hr)){staging->Release();set_hr_error(error,"export readback",hr);return false;}
+    rgba.resize(size_t(width)*height);
+    for(int row=0;row<height;++row) {
+        const auto* bytes=static_cast<const uint8_t*>(mapped.pData)+size_t(row)*mapped.RowPitch;
+        for(int col=0;col<width;++col) {
+            const auto* p=bytes+col*4;
+            rgba[size_t(row)*width+col]=uint32_t(p[bgra?2:0])|uint32_t(p[1])<<8|
+                uint32_t(p[bgra?0:2])<<16|uint32_t(p[3])<<24;
+        }
+    }
+    state->context->Unmap(staging,0);staging->Release();sg_reset_state_cache();return true;
+}
 void GraphicsBackend::shutdown() {
     auto* state = static_cast<D3DState*>(state_);
     if (!state) return;

@@ -23,8 +23,8 @@ struct FogWaterPhase {
 float guFogTableIndexToW(int index);
 // Glide 2 SST1 library (gu.c): exponential table normalised to the last
 // entry. Zero density divides 0 by 0; the x87 float-to-byte store of NaN
-// yields 0, so the table is all zero (no visible fog; unverified on
-// hardware).
+// yields 0, so the table is all zero (unverified on hardware). The renderer
+// applies the table mode's blend bias; a zero table is not a disabled mode.
 void guFogGenerateExp(std::array<uint8_t, 64>& table, float density);
 // grFogTable's hardware form: 32 pairs, deltas (e1-e0)<<2 in 8 bits.
 std::array<uint32_t, 32> grFogTable_pairs(const std::array<uint8_t, 64>& table);

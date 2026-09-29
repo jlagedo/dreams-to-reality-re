@@ -73,8 +73,10 @@ palette when the **page pointer** changes. `GLIDE_ConvertPalette` (`0x66cb0`)
 reads 256 entries at `page - 0x8000 + row*0x400`, taking the high RGB565 word
 of each four-byte slot. Expansion is R/B ×8 and G ×4, without bit replication;
 the output alpha byte is zero. Palette entry zero supplies the chroma-key
-color. Ordinary blocks pass node `+0xd0`, or the first visible face's `+0x40`
-when the node has lights. The deferred pass passes 15.
+color. Ordinary blocks pass node `+0xd0`, or the list head's `+0x40`
+when the node has lights. The head can be flagged culled and retain an earlier
+shade: the hook does not search for the first drawable face. The original-x86
+lighting/submission replays in spec 006 verify this dependency. The deferred pass passes 15.
 
 The cache key **does not include the row**. A new shade on the same page does
 not itself trigger a palette download. `GLIDE_ResetTextureState` (`0x66c54`)

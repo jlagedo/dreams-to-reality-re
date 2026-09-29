@@ -37,6 +37,7 @@
 #include <ctype.h>
 #define RECOMP_GENERATED_CODE
 #include "host.h"
+#include "render_live.h"
 
 int g_wd_quiet;
 static int g_force_focus;
@@ -229,6 +230,7 @@ static int g_mbtn_n;
 static void mouse_game_pos(SDL_Event* e, float* x, float* y) {
     SDL_Renderer* r = host_renderer();
     if (r) SDL_ConvertEventToRenderCoordinates(r, e);
+    else if (wd_render_requested()) wd_render_mouse(e);
     int w = (int)MEM32(0x0049D9FCu), h = (int)MEM32(0x0049DA00u);   /* game frame size */
     if (w <= 0 || h <= 0) { w = 640; h = 480; }
     float cx = *x < 0 ? 0 : *x > (float)(w - 1) ? (float)(w - 1) : *x;
@@ -452,9 +454,9 @@ void imp_CreateWindowExA(void) {  /* (exStyle, cls, name, style, x, y, w, h, par
     int cw = (int)ARG(6) - 1, ch = (int)ARG(7) - 1;
     if (cw < 64 || ch < 64) { cw = 640; ch = 480; }
     int scale = window_scale(cw, ch);
-    g_window = SDL_CreateWindow(title, cw * scale, ch * scale, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE);
-    g_renderer = g_window ? SDL_CreateRenderer(g_window, NULL) : NULL;
-    if (!g_renderer) {
+    g_window = SDL_CreateWindow(title, cw * scale, ch * scale, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | wd_render_window_flags());
+    g_renderer = g_window && !wd_render_requested() ? SDL_CreateRenderer(g_window, NULL) : NULL;
+    if (!g_window || (wd_render_requested() ? !wd_render_open(g_window) : !g_renderer)) {
         fprintf(stderr, "[user] SDL window: %s\n", SDL_GetError());
         if (g_window) SDL_DestroyWindow(g_window);
         g_window = NULL;
@@ -465,7 +467,8 @@ void imp_CreateWindowExA(void) {  /* (exStyle, cls, name, style, x, y, w, h, par
     SDL_SetWindowMinimumSize(g_window, cw / 2, ch / 2);
     if (host_env("WD_FULLSCREEN")) SDL_SetWindowFullscreen(g_window, true);
     fprintf(stderr, "[user] CreateWindowExA(\"%s\", %dx%d) -> SDL window %dx%d, renderer %s\n",
-            title, (int)ARG(6), (int)ARG(7), cw * scale, ch * scale, SDL_GetRendererName(g_renderer));
+            title, (int)ARG(6), (int)ARG(7), cw * scale, ch * scale,
+            wd_render_requested() ? "sokol direct" : SDL_GetRendererName(g_renderer));
 
     uint32_t cs = shim_alloc(W32_CS_SIZE, 16);
     MEM32(cs + W32_CS_INSTANCE) = ARG(10);
@@ -479,6 +482,7 @@ void imp_CreateWindowExA(void) {  /* (exStyle, cls, name, style, x, y, w, h, par
     MEM32(cs + W32_CS_EXSTYLE) = ARG(0);
     if ((int32_t)wndproc(W32_WM_CREATE, 0, cs) == -1) {
         fprintf(stderr, "[user] WM_CREATE failed\n");
+        wd_render_close();
         SDL_DestroyRenderer(g_renderer);
         SDL_DestroyWindow(g_window);
         g_window = NULL; g_renderer = NULL;

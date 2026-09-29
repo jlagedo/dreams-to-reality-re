@@ -107,6 +107,10 @@ bool Shell::init(const ShellOptions& options) {
 
     sg_desc gfx_desc{};
     gfx_desc.environment = impl_->graphics.environment();
+    // Immutable material versions and replaced targets can overlap until commit.
+    gfx_desc.image_pool_size = 2048;
+    gfx_desc.view_pool_size = 4096;
+    gfx_desc.buffer_pool_size = 1024;
     gfx_desc.logger.func = slog_func;
     sg_setup(&gfx_desc);
     if (!sg_isvalid()) {

@@ -326,8 +326,7 @@ bool FrontEnd::handle_entry_event(port::GameEntryEvent event) {
 
 void FrontEnd::draw_world(ImDrawList* list) {
     if (!world_renderer_.has_model()) return;
-    // Runtime destination: the whole drawable in physical pixels. The retail
-    // 640-wide focal length is kept and the vertical term follows the aspect.
+    // Runtime destination uses Hor+ relative to the retail 4:3 screen.
     const ImGuiIO& io = ImGui::GetIO();
     const int width = std::max(1, static_cast<int>(
         io.DisplaySize.x * io.DisplayFramebufferScale.x + 0.5f));
@@ -335,8 +334,7 @@ void FrontEnd::draw_world(ImDrawList* list) {
         io.DisplaySize.y * io.DisplayFramebufferScale.y + 0.5f));
     // Cinemascope (0x49d9f8, on by default): GAME_DrawFrame blanks the top
     // and bottom h/8 rows and the level viewport is the middle 3/4. The
-    // horizontal focal length is kept across both modes (assumption: the
-    // retail projection centre follows the viewport).
+    // reference viewport is 640x360 with bands, otherwise 640x480.
     const bool bands = options_.cinemascope == 1;
     const int band = bands ? height / 8 : 0;
     const int view_height = std::max(1, height - 2 * band);
@@ -344,8 +342,10 @@ void FrontEnd::draw_world(ImDrawList* list) {
         wants_quit_ = true;
         return;
     }
-    world_renderer_.draw(with_horizontal_focal(world_view_, retail_focal_x,
-                                               width, view_height));
+    if(!world_renderer_.draw(with_horizontal_focal(world_view_, retail_focal_x,
+                                               width, view_height,bands?640.0f/360.0f:4.0f/3.0f),error_)) {
+        wants_quit_=true;return;
+    }
     const float top = io.DisplaySize.y * static_cast<float>(band) /
                       static_cast<float>(height);
     list->AddImage(simgui_imtextureid(world_renderer_.texture_view()), {0, top},
