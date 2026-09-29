@@ -10,6 +10,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <process.h>
+#include <SDL3/SDL_timer.h>
 #define RECOMP_GENERATED_CODE
 #include "imports.h"
 
@@ -99,7 +100,7 @@ void imp_ExitThread(void) { _endthreadex(ARG(0)); }
 void imp_GetCurrentThreadId(void) { RET(GetCurrentThreadId()); STDRET(0); }
 void imp_GetCurrentThread(void) { RET(0xFFFFFFFEu); STDRET(0); }
 void imp_GetCurrentProcessId(void) { RET(GetCurrentProcessId()); STDRET(0); }
-void imp_Sleep(void) { Sleep(ARG(0)); STDRET(1); }
+void imp_Sleep(void) { SDL_Delay(ARG(0)); STDRET(1); }   /* 1 ms precision (SDL sets the timer resolution) */
 
 /* ---- events and waits ---- */
 void imp_CreateEventA(void) {  /* (attr, manualReset, initialState, name) */

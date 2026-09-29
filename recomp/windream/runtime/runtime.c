@@ -127,6 +127,21 @@ uint32_t guest_call(uint32_t va, int argc, const uint32_t* args) {
     return r;
 }
 
+/* The same for a Watcom register call (EAX, EDX, EBX, ECX): every guest
+ * register is put back, EAX included. */
+uint32_t guest_call_regs(uint32_t va, uint32_t eax, uint32_t edx, uint32_t ebx, uint32_t ecx) {
+    recomp_func_t fn = recomp_lookup(va);
+    if (!fn) { fprintf(stderr, "[callback] no lifted function at 0x%08X\n", va); return 0; }
+    uint32_t a = g_eax, esp = g_esp, ebx0 = g_ebx, ecx0 = g_ecx, edx0 = g_edx, esi = g_esi, edi = g_edi,
+             ebp = g_ebp;
+    g_eax = eax; g_edx = edx; g_ebx = ebx; g_ecx = ecx;
+    PUSH32(g_esp, RECOMP_RETADDR);
+    fn();
+    uint32_t r = g_eax;
+    g_eax = a; g_esp = esp; g_ebx = ebx0; g_ecx = ecx0; g_edx = edx0; g_esi = esi; g_edi = edi; g_ebp = ebp;
+    return r;
+}
+
 /* ---- image loader ---- */
 #pragma pack(push, 1)
 typedef struct { char name[8]; uint32_t vsize, vaddr, rsize, roff, a, b; uint16_t c, d; uint32_t chr; } SecHdr;
@@ -191,6 +206,29 @@ static int setup(const char* exe) {
     return 1;
 }
 
+/* WD_POKE="va=value,...": dword writes into the loaded image before the entry
+ * point runs, e.g. the debug flags nothing in the retail code sets (run.py
+ * --overlays). Values are strtoul base 0 (0x.. hex, else decimal). */
+static int apply_pokes(void) {
+    const char* s = getenv("WD_POKE");
+    while (s && *s) {
+        char* end;
+        uint32_t va = (uint32_t)strtoul(s, &end, 0);
+        if (*end != '=') break;
+        uint32_t v = (uint32_t)strtoul(end + 1, &end, 0);
+        if (va < WD_IMAGE_BASE || va + 4u > WD_IMAGE_BASE + g_image_span) {
+            fprintf(stderr, "FATAL: WD_POKE 0x%08X is outside the image\n", va);
+            return 0;
+        }
+        MEM32(va) = v;
+        fprintf(stderr, "[*] poke [0x%08X] = 0x%X\n", va, v);
+        if (*end != ',') { s = end; break; }
+        s = end + 1;
+    }
+    if (s && *s) { fprintf(stderr, "FATAL: WD_POKE: expected va=value at \"%s\"\n", s); return 0; }
+    return 1;
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         fprintf(stderr, "usage: %s <GDIDREAM.EXE> [--run] [trace options]\n", argv[0]);
@@ -205,7 +243,7 @@ int main(int argc, char** argv) {
     }
     recomp_install_crash_handler();
     recomp_set_region_describer(region);
-    if (!setup(argv[1])) return 1;
+    if (!setup(argv[1]) || !apply_pokes()) return 1;
     /* The PE entry point (WINDREAM: 0x465538), from the mapped headers. */
     uint32_t entry = WD_IMAGE_BASE + MEM32(WD_IMAGE_BASE + MEM32(WD_IMAGE_BASE + 0x3C) + 0x28);
     recomp_func_t entry_fn = recomp_lookup(entry);

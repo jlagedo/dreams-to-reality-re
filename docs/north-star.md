@@ -370,7 +370,10 @@ and still compiles for the browser.
    against the project map ([level-map.md](level-map.md)).
 6. **The whole game.** All 150 projects playable start to finish.
 7. **Polish and the web.** Enhancement toggles (including, if wanted, smooth
-   3D motion above the step rate), configurable gamepad bindings beyond the
+   3D motion above the step rate, and twin-stick free-roam controls with an
+   orbit camera; analysis in
+   [spec 000](specs/000-the-recomp/spec.md#host-layer-on-sdl3-verified-2026-09-29)),
+   configurable gamepad bindings beyond the
    basic Spec 004 front-end layout, and desktop packaging; then the parked web work: `opendreams pack`, on-demand loading
    with a browser cache, the web release.
 

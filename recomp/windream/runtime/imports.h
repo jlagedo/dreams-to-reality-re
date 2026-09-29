@@ -62,16 +62,12 @@ enum { HK_FILE = 1, HK_FIND = 2, HK_STD = 3, HK_MAP = 6 };
 /* runtime.c: calling back into lifted code, and synthetic COM methods */
 extern const char* g_wd_exe;                           /* host path of the guest EXE */
 uint32_t guest_call(uint32_t va, int argc, const uint32_t* args);  /* stdcall into lifted code */
+uint32_t guest_call_regs(uint32_t va, uint32_t eax, uint32_t edx, uint32_t ebx, uint32_t ecx);  /* __watcall */
 #define WD_COM_BASE 0xCD000000u                        /* synthetic COM method VAs */
 uint32_t wd_com_vtable(const recomp_func_t* fns, int n);
 recomp_func_t wd_com_lookup(uint32_t va);
 
-/* USER and GDI handles are 32-bit significant on 64-bit Windows (documented
- * for WOW64 interop), so the guest holds the real handle, truncated. */
-#define H32(h)      ((uint32_t)(uintptr_t)(h))
-#define HHOST(v)    ((void*)(intptr_t)(int32_t)(v))
-
-/* user.c */
+/* user.c (host.h has the SDL side) */
 void     host_init(void);
 uint32_t host_elapsed_ms(void);
 extern int g_wd_quiet;                                 /* WD_QUIET: log message boxes, don't show */

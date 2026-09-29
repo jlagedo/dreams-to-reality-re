@@ -55,7 +55,7 @@ commit).
 | Path | What |
 |---|---|
 | `out/recomp/pcrecomp/` | Upstream toolbox clone (github.com/sp00nznet/pcrecomp; `DREAMS_PCRECOMP` overrides); `tools/lift/` lift32 lifter, `tools/ghidra/DumpBounds.java` |
-| `recomp/windream/` | GDIDREAM.EXE recomp build: `lift.py` (bounds.csv → `out/recomp/windream/gen/`), `build.py` (clang-cl + Ninja, unoptimized), `run.py` (sandboxed run in `out/recomp/windream/run/`, scripted keys, snapshots), `runtime/` (hand-written Win32/DSound/GDI shims; `phys_hook.c` collision hooks), `debug/` (full-dump readers, collision invariant, Unicorn replay of one call) |
+| `recomp/windream/` | GDIDREAM.EXE recomp build: `lift.py` (bounds.csv → `out/recomp/windream/gen/`), `build.py` (clang-cl + Ninja, unoptimized), `run.py` (sandboxed run in `out/recomp/windream/run/`, scripted keys, snapshots, window and pad options), `runtime/` (hand-written shims: USER32/GDI32/WinMM/DirectSound on SDL3, built once into `out/recomp/sdl3/`; KERNEL32 on Win32; `phys_hook.c` collision hooks), `debug/` (full-dump readers, collision invariant, Unicorn replay of one call) |
 | `recomp/difftest/` | Differential tests: a Watcom 11.0 test program (`--cc wc106` for 10.6) native vs recompiled (`difftest.py`, `wat.py`, `coverage.py`); work directories in `out/recomp/difftest/` |
 | `out/recomp/nocturne/`, `out/recomp/pod-recomp/` | Reference recomp projects from the same author |
 | `out/dev/research/pcrecomp/` | Notes copied from pcrecomp and related projects (pipeline, hybrid approach, philosophy) |

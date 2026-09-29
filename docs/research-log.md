@@ -1519,6 +1519,39 @@ Details and numbers are in [toolchain.md](toolchain.md), steps 3–6.
   `if (1)`, deleting the wrong overlap records. `lift.py` now resets the
   state at every leader; details in spec 000.
 
+## 2026-09-29 — the retail debug layer, switched on by data pokes
+
+Details and reproduction in [spec 005](specs/005-debug-tools/spec.md).
+
+- **Four debug switches are live code behind flags nothing writes
+  [verified]**: the Frame Rate/Mem 3DTR readout (`0x49d5c0`), the object HUD
+  `DBG_DrawObjectInfo` (`0x49d5d0`), the collision view (byte `0x4ac8c8`: the
+  triangle-collector branch skips the span flush, so the Backspace wireframe
+  of `DBG_DrawCollisionMesh` stays on screen) and a Δt 2.0 pin (`0x4a4758`).
+  The recomp pokes them at start (`run.py --overlays`, `WD_POKE`) and
+  toggles them on keypad 1–4.
+- **Correction:** the 2.0 override was logged as dead (the fixed-step entry
+  above). Its flag is never written, but demo mode starts at 2 (normal play),
+  so the pin takes effect once poked.
+- The third readout number is wall-clock minus simulated seconds; the
+  Backspace wireframe alone is painted over by the scene render and drawn in
+  colour 1.
+- `GAME_HandleHotkeys` holds undocumented keys: Ctrl+S shadow mode, Ctrl+I+R
+  swaps the player to `mhe.3dc` from the next level load.
+- **Dead but present:** the "Dreams Editor" (flag `0x4a477c`, read 25 times
+  in gameplay code, only ever written 0; its draw and menu tree have no
+  caller; its input messages `0x34`–`0x38` are never posted), the demo
+  recorder's start functions, box and axis-gizmo debug draws, a post-scene
+  callback setter. None has a caller or an address copy in the file.
+- **The Dreams Editor runs in the recomp [verified in the recomp]**:
+  editing `DREAMS.DAT` records (Project, OBJET, LINK, LINKADVENT, BOX). The
+  runtime restores its two cut links: mouse events `0x34`–`0x38`, which the
+  handlers decode but nothing posts, and a call to its draw `0x44d46d` before
+  `GAME_HandleHotkeys`. The shipped menu tree holds only "Exit To DOS"; the
+  file pickers use a 1-byte list stride over live globals and fail with
+  "Read file Error". `BF_Mount` falls back to `Z:\<name>`, and the editor
+  data holds `COPY … D:\CD1`/`D:\CD2` staging commands.
+
 ## Sources
 
 - [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Dreams_to_Reality)

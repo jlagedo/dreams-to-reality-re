@@ -196,10 +196,13 @@ object.
   *is* a runtime switch, on flag `0x633b18`; see *Presentation and 2D* below.
 - **Dead third branch, both builds.** The frame functions test a byte flag
   (`0x10501c` / `0x4ac8c8`); when set, the hook would be `SW_CollectFaceTriangles`
-  (`0x96a20` / `0x478800`). Nothing writes either flag and both initialise to
-  0, which is why the decompiler drops the branch as unreachable. The hook
-  collects face triangles into the buffer at `0x6808e4`/`0x6808e8` instead of
-  rasterizing them.
+  (`0x96a20` / `0x478800`). No retail code writes either flag and both
+  initialise to 0, which is why the decompiler drops the branch as
+  unreachable. The hook collects face triangles into arrays at
+  `0x6760e4`/`0x67f0e4` (counters `0x6808e4`/`0x6808e8`) instead of
+  rasterizing them, and the Windows frame functions then skip the span flush.
+  Poked on in the recomp, the 3D view freezes and the Backspace collision
+  wireframe stays visible: [spec 005](specs/005-debug-tools/spec.md).
 - The build pairs above were first made by hand; `tools/match_functions.py`
   (see `re-setup.md`) recovers five of the six independently, including
   `REND_DrawFrame`/`REND_DrawFrameEx` by call-slot alignment. `SW_CollectFaceTriangles`
@@ -765,7 +768,7 @@ ticks = counter(0x6309e0) − last            200 Hz counter (SYS_UpdateTimer (0
 fps   = max(200 / ticks, 1)
 Δt    = 30 / fps                            = 0.15 · ticks, in 30 Hz frames
 Δt    = clamp(Δt, 0.2, 5.0)                 150 fps .. 6 fps
-if 0x4a4758 == 1:  Δt = 2.0                 never set: dead
+if 0x4a4758 == 1:  Δt = 2.0                 never set by retail code; live when poked (spec 005)
 if demo mode 0x49d34a == 0 (recording):  Δt = 1.0
 ```
 

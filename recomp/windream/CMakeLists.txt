@@ -4,6 +4,11 @@
 cmake_minimum_required(VERSION 3.20)
 project(windream_recomp C)
 
+# SDL3 (window, input, audio): a static build shared by every recomp build,
+# made by recomp_env.py from the pin in opendreams/cmake/Dependencies.cmake
+# and found through CMAKE_PREFIX_PATH.
+find_package(SDL3 3.4 REQUIRED CONFIG COMPONENTS SDL3-static)
+
 # WD_GEN_DIR: lift.py + gen_imports.py output (the game's by default; a
 # difftest program's own directory otherwise).
 set(WD_GEN_DIR ${CMAKE_SOURCE_DIR}/../../out/recomp/windream/gen CACHE PATH "generated sources")
@@ -13,6 +18,9 @@ set(RUNTIME_SRC
     runtime/files.c ${WD_GEN_DIR}/imports_gen.c
     runtime/user.c runtime/gdi.c runtime/winmm.c runtime/dsound.c
     runtime/crash_report.c runtime/recomp_trace.c runtime/phys_hook.c)
+if(WIN32)
+    list(APPEND RUNTIME_SRC runtime/win32_abi_check.c)   # guest_win32.h against the SDK
+endif()
 
 add_executable(windream_recomp ${RUNTIME_SRC} ${GEN_SRC} ${WD_GEN_DIR}/recomp_dispatch.c)
 target_include_directories(windream_recomp PRIVATE runtime ${WD_GEN_DIR})
@@ -26,7 +34,7 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang")
     # (unused labels, parentheses, volatile casts) and keep real errors.
     set_source_files_properties(${GEN_SRC} PROPERTIES COMPILE_OPTIONS "-w")
 endif()
-target_link_libraries(windream_recomp PRIVATE winmm user32 gdi32 dbghelp)
+target_link_libraries(windream_recomp PRIVATE SDL3::SDL3-static dbghelp)
 # Line tables + PDB in every config: the crash report walks the host stack and
 # maps each lifted frame back to its guest instruction (the generated line's
 # comment). Line tables only: full debug info of 700k generated lines is slow.

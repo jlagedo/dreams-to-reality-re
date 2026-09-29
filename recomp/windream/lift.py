@@ -49,6 +49,14 @@ HOOKS = {
 # Read-only probes before single instructions: wd_probe(va, eax, ecx, edx, ebx,
 # esp, ebp, esi, edi) in runtime/phys_hook.c.
 PROBES = set()  # e.g. {0x0045D15D}: PHYS_AddCandidate after the record allocation
+# Runtime calls inserted before single instructions (no arguments). Unlike the
+# probes these may run guest code; they restore every guest register.
+CALLS = {
+    # The Dreams Editor draw 0x44d46d has no caller in retail; it goes back where
+    # GAME_TickFrame's tail handles the editor's other state, before
+    # GAME_HandleHotkeys (spec 005). runtime/user.c runs it while keypad 5 is on.
+    0x0041743A: "wd_editor_frame",
+}
 # Self-modifying code. Five span blitters (0x4024B8, 0x40254D, 0x4027B8,
 # 0x40294D, 0x4029AF) write their texture steps, pointer steps and loop limits
 # into their own instructions before running: `lea ebx, [0x4029D8]` then a store
@@ -578,7 +586,14 @@ def main():
                 c = c.replace(
                     f"RECOMP_ENTER(0x{a:08X}u);", f"RECOMP_ENTER_FRAGMENT(0x{a:08X}u);", 1
                 )
-            for p in PROBES:
+            inserts = {
+                p: f"    wd_probe(0x{p:08X}u, eax, ecx, edx, ebx, esp, ebp, esi, edi);"
+                for p in PROBES
+            }
+            inserts.update(
+                {p: f"    RECOMP_REGS_OUT(); {fn}(); RECOMP_REGS_IN();" for p, fn in CALLS.items()}
+            )
+            for p, line in inserts.items():
                 tag = f"/* 0x{p:08X}:"
                 if tag in c:
                     lines_ = c.split("\n")
@@ -587,9 +602,7 @@ def main():
                         for i, ln in enumerate(lines_)
                         if tag in ln and not ln.lstrip().startswith("L_")
                     )
-                    lines_.insert(
-                        k, f"    wd_probe(0x{p:08X}u, eax, ecx, edx, ebx, esp, ebp, esi, edi);"
-                    )
+                    lines_.insert(k, line)
                     c = "\n".join(lines_)
             if a in HOOKS:
                 c = c.replace(
@@ -641,8 +654,9 @@ def main():
     )
     head += (
         "void wd_probe(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, "
-        "uint32_t, uint32_t);\n\n"
+        "uint32_t, uint32_t);\n"
     )
+    head += "".join(f"void {fn}(void);\n" for fn in sorted(set(CALLS.values()))) + "\n"
     for n in os.listdir(out):
         if re.match(r"recomp_\d{4}\.c$", n):
             os.remove(os.path.join(out, n))

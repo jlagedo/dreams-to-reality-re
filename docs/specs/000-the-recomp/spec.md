@@ -1,8 +1,9 @@
 # 000 — The recomp: using the Watcom toolchain and the recompiled game as research instruments
 
 Status: **W1–W3 done 2026-09-28** (results under each item); the recomp's
-collision bug found and fixed the same day (lifter defects section); W4–W7
-not started
+collision bug found and fixed the same day (lifter defects section); the
+USER32/GDI32/WinMM/DirectSound host moved to SDL3 on 2026-09-29 ("Host layer
+on SDL3"); W4–W7 not started
 Date: 2026-09-28
 Depends on: [toolchain.md](../../toolchain.md) (Watcom 11.0 verdict),
 [re-setup.md](../../re-setup.md) (Ghidra passes). Numbered 000 because it
@@ -68,12 +69,10 @@ were built before 11.0 was pinned down; W1 moved them to it.
     list until no new ones appear.
   - Output: 2,181 functions, 674,747 lines of C in `gen/`, and
     `lift-report.json`.
-- **Runtime:** `runtime/` has about 3,700 lines of hand-written replacements
-  for kernel, threads, files (write sandbox), user, GDI (emulated DIB and
-  `StretchBlt`), WinMM (timer, joystick, emulated CD audio) and DirectSound
-  (a mixer thread over waveOut; out-of-range volume, pan and frequency fail
-  as in DirectSound).
-  `gen_imports.py` generates the 109 import bridges.
+- **Runtime:** `runtime/` has hand-written replacements for kernel, threads,
+  files (write sandbox) and virtual memory, on Win32, and for USER32, GDI32,
+  WinMM and DirectSound, on SDL3 (2026-09-29; see "Host layer on SDL3"
+  below). `gen_imports.py` generates the 109 import bridges.
   - Build: `build.py` (clang-cl, Ninja; one unoptimized build).
   - Run: `run.py` (scripted keys, BMP snapshots). Presents are capped at
     25 fps (`--fps`, `WD_FPS`; 0 = uncapped) and a crash writes a full-memory
@@ -286,6 +285,80 @@ path, so they were unaffected.
 the buffer unchanged, as DirectSound does. Shims must copy the API's
 failure cases as well as its successes: the game can depend on a call
 failing.
+
+### Host layer on SDL3 **[verified 2026-09-29]**
+
+The USER32, GDI32, WinMM and DirectSound bridges (`user.c`, `gdi.c`,
+`winmm.c`, `dsound.c`) run on SDL3 3.4 and no longer include
+`<windows.h>`. The guest still sees Win32. The Win32 constants and 32-bit
+layouts it relies on are in `runtime/guest_win32.h`, and on Windows
+`win32_abi_check.c` asserts each flat one against the SDK at compile time.
+What the bridges must reproduce comes from the decompilation:
+
+| Retail code | Contract kept |
+|---|---|
+| WndProc `0x44627b` | `WM_CREATE` calls `INPUT_Reset` (`0x4406f0`), and a -1 result fails creation; `WM_DESTROY` calls `PostQuitMessage`. No key or mouse message is handled, so none is posted. |
+| `MGM_DispatchMessages` `0x43a64c` | Drains `PeekMessageA` and returns on `WM_QUIT`. It runs input, sound and video for the frame only while `GetFocus() == g_hWnd`, so `GetFocus` follows SDL keyboard focus and the game pauses in the background. |
+| `INPUT_PollKeyboard` `0x440757` | Tests `GetAsyncKeyState(0..255)` for non-zero. SDL key events feed a virtual-key table: bit 15 while held, bit 0 if pressed since the previous call. |
+| `JOY_InitPovDevices` `0x44091d`, `JOY_InitDevices` `0x440bc2`, `JOY_PollPov` `0x440ad3`, `JOY_Poll` `0x440d3d` | `joyGetPosEx` with flags `0x483`/`0x4c3`; `JOYERR_UNPLUGGED` (167) means absent; caps `wNumButtons` and `JOYCAPS_HASPOV`. SDL gamepads appear as WinMM shows an XInput pad. |
+| `GDI_Present` `0x4458bb` | `StretchBlt` of the DIB's `g_videoWidth` x `g_videoHeight` rectangle onto the window DC. It becomes a texture upload and a letterboxed present. |
+
+Closing the window posts `WM_CLOSE`. `DefWindowProcA` turns it into
+`WM_DESTROY`, as `DestroyWindow` would. Tested by posting `WM_CLOSE` to the
+window of a running game: it exits through `ExitProcess(0)` within 0.1 s. A
+70-second scripted run reaches the first level with CD music and sound
+effects. `t_core` (21 ok / 13 diff) and `t_switch` (5 / 0) give the same
+results as before the change.
+
+Host-only choices, not retail behaviour:
+- F11 toggles fullscreen (the game also sees the key).
+- `timeGetTime` is SDL's tick plus 60 s.
+- `WD_PAD=keys` maps a pad to the `docs/running.md` keys.
+- Sticks and triggers pass through a scaled radial deadzone (`WD_DEADZONE`,
+  default 10% inner, 95% outer). WinMM itself applied none; players then
+  calibrated their sticks in the Windows control panel.
+
+Play-tested by the project owner (2026-09-29): a DualSense in `winmm` mode
+(press `J`) with the default deadzone drives Duncan correctly. Its left stick
+rests at raw 642,0 (about 2%), which the deadzone reads as centred.
+
+Unverified:
+- A diagonal on the 4-way POV reads as its horizontal direction.
+- The virtual-key codes of OEM punctuation keys follow the US layout.
+
+KERNEL32 (files, threads, events, TLS, virtual memory) and the crash report
+still call Win32. They are the remaining step before the recomp can build on
+another OS.
+
+**Idea, not started: modern twin-stick controls.** The retail pad controls
+work, but they are tank controls. Free roam (left stick moves relative to the
+camera, right stick orbits the camera) needs more than an input remap:
+
+- The follow camera takes its yaw from the player's heading,
+  `(0x1000 − heading)` (`CAM_ComputeChasePos` `0x409de2`, `docs/engine.md`,
+  "Follow mode"). With camera-relative steering and that camera, pushing left
+  turns Duncan, the camera swings behind him, and he circles. The camera needs
+  its own yaw.
+- Movement is tank-style (`docs/ai-animation-runtime.md`, "Player controls").
+  ←/→ add to the yaw rate `+0x60` (capped at `100·Δt`, halved every frame), ↑
+  walks along the heading `+0x5c` and ↓ steps back. A 180° turn through the
+  game's own turn logic takes about 2–3 s.
+
+Possible design, all host-only and off by default (e.g. `--pad modern`):
+- Each frame, the desired heading = camera yaw + left-stick angle. The host
+  turns toward it and holds ↑ once Duncan roughly faces it: either by feeding
+  ←/→ into the original turn logic (faithful, slow) or by driving the heading
+  directly (fast, writes game state).
+- The follow camera's yaw is overridden by an orbit yaw that the right stick
+  drives, plus pitch within the game's own look clamp [−88.5°, +45°].
+  Optionally it eases back behind Duncan after a pause. This would be the first
+  lifted function replaced by host code (see W5), through the `lift.py` hooks.
+- Combat stance (↑/↓ mean advance and defend), swimming and flying keep the
+  classic mapping at first.
+
+The open choices are the turn method and the camera recentring. The same
+feature belongs in OpenDreams as an enhancement toggle (`docs/north-star.md`,
+step 7).
 
 ## Drift between the recomp and Ghidra **[verified 2026-09-28; resolved by W1 and W2]**
 
@@ -561,9 +634,9 @@ involved).
 |---|---|
 | `out/recomp/pcrecomp/` | Upstream toolbox clone (`tools/lift`, `tools/disasm`, `tools/ghidra/DumpBounds.java`, `runtime/recomp32`) |
 | `out/recomp/nocturne/`, `out/recomp/pod-recomp/` | Reference Watcom recomp projects |
-| `recomp/windream/` | `lift.py` (`HOOKS`, `PROBES`, `PATCH_SITES`), `bounds.csv`, `runtime/` (`phys_hook.c`: collision hooks, `WD_PHYS_INVARIANT`, `WD_PHYS_CAPTURE`), `build.py`, `run.py`, `recomp_env.py` (one level up) |
+| `recomp/windream/` | `lift.py` (`HOOKS`, `PROBES`, `CALLS` (spec 005), `PATCH_SITES`), `bounds.csv`, `runtime/` (SDL3 host: `host.h`, `user.c`, `gdi.c`, `winmm.c`, `dsound.c`, `guest_win32.h`, `win32_abi_check.c`; `phys_hook.c`: collision hooks, `WD_PHYS_INVARIANT`, `WD_PHYS_CAPTURE`), `build.py`, `run.py`, `recomp_env.py` (one level up; also builds the shared SDL3 into `out/recomp/sdl3/`) |
 | `out/recomp/windream/` | Outputs: `gen/` (lifted C), `build-*/`, `run/` (logs, sandbox, crash dumps) |
-| `recomp/windream/debug/` | Dump analysis: `mdmp.py` (guest memory from a full dump; arena base 0 for a retail dump), `colliders.py` (candidate lists per collider), `invariant.py` (axis bits against brute-force overlap), `sortcheck.py`, `replay_sweep.py` and `replay_full.py` (one `PHYS_SweepAxis` call in Unicorn), `x86dis.py` |
+| `recomp/windream/debug/` | Dump analysis: `mdmp.py` (guest memory from a full dump; arena base 0 for a retail dump), `colliders.py` (candidate lists per collider), `invariant.py` (axis bits against brute-force overlap), `sortcheck.py`, `replay_sweep.py` and `replay_full.py` (one `PHYS_SweepAxis` call in Unicorn), `x86dis.py`, `flag_hunt.py` (spec 005) |
 | `tools/fps_limit_launcher.py` | Starts the retail Windows build with a frame limiter patched in memory; used for the retail dumps |
 | `recomp/difftest/` | `difftest.py`, `wat.py`, `t_core.c`, `t_switch.c`, `gen_insn.py`, `coverage.py`, `flagdiff.py`, `consumers.py` |
 | `out/recomp/difftest/` | Work directories (`<name>-<tag>/`), the generated `t_insn.c`, `cov.txt`, `flagdiff.txt` |

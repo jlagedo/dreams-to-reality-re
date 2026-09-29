@@ -1,5 +1,5 @@
 /*
- * WINDREAM recompilation - DirectSound, emulated, plus the audio mixer.
+ * WINDREAM recompilation - DirectSound, emulated, plus the audio mixer (SDL3).
  *
  * DSOUND_Init (0x4463e9) creates IDirectSound, a 22,050 Hz 16-bit stereo
  * primary buffer and secondary buffers (five 11 kHz 16-bit mono voices, a
@@ -8,20 +8,16 @@
  *
  * The objects are fake COM objects in guest memory ({vtbl, index}); methods are
  * host functions reached through synthetic VAs (wd_com_vtable). Buffer memory
- * is a guest allocation, so Lock hands the game real pointers. A mixer thread
- * resamples every playing buffer, plus the CD audio stream (winmm.c), into a
- * 44.1 kHz stereo waveOut stream. With no audio device the mixer still runs on
- * a timer, so play cursors advance and the game's polling behaves.
+ * is a guest allocation, so Lock hands the game real pointers. The mixer
+ * resamples every playing buffer, plus the CD audio stream (winmm.c), into
+ * 44.1 kHz 16-bit stereo for an SDL audio stream, from SDL's audio thread.
+ * With no audio device a thread mixes into nothing on a timer, so play
+ * cursors still advance and the game's polling behaves.
  *
  *   WD_NOSOUND=1   DirectSoundCreate fails (DSERR_NODRIVER): the game runs mute
  */
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <mmsystem.h>
-#include <math.h>
-#include <process.h>
 #define RECOMP_GENERATED_CODE
-#include "imports.h"
+#include "host.h"
 
 #define DS_OK                0u
 #define DSERR_INVALIDCALL    0x88780032u
@@ -36,7 +32,6 @@
 
 #define OUT_RATE   44100
 #define OUT_FRAMES 1024
-#define OUT_NBUF   4
 #define MAX_BUF    32
 
 typedef struct {
@@ -50,9 +45,8 @@ typedef struct {
 } Buf;
 
 static Buf g_buf[MAX_BUF];
-static CRITICAL_SECTION g_cs;
+static SDL_Mutex* g_cs;
 static uint32_t g_ds_vtbl, g_dsb_vtbl;
-static HANDLE g_mixer;
 static FILE* g_cd;
 static int g_cd_paused;
 
@@ -73,7 +67,7 @@ static double db_gain(int32_t hundredths) { return hundredths <= -10000 ? 0.0 : 
 static void mix(int16_t* out, int frames) {
     static int32_t acc[OUT_FRAMES * 2];
     memset(acc, 0, sizeof(int32_t) * (size_t)frames * 2);
-    EnterCriticalSection(&g_cs);
+    SDL_LockMutex(g_cs);
     for (int i = 0; i < MAX_BUF; i++) {
         Buf* b = &g_buf[i];
         if (!b->used || b->primary || !b->playing || !b->size || !b->align) continue;
@@ -103,62 +97,57 @@ static void mix(int16_t* out, int frames) {
         for (size_t f = 0; f < got; f++) { acc[f * 2] += cd[f * 2]; acc[f * 2 + 1] += cd[f * 2 + 1]; }
         if (got < (size_t)frames) { fclose(g_cd); g_cd = NULL; }
     }
-    LeaveCriticalSection(&g_cs);
+    SDL_UnlockMutex(g_cs);
     for (int i = 0; i < frames * 2; i++) {
         int32_t v = acc[i];
         out[i] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
     }
 }
 
-static unsigned __stdcall mixer_thread(void* unused) {
-    (void)unused;
-    static int16_t pcm[OUT_NBUF][OUT_FRAMES * 2];
-    WAVEHDR hdr[OUT_NBUF];
-    HWAVEOUT wo = NULL;
-    HANDLE ev = CreateEventA(NULL, FALSE, FALSE, NULL);
-    WAVEFORMATEX wf = {WAVE_FORMAT_PCM, 2, OUT_RATE, OUT_RATE * 4, 4, 16, 0};
-    if (waveOutOpen(&wo, WAVE_MAPPER, &wf, (DWORD_PTR)ev, 0, CALLBACK_EVENT) != MMSYSERR_NOERROR) {
-        fprintf(stderr, "[dsound] no audio device: mixing silently on a timer\n");
-        for (;;) { Sleep(OUT_FRAMES * 1000 / OUT_RATE); mix(pcm[0], OUT_FRAMES); }
-    }
-    fprintf(stderr, "[dsound] mixer: waveOut %d Hz stereo, %d x %d frames\n", OUT_RATE, OUT_NBUF, OUT_FRAMES);
-    for (int i = 0; i < OUT_NBUF; i++) {
-        memset(&hdr[i], 0, sizeof hdr[i]);
-        hdr[i].lpData = (LPSTR)pcm[i];
-        hdr[i].dwBufferLength = OUT_FRAMES * 4;
-        waveOutPrepareHeader(wo, &hdr[i], sizeof hdr[i]);
-        mix(pcm[i], OUT_FRAMES);
-        waveOutWrite(wo, &hdr[i], sizeof hdr[i]);
-    }
-    for (;;) {
-        WaitForSingleObject(ev, 100);
-        for (int i = 0; i < OUT_NBUF; i++)
-            if (hdr[i].dwFlags & WHDR_DONE) {
-                mix(pcm[i], OUT_FRAMES);
-                waveOutWrite(wo, &hdr[i], sizeof hdr[i]);
-            }
+static void SDLCALL mixer_feed(void* unused, SDL_AudioStream* stream, int additional, int total) {
+    (void)unused; (void)total;
+    static int16_t pcm[OUT_FRAMES * 2];
+    while (additional > 0) {
+        int frames = (additional + 3) / 4;
+        if (frames > OUT_FRAMES) frames = OUT_FRAMES;
+        mix(pcm, frames);
+        SDL_PutAudioStreamData(stream, pcm, frames * 4);
+        additional -= frames * 4;
     }
 }
 
+static int SDLCALL mixer_silent(void* unused) {
+    (void)unused;
+    static int16_t pcm[OUT_FRAMES * 2];
+    for (;;) { SDL_DelayPrecise((Uint64)OUT_FRAMES * SDL_NS_PER_SECOND / OUT_RATE); mix(pcm, OUT_FRAMES); }
+    return 0;
+}
+
 static void mixer_start(void) {
-    static INIT_ONCE once = INIT_ONCE_STATIC_INIT;
-    BOOL pending;
-    InitOnceBeginInitialize(&once, 0, &pending, NULL);
-    if (pending) {
-        InitializeCriticalSection(&g_cs);
-        g_mixer = (HANDLE)_beginthreadex(NULL, 0, mixer_thread, NULL, 0, NULL);
-        InitOnceComplete(&once, 0, NULL);
+    static SDL_InitState once;
+    if (!SDL_ShouldInit(&once)) return;
+    g_cs = SDL_CreateMutex();
+    SDL_AudioSpec spec = {SDL_AUDIO_S16, 2, OUT_RATE};
+    SDL_AudioStream* s = NULL;
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO))
+        s = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, mixer_feed, NULL);
+    if (s && SDL_ResumeAudioStreamDevice(s)) {
+        fprintf(stderr, "[dsound] mixer: SDL audio (%s) %d Hz stereo\n", SDL_GetCurrentAudioDriver(), OUT_RATE);
+    } else {
+        fprintf(stderr, "[dsound] no audio device (%s): mixing silently on a timer\n", SDL_GetError());
+        SDL_DetachThread(SDL_CreateThread(mixer_silent, "mixer", NULL));
     }
+    SDL_SetInitialized(&once, true);
 }
 
 void mixer_cd_play(const char* path, int track) {
     mixer_start();
     FILE* f = path ? fopen(path, "rb") : NULL;
     if (path) fprintf(stderr, "[cd] play track %d%s\n", track, f ? "" : " (cannot open)");
-    EnterCriticalSection(&g_cs);
+    SDL_LockMutex(g_cs);
     if (g_cd) fclose(g_cd);
     g_cd = f; g_cd_paused = 0;
-    LeaveCriticalSection(&g_cs);
+    SDL_UnlockMutex(g_cs);
 }
 void mixer_cd_pause(int paused) { mixer_start(); g_cd_paused = paused; }
 int mixer_cd_playing(void) { return g_cd != NULL; }
@@ -173,10 +162,10 @@ static void m_Release(void) {
     Buf* b = buf_of(ARG(0));
     uint32_t left = 0;
     if (b) {
-        EnterCriticalSection(&g_cs);
+        SDL_LockMutex(g_cs);
         left = (uint32_t)--b->refs;
-        if (!left) { if (b->data) vm_free(b->data, 0, MEM_RELEASE); b->used = 0; }
-        LeaveCriticalSection(&g_cs);
+        if (!left) { if (b->data) vm_free(b->data, 0, W32_MEM_RELEASE); b->used = 0; }
+        SDL_UnlockMutex(g_cs);
     }
     RET(left); STDRET(1);
 }
@@ -185,10 +174,10 @@ static void m_Release(void) {
 static void ds_CreateSoundBuffer(void) {  /* (this, desc, ppBuf, unk) */
     uint32_t desc = ARG(1);
     uint32_t flags = MEM32(desc + 4), bytes = MEM32(desc + 8), wfx = MEM32(desc + 16);
-    EnterCriticalSection(&g_cs);
+    SDL_LockMutex(g_cs);
     int i = 0;
     while (i < MAX_BUF && g_buf[i].used) i++;
-    if (i == MAX_BUF) { LeaveCriticalSection(&g_cs); RET(DSERR_INVALIDCALL); STDRET(4); return; }
+    if (i == MAX_BUF) { SDL_UnlockMutex(g_cs); RET(DSERR_INVALIDCALL); STDRET(4); return; }
     Buf* b = &g_buf[i];
     memset(b, 0, sizeof *b);
     b->used = 1; b->refs = 1; b->flags = flags;
@@ -197,12 +186,12 @@ static void ds_CreateSoundBuffer(void) {  /* (this, desc, ppBuf, unk) */
     set_format(b, wfx);
     if (!b->primary && bytes) {
         b->size = bytes;
-        b->data = vm_alloc(0, bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        b->data = vm_alloc(0, bytes, W32_MEM_COMMIT | W32_MEM_RESERVE, W32_PAGE_READWRITE);
     }
     if (!b->obj) { b->obj = shim_alloc(8, 16); }
     MEM32(b->obj) = g_dsb_vtbl;
     MEM32(b->obj + 4) = (uint32_t)i;
-    LeaveCriticalSection(&g_cs);
+    SDL_UnlockMutex(g_cs);
     MEM32(ARG(2)) = b->obj;
     fprintf(stderr, "[dsound] CreateSoundBuffer #%d %s %u bytes, %d Hz %d-bit %s\n", i,
             b->primary ? "primary" : "secondary", bytes, b->rate, b->bits, b->ch > 1 ? "stereo" : "mono");
@@ -229,10 +218,10 @@ static void b_GetCaps(void) {  /* (this, DSBCAPS*) */
 }
 static void b_GetCurrentPosition(void) {  /* (this, *play, *write) */
     BUF_OR_FAIL(3);
-    EnterCriticalSection(&g_cs);
+    SDL_LockMutex(g_cs);
     uint32_t p = b->size ? play_cursor(b) % b->size : 0;
     uint32_t w = b->playing && b->size ? (p + (uint32_t)(b->rate / 50 * b->align)) % b->size : p;
-    LeaveCriticalSection(&g_cs);
+    SDL_UnlockMutex(g_cs);
     if (ARG(1)) MEM32(ARG(1)) = p;
     if (ARG(2)) MEM32(ARG(2)) = w;
     RET(DS_OK); STDRET(3);
@@ -274,21 +263,21 @@ static void b_Lock(void) {  /* (this, offset, bytes, *p1, *n1, *p2, *n2, flags) 
 }
 static void b_Play(void) {  /* (this, reserved, priority, flags) */
     BUF_OR_FAIL(4);
-    EnterCriticalSection(&g_cs);
+    SDL_LockMutex(g_cs);
     b->playing = 1; b->looping = (ARG(3) & DSBPLAY_LOOPING) != 0;
-    LeaveCriticalSection(&g_cs);
+    SDL_UnlockMutex(g_cs);
     RET(DS_OK); STDRET(4);
 }
 static void b_SetCurrentPosition(void) {
     BUF_OR_FAIL(2);
-    EnterCriticalSection(&g_cs);
+    SDL_LockMutex(g_cs);
     if (b->align) b->pos = (double)(ARG(1) / (uint32_t)b->align);
-    LeaveCriticalSection(&g_cs);
+    SDL_UnlockMutex(g_cs);
     RET(DS_OK); STDRET(2);
 }
 static void b_SetFormat(void) {
     BUF_OR_FAIL(2);
-    EnterCriticalSection(&g_cs); set_format(b, ARG(1)); LeaveCriticalSection(&g_cs);
+    SDL_LockMutex(g_cs); set_format(b, ARG(1)); SDL_UnlockMutex(g_cs);
     RET(DS_OK); STDRET(2);
 }
 /* Out-of-range values fail and leave the buffer unchanged, as in DirectSound.
@@ -315,14 +304,14 @@ static void b_SetFrequency(void) {
 }
 static void b_Stop(void) {
     BUF_OR_FAIL(1);
-    EnterCriticalSection(&g_cs); b->playing = 0; LeaveCriticalSection(&g_cs);
+    SDL_LockMutex(g_cs); b->playing = 0; SDL_UnlockMutex(g_cs);
     RET(DS_OK); STDRET(1);
 }
 static void b_Unlock(void) { RET(DS_OK); STDRET(5); }
 static void b_Restore(void) { RET(DS_OK); STDRET(1); }
 
 void imp_DirectSoundCreate(void) {  /* (guid, ppDS, outer) */
-    if (getenv("WD_NOSOUND")) {
+    if (host_env("WD_NOSOUND")) {
         fprintf(stderr, "[dsound] WD_NOSOUND: DirectSoundCreate -> DSERR_NODRIVER\n");
         if (ARG(1)) MEM32(ARG(1)) = 0;
         RET(DSERR_NODRIVER); STDRET(3); return;

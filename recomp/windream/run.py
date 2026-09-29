@@ -1,10 +1,13 @@
 """Run the recompiled game from DREAMS_OUT/recomp/windream/run (sandbox, logs,
 snapshots and crash dumps land there).
 
-  run.py                                   play (window, sound, real keyboard)
+  run.py                                   play (SDL window, sound, keyboard, pads)
+  run.py --fullscreen --pad keys           play fullscreen, pad buttons as keys
   run.py --seconds 60 --keys 2000:ESC,5000:RETURN --snap-ms 4000
                                            unattended test: scripted keys, a
                                            snapshot every 4 s, stopped after 60 s
+  run.py --overlays                        play with the retail debug flags on
+                                           (keypad 1-4 toggle them)
 
 Afterwards it prints the crash block from stderr.txt (host stack, registers,
 guest stack, minidump path), or otherwise the lines worth a look.
@@ -45,12 +48,41 @@ def main() -> int:
     ap.add_argument("--keys", default="", help="scripted keys, ms:KEY,...")
     ap.add_argument("--snap-ms", type=int, default=0, help="snapshot interval")
     ap.add_argument("--fps", type=int, default=25, help="frame cap (0 = uncapped)")
+    ap.add_argument("--scale", type=int, default=2, help="window size in multiples of 640x480")
+    ap.add_argument("--fullscreen", action="store_true", help="start fullscreen (F11 toggles)")
+    ap.add_argument(
+        "--filter", choices=("pixelart", "nearest", "linear"), default="pixelart",
+        help="scaling filter",
+    )  # fmt: skip
+    ap.add_argument(
+        "--pad", choices=("winmm", "keys", "off"), default="winmm",
+        help="gamepads: WinMM joysticks (J in game), keyboard keys, or none",
+    )  # fmt: skip
+    ap.add_argument(
+        "--deadzone", default="10,95", metavar="INNER,OUTER",
+        help="stick and trigger deadzone, percent of full deflection",
+    )  # fmt: skip
     ap.add_argument(
         "--dump", choices=("full", "mini", "0"), default="full",
         help="crash minidump: full = all memory incl. the guest arena",
     )  # fmt: skip
+    ap.add_argument(
+        "--overlays", action="store_true",
+        help="start with the retail debug flags on (in game: keypad 1 Frame Rate/Mem 3DTR, "
+        "2 object HUD, 3 collision view: hold Backspace; off here: 4 step 2.0, 5 editor flag)",
+    )  # fmt: skip
+    ap.add_argument(
+        "--poke", action="append", default=[], metavar="VA=VALUE",
+        help="write a dword into the loaded image before the entry point (repeatable)",
+    )  # fmt: skip
     args = ap.parse_args()
 
+    # GAME_TickFrame draws Frame Rate/Mem 3DTR if 0x49d5c0 != 0 and the editor
+    # flag 0x4a477c is 0; DBG_DrawObjectInfo (0x416606) needs 0x49d5d0 != 0;
+    # the byte 0x4ac8c8 makes REND_DrawFrame skip rasterizing, which leaves the
+    # Backspace collision wireframe visible (its next three bytes are also 0).
+    overlays = ["0x49d5c0=1", "0x49d5d0=1", "0x4ac8c8=1"]
+    pokes = (overlays if args.overlays else []) + args.poke
     exe = args.exe or str(paths.disc(1) / "GDIDREAM.EXE")
     out = recomp_env.out_dir("windream")
     run = out / "run"
@@ -64,7 +96,13 @@ def main() -> int:
         WD_KEYS=args.keys,
         WD_SNAP_MS=str(args.snap_ms) if args.snap_ms else "",
         WD_FPS=str(args.fps),  # "0" = uncapped (an empty value would unset it)
+        WD_SCALE=str(args.scale),
+        WD_FULLSCREEN="1" if args.fullscreen else "",
+        WD_FILTER=args.filter,
+        WD_PAD=args.pad,
+        WD_DEADZONE=args.deadzone,
         WD_DUMP=args.dump,
+        WD_POKE=",".join(pokes),
         WD_QUIET="1" if unattended else "",
         WD_FOCUS="1" if unattended else "",
     )
