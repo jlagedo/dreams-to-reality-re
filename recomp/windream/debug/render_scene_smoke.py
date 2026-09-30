@@ -36,7 +36,19 @@ def read_snapshot(path):
 
     magic, nn, nv, nf = take("4I")
     assert (
-        magic in (0x31534457, 0x32534457, 0x33534457, 0x34534457, 0x35534457, 0x36534457)
+        magic
+        in (
+            0x31534457,
+            0x32534457,
+            0x33534457,
+            0x34534457,
+            0x35534457,
+            0x36534457,
+            0x37534457,
+            0x38534457,
+            0x39534457,
+            0x41534457,
+        )
         and nn <= 10000
         and nv <= 1000000
         and nf <= 1000000
@@ -113,6 +125,28 @@ def read_snapshot(path):
             face["normal_address"] = take("I")[0]
     if magic >= 0x36534457:
         camera["light_transform_count"] = take("I")[0]
+    if magic >= 0x37534457:
+        for face in faces:
+            face["corner_shades"] = take("3I")
+    if magic >= 0x38534457:
+        for node in nodes:
+            count = take("I")[0]
+            assert count <= 1000000
+            node["vertex_normals"] = [take("I4i") for _ in range(count)]
+        for face in faces:
+            face["corner_normals"] = [take("I4i") for _ in range(3)]
+    if magic >= 0x39534457:
+        for node in nodes:
+            node["visual_active"] = bool(take("I")[0])
+            node["source_rotation"] = take("9i")
+        for face in faces:
+            face["uv_sources"] = [take("I2i") for _ in range(3)]
+    if magic >= 0x41534457:
+        for node in nodes:
+            node["source_position"] = take("3i")
+            node["face_normal_pool"] = take("2I")
+        for face in faces:
+            face["source_normal_dot"] = take("i")[0]
     assert position == len(raw)
     return camera, nodes, vertices, faces
 
@@ -206,6 +240,19 @@ def validate(dump_path, dll, out):
         n["address"] for n in nodes
     }
     assert camera["address"] == root
+    feedback = dll.wd_feedback_rotations_file
+    feedback.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_int32), ctypes.c_size_t]
+    feedback.restype = ctypes.c_int
+    feedback_matrices = (ctypes.c_int32 * (len(nodes) * 9))()
+    assert feedback(str(path).encode(), feedback_matrices, len(nodes))
+    feedback_replay = Replay(dump, "helper")
+    feedback_replay.run(DRAW_SCENE, root)
+    indices = {n["address"]: i for i, n in enumerate(nodes)}
+    for address in feedback_replay.visits:
+        index = indices[address]
+        assert tuple(feedback_matrices[index * 9 : index * 9 + 9]) == struct.unpack(
+            "<9i", feedback_replay.read(address + 0x58, 36)
+        ), hex(address)
     assert nodes[0]["parent"] == -1
     assert nodes[0]["local"] == (1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0)
     composed_root = struct.unpack("<12i", dump.read(root + 0x4C, 48))
@@ -216,14 +263,66 @@ def validate(dump_path, dll, out):
     cross = sum(len({c[0] for c in f["corners"]}) > 1 for f in faces)
     assert len(faces) == 6439 and cross == 1169
     for n in nodes:
+        assert n["source_rotation"] == struct.unpack("<9i", dump.read(n["address"] + 0x28, 36))
+        assert len(n["vertex_normals"]) == dump.u32(n["address"] + 0x8C)
+        normal_base = dump.u32(n["address"] + 0x90)
+        for i, normal in enumerate(n["vertex_normals"]):
+            assert normal[0] == normal_base + i * 16
+            assert normal[1:] == struct.unpack("<4i", dump.read(normal[0], 16))
         for i in range(n["first"], n["first"] + n["count"]):
             address, xyz = vertices[i]
             assert xyz == struct.unpack("<3i", dump.read(address + 4, 12))
     for f in faces:
         for k, (owner, vertex, _u, _v) in enumerate(f["corners"]):
+            uv_source = f["uv_sources"][k]
+            if uv_source[0]:
+                assert uv_source[0] == dump.u32(f["address"] + 0x34 + k * 4)
+                assert uv_source[1:] == struct.unpack("<2i", dump.read(uv_source[0], 8))
             assert vertices[vertex][0] == dump.u32(f["address"] + 8 + 12 * k)
             n = nodes[owner]
             assert n["first"] <= vertex < n["first"] + n["count"]
+    gouraud_source = next(
+        f
+        for f in faces
+        if f["kind"] in (2, 3)
+        and nodes[f["owner"]]["active"]
+        and nodes[f["owner"]]["vertex_normals"]
+    )
+    patches[gouraud_source["block"] + 4] = struct.pack("<I", 0x16)
+    gouraud_path = out / (dump_path.stem + "-gouraud.wds")
+    assert capture(reader, None, root, str(gouraud_path).encode(), error, len(error)), error.value
+    _, _, _, gouraud_faces = read_snapshot(gouraud_path)
+    for f in gouraud_faces:
+        if f["block"] != gouraud_source["block"]:
+            continue
+        assert f["kind"] == 0x16
+        for corner, normal in enumerate(f["corner_normals"]):
+            assert normal[0] == dump.u32(f["address"] + 12 + corner * 12)
+            assert normal[1:] == struct.unpack("<4i", dump.read(normal[0], 16))
+    patches.clear()
+    env_owner = nodes[gouraud_source["owner"]]
+    patches[env_owner["address"] + 12] = struct.pack("<I", env_owner["flags"] | 0x800)
+    env_path = out / (dump_path.stem + "-environment.wds")
+    assert capture(reader, None, root, str(env_path).encode(), error, len(error)), error.value
+    _, env_nodes, _, env_faces = read_snapshot(env_path)
+    for f in env_faces:
+        if f["owner"] != gouraud_source["owner"]:
+            continue
+        for corner, normal in enumerate(f["corner_normals"]):
+            assert normal[0] == dump.u32(f["address"] + 12 + corner * 12)
+            assert normal[1:] == struct.unpack("<4i", dump.read(normal[0], 16))
+    poison = [(n["address"] + 0x4C, 48) for n in env_nodes]
+    poison.sort()
+    starts = [p[0] for p in poison]
+    env_poison_path = out / (dump_path.stem + "-environment-poison.wds")
+    assert capture(reader, None, root, str(env_poison_path).encode(), error, len(error)), (
+        error.value
+    )
+    assert env_path.read_bytes() == env_poison_path.read_bytes(), (
+        "environment consumed old transforms"
+    )
+    poison, starts = [], []
+    patches.clear()
     owner_index = next(i for i, n in enumerate(nodes) if n["active"])
     patches[nodes[owner_index]["address"] + 0xC4] = struct.pack("<I", 1)
     patches[nodes[owner_index]["address"] + 0xC8] = b"\0"
@@ -357,6 +456,10 @@ def validate(dump_path, dll, out):
         "native_model_root_at_spawn": True,
         "independent_of_old_visual_outputs": True,
         "lighting_source_bindings_verified": True,
+        "vertex_normal_pool_records": sum(len(n["vertex_normals"]) for n in nodes),
+        "gouraud_corner_normal_capture_verified": True,
+        "environment_capture_independent_of_old_transforms": True,
+        "feedback_rotation_nodes_compared": len(feedback_replay.visits),
         "lighting_capture_independent_of_transform_scratch": True,
         "projection_samples": len(errors),
         "projection_error_max_pixels": max(errors),

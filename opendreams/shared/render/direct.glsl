@@ -136,13 +136,16 @@ void main() {
 layout(binding=0) uniform scene_vs_params { mat4 view_projection; vec4 depth_mode; };
 in vec3 position;
 in vec2 texcoord;
+in float brightness;
 out vec2 uv;
 out float view_w;
+out float vertex_brightness;
 void main() {
     gl_Position=view_projection*vec4(position,1);
     view_w=gl_Position.w*depth_mode.y;
     if(depth_mode.x!=0.0)gl_Position.z=2.0*gl_Position.z-gl_Position.w;
     uv=texcoord;
+    vertex_brightness=brightness;
 }
 @end
 @fs direct_scene_fs
@@ -153,6 +156,7 @@ layout(binding=0) uniform texture2D material_tex;
 layout(binding=0) uniform sampler material_smp;
 in vec2 uv;
 in float view_w;
+in float vertex_brightness;
 out vec4 frag_color;
 float fog_entry(int i) {
     vec4 group=fog_table[i/4];int lane=i%4;
@@ -178,6 +182,7 @@ float fog_factor(float w) {
 void main() {
     vec4 c=material_mode.x!=0.0?texture(sampler2D(material_tex,material_smp),uv):colour;
     if(material_mode.y!=0.0&&c.a<0.5)discard;
+    c.rgb*=vertex_brightness;
     if(fog_colour.a!=0.0)c.rgb=mix(c.rgb,fog_colour.rgb,fog_factor(view_w));
     frag_color=vec4(c.rgb,material_mode.z);
 }
@@ -202,3 +207,43 @@ void main() {
 }
 @end
 @program direct_shadow direct_quad_vs direct_shadow_fs
+
+@vs direct_mask_vs
+layout(binding=0) uniform mask_params { vec4 mask_dimensions; };
+in vec2 position;
+in ivec4 edge0;
+in ivec4 edge1;
+in ivec4 edge2;
+out vec2 pixel;
+flat out ivec4 span0;
+flat out ivec4 span1;
+flat out ivec4 span2;
+void main() {
+    pixel=position;
+    gl_Position=vec4(position.x*2.0/mask_dimensions.x-1.0,
+                     1.0-position.y*2.0/mask_dimensions.y,0.0,1.0);
+    span0=edge0;span1=edge1;span2=edge2;
+}
+@end
+@fs direct_mask_fs
+in vec2 pixel;
+flat in ivec4 span0;
+flat in ivec4 span1;
+flat in ivec4 span2;
+out vec4 frag_color;
+void main() {
+    int y=int(floor(pixel.y));
+    int left=2147483647,right=-2147483647,count=0;
+    for(int i=0;i<3;i++) {
+        ivec4 e=i==0?span0:i==1?span1:span2;
+        if(y>=e.x&&y<e.y) {
+            int x=int(uint(e.z)+uint(e.w)*uint(y-e.x+1))>>12;
+            left=min(left,x);right=max(right,x);count++;
+        }
+    }
+    int x=int(floor(pixel.x));
+    if(count!=2||x<left||x>=right)discard;
+    frag_color=vec4(vec3(1.0/255.0),1.0);
+}
+@end
+@program direct_mask direct_mask_vs direct_mask_fs

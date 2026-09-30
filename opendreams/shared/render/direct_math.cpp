@@ -190,6 +190,63 @@ int32_t od_light_normal_dot(const int32_t *normal, const od_local_light *light) 
         std::copy_n(light->axis, 3, vector.position);
     return od_radial_normal_dot(normal, &vector);
 }
+int32_t od_gouraud_light_contribution(const int32_t *vertex, const int32_t *normal,
+                                     int32_t normal_dot, const od_local_light *light) {
+    if (!vertex || !normal || !light || (light->type != 1 && light->type != 2))
+        return 0;
+    auto signed32 = [](uint32_t bits) {
+        int32_t value;
+        std::memcpy(&value, &bits, 4);
+        return value;
+    };
+    auto chop = [](double value) {
+        return !std::isfinite(value) || value >= 2147483648.0 || value < -2147483648.0
+                   ? INT32_MIN : int32_t(value);
+    };
+    double squared = 0;
+    uint32_t dot = 0;
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        const int32_t delta = signed32(uint32_t(vertex[axis]) -
+                                      uint32_t(light->radial.position[axis]));
+        squared += double(delta) * delta;
+        dot += uint32_t(normal[axis]) * uint32_t(vertex[axis]);
+    }
+    const float distance = float(std::sqrt(squared));
+    const uint32_t factor = light->type == 2
+                                ? uint32_t(normal_dot)
+                                : uint32_t(signed32(dot) >> 15) - uint32_t(normal_dot);
+    const int32_t product = signed32(factor * uint32_t(light->radial.intensity));
+    int32_t contribution = light->type == 2 ? product / 32768
+                                           : chop(double(product) / distance);
+    if (distance > double(light->radial.inner_radius)) {
+        if (distance >= float(light->radial.outer_radius))
+            contribution = 0;
+        else
+            contribution = chop(((double(light->radial.outer_radius) - distance) /
+                                 light->radial.outer_radius) * double(contribution));
+    }
+    // Retail NEG wraps INT_MIN, then rejects negative values before byte ADD.
+    return std::max(0, signed32(0u - uint32_t(contribution)));
+}
+int od_environment_uv(const int32_t *rotation, const int32_t *normal, unsigned corner,
+                       int32_t *uv) {
+    if (!rotation || !normal || !uv || corner > 2)
+        return 0;
+    double n[3];
+    for (unsigned axis = 0; axis < 3; ++axis)
+        n[axis] = corner ? double(float(normal[axis])) : double(normal[axis]);
+    for (unsigned row = 0; row < 2; ++row) {
+        const double dot = (double(rotation[row * 3 + 1]) * n[1] +
+                            double(rotation[row * 3]) * n[0]) +
+                           double(rotation[row * 3 + 2]) * n[2];
+        const double value = dot / 32768.0;
+        const int32_t chopped = !std::isfinite(value) || value >= 2147483648.0 ||
+                                value < -2147483648.0 ? INT32_MIN : int32_t(value);
+        const uint32_t bits = (uint32_t(chopped) << 8) + 0x800000u;
+        std::memcpy(uv + row, &bits, 4);
+    }
+    return 1;
+}
 int od_flat_light_shade(const int32_t *vertices, const int32_t *normal, int32_t plane,
                         const od_local_light *lights, size_t count, uint8_t *shade) {
     if (!vertices || !normal || !shade || (count && !lights) || count > 8)

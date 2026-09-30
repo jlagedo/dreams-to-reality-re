@@ -7,10 +7,20 @@ struct SceneLightingWrite {
 };
 struct SceneLighting {
     std::vector<uint8_t> shades;
+    std::vector<std::array<uint8_t, 3>> corner_shades;
+    std::vector<std::array<od_scene_corner, 3>> corners; // current UV version at each object's draw
     std::vector<SceneLightingWrite> writes;
 };
-bool prepare_flat_lighting(const SceneSnapshot &, const float view_projection[16], SceneLighting &,
+bool prepare_scene_lighting(const SceneSnapshot &, const float view_projection[16], SceneLighting &,
                            std::string &error, bool require_metadata = false);
+bool compose_feedback_rotations(const SceneSnapshot &, std::vector<int32_t> &);
+struct ShadowInput {
+    std::vector<od_shadow_node> nodes;
+    std::vector<od_shadow_vertex> vertices;
+    std::vector<od_shadow_triangle> triangles;
+    od_shadow_packet packet{};
+};
+bool prepare_shadow_input(const SceneSnapshot &, od_render_id, ShadowInput &, std::string &);
 
 // Host adapter owns the Windows palette-row convention and material bindings.
 // GPU handles are immutable content versions and never contain guest pointers.

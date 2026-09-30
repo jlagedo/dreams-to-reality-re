@@ -433,8 +433,10 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
     resize(*surface);
     if (frame_callback &&
         std::any_of(scene.nodes.begin(), scene.nodes.end(),
-                    [](const wd::SceneNode &n) { return n.submitted && n.light_count; }))
-        fatal("lit frame callback sequencing is not validated");
+                    [](const wd::SceneNode &n) {
+                        return (n.submitted || n.visual_active) && (n.light_count || (n.flags & 0x800));
+                    }))
+        fatal("shaded frame callback sequencing is not validated");
     const char *capture = std::getenv("WD_SCENE_CAPTURE");
     if (!state.captured_scene && main_frame && capture && *capture) {
         require(wd::write_scene(scene, capture, error), error);
@@ -448,7 +450,10 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
     for (const auto &write : lighting_writes)
         wd_render_write_arena_at(write.entry, write.address, &write.value, write.bytes);
     if (!lighting_writes.empty() && (state.scenes == 0 || state.scenes % 25 == 0))
-        std::fprintf(stderr, "[direct] flat_lighting writes=%zu\n", lighting_writes.size());
+        std::fprintf(stderr, "[direct] scene_metadata writes=%zu environment_uv_writes=%zu\n",
+                     lighting_writes.size(), size_t(std::count_if(
+                         lighting_writes.begin(), lighting_writes.end(),
+                         [](const auto &write) { return write.entry == 0x47e094; })));
     if (thumbnail) {
         const od_readback_request request{
             surface->target, {0, 0, 64, 64}, OD_READBACK_THUMBNAIL, caller};

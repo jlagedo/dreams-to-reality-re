@@ -23,6 +23,7 @@ add_library(ODRender STATIC
     "${OD_RENDER_ROOT}/shared/render/sokol_impl.cpp"
     "${OD_RENDER_ROOT}/shared/render/direct.cpp"
     "${OD_RENDER_ROOT}/shared/render/direct_math.cpp"
+    "${OD_RENDER_ROOT}/shared/render/direct_shadow.cpp"
     ${OD_DIRECT_SHADER}
 )
 target_include_directories(ODRender PUBLIC "${OD_RENDER_ROOT}/shared" "${sokol_SOURCE_DIR}")

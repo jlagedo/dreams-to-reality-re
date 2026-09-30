@@ -1,5 +1,6 @@
 #include "render/direct_sokol.h"
 #include <direct.glsl.h>
+#include "render/direct_shadow.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -76,6 +77,8 @@ struct od_renderer {
     sg_shader draw_shader{}, output_shader{}, scene_shader{};
     sg_shader shadow_shader{};
     sg_pipeline shadow_pipeline{};
+    sg_shader mask_shader{};
+    sg_pipeline mask_pipeline{};
     sg_pipeline draw_pipeline{}, output_pipeline{}, scene_pipeline{}, alpha_pipeline{};
     sg_pipeline output_rgba_pipeline{};
     sg_pipeline scene_culled_pipeline{}, alpha_culled_pipeline{};
@@ -124,6 +127,7 @@ od_renderer *od_renderer_create() {
     r->output_shader = sg_make_shader(direct_output_shader_desc(sg_query_backend()));
     r->scene_shader = sg_make_shader(direct_scene_shader_desc(sg_query_backend()));
     r->shadow_shader = sg_make_shader(direct_shadow_shader_desc(sg_query_backend()));
+    r->mask_shader = sg_make_shader(direct_mask_shader_desc(sg_query_backend()));
     sg_pipeline_desc p{};
     p.shader = r->draw_shader;
     p.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8;
@@ -132,6 +136,18 @@ od_renderer *od_renderer_create() {
     r->draw_pipeline = sg_make_pipeline(&p);
     p.shader = r->shadow_shader;
     r->shadow_pipeline = sg_make_pipeline(&p);
+    p = {};
+    p.shader = r->mask_shader;
+    p.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8;
+    p.depth.pixel_format = SG_PIXELFORMAT_NONE;
+    p.sample_count = 1;
+    p.layout.buffers[0].stride = 2*sizeof(float)+12*sizeof(int32_t);
+    p.layout.attrs[ATTR_direct_mask_position].format = SG_VERTEXFORMAT_FLOAT2;
+    for (unsigned i = 0; i < 3; ++i) {
+        p.layout.attrs[ATTR_direct_mask_edge0+i].format = SG_VERTEXFORMAT_INT4;
+        p.layout.attrs[ATTR_direct_mask_edge0+i].offset = 2*sizeof(float)+i*4*sizeof(int32_t);
+    }
+    r->mask_pipeline = sg_make_pipeline(&p);
     p = {};
     p.shader = r->output_shader;
     r->output_pipeline = sg_make_pipeline(&p);
@@ -146,10 +162,12 @@ od_renderer *od_renderer_create() {
     p.depth.compare = SG_COMPAREFUNC_GREATER;
     p.depth.write_enabled = true;
     p.sample_count = 1;
-    p.layout.buffers[0].stride = 5 * sizeof(float);
+    p.layout.buffers[0].stride = 6 * sizeof(float);
     p.layout.attrs[ATTR_direct_scene_position].format = SG_VERTEXFORMAT_FLOAT3;
     p.layout.attrs[ATTR_direct_scene_texcoord].format = SG_VERTEXFORMAT_FLOAT2;
     p.layout.attrs[ATTR_direct_scene_texcoord].offset = 3 * sizeof(float);
+    p.layout.attrs[ATTR_direct_scene_brightness].format = SG_VERTEXFORMAT_FLOAT;
+    p.layout.attrs[ATTR_direct_scene_brightness].offset = 5 * sizeof(float);
     // Visibility/front-face decisions belong to the scene adapter/core, not
     // the source's old clipped lists. Initial stream is explicitly two-sided.
     r->scene_pipeline = sg_make_pipeline(&p);
@@ -180,7 +198,7 @@ od_renderer *od_renderer_create() {
     bool ok = make_image(r->dummy_packed, 1, 1, SG_PIXELFORMAT_R32UI, false, &zero) &&
               make_image(r->dummy_rgba, 1, 1, SG_PIXELFORMAT_RGBA8, false, &white);
     for (auto pipeline :
-         {r->draw_pipeline, r->shadow_pipeline, r->output_pipeline, r->output_rgba_pipeline,
+         {r->draw_pipeline, r->shadow_pipeline, r->mask_pipeline, r->output_pipeline, r->output_rgba_pipeline,
           r->scene_pipeline, r->alpha_pipeline, r->scene_culled_pipeline, r->alpha_culled_pipeline})
         ok = ok && sg_query_pipeline_state(pipeline) == SG_RESOURCESTATE_VALID;
     ok = ok && sg_query_sampler_state(r->point) == SG_RESOURCESTATE_VALID &&
@@ -212,11 +230,11 @@ void od_renderer_destroy(od_renderer *r) {
     destroy_image(r->dummy_rgba);
     destroy_image(r->dummy_packed);
     for (auto p :
-         {r->draw_pipeline, r->shadow_pipeline, r->output_pipeline, r->output_rgba_pipeline,
+         {r->draw_pipeline, r->shadow_pipeline, r->mask_pipeline, r->output_pipeline, r->output_rgba_pipeline,
           r->scene_pipeline, r->alpha_pipeline, r->scene_culled_pipeline, r->alpha_culled_pipeline})
         if (p.id)
             sg_destroy_pipeline(p);
-    for (auto s : {r->draw_shader, r->output_shader, r->scene_shader, r->shadow_shader})
+    for (auto s : {r->draw_shader, r->output_shader, r->scene_shader, r->shadow_shader, r->mask_shader})
         if (s.id)
             sg_destroy_shader(s);
     if (r->point.id)
@@ -467,6 +485,91 @@ int od_renderer_output_target(od_renderer *r, od_render_id source, od_render_id 
     dst->current = 1 - dst->current;
     return 1;
 }
+int od_renderer_shadow_mask(od_renderer *r, const od_shadow_packet *p) {
+    if (!r || !p) return 0;
+    auto *target = r->find(p->target);
+    if (!target || !target->target || target->width != 128 || target->height != 256)
+        return r->fail("invalid paired-P8 shadow target");
+    std::vector<od::ShadowTriangle> triangles;
+    if (!od::prepare_shadow(*p, triangles, r->error))
+        return 0;
+    struct Vertex {
+        float xy[2];
+        int32_t edges[3][4];
+    };
+    std::vector<Vertex> vertices;
+    for (const auto &triangle : triangles) {
+        int xmin = 128, xmax = 0, ymin = 256, ymax = 0;
+        Vertex prototype{};
+        for (unsigned i = 0; i < 3; ++i) {
+            xmin = std::min(xmin, triangle[i][0]);
+            xmax = std::max(xmax, triangle[i][0]);
+            ymin = std::min(ymin, triangle[i][1]);
+            ymax = std::max(ymax, triangle[i][1]);
+            auto a = triangle[i], b = triangle[(i + 1) % 3];
+            if (a[1] > b[1])
+                std::swap(a, b);
+            auto *edge = prototype.edges[i];
+            edge[0] = a[1];
+            edge[1] = b[1];
+            if (a[1] != b[1]) {
+                auto chop = [](double v) {
+                    return v >= 2147483648.0 || v < -2147483648.0 ? INT32_MIN : int32_t(v);
+                };
+                edge[3] = chop((double(b[0]) - a[0]) * 4096.0 / (double(b[1]) - a[1]));
+                edge[2] = chop(double(a[0]) * 4096.0 - double(edge[3]) * .5);
+            }
+        }
+        xmin = std::max(0, xmin);
+        xmax = std::min(128, xmax);
+        ymin = std::max(0, ymin);
+        ymax = std::min(256, ymax);
+        if (xmin >= xmax || ymin >= ymax)
+            continue;
+        const int corners[6][2] = {{xmin, ymin}, {xmax, ymin}, {xmin, ymax},
+                                   {xmin, ymax}, {xmax, ymin}, {xmax, ymax}};
+        for (auto &corner : corners) {
+            Vertex vertex = prototype;
+            vertex.xy[0] = float(corner[0]);
+            vertex.xy[1] = float(corner[1]);
+            vertices.push_back(vertex);
+        }
+    }
+    sg_buffer buffer{};
+    if (!vertices.empty()) {
+        sg_buffer_desc d{};
+        d.data = {vertices.data(), vertices.size() * sizeof(Vertex)};
+        buffer = sg_make_buffer(&d);
+        if (sg_query_buffer_state(buffer) != SG_RESOURCESTATE_VALID) {
+            sg_destroy_buffer(buffer);
+            return r->fail("shadow vertex upload failed");
+        }
+        r->frame_buffers.push_back(buffer);
+        ++r->stats.uploads;
+        r->stats.upload_bytes += d.data.size;
+    }
+    sg_pass pass{};
+    pass.attachments.colors[0] = target->sides[target->current].attachment;
+    pass.action.colors[0].load_action = SG_LOADACTION_CLEAR;
+    pass.action.colors[0].clear_value = {0, 0, 0, 1};
+    sg_begin_pass(&pass);
+    if (!vertices.empty()) {
+        mask_params_t params{};
+        params.mask_dimensions[0] = 128;
+        params.mask_dimensions[1] = 256;
+        sg_bindings bindings{};
+        bindings.vertex_buffers[0] = buffer;
+        sg_apply_pipeline(r->mask_pipeline);
+        sg_apply_bindings(&bindings);
+        sg_range uniform{&params, sizeof params};
+        sg_apply_uniforms(UB_mask_params, &uniform);
+        sg_draw(0, int(vertices.size()), 1);
+        ++r->stats.scene_batches;
+    }
+    sg_end_pass();
+    r->stats.scene_triangles += triangles.size();
+    return 1;
+}
 int od_renderer_scene(od_renderer *r, const od_scene_packet *p) {
     if (!r || !p)
         return 0;
@@ -485,7 +588,7 @@ int od_renderer_scene(od_renderer *r, const od_scene_packet *p) {
     if (!od_compose_pose(p->nodes, p->node_count, world.data()))
         return r->fail("invalid posed hierarchy");
     struct Vertex {
-        float xyz[3], uv[2];
+        float xyz[3], uv[2], brightness;
     };
     std::vector<Vertex> vertices;
     vertices.reserve(p->triangle_count * 3);
@@ -496,7 +599,8 @@ int od_renderer_scene(od_renderer *r, const od_scene_packet *p) {
             return r->fail("invalid material texture");
         if (tri.mode < OD_FACE_OPAQUE || tri.mode > OD_FACE_TRANSLUCENT)
             return r->fail("unknown face mode");
-        for (const auto &corner : tri.corners) {
+        for (size_t j = 0; j < 3; ++j) {
+            const auto &corner = tri.corners[j];
             if (corner.node >= p->node_count || corner.vertex >= p->vertex_count)
                 return r->fail("unresolved face corner");
             const float *m = world.data() + size_t(corner.node) * 12;
@@ -509,6 +613,9 @@ int od_renderer_scene(od_renderer *r, const od_scene_packet *p) {
                     return r->fail("non-finite posed vertex");
             }
             std::copy_n(corner.uv, 2, out.uv);
+            out.brightness = tri.use_corner_brightness
+                                 ? float(tri.corner_brightness[j]) / 255.0f
+                                 : 1.0f;
             if (!std::isfinite(out.uv[0]) || !std::isfinite(out.uv[1]))
                 return r->fail("invalid texture coordinate");
             vertices.push_back(out);

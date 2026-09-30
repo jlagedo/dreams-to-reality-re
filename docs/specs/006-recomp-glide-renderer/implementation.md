@@ -1,11 +1,14 @@
 # 006 implementation record
 
-Date: 2026-09-29. Authority: [spec 006](spec.md).
+Date: 2026-09-30. Authority: [spec 006](spec.md).
 
 Latest follow-up: [demo-informed contracts](debug-renderer-contracts.md) confirms
 the hierarchy cut, corrects retail UV field names, and adds type-2 flat lighting.
 Mixed-light retail oracles and a controlled live rotation/unbind run pass;
-Gouraud/environment/mirror paths and the wider acceptance gates remain open.
+Lit 0x16/0x17 Gouraud now uses retail-checked corner kernels; 0x18 retains flat
+lighting and stored corner brightness. Environment UV versions now preserve
+opaque/deferred draw timing; mirror setup, other face modes and
+the wider acceptance gates remain open.
 
 This is an implementation in progress, not completed R0–R4 delivery. Software
 remains the default reference. `run.py --renderer direct` now runs the live game
@@ -14,6 +17,14 @@ route. Unsupported operations fail explicitly; they do not select software or
 silently download the scene.
 
 ## Live integration checkpoint
+
+Unattended runs now support `run.py --mute` (`WD_MUTE=1`) and `--headless`
+(`WD_HEADLESS=1`, implies mute/focus/quiet). Muting selects the existing timer
+mixer without opening an audio device, retaining DirectSound buffers/cursors
+and CD completion state. Headless keeps the SDL window hidden. The controlled
+environment smoke verifies native Win32 window visibility, mixer selection,
+continued scene submission and zero routine readbacks. DirectSound initialization
+still succeeds and the original cursor/completion polling continues.
 
 The 45-second `run-direct-caption` run reached boot/New Game, a textured and
 animated first scene, HUD/gauge, the initial voiced dialogue and scripted movement.
@@ -42,7 +53,8 @@ Implemented in this slice:
   Windows palette generation remains lifted; logical shade r selects its physical
   row 31-r. Palette binding retains the selected snapshot until the page changes.
   Supported radial and type-2 flat lights use shared kernels and metadata feedback;
-  Gouraud lights and unimplemented face modes still fail explicitly.
+  Lit 0x16/0x17 corners use the original normal-pool refresh and byte accumulation;
+  0x18 takes retail's flat branch. Other face modes still fail explicitly.
 - Native sprite/faded-text/gauge request normalization and exact-width shared
   scratch stores. Original fire generation and RNG continue on the guest side.
   The native UI test covers 75 pixel checkpoints (534,528 pixels) and compares
@@ -81,6 +93,126 @@ remaining exports, UI/material modes and platform execution.
 
 ## Implemented components
 
+### Unlit Gouraud input and GPU interpolation checkpoint
+
+The demo-identified face bytes `+0x41..+0x43` are now captured as independent
+corner shades and recorded in WDS7 (older captures remain readable unless they
+contain Gouraud faces whose corner bytes were omitted). The shared
+scene shader interpolates each byte shifted left three for unlit Glide types
+`0x16`..`0x18`, with clamp sampling. A controlled GPU test checks unequal corner
+brightness after WDS7 round-trip. This initial checkpoint rejected lit faces;
+the following WDS8 checkpoint implements the supported retail lighting branches
+against vertex-normal and ordered metadata oracles. No static scene block
+exercises this path. The initial checkpoint closes only the unlit input and
+interpolation slice of the R2 material gate.
+The 30-second `run-direct-gouraud-regression` strict-audit route reached 250
+scene submissions with zero routine readbacks and no reported surface-access
+violation; it exercised existing first-scene materials, not a Gouraud asset.
+
+### Lit Gouraud and normal-pool checkpoint
+
+Fresh Ghidra inspection of `REND_LightObject` (`0x47b7e0`) confirms that
+`0x16`/`0x17` clear visible corner bytes, then visit bound lights in order,
+refresh every owner vertex-normal dot at node `+0x8c/+0x90`, and accumulate
+positive corner contributions with **byte wrapping**. Corner normal pointers
+are face `+0x0c/+0x18/+0x24`; shared pointers retain identity. A corner outside
+the refreshed pool consumes its retained dot, rather than inventing an owner.
+`0x18` belongs to the flat branch: it updates `+0x40` and leaves the three
+corner brightness bytes intact. The former blanket lit-Gouraud rejection is
+removed for these supported modes.
+
+WDS8 captures complete owner normal pools, corner pointers/XYZ and retained
+dot fields. Older snapshots with lit `0x16`/`0x17` are rejected because they
+omit that input. Source normal pools and a controlled Gouraud block are checked
+against both independent retail dumps; camera, pointer-1/spawn and 1,169
+cross-node triangles retain their existing checks.
+
+`render_gouraud_light_smoke.py` passes 3,165 original-x86 comparisons (1,055
+each for `0x16`, `0x17`, `0x18`) with zero shade or normal-dot mismatches,
+including mixed radial/oriented lights, range edges, integer and byte overflow.
+Another 128 adapter cases compare final metadata and ordered writes with
+retail for shared/external normals, an unreferenced pool entry, zero/eight
+lights, all culled-face combinations and flat/Gouraud block order. Adjacent
+retail stores of a flat negative sum and its negated byte are compared as the
+final byte; the adapter publishes it once. No consumer runs between those stores.
+
+Production D3D11 tests pass WDS8 identity/scratch round trips, lit corner
+interpolation and equality with a packet containing the oracle's baked corner
+shades. `0x18` preserves its stored corner bytes. Missing lit corner normals
+still fail explicitly. Reports live under `DREAMS_OUT/recomp/gouraud-lighting`
+and `direct-render`; no retail data is committed.
+
+This does not close natural Gouraud asset/effect coverage, other Gouraud or
+specular face modes, lit callbacks, near-clip temporary metadata, full ABI or
+fixed-point camera-chain equivalence.
+
+The controlled `--oriented --gouraud` strict-audit child changes a 688-face
+node's source blocks to `0x16`, binds a light aimed opposite a captured owner
+normal, rotates/moves it and unbinds. It changes 144 corner shade bytes and
+updates the pool dot after rotation, with zero routine readbacks and no reported
+instrumented surface violation. This injects source state; it is not evidence
+of a naturally occurring Gouraud asset. Its report is
+`DREAMS_OUT/recomp/windream/run-direct-oriented-gouraud-light/results.json`.
+
+```powershell
+uv run python recomp/windream/debug/direct_render_validate.py --gpu
+uv run --with unicorn python recomp/windream/debug/render_gouraud_light_smoke.py
+uv run --with unicorn python recomp/windream/debug/render_light_live_smoke.py --oriented --gouraud
+```
+
+### Environment mapping and UV-version checkpoint
+
+Fresh retail `REND_ComputeEnvMapUVs` (`0x47e094`, 567 identical bytes in both
+Windows builds) and its caller confirm the post-draw update. Corner normals
+are multiplied by the **parent's** camera-space Q15 rotation. Corner 0 retains
+integer normal precision; corners 1/2 spill to float. Each truncated component
+is shifted left eight with 32-bit wrapping and offset by `0x800000`.
+
+WDS9 adds original integer local rotations, visual eligibility distinct from
+hook submission, and exact UV pointer/value identity. The adapter recomposes
+the integer camera chain solely for compatibility UV feedback. Modern geometry
+still uses its independent float poses and camera; no old composed transform or
+projected vertex field is read. Both original dumps pass poisoned-transform
+capture checks and original hierarchy replay comparisons for all 229/224 visited
+node rotations. Pointer-1/spawn and cross-node checks remain unchanged.
+
+Opaque faces sample their source UV version at the object's draw, then visible
+environment faces update shared UV pairs in original corner order. Hook-disabled
+objects can update UVs; culled faces retain them. Later objects observe earlier
+updates. Deferred Glide blocks hold pointers, so their draw samples the final
+version after all object updates. Subsequent/offscreen passes begin with the
+retained guest version. Source shading/UV metadata is returned in owner order.
+
+Validation passes 3,309 original-x86 corner UV comparisons, 112 type/cull cases
+and 1,155 original integer matrix multiplications with zero mismatches. GPU
+tests cover WDS9 round-trip, shared pointers, opaque/deferred versions,
+hook-disabled and culled objects, subsequent passes and a dedicated 64x64
+offscreen target; rendered output equals explicitly baked source versions.
+
+The muted, hidden strict-audit child enables environment mapping on a 688-face
+node, changes a visible source normal, then disables it. It changes 144 of 2,064
+UV pairs, changes those 144 again after a quarter-turn, and reports zero routine
+readbacks. A Win32 window enumeration confirms that its windows remain hidden.
+This injects source state rather than proving a natural environment asset route.
+
+Per-owner indexing and UV/normal version tables restricted to active effects
+avoid work for ordinary unlit scenes. Sampled live submission returns to roughly
+4–10 ms after the change; this is not the full R4 performance budget.
+
+Remaining contracts include natural environment assets, mirror setup, shaded
+frame-callback sequencing, clip-generated metadata and broader allocation/alias
+closure. Shaded callbacks still fail explicitly pending their timing proof.
+
+```powershell
+uv run python recomp/windream/debug/direct_render_validate.py --gpu
+uv run --with unicorn python recomp/windream/debug/render_environment_smoke.py
+uv run --with unicorn python recomp/windream/debug/render_environment_live_smoke.py
+uv run python recomp/windream/run.py --headless --renderer direct --render-audit --seconds 30 --keys 2000:ESC,5000:RETURN,8000:ESC,20000:ESC
+```
+
+Reports and read-only Ghidra evidence remain under
+`DREAMS_OUT/recomp/{environment-mapping,windream/run-direct-environment,gouraud-lighting}`.
+
 ### GPU real-shadow checkpoint
 
 The alternate frame now recognizes the `OMBRE2` destination at `0x62b9a8` and
@@ -102,26 +234,50 @@ runs with `--poke 0x4a3168=1` reached the first scene and dialogue at the defaul
 window size and fullscreen (3840x2160 on this machine), without an instrumented
 CPU framebuffer access violation. These are route-specific results.
 
-**Compatibility remains partial:** `render_shadow_smoke.py` captures the transient
-shadow scene from original x86 execution and compares the GPU mask to that CPU
-rasterizer. The CPU has 4,320 set P8 bytes, the GPU 4,404; 456 of 65,536 bytes
-differ, with intersection-over-union 0.90065. Both use only indices 0/1 and equal
-horizontal pairs. The remaining difference is silhouette coverage/projection,
-not a transfer or palette-format match. Integer pixel-snapping experiments did
-not improve the match and are not part of production. Exact shadow coverage is
-still an open R2 gate; a plausible shadow screenshot does not close it.
+**Recorded silhouette mismatch resolved (2026-09-30):** the dedicated shared
+mask path accepts original integer vertices, Q15 local rotations/translations,
+source normals/planes and camera parameters. It derives poses and projection
+inside the renderer. Camera inverse translation uses wrapped Q15 products and
+arithmetic shifts; child translations retain retail truncation. Vertex owners
+remain distinct from face owners for cross-node triangles. Stored-plane and
+dynamic-normal culling precede projection.
+
+`BT_Flat_` builds 12-bit edge steps, initializes each edge half a row behind its
+start, then floors span endpoints after each advance. The new GPU fragment pass
+implements that coverage using per-triangle edge constants and bounds. CPU work
+prepares geometry and constants, never pixels or per-row span lists. The GPU
+still produces and samples the paired index-0/1 mask. Normal 3D keeps its modern
+float path. WDSA adds exact source translations, face-normal pool identity and
+retained normal dots; older shadow snapshots lacking these inputs are rejected.
+
+The strict original-x86 comparison now matches all **65,536 bytes**: CPU and GPU
+both contain 4,320 set P8 bytes, with zero differences and intersection-over-union
+1.0. The production projection helper independently matches all 25 recorded
+node poses and 265 referenced camera/projected vertices. These are source-derived
+calculations; neither old projected fields nor visible lists are renderer input.
+A 45-second muted headless strict-audit run, including scripted movement/control,
+records 315 shadow submissions/resolves by its 500-frame checkpoint, with zero
+routine readbacks and no reported instrumented surface violation.
+
+Coverage remains partial beyond this fixture: additional poses/assets, near/far
+and screen-clipping boundary oracles, extreme coordinates, complete shadow
+metadata/callback contracts and backend execution still need closure. The near
+clip is renderer-owned; its current float intersection path has not yet been
+proved against every retail temporary-face branch. The existing corpus pass is
+not a claim of full shadow or R2 acceptance.
 
 ```powershell
-uv run --with unicorn python recomp/windream/debug/render_shadow_smoke.py
+uv run --with unicorn python recomp/windream/debug/render_shadow_smoke.py --require-parity
 uv run python recomp/windream/run.py --renderer direct --render-audit `
-  --fullscreen --tag shadow-check --seconds 45 --poke 0x4a3168=1 `
+  --headless --tag shadow-quantized --seconds 45 --poke 0x4a3168=1 `
   --keys 2000:ESC,5000:RETURN,8000:ESC,20000:ESC --snap-ms 10000
 ```
 
 The shadow oracle uses the existing captured state identified by
 `out/recomp/render-smoke/shadow-contract.json`. Its generated packets, masks and
-metrics are under `DREAMS_OUT/recomp/shadow-adapter`. GPU-shadow `.wds` source
-export remains unimplemented.
+metrics are under `DREAMS_OUT/recomp/shadow-adapter`. Its `.wds` captures source
+geometry/state; explicit CPU export of a live GPU shadow image remains separate
+unimplemented work.
 
 ### Explicit thumbnail export checkpoint
 
@@ -411,7 +567,7 @@ uv run --with unicorn python recomp/windream/debug/render_scene_mode_smoke.py
 uv run --with unicorn python recomp/windream/debug/render_scene_smoke.py out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
 ```
 
-`prepare_flat_lighting` (originally `prepare_radial_lighting`) runs for supported textured nodes. It composes
+`prepare_scene_lighting` (originally `prepare_radial_lighting`) runs for supported textured nodes. It composes
 visual poses from source locals, transforms radial lights without reading old
 view/node caches, and uses the new camera/frustum to identify drawable faces.
 The adapter returns ordered light-vector, normal-dot and one-byte face-shade
@@ -434,7 +590,7 @@ inputs in an isolated child, not an unmodified gameplay effect-trigger route.
 
 Type-2 flat lighting is now covered by the [demo-informed follow-up](debug-renderer-contracts.md).
 **Still partial:** inactive bound slots, bindings outside the refreshed
-prefix, Gouraud and lit-frame end callbacks fail explicitly. Retail removal can
+prefix, unsupported Gouraud/specular modes and lit-frame end callbacks fail explicitly. Retail removal can
 leave a live slot beyond the count used by its view-transform loop; this stale
 view-state case must not be silently recomputed from current world inputs.
 Near-plane temporary-face lighting, stored-normal versus new geometric culling,
@@ -510,9 +666,9 @@ oracle, not authorization for routine scene downloads.
 |---|---|---|
 | R0 | Live handlers installed; registry, transform replay and local-camera tests pass; native UI scratch matches tested x86 cases; segment-stack ABI defect fixed | Validate alternate targets, full callback/flag closure, all lifetimes and complete access instrumentation |
 | R1 | Live direct boot, first scene/HUD, dialogue and movement; shared ModelPreview adapter; 640x480, 1280x960 and fullscreen 3840x2160 routes exercised | Broader integrated acceptance and uncovered startup/UI variants remain |
-| R2 | Textured 3D and depth/order primitives; GPU shadows; thumbnail export; diagnostic mode and event-driven GPU fog | Shadow silhouette parity, full material modes, lighting, environment timing, hardware fog parity, wider visibility corpus and save/load acceptance remain |
+| R2 | Textured 3D and depth/order primitives; source-derived GPU shadow matches recorded 65536-byte oracle; thumbnail export; diagnostic mode, fog, lit 0x16/0x17 corners, flat-lit 0x18 and ordered environment UV versions | Wider shadow/clipping/metadata closure, other material/Gouraud/specular modes, remaining lighting/shaded-callback contracts, mirror setup, natural environment routes, hardware fog parity, wider visibility corpus and save/load acceptance remain |
 | R3 | Normalized sprite/text/copy/dim/movie streams match retail CPU checkpoints, including flag 4 and signed-high coverage | Full ABI/helper-side-effect closure, gauge and fire-source versions, menu/caption lifetimes, HNM5/other movie modes, direct bypass writers |
-| R4 | Four shader dialects generate; D3D11 standalone and explicit image export tests pass; software baseline and audit build reach the game | Active debug/rare paths, remaining CPU exports, resize/input/present integration, ten reloads, performance/synchronization measurements, Metal/GL/WebGL2 runtime validation |
+| R4 | Four shader dialects generate; D3D11 standalone/export tests and direct audit first-scene routes pass; muted/headless runs preserve mixer state and verify hidden native windows | Active debug/rare paths, remaining CPU exports, resize/input/present integration, ten reloads, performance/synchronization measurements, Metal/GL/WebGL2 runtime validation |
 
 No stage is marked complete. The new port-map rows cover shader arithmetic,
 live main/alternate frame boundaries and UI handlers including `SPR_DrawMasked64`.
@@ -634,9 +790,9 @@ topology on read. Default rendering remains software.
 
 ## Remaining delivery sequence
 
-Finish R0's native contracts and strict audit before installing live replacement
-handlers. R1 then connects the shared scene path, startup/UI/gauge operations,
-one presentation owner and inverse UI mouse mapping at 640x480 and 1920x1080.
+Close R0's remaining native contracts and access audit through the installed
+live handlers. Extend R1's working scene/UI/presentation route to the uncovered
+startup, gauge and input/resize variants at native and widescreen resolutions.
 Complete R2 and R3 around that same path; do not add CPU gauge/shadow/readback
 bridges as prerequisites. R4 adds explicit exports, operational tests, measured
 optimization and per-backend execution.

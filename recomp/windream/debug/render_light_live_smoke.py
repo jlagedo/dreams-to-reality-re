@@ -16,7 +16,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from render_scene_smoke import read_snapshot
+from render_scene_smoke import compose, read_snapshot
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import recomp_env  # noqa: E402
@@ -30,14 +30,21 @@ from dreams import paths  # noqa: E402
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--oriented", action="store_true")
+    parser.add_argument(
+        "--gouraud", action="store_true", help="inject type 0x16 into a textured node"
+    )
     args = parser.parse_args()
     kind = "oriented" if args.oriented else "radial"
+    if args.gouraud:
+        kind += "-gouraud"
     run = recomp_env.out_dir("windream", f"run-direct-{kind}-light")
     capture = run / "input.wds"
     capture.unlink(missing_ok=True)
     env = dict(
         os.environ,
         WD_RENDERER="direct",
+        WD_MUTE="1",
+        WD_HEADLESS="1",
         WD_READ_ROOTS=read_roots(),
         WD_FPS="25",
         WD_SCALE="1",
@@ -121,6 +128,12 @@ def main():
                         for f in faces
                         if nodes[f["owner"]]["active"]
                         and f["kind"] in (2, 3, 9, -3, -4, -5, -6, -7)
+                        and (
+                            not args.gouraud
+                            or (
+                                len(nodes[f["owner"]]["vertex_normals"]) > 0 and f["kind"] in (2, 3)
+                            )
+                        )
                     )
                     owner = counts.most_common(1)[0][0]
                     node = nodes[owner]["address"]
@@ -133,6 +146,15 @@ def main():
                     ]
                     shade_addresses = [f["address"] + 0x40 for f in selected]
                     normal_addresses = sorted({f["normal_address"] + 12 for f in selected})
+                    if args.gouraud:
+                        assert all(f["kind"] in (2, 3) for f in selected)
+                        shade_addresses = [
+                            f["address"] + 0x41 + corner for f in selected for corner in range(3)
+                        ]
+                        normal_addresses = [n[0] + 12 for n in nodes[owner]["vertex_normals"]]
+                        blocks = sorted({f["block"] for f in selected})
+                        for block in blocks:
+                            write(block + 4, struct.pack("<I", 0x16))
                     before_shades = [read(a, 1) for a in shade_addresses]
                     before_dots = [read(a, 4) for a in normal_addresses]
                     original = [
@@ -144,6 +166,15 @@ def main():
                     record = bytearray(0x94)
                     struct.pack_into("<I3i", record, 0, 2 if args.oriented else 1, *position)
                     struct.pack_into("<9i", record, 0x10, 32768, 0, 0, 0, 32768, 0, 0, 0, 32768)
+                    if args.gouraud and args.oriented:
+                        # Aim opposite a captured owner normal in WORLD space.
+                        # The default +Z direction can be orthogonal to a wall,
+                        # producing no contribution or changed scratch at all.
+                        normal = nodes[owner]["vertex_normals"][0][1:4]
+                        world = compose(nodes)[owner]
+                        for axis in range(3):
+                            value = -int(sum(world[axis * 4 + k] * normal[k] for k in range(3)))
+                            struct.pack_into("<i", record, 0x10 + (axis * 3 + 2) * 4, value)
                     struct.pack_into("<3i", record, 0x88, 60000, 60000, 31)
                     write(0x672700, bytes(record))
                     write(0x4AC758, struct.pack("<I", 1))
@@ -159,8 +190,10 @@ def main():
                     assert changed > 0 and any(
                         a != b for a, b in zip(before_dots, after_dots, strict=True)
                     ), "no lighting metadata changed"
-                    assert "flat_lighting writes=" in text
-                    report["changed_face_shades"] = changed
+                    assert "scene_metadata writes=" in text
+                    report["changed_corner_shades" if args.gouraud else "changed_face_shades"] = (
+                        changed
+                    )
                     position = [
                         value + delta
                         for value, delta in zip(position, (200, 300, 400), strict=True)
@@ -181,9 +214,9 @@ def main():
                     # child is terminated below, so no external state survives.
                     stage = 3
                     transition = elapsed
-                    count_before = text.count("flat_lighting writes=")
+                    count_before = text.count("scene_metadata writes=")
                 elif stage == 3 and elapsed - transition > 3:
-                    assert text.count("flat_lighting writes=") <= count_before + 1, (
+                    assert text.count("scene_metadata writes=") <= count_before + 1, (
                         "lighting persisted after unbind"
                     )
                     assert "routine_readbacks=0" in text

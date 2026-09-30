@@ -2,7 +2,7 @@
 
 Status: **Live direct first-scene slice implemented; full R0–R4 acceptance
 remains partial. Software stays the default reference.**
-Date: 2026-09-29.
+Date: 2026-09-30.
 
 The renderer is built directly for the modernized frame:
 
@@ -296,6 +296,13 @@ live autosave test verifies file bytes, the guest copy and restored screen size;
 the production export API passes exhaustive packed-value tests. This is not yet
 full save/load acceptance. See the [thumbnail evidence](implementation.md#explicit-thumbnail-export-checkpoint).
 
+The source-derived GPU shadow mask now matches the recorded original-x86 oracle
+in all 65,536 bytes, resolving the prior 456-byte mismatch. Retail pose/projection
+and 12-bit edge coverage are computed inside the renderer; the game supplies
+original geometry and exact local state. Muted headless live shadow runs report
+zero routine readbacks. Broader shadow/clipping/metadata acceptance remains open;
+see the [shadow checkpoint](implementation.md#gpu-real-shadow-checkpoint).
+
 The native sprite adapter now covers flag 4's unusual memory stride and
 signed-high blend coverage with immutable GPU lookup tables. The expanded
 original-x86 comparison passes 105 checkpoints and 5,055,744 packed pixels;
@@ -320,13 +327,27 @@ cases, with live shade/normal-dot feedback and stale list-head palette binding.
 Controlled live binding/movement tests pass. WDS6 adds feedback addresses and
 the refreshed-light prefix. Type-2 flat lighting now also passes 1,063 mixed
 retail-x86 shade/normal cases, 400 direction cases and a controlled live
-rotation/unbind run. Gouraud, callback and full camera-chain feedback cases
+rotation/unbind run. Other face modes, callback and full camera-chain feedback cases
 remain open. See the [demo-informed follow-up](debug-renderer-contracts.md) and
 the [lighting evidence](implementation.md#radial-lighting-kernels-and-capture).
+
+Demo-identified corner shade bytes now reach the shared GPU shader for unlit
+Gouraud types `0x16`..`0x18`; WDS7 round-trip and controlled interpolation pass.
+Lit `0x16`/`0x17` now uses retail-checked corner lighting and normal-pool feedback;
+`0x18` retains the original flat-light branch and stored corner bytes. The
+3,165 arithmetic and 128 ordered adapter comparisons pass; natural Gouraud
+assets, other modes and full guest closure remain open. See the
+[lit Gouraud checkpoint](implementation.md#lit-gouraud-and-normal-pool-checkpoint) and
+the [Gouraud checkpoint](implementation.md#unlit-gouraud-input-and-gpu-interpolation-checkpoint).
 
 The new shared compositor independently passes the same 256 checkpoints and
 14,769,600 packed pixels, plus exhaustive CPU and GPU packed-value round trips.
 Production replacement dispatch is exercised by the captured transform replay.
+Environment mapping now preserves shared UV versions at opaque/deferred draw
+boundaries, with original integer camera-chain feedback derived from source
+rotations. Retail arithmetic, source capture and muted/headless live checks
+pass; natural environment routes, mirror setup and shaded callbacks remain open.
+See the [environment checkpoint](implementation.md#environment-mapping-and-uv-version-checkpoint).
 See [the current gates](implementation.md#stage-status) for everything still
 required before R0/R1 or a playable direct renderer can be declared complete.
 

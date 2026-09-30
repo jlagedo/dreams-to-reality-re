@@ -80,6 +80,8 @@ typedef struct od_scene_triangle {
     od_face_mode mode;
     uint32_t wrap_texture; /* clamp=0, repeat=1, after palette expansion */
     uint32_t cull_back;    /* original triangles, independent of retail visible lists */
+    uint8_t corner_brightness[3]; /* optional iterated RGB, 0..255 at each corner */
+    uint8_t use_corner_brightness;
 } od_scene_triangle;
 typedef struct od_scene_packet {
     od_render_id target;
@@ -111,6 +113,30 @@ od_render_id od_renderer_upload_rgba(od_renderer *, int width, int height, const
 int od_renderer_release(od_renderer *, od_render_id);
 int od_renderer_draw_2d(od_renderer *, const od_draw_2d *);
 int od_renderer_scene(od_renderer *, const od_scene_packet *);
+/* Paired-P8 shadow appearance: exact source Q15 poses and integer local
+ * vertices. The renderer derives projection/coverage internally; no guest
+ * projected vertices, span lists or CPU mask are accepted. Node 0 is camera. */
+typedef struct od_shadow_node {
+    int32_t parent, rotation[9], translation[3];
+} od_shadow_node;
+typedef struct od_shadow_vertex { uint32_t node; int32_t xyz[3]; } od_shadow_vertex;
+typedef struct od_shadow_triangle {
+    uint32_t vertices[3], owner, flags;
+    int32_t normal[3], plane, retained_dot;
+    uint32_t stale_normal;
+} od_shadow_triangle;
+typedef struct od_shadow_packet {
+    od_render_id target;
+    const od_shadow_node *nodes; size_t node_count;
+    const od_shadow_vertex *vertices; size_t vertex_count;
+    const od_shadow_triangle *triangles; size_t triangle_count;
+    int32_t camera_rotation[9], camera_eye[3], center[2], near_plane, far_plane;
+    float focal[2];
+} od_shadow_packet;
+int od_renderer_shadow_mask(od_renderer *, const od_shadow_packet *);
+/* Optional outputs: per-node translation+rotation (12 ints), per-vertex
+ * camera XYZ (3 floats), screen XY (2 ints). Oracle/metadata preparation. */
+int od_shadow_project(const od_shadow_packet *, int32_t *, float *, int32_t *);
 /* Final colour correction into a distinct RGBA8 target. No commit/present. */
 int od_renderer_output_target(od_renderer *, od_render_id source, od_render_id target, float gamma);
 /* 128x256 index-0/1 shadow -> 128-square material LOD, on the GPU. Source
@@ -148,6 +174,16 @@ typedef struct od_local_light {
 int od_flat_light_shade(const int32_t vertices[9], const int32_t normal[3], int32_t plane,
                         const od_local_light *, size_t count, uint8_t *shade);
 int32_t od_light_normal_dot(const int32_t normal[3], const od_local_light *light);
+/* One 0x16/0x17 corner contribution. normal_dot is the current normal +0xc
+ * scratch (possibly stale for a normal outside the owner's refreshed pool).
+ * The caller accumulates positive contributions with byte wrapping per light. */
+int32_t od_gouraud_light_contribution(const int32_t vertex[3], const int32_t normal[3],
+                                     int32_t normal_dot, const od_local_light *light);
+/* Retail post-draw sphere-map UV update. Parent camera-space Q15 rotation,
+ * source corner normal, exact int32 UV output. Corners 1/2 spill normals to
+ * float in retail; corner 0 retains integer precision on the x87 stack. */
+int od_environment_uv(const int32_t parent_rotation[9], const int32_t normal[3],
+                       unsigned corner, int32_t uv[2]);
 int od_oriented_light_axis(const float world_affine[12], const int32_t orientation[9],
                            int32_t local_axis[3]);
 /* Retail flat-shade kernel. Original local corners/normal/plane, including

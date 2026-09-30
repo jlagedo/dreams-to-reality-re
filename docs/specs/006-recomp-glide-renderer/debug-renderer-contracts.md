@@ -1,9 +1,10 @@
 # Demo-informed retail renderer contracts
 
-Date: 2026-09-29. Follow-up to the July demo discovery and the working direct
+Date: 2026-09-30. Follow-up to the July demo discovery and the working direct
 renderer checkpoint. This pass checks retail contracts, corrects the UV field
-description, and adds type-2 **flat** lighting. Gouraud and environment/mirror
-rendering are not completed by this pass.
+description, and adds type-2 **flat** lighting. A subsequent retail-oracle pass
+adds lit 0x16/0x17 Gouraud, corrects 0x18 flat dispatch and implements ordered
+environment UV versions. Mirror setup and wider renderer acceptance remain open.
 
 ## Evidence and replacement boundary
 
@@ -20,8 +21,8 @@ from the July software demo, documented in `wip-windows-transfers.md`.
 | `Process_Hierarchie_` | `0x96337` | `0x47e700` | Retain traversal, hiding, scratch setup and light refresh |
 | `Update_Hierarchie_` | `0x964cc` | `0x47e7ac` | Reference walker; not a wholesale replacement for the render walker |
 | `Compute_Face_Illum_` | `0x92397` | `0x47b3d0` | Recover owner-local light vectors and their metadata writes |
-| `Build_Obj_Lights_` | `0x92844` | `0x47b7e0` | Shared flat-light kernels; Gouraud remains open |
-| `Build_Obj_Env_Mapping_` | `0x9593d` | `0x47e094` | Still open; updates UVs after the draw hook |
+| `Build_Obj_Lights_` | `0x92844` | `0x47b7e0` | Shared flat and 0x16/0x17 corner kernels; other modes/closure remain open |
+| `Build_Obj_Env_Mapping_` | `0x9593d` | `0x47e094` | Source-derived integer parent rotation and ordered shared UV versions; natural/callback closure remains open |
 
 Fresh read-only decompilations confirm the same important ordering in both
 builds: object transform, visual culling/vertex work, light transform,
@@ -84,7 +85,7 @@ The adapter captures original source orientations already present in WDS6,
 prepares local directions, and returns +0x70 direction writes alongside the
 existing +0x64 position, normal-dot and face-shade feedback. Source shades
 remain authoritative for culled list heads and allocation reuse. The helper
-is now named `prepare_flat_lighting`; inactive/unsupported light types and
+is now named `prepare_scene_lighting`; inactive/unsupported light types and
 bindings outside the refreshed prefix still fail explicitly.
 
 New original-x86 comparisons pass **1,063 mixed flat-light cases** (both shade
@@ -110,12 +111,23 @@ isolated local-vector oracle is not proof of every composed-camera case.
 
 ## Next unresolved contracts
 
-- Gouraud: retail types 0x16/0x17/0x19/0x1a use vertex-normal arrays and per-corner
-  shade bytes (+0x41..+0x43), not the new flat kernel alone. Recover interpolation,
-  palette selection and per-light accumulation with separate retail oracles.
-- Environment mapping: capture original corner normals and UV identities, draw
-  using the current UV version, then update the next version in original order.
-  Shared UV pointers, culled faces and repeated/offscreen passes need tests.
+- Gouraud: WDS8 now captures node +0x8c/+0x90 normal pools and the three corner
+  normal pointers, XYZ and retained dots. Original retail executes 3,165 shade/
+  dot cases with zero mismatches; 128 ordered adapter cases cover shared normals,
+  external stale dots, culled faces, unreferenced pool entries and block order.
+  Lit 0x16/0x17 clears then accumulates corner bytes per light with byte wrapping.
+  Type 0x18 instead updates flat +0x40 while preserving the corner bytes consumed
+  by Glide. D3D11 interpolation and baked-shade equivalence pass. Other
+  Gouraud/specular modes, natural assets and full ABI/callback/near-clip closure
+  remain open; the static corpus has no such blocks. See the
+  [implementation checkpoint](implementation.md#lit-gouraud-and-normal-pool-checkpoint).
+- Environment mapping: WDS9 captures exact source rotations and UV identities.
+  Opaque draws retain their current version, subsequent objects observe updates,
+  and deferred blocks sample the final version. The original parent camera chain
+  is recomposed independently from source Q15 locals. Original UV/matrix oracles,
+  shared/cull/hook-disabled/repeated/offscreen GPU checks and a muted live normal
+  change pass. Natural assets, shaded callbacks and broader alias/clip metadata
+  remain open; see the [checkpoint](implementation.md#environment-mapping-and-uv-version-checkpoint).
 - Mirror setup: trace the named `Build_Obj_Miror_`/`Update_Miror_` contracts
   independently before implementing reflection behavior.
 
@@ -125,6 +137,8 @@ isolated local-vector oracle is not proof of every composed-camera case.
 uv run python recomp/windream/debug/direct_render_validate.py --gpu
 uv run --with unicorn python recomp/windream/debug/render_oriented_light_smoke.py
 uv run --with unicorn python recomp/windream/debug/render_light_smoke.py
+uv run --with unicorn python recomp/windream/debug/render_environment_smoke.py
+uv run --with unicorn python recomp/windream/debug/render_environment_live_smoke.py
 uv run --with unicorn python recomp/windream/debug/render_layout_smoke.py out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
 uv run --with unicorn python recomp/windream/debug/render_smoke.py --lifted out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
 uv run --with unicorn python recomp/windream/debug/render_scene_smoke.py out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp

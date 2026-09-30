@@ -1,5 +1,6 @@
 #include "render_scene_draw.h"
 #include <algorithm>
+#include <cstring>
 #include <unordered_map>
 
 namespace wd {
@@ -23,6 +24,12 @@ bool textured_mode(int32_t type, od_face_mode &mode, uint32_t &wrap) {
         mode = OD_FACE_OPAQUE;
         wrap = 1;
         return true;
+    case 0x16:
+    case 0x17:
+    case 0x18:
+        mode = OD_FACE_OPAQUE;
+        wrap = 0;
+        return true;
     case -5:
     case -6:
         mode = OD_FACE_CHROMA;
@@ -38,28 +45,135 @@ bool textured_mode(int32_t type, od_face_mode &mode, uint32_t &wrap) {
         return false;
     }
 }
+bool environment_type(int32_t type) {
+    return (type >= -15 && type <= -3) || type == 2 || type == 3 || type == 6 || type == 9 ||
+           type == 0xb || type == 0xc || type == 0x12 || (type >= 0x14 && type <= 0x1a) ||
+           (type >= 0x1c && type <= 0x1e);
+}
+// Compatibility UV feedback uses retail's integer camera chain. Geometry
+// still uses renderer-composed floating poses and the separate visual camera.
 } // namespace
+bool compose_feedback_rotations(const SceneSnapshot &scene, std::vector<int32_t> &result) {
+    if (scene.nodes.size() != scene.poses.size())
+        return false;
+    std::array<int32_t, 9> camera;
+    for (unsigned r = 0; r < 3; ++r)
+        for (unsigned c = 0; c < 3; ++c)
+            camera[r * 3 + c] = scene.camera.local_rotation[c * 3 + r];
+    result.resize(scene.nodes.size() * 9);
+    std::vector<uint8_t> done(scene.nodes.size());
+    std::vector<size_t> path;
+    for (size_t start = 0; start < scene.nodes.size(); ++start) {
+        size_t node = start;
+        while (done[node] != 2) {
+            if (done[node] == 1)
+                return false;
+            done[node] = 1;
+            path.push_back(node);
+            const int32_t parent = scene.poses[node].parent;
+            if (parent == -1)
+                break;
+            if (parent < 0 || size_t(parent) >= scene.nodes.size())
+                return false;
+            node = size_t(parent);
+        }
+        while (!path.empty()) {
+            node = path.back();
+            path.pop_back();
+            int32_t *output = result.data() + node * 9;
+            if (scene.poses[node].parent == -1 && scene.nodes[node].address == scene.camera.address)
+                std::copy(camera.begin(), camera.end(), output);
+            else {
+                const int32_t *parent = scene.poses[node].parent == -1
+                                            ? camera.data()
+                                            : result.data() + size_t(scene.poses[node].parent) * 9;
+                const auto &local = scene.nodes[node].source_rotation;
+                for (unsigned r = 0; r < 3; ++r)
+                    for (unsigned c = 0; c < 3; ++c) {
+                        uint32_t sum = 0;
+                        for (unsigned k = 0; k < 3; ++k)
+                            sum += uint32_t(parent[r * 3 + k]) * uint32_t(local[k * 3 + c]);
+                        int32_t value;
+                        std::memcpy(&value, &sum, 4);
+                        output[r * 3 + c] = value >> 15;
+                    }
+            }
+            done[node] = 2;
+        }
+    }
+    return true;
+}
 
-bool prepare_flat_lighting(const SceneSnapshot &scene, const float *vp, SceneLighting &output,
-                           std::string &error, bool require_metadata) {
+bool prepare_scene_lighting(const SceneSnapshot &scene, const float *vp, SceneLighting &output,
+                            std::string &error, bool require_metadata) {
     error.clear();
     SceneLighting result;
-    for (const auto &face : scene.faces)
+    std::vector<std::vector<size_t>> owner_faces(scene.nodes.size());
+    for (size_t i = 0; i < scene.faces.size(); ++i) {
+        if (scene.faces[i].owner >= owner_faces.size()) {
+            error = "invalid scene face owner";
+            return false;
+        }
+        owner_faces[scene.faces[i].owner].push_back(i);
+    }
+    const bool has_environment =
+        std::any_of(scene.nodes.begin(), scene.nodes.end(), [](const auto &n) {
+            return (n.submitted || n.visual_active) && (n.flags & 0x800);
+        });
+    const bool has_gouraud_lighting =
+        std::any_of(scene.faces.begin(), scene.faces.end(), [&](const auto &f) {
+            const auto &n = scene.nodes[f.owner];
+            return (f.type == 0x16 || f.type == 0x17) && n.light_count &&
+                   (n.submitted || n.visual_active);
+        });
+    std::unordered_map<uint32_t, std::array<int32_t, 2>> uv_versions;
+    std::unordered_map<uint32_t, int32_t> normal_dots;
+    if (has_gouraud_lighting)
+        for (const auto &node : scene.nodes)
+            for (const auto &normal : node.vertex_normals)
+                normal_dots[normal.address] = normal.dot;
+    for (const auto &face : scene.faces) {
         result.shades.push_back(face.shade);
+        result.corner_shades.push_back(face.corner_shades);
+        result.corners.push_back(face.corners);
+        for (unsigned c = 0; has_environment && c < 3; ++c)
+            if (face.uv_addresses[c] && (scene.nodes[face.owner].flags & 0x800) &&
+                (scene.nodes[face.owner].submitted || scene.nodes[face.owner].visual_active) &&
+                environment_type(face.type))
+                uv_versions[face.uv_addresses[c]] = face.source_uvs[c];
+        for (const auto &normal : face.corner_normals)
+            if (has_gouraud_lighting && normal.address)
+                normal_dots[normal.address] = normal.dot;
+    }
     std::vector<float> world;
+    std::vector<int32_t> env_rotations;
     for (size_t owner = 0; owner < scene.nodes.size(); ++owner) {
         const auto &node = scene.nodes[owner];
-        if (!node.submitted || !node.light_count)
+        if (!node.submitted && !node.visual_active)
             continue;
+        if (has_environment)
+            for (size_t i : owner_faces[owner])
+                for (unsigned c = 0; c < 3; ++c)
+                    if (scene.faces[i].uv_addresses[c]) {
+                        const auto found = uv_versions.find(scene.faces[i].uv_addresses[c]);
+                        if (found == uv_versions.end())
+                            continue;
+                        const auto &uv = found->second;
+                        for (unsigned axis = 0; axis < 2; ++axis)
+                            result.corners[i][c].uv[axis] = float(uv[axis]) / (65536.0f * 256);
+                    }
         const bool textured =
-            std::any_of(scene.faces.begin(), scene.faces.end(), [owner](const SceneFace &face) {
+            std::any_of(owner_faces[owner].begin(), owner_faces[owner].end(), [&](size_t i) {
                 od_face_mode mode{};
                 uint32_t wrap = 0;
-                return face.owner == owner && textured_mode(face.type, mode, wrap);
+                return textured_mode(scene.faces[i].type, mode, wrap);
             });
-        if (!textured)
+        const bool lighting = textured && node.light_count;
+        const bool environment = (node.flags & 0x800) != 0;
+        if (!lighting && !environment)
             continue;
-        if (node.light_count > 8 || scene.source_vertices.size() != scene.vertices.size() ||
+        if (node.light_count > 8 ||
+            (lighting && scene.source_vertices.size() != scene.vertices.size()) ||
             scene.poses.size() != scene.nodes.size()) {
             error = "lit scene lacks exact vertices or valid light bindings";
             return false;
@@ -72,7 +186,7 @@ bool prepare_flat_lighting(const SceneSnapshot &scene, const float *vp, SceneLig
             }
         }
         std::array<od_local_light, 8> lights{};
-        for (uint32_t i = 0; i < node.light_count; ++i) {
+        for (uint32_t i = 0; lighting && i < node.light_count; ++i) {
             const auto index = node.light_indices[i];
             if (index >= scene.light_transform_count) {
                 error = "bound light lies beyond refreshed light prefix";
@@ -108,21 +222,27 @@ bool prepare_flat_lighting(const SceneSnapshot &scene, const float *vp, SceneLig
                 result.writes.push_back({0x672764u + uint32_t(index) * 0x94u + axis * 4,
                                          uint32_t(local.position[axis]), 4, 0x47b3d0});
         }
-        for (size_t i = 0; i < scene.faces.size(); ++i) {
+        std::vector<uint8_t> visible_faces(scene.faces.size());
+        std::vector<uint32_t> block_order;
+        std::unordered_map<uint32_t, std::vector<size_t>> blocks;
+        for (size_t i : owner_faces[owner]) {
             const auto &face = scene.faces[i];
             od_face_mode mode{};
             uint32_t wrap;
-            if (face.owner != owner || !textured_mode(face.type, mode, wrap))
+            if (!textured_mode(face.type, mode, wrap) &&
+                !(environment && environment_type(face.type)))
                 continue;
+            auto &block = blocks[face.block];
+            if (block.empty())
+                block_order.push_back(face.block);
+            block.push_back(i);
             float clip[12]{};
-            int32_t original[9];
             for (int corner = 0; corner < 3; ++corner) {
                 const auto &c = face.corners[corner];
                 if (c.node >= scene.poses.size() || c.vertex >= scene.vertices.size()) {
                     error = "invalid lighting corner";
                     return false;
                 }
-                std::copy_n(scene.source_vertices[c.vertex].data(), 3, original + corner * 3);
                 const float *m = world.data() + c.node * 12;
                 const float *v = scene.vertices[c.vertex].xyz;
                 float p[4] = {0, 0, 0, 1};
@@ -140,23 +260,132 @@ bool prepare_flat_lighting(const SceneSnapshot &scene, const float *vp, SceneLig
             }
             if (!visible)
                 continue; // Preserve the source byte, including culled list heads.
-            if (require_metadata && !face.normal_address) {
-                error = "lit face lacks captured normal address";
-                return false;
-            }
-            if (!od_flat_light_shade(original, face.normal.data(), face.plane_distance,
-                                     lights.data(), node.light_count, &result.shades[i])) {
-                error = "flat lighting failed";
-                return false;
-            }
-            for (uint32_t light = 0; light < node.light_count; ++light)
-                if (face.normal_address)
-                    result.writes.push_back(
-                        {face.normal_address + 12,
-                         uint32_t(od_light_normal_dot(face.normal.data(), &lights[light])), 4,
-                         0x47b7e0});
-            result.writes.push_back({face.address + 0x40, result.shades[i], 1, 0x47b7e0});
+            visible_faces[i] = 1;
         }
+        for (auto block : block_order) {
+            if (!lighting)
+                break;
+            const auto &indices = blocks[block];
+            const auto type = scene.faces[indices.front()].type;
+            od_face_mode shade_mode{};
+            uint32_t shade_wrap = 0;
+            if (!textured_mode(type, shade_mode, shade_wrap))
+                continue;
+            // Retail 0x18 uses flat shading; only 0x16/0x17 use this corner branch.
+            if (type == 0x16 || type == 0x17) {
+                for (auto i : indices)
+                    if (visible_faces[i]) {
+                        result.corner_shades[i].fill(0);
+                        for (unsigned c = 0; c < 3; ++c)
+                            result.writes.push_back(
+                                {scene.faces[i].address + 0x41 + c, 0, 1, 0x47b7e0});
+                    }
+                for (uint32_t light = 0; light < node.light_count; ++light) {
+                    // Refresh the whole owner pool, including unreferenced normals.
+                    // Corner pointers outside it retain their current scratch value.
+                    for (const auto &normal : node.vertex_normals) {
+                        const int32_t dot = od_light_normal_dot(normal.xyz.data(), &lights[light]);
+                        normal_dots[normal.address] = dot;
+                        result.writes.push_back({normal.address + 12, uint32_t(dot), 4, 0x47b7e0});
+                    }
+                    for (auto i : indices) {
+                        if (!visible_faces[i])
+                            continue;
+                        const auto &face = scene.faces[i];
+                        for (unsigned c = 0; c < 3; ++c) {
+                            const auto &normal = face.corner_normals[c];
+                            if (!normal.address) {
+                                error = "lit Gouraud lacks captured corner normals";
+                                return false;
+                            }
+                            const int32_t contribution = od_gouraud_light_contribution(
+                                scene.source_vertices[face.corners[c].vertex].data(),
+                                normal.xyz.data(), normal_dots.at(normal.address), &lights[light]);
+                            auto &shade = result.corner_shades[i][c];
+                            shade = uint8_t(uint32_t(shade) + uint32_t(contribution));
+                            result.writes.push_back({face.address + 0x41 + c, shade, 1, 0x47b7e0});
+                        }
+                    }
+                }
+                continue;
+            }
+            for (auto i : indices) {
+                if (!visible_faces[i])
+                    continue;
+                const auto &face = scene.faces[i];
+                if (require_metadata && !face.normal_address) {
+                    error = "lit face lacks captured normal address";
+                    return false;
+                }
+                int32_t original[9];
+                for (unsigned corner = 0; corner < 3; ++corner)
+                    std::copy_n(scene.source_vertices[face.corners[corner].vertex].data(), 3,
+                                original + corner * 3);
+                if (!od_flat_light_shade(original, face.normal.data(), face.plane_distance,
+                                         lights.data(), node.light_count, &result.shades[i])) {
+                    error = "flat lighting failed";
+                    return false;
+                }
+                for (uint32_t light = 0; light < node.light_count; ++light)
+                    if (face.normal_address) {
+                        const auto dot = od_light_normal_dot(face.normal.data(), &lights[light]);
+                        if (has_gouraud_lighting)
+                            normal_dots[face.normal_address] = dot;
+                        result.writes.push_back(
+                            {face.normal_address + 12, uint32_t(dot), 4, 0x47b7e0});
+                    }
+                result.writes.push_back({face.address + 0x40, result.shades[i], 1, 0x47b7e0});
+            }
+        }
+        if (environment) {
+            if (env_rotations.empty() && !compose_feedback_rotations(scene, env_rotations)) {
+                error = "invalid environment feedback hierarchy";
+                return false;
+            }
+            const int32_t parent = scene.poses[owner].parent;
+            if (parent < 0) {
+                error = "environment owner lacks its retail parent";
+                return false;
+            }
+            for (auto block : block_order)
+                for (auto i : blocks[block]) {
+                    const auto &face = scene.faces[i];
+                    if (!visible_faces[i] || !environment_type(face.type))
+                        continue;
+                    for (unsigned c = 0; c < 3; ++c) {
+                        if (!face.uv_addresses[c] || !face.corner_normals[c].address) {
+                            error = "environment face lacks UV or normal identity";
+                            return false;
+                        }
+                        auto &uv = uv_versions.at(face.uv_addresses[c]);
+                        if (!od_environment_uv(env_rotations.data() + size_t(parent) * 9,
+                                               face.corner_normals[c].xyz.data(), c, uv.data())) {
+                            error = "environment UV calculation failed";
+                            return false;
+                        }
+                        for (unsigned axis = 0; axis < 2; ++axis)
+                            result.writes.push_back(
+                                {face.uv_addresses[c] + axis * 4, uint32_t(uv[axis]), 4, 0x47e094});
+                    }
+                }
+        }
+    }
+    // The Glide hook queues translucent BLOCK pointers; their UVs are read by
+    // the deferred pass after every object's post-draw environment update.
+    for (size_t i = 0; has_environment && i < scene.faces.size(); ++i) {
+        od_face_mode mode{};
+        uint32_t wrap = 0;
+        if (!textured_mode(scene.faces[i].type, mode, wrap) || mode != OD_FACE_TRANSLUCENT)
+            continue;
+        for (unsigned c = 0; c < 3; ++c)
+            if (scene.faces[i].uv_addresses[c]) {
+                const auto found = uv_versions.find(scene.faces[i].uv_addresses[c]);
+                if (found == uv_versions.end())
+                    continue;
+                const auto &uv = found->second;
+                for (unsigned axis = 0; axis < 2; ++axis)
+                    result.corners[i][c].uv[axis] = float(uv[axis]) / (65536.0f * 256);
+            }
     }
     output = std::move(result);
     return true;
@@ -232,7 +461,7 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
     }
     std::vector<float> world;
     SceneLighting lighting;
-    if (!prepare_flat_lighting(scene, view_projection, lighting, error, lighting_writes != nullptr))
+    if (!prepare_scene_lighting(scene, view_projection, lighting, error, lighting_writes != nullptr))
         return false;
     std::vector<od_scene_triangle> opaque, deferred;
     std::unordered_map<uint32_t, std::vector<const SceneFace *>> blocks;
@@ -336,12 +565,22 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
             return false;
         for (const auto *face : faces) {
             od_scene_triangle triangle{};
-            std::copy(face->corners.begin(), face->corners.end(), triangle.corners);
+            const auto &corners = lighting.corners[size_t(face - scene.faces.data())];
+            std::copy(corners.begin(), corners.end(), triangle.corners);
             triangle.texture = gpu_texture;
             triangle.colour = 0xffffffff;
             triangle.mode = mode;
             triangle.wrap_texture = wrap;
             triangle.cull_back = 1;
+            if (face->type >= 0x16 && face->type <= 0x18) {
+                triangle.use_corner_brightness = 1;
+                for (size_t corner = 0; corner < 3; ++corner)
+                    triangle.corner_brightness[corner] = uint8_t(std::min(
+                        unsigned(
+                            lighting.corner_shades[size_t(face - scene.faces.data())][corner]) *
+                            8u,
+                        255u));
+            }
             (mode == OD_FACE_TRANSLUCENT ? deferred : opaque).push_back(triangle);
         }
     }
@@ -377,37 +616,95 @@ void SceneDraw::finish_frame(od_renderer *renderer) {
     }
     ++frame_;
 }
-bool SceneDraw::submit_shadow(od_renderer *renderer, const SceneSnapshot &scene,
-                              od_render_id target, std::string &error) {
-    std::vector<od_scene_triangle> triangles;
+bool prepare_shadow_input(const SceneSnapshot &scene, od_render_id target,
+                          ShadowInput &input, std::string &error) {
+    if(scene.source_vertices.size()!=scene.vertices.size() || scene.poses.size()!=scene.nodes.size()) {
+        error="shadow lacks original integer vertices";return false;
+    }
+    auto &nodes=input.nodes;auto &vertices=input.vertices;auto &triangles=input.triangles;
+    nodes.resize(scene.nodes.size());
+    vertices.resize(scene.vertices.size());
+    triangles.clear();
+    std::vector<uint8_t> mapped(vertices.size());
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        nodes[i].parent = scene.poses[i].parent;
+        std::copy(scene.nodes[i].source_rotation.begin(), scene.nodes[i].source_rotation.end(),
+                  nodes[i].rotation);
+        std::copy(scene.nodes[i].source_position.begin(), scene.nodes[i].source_position.end(),
+                  nodes[i].translation);
+        const uint64_t end = uint64_t(scene.nodes[i].first_vertex) + scene.nodes[i].vertex_count;
+        if (end > vertices.size()) {
+            error = "invalid shadow vertex range";
+            return false;
+        }
+        for (uint32_t j = scene.nodes[i].first_vertex; j < end; ++j) {
+            if (mapped[j]) {
+                error = "ambiguous shadow vertex owner";
+                return false;
+            }
+            mapped[j] = 1;
+            vertices[j].node = uint32_t(i);
+            std::copy(scene.source_vertices[j].begin(), scene.source_vertices[j].end(),
+                      vertices[j].xyz);
+        }
+    }
+    if (std::find(mapped.begin(), mapped.end(), 0) != mapped.end()) {
+        error = "unowned shadow source vertex";
+        return false;
+    }
     for (const auto &face : scene.faces) {
+        if (face.owner >= scene.nodes.size()) {
+            error = "invalid shadow face owner";
+            return false;
+        }
         if (!scene.nodes[face.owner].submitted)
             continue;
         if (face.type != 0x1b) {
             error = "shadow contains a non-mask material mode";
             return false;
         }
-        od_scene_triangle t{};
-        std::copy(face.corners.begin(), face.corners.end(), t.corners);
-        t.colour = 0xff010101;
-        t.cull_back = 1;
+        od_shadow_triangle t{};
+        for (unsigned c = 0; c < 3; ++c)
+            t.vertices[c] = face.corners[c].vertex;
+        t.owner = face.owner;
+        t.flags = face.flags;
+        t.plane = face.plane_distance;
+        std::copy(face.normal.begin(), face.normal.end(), t.normal);
+        t.retained_dot = face.source_normal_dot;
+        const auto &owner = scene.nodes[face.owner];
+        t.stale_normal =
+            face.normal_address < owner.face_normal_base ||
+            uint64_t(face.normal_address) >=
+                uint64_t(owner.face_normal_base) + uint64_t(owner.face_normal_count) * 16 ||
+            ((face.normal_address - owner.face_normal_base) & 15);
         triangles.push_back(t);
     }
-    od_scene_packet p{};
+    auto &p = input.packet;
+    p = {};
     p.target = target;
-    p.nodes = scene.poses.data();
-    p.node_count = scene.poses.size();
-    p.vertices = scene.vertices.data();
-    p.vertex_count = scene.vertices.size();
+    p.nodes = nodes.data();
+    p.node_count = nodes.size();
+    p.vertices = vertices.data();
+    p.vertex_count = vertices.size();
     p.triangles = triangles.data();
     p.triangle_count = triangles.size();
-    p.clear = 1;
-    p.clear_colour[3] = 1;
-    if (!scene.view_projection(128, 256, false, p.view_projection)) {
-        error = "invalid shadow camera";
+    std::copy(scene.camera.local_rotation.begin(), scene.camera.local_rotation.end(),
+              p.camera_rotation);
+    std::copy(scene.camera.eye.begin(), scene.camera.eye.end(), p.camera_eye);
+    p.focal[0] = scene.camera.focal_x;
+    p.focal[1] = scene.camera.focal_y;
+    p.center[0] = scene.camera.center_x;
+    p.center[1] = scene.camera.center_y;
+    p.near_plane = scene.camera.near_plane;
+    p.far_plane = scene.camera.far_plane;
+    return true;
+}
+bool SceneDraw::submit_shadow(od_renderer *renderer, const SceneSnapshot &scene,
+                              od_render_id target, std::string &error) {
+    ShadowInput input;
+    if (!prepare_shadow_input(scene, target, input, error))
         return false;
-    }
-    if (!od_renderer_scene(renderer, &p)) {
+    if (!od_renderer_shadow_mask(renderer, &input.packet)) {
         error = od_renderer_error(renderer);
         return false;
     }

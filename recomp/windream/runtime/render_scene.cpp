@@ -137,6 +137,19 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
     std::vector<Pending> pending{{root, 0, true}};
     std::unordered_map<uint32_t, uint32_t> node_indices;
     std::vector<uint32_t> face_blocks;
+    size_t normal_count = 0;
+    auto capture_normal = [&](uint32_t address, SceneNormal &normal) {
+        normal.address = address;
+        if (!address)
+            return true;
+        uint8_t record[16];
+        if (!read.bytes(address, record, sizeof record))
+            return false;
+        for (unsigned axis = 0; axis < 3; ++axis)
+            normal.xyz[axis] = signed_word(record + axis * 4);
+        normal.dot = signed_word(record + 12);
+        return true;
+    };
     while (!pending.empty()) {
         auto entry = pending.back();
         pending.pop_back();
@@ -179,6 +192,13 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
         SceneNode info{entry.address, flags & ~uint32_t(2 | 8 | 0x20 | 0x40),
                        uint32_t(result.vertices.size()), count,
                        entry.address != root && visible && !(flags & (4 | 0x1000))};
+        info.visual_active = entry.address != root && visible && !(flags & 4);
+        for (unsigned i = 0; i < 9; ++i)
+            info.source_rotation[i] = signed_word(node + 0x28 + i * 4);
+        for (unsigned i = 0; i < 3; ++i)
+            info.source_position[i] = signed_word(node + 0x1c + i * 4);
+        info.face_normal_count = word(node + 0x94);
+        info.face_normal_base = word(node + 0x98);
         info.light_count = word(node + 0xc4);
         if (info.light_count > 8)
             return fail(error, "invalid node light count");
@@ -186,9 +206,21 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
         for (uint32_t i = 0; i < info.light_count; ++i)
             if (info.light_indices[i] >= 100)
                 return fail(error, "invalid node light index");
-            else if (info.submitted)
+            else if (info.visual_active)
                 needed_lights[info.light_indices[i]] = true;
         info.shade = word(node + 0xd0);
+        const uint32_t normals = word(node + 0x8c), normal_base = word(node + 0x90);
+        if (normals > max_vertices - normal_count || (normals && !normal_base))
+            return fail(error, "invalid original vertex normal pool");
+        normal_count += normals;
+        info.vertex_normals.resize(normals);
+        for (uint32_t i = 0; i < normals; ++i) {
+            const uint64_t address = uint64_t(normal_base) + uint64_t(i) * 16;
+            if (address + 16 > 0x100000000ull)
+                return fail(error, "vertex normal range overflow");
+            if (!capture_normal(uint32_t(address), info.vertex_normals[i]))
+                return false;
+        }
         result.nodes.push_back(info);
         result.poses.push_back(pose);
         face_blocks.push_back(word(node + 0xa4));
@@ -256,6 +288,8 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
                 else
                     face.material_slot = word(b + 8);
                 face.shade = stride == 68 ? f[0x40] : 0;
+                if (stride == 68)
+                    std::copy_n(f + 0x41, 3, face.corner_shades.begin());
                 for (int corner = 0; corner < 3; ++corner) {
                     auto found = vertices.find(word(f + 8 + corner * 12));
                     if (found == vertices.end())
@@ -263,10 +297,15 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
                     auto &c = face.corners[corner];
                     c.node = found->second.first;
                     c.vertex = found->second.second;
+                    if ((type == 0x16 || type == 0x17 || (result.nodes[n].flags & 0x800)) &&
+                        !capture_normal(word(f + 0x0c + corner * 12), face.corner_normals[corner]))
+                        return false;
                     if (stride == 68) {
                         uint8_t uv[8];
-                        if (!read.bytes(word(f + 0x34 + corner * 4), uv, sizeof uv))
+                        face.uv_addresses[corner] = word(f + 0x34 + corner * 4);
+                        if (!read.bytes(face.uv_addresses[corner], uv, sizeof uv))
                             return false;
+                        face.source_uvs[corner] = {signed_word(uv), signed_word(uv + 4)};
                         c.uv[0] = float(signed_word(uv)) / (65536.0f * 256);
                         c.uv[1] = float(signed_word(uv + 4)) / (65536.0f * 256);
                     }
@@ -274,11 +313,12 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
                 const auto plane = word(f + 0x2c);
                 face.normal_address = plane;
                 if (plane) {
-                    uint8_t normal[12];
+                    uint8_t normal[16];
                     if (!read.bytes(plane, normal, sizeof normal))
                         return false;
                     for (int axis = 0; axis < 3; ++axis)
                         face.normal[axis] = signed_word(normal + axis * 4);
+                    face.source_normal_dot = signed_word(normal + 12);
                 }
                 result.cross_node_faces += face.corners[0].node != face.corners[1].node ||
                                            face.corners[0].node != face.corners[2].node;

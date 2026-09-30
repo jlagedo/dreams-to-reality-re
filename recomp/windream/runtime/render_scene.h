@@ -15,12 +15,22 @@ struct SceneReader {
     bool (*read)(void *, uint32_t address, void *destination, size_t bytes) = nullptr;
     od_render_id (*gpu_image)(void *, uint32_t address, uint64_t *version) = nullptr;
 };
+struct SceneNormal {
+    uint32_t address = 0;
+    std::array<int32_t, 3> xyz{};
+    int32_t dot = 0; // retained scratch when a corner lies outside the refreshed owner pool
+};
 struct SceneNode {
     // Old transformed/cull classification bits are removed from flags.
     uint32_t address = 0, flags = 0, first_vertex = 0, vertex_count = 0;
     bool submitted = false;
     uint32_t shade = 15, light_count = 0;
     std::array<uint8_t, 8> light_indices{};
+    std::vector<SceneNormal> vertex_normals; // node +0x8c/+0x90; refreshed per Gouraud block/light
+    bool visual_active = false; // hidden/flag-4 exclusion; hook-disabled nodes can still update UVs
+    std::array<int32_t, 9> source_rotation{32768, 0, 0, 0, 32768, 0, 0, 0, 32768};
+    std::array<int32_t, 3> source_position{};
+    uint32_t face_normal_base = 0, face_normal_count = 0;
 };
 struct SceneLight {
     uint32_t type = 0;
@@ -33,10 +43,15 @@ struct SceneFace {
     uint32_t address = 0, owner = 0, flags = 0, material_slot = 0, colour = 0;
     int32_t type = 0;
     uint8_t shade = 0;
+    std::array<uint8_t, 3> corner_shades{}; // face +0x41..+0x43, used by 0x16..0x18
+    std::array<SceneNormal, 3> corner_normals{}; // face +0x0c/+0x18/+0x24
+    std::array<uint32_t, 3> uv_addresses{};
+    std::array<std::array<int32_t, 2>, 3> source_uvs{};
     std::array<od_scene_corner, 3> corners{};
     std::array<int32_t, 3> normal{};
     uint32_t normal_address = 0;
     int32_t plane_distance = 0;
+    int32_t source_normal_dot = 0;
     uint32_t block = 0, material = UINT32_MAX;
 };
 struct SceneMaterial {

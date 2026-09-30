@@ -36,6 +36,8 @@ def main():
     env = dict(
         os.environ,
         WD_RENDERER="direct",
+        WD_MUTE="1",
+        WD_HEADLESS="1",
         WD_READ_ROOTS=read_roots(),
         WD_KEYS="2000:ESC,5000:RETURN,8000:ESC,20000:ESC,28000:ESC,30000:LEFT,32000:RETURN,34000:RETURN",
         WD_SNAP_MS="5000",

@@ -37,7 +37,7 @@ struct Stream {
     }
 };
 bool transfer(Stream &io, SceneSnapshot &s) {
-    uint32_t magic = s.source_vertices.size() == s.vertices.size() ? 0x36534457 : 0x33534457,
+    uint32_t magic = s.source_vertices.size() == s.vertices.size() ? 0x41534457 : 0x33534457,
              nodes = uint32_t(s.nodes.size()), vertices = uint32_t(s.vertices.size()),
              faces = uint32_t(s.faces.size());
     io.u32(magic);
@@ -46,7 +46,8 @@ bool transfer(Stream &io, SceneSnapshot &s) {
     io.u32(faces);
     if (!io.ok ||
         (magic != 0x31534457 && magic != 0x32534457 && magic != 0x33534457 && magic != 0x34534457 &&
-         magic != 0x35534457 && magic != 0x36534457) ||
+         magic != 0x35534457 && magic != 0x36534457 && magic != 0x37534457 && magic != 0x38534457 &&
+         magic != 0x39534457 && magic != 0x41534457) ||
         nodes > 10000 || vertices > 1000000 || faces > 1000000)
         return false;
     const bool materials_version = magic != 0x31534457;
@@ -221,6 +222,89 @@ bool transfer(Stream &io, SceneSnapshot &s) {
         if (s.light_transform_count > 100)
             return false;
     }
+    if (magic >= 0x37534457)
+        for (auto &face : s.faces)
+            for (auto &shade : face.corner_shades) {
+                uint32_t value = shade;
+                io.u32(value);
+                if (value > 255)
+                    return false;
+                shade = uint8_t(value);
+            }
+    if (!io.writing && magic < 0x37534457)
+        for (const auto &face : s.faces)
+            if (face.type >= 0x16 && face.type <= 0x18)
+                return false; // Old snapshots omitted the three source shade bytes.
+    if (magic >= 0x38534457) {
+        auto normal = [&](SceneNormal &n) {
+            io.u32(n.address);
+            for (auto &value : n.xyz)
+                io.i32(value);
+            io.i32(n.dot);
+        };
+        size_t total = 0;
+        for (auto &node : s.nodes) {
+            uint32_t count = uint32_t(node.vertex_normals.size());
+            io.u32(count);
+            if (!io.ok || count > 1000000 - total)
+                return false;
+            total += count;
+            if (!io.writing)
+                node.vertex_normals.resize(count);
+            for (auto &n : node.vertex_normals) {
+                normal(n);
+                if (!n.address || uint64_t(n.address) + 16 > 0x100000000ull)
+                    return false;
+            }
+        }
+        for (auto &face : s.faces)
+            for (auto &n : face.corner_normals) {
+                normal(n);
+                if (uint64_t(n.address) + 16 > 0x100000000ull)
+                    return false;
+            }
+    } else if (!io.writing)
+        for (const auto &face : s.faces)
+            if ((face.type == 0x16 || face.type == 0x17) && s.nodes[face.owner].light_count)
+                return false; // Lit Gouraud requires pool identity and retained corner dots.
+    if (magic >= 0x39534457) {
+        for (auto &node : s.nodes) {
+            uint32_t active = node.visual_active;
+            io.u32(active);
+            if (active > 1)
+                return false;
+            node.visual_active = active != 0;
+            for (auto &value : node.source_rotation)
+                io.i32(value);
+        }
+        for (auto &face : s.faces)
+            for (unsigned c = 0; c < 3; ++c) {
+                io.u32(face.uv_addresses[c]);
+                if (uint64_t(face.uv_addresses[c]) + 8 > 0x100000000ull)
+                    return false;
+                for (auto &value : face.source_uvs[c])
+                    io.i32(value);
+            }
+    } else if (!io.writing)
+        for (const auto &node : s.nodes)
+            if (node.flags & 0x800)
+                return false; // Environment mapping requires exact rotations and UV alias identity.
+    if (magic >= 0x41534457) {
+        for (auto &node : s.nodes) {
+            for (auto &value : node.source_position)
+                io.i32(value);
+            io.u32(node.face_normal_base);
+            io.u32(node.face_normal_count);
+            if (node.face_normal_count > 1000000 ||
+                uint64_t(node.face_normal_base) + uint64_t(node.face_normal_count) * 16 > 0x100000000ull)
+                return false;
+        }
+        for (auto &face : s.faces)
+            io.i32(face.source_normal_dot);
+    } else if (!io.writing)
+        for (const auto &face : s.faces)
+            if (face.type == 0x1b)
+                return false; // Exact mask projection requires the original integer translations.
     return io.ok;
 }
 } // namespace

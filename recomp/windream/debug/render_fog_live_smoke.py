@@ -43,6 +43,8 @@ def main():
     env = dict(
         os.environ,
         WD_RENDERER="direct",
+        WD_MUTE="1",
+        WD_HEADLESS="1",
         WD_READ_ROOTS=read_roots(),
         WD_FPS="25",
         WD_SCALE="1",
