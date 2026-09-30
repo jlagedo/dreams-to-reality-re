@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
-from watcom_debug import read_debug, read_le_bytes  # noqa: E402
+from watcom_debug import read_contributions, read_debug, read_le_bytes  # noqa: E402
 
 
 def executable():
@@ -69,3 +69,29 @@ def test_reject_symbol_name_crossing_table_boundary():
     data[-20] = 255  # Pascal length immediately before the five-byte symbol name.
     with pytest.raises(ValueError, match="global symbol"):
         read_debug(bytes(data))
+
+
+def with_contributions(second_size=20):
+    data = bytearray(executable())
+    block = struct.pack("<IHHIHIH", 0, 1, 2, 12, 0, second_size, 0xFFFF)
+    section = 0x244
+    size = struct.unpack_from("<I", data, section + 12)[0]
+    struct.pack_into("<I", data, section + 12, size + len(block))
+    header = bytearray(data[-14:])
+    size = struct.unpack_from("<I", header, 10)[0]
+    struct.pack_into("<I", header, 10, size + len(block))
+    return bytes(data[:-14] + block + header)
+
+
+def test_exact_object_contributions_include_padding():
+    rows = read_contributions(with_contributions())
+    assert [(r["start"], r["end"], r["module"]) for r in rows] == [
+        (0x10000, 0x1000C, "test.c"),
+        (0x1000C, 0x10020, "<padding>"),
+    ]
+    assert all(r["executable"] for r in rows)
+
+
+def test_contribution_cannot_leave_object():
+    with pytest.raises(ValueError, match="leaves its LE object"):
+        read_contributions(with_contributions(21))

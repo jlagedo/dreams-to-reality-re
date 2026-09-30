@@ -1,0 +1,4 @@
+# The complete 612-byte FaceInside_ body matches the retail 3DC_COLL.C contribution after relocation; 34 checked module anchors have one common address delta.
+address	action	length	note
+00054637	code	13	False decoding began at 00054638 (NOP) inside a MOV displacement. Actual MOV at 00054637 (6 bytes) and LEA at 0005463d (7 bytes) agree with retail 00463c47/00463c4d.
+000545f8	body		Rebuild FaceInside_ after reviewed alignment fix; expected 612 bytes through 0005485b, immediately before original InsideInside_ symbol.

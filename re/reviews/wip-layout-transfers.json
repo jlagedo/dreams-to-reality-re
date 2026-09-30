@@ -1,0 +1,1328 @@
+{
+  "source_sha256": "45d00510f993d321d2288b0791a96297893de9e5e0dc24d36246e41e144008ce",
+  "target_sha256": "1635f530e1ce64237b978073252bc2c583ead5e2436563ba3a42be4dc1b2c761",
+  "twin_sha256": "b2f053bd26627eb618f034481fbeb49c2287bec834351787385a69d74db05001",
+  "method": "Exact full bodies with original linker ownership, ordered verified brackets and operand/caller constraints; preincrement biases and corresponding shared code validated.",
+  "rows": [
+    {
+      "source_entry": 345592,
+      "entry": 4602888,
+      "name": "FaceInside_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_COLL.C",
+      "size": 612,
+      "instructions": 175,
+      "source_body_sha256": "7cf42204377ae57ca6da54204afba708d0b4a93b990f572131b6d4132a8d071c",
+      "target_body_sha256": "3e7ac0e5e631e470fd9a36193d42a1d0c3285d15e91651d0a8b9408b0fa74c79",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00463c08"
+    },
+    {
+      "source_entry": 355212,
+      "entry": 4546264,
+      "name": "Update_class_pointer_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_MEM.C",
+      "size": 108,
+      "instructions": 40,
+      "source_body_sha256": "deb1063eee545376e1d2e5571ca1df2c9df2c933cc0b7eac2571bc6e6e75a97c",
+      "target_body_sha256": "d966845a62c9148c076266ed9d4b6e4358520b76c64670aaf09668d4e0cfe2a6",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [
+        [
+          355168,
+          4546220,
+          "matched owner 00056afc/00455e48"
+        ]
+      ],
+      "current_name": "MDL_BindTreeMaterials"
+    },
+    {
+      "source_entry": 356088,
+      "entry": 4547140,
+      "name": "Dec_Map_counter_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_MEM.C",
+      "size": 290,
+      "instructions": 103,
+      "source_body_sha256": "cc87c4dfabf1d9dea03c82ed154733fc4cc1d9efd4605e8991bc0a0bb03b670d",
+      "target_body_sha256": "3a18b624c92cf1a9aa30d042d9ee436da2762f948766b10787f8d73027899a15",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [
+        [
+          356316,
+          [
+            "Link_Header_"
+          ]
+        ]
+      ],
+      "tails": [],
+      "current_name": "MDL_ReleaseMaterials"
+    },
+    {
+      "source_entry": 360916,
+      "entry": 4551860,
+      "name": "Env_Mapping_Obj_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_MEM.C",
+      "size": 28,
+      "instructions": 11,
+      "source_body_sha256": "0ebc594b49b44cf11b1a66e65be8e548c7ac46807a9f723bacdf8e2f976fca23",
+      "target_body_sha256": "cf3f4cc436371c75851a050a4f48489e8d311f25fd3a27fbf16c31d0362ff6bc",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [
+        [
+          360901,
+          4551845,
+          "matched owner 000581bc/0045749c"
+        ]
+      ],
+      "current_name": "FUN_004574b4"
+    },
+    {
+      "source_entry": 360944,
+      "entry": 4551888,
+      "name": "Miror_Obj_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_MEM.C",
+      "size": 28,
+      "instructions": 11,
+      "source_body_sha256": "ec1f132daf57a5014249730333022be13470f19a550c5f70f00c0bd1dbc3b742",
+      "target_body_sha256": "1f0480c117129cc399f2aa6d41a681f537c088e740bd455aef9ee2cb341188a1",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [
+        [
+          360901,
+          4551845,
+          "matched owner 000581bc/0045749c"
+        ]
+      ],
+      "current_name": "FUN_004574d0"
+    },
+    {
+      "source_entry": 390459,
+      "entry": 4611788,
+      "name": "copypart_",
+      "module": "splitpat",
+      "size": 54,
+      "instructions": 24,
+      "source_body_sha256": "66fb12b3e5f516fb36506d3786708ee3c01c75e81e04aac3ebae911ae767b65d",
+      "target_body_sha256": "fd983250068e1c1ac32064aefefc688a03ee3d3e79a4137581f0f2bfb8c01b30",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00465ecc"
+    },
+    {
+      "source_entry": 467030,
+      "entry": 4589761,
+      "name": "byteswap_",
+      "module": "qsort",
+      "size": 38,
+      "instructions": 22,
+      "source_body_sha256": "a4ff6395f59183110985f903e81c46b19322cb0e0774be1ab3f8ad7aa4b90349",
+      "target_body_sha256": "a4ff6395f59183110985f903e81c46b19322cb0e0774be1ab3f8ad7aa4b90349",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_004608c1"
+    },
+    {
+      "source_entry": 509872,
+      "entry": 4198416,
+      "name": "decompresser_adpcm_mono_",
+      "module": "e:\\winprog\\dreams5\\src\\adpcm\\dcadpcm.asm",
+      "size": 42,
+      "instructions": 19,
+      "source_body_sha256": "50f45e9294077d94e24af8e67e7825e7c5f8f6bca2a011fdabf1c514606a37e3",
+      "target_body_sha256": "50f45e9294077d94e24af8e67e7825e7c5f8f6bca2a011fdabf1c514606a37e3",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00401010"
+    },
+    {
+      "source_entry": 512750,
+      "entry": 4740992,
+      "name": "file_putc_",
+      "module": "fprtf",
+      "size": 17,
+      "instructions": 8,
+      "source_body_sha256": "13b301ad98dd4208e48a31a8601c05a4a4c225bb89f544a2463b678398d16f0c",
+      "target_body_sha256": "bdb68d502da513df3720cf462b1f31b7dff9abd187fbd0c831bc75d0e5d92fae",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00485780"
+    },
+    {
+      "source_entry": 540852,
+      "entry": 4822580,
+      "name": "cpu_reset_all_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_PROF.C",
+      "size": 54,
+      "instructions": 17,
+      "source_body_sha256": "2b06a9ee47abbfa746de297720ae7965522d3b61f26841544ea7d9a565ac8336",
+      "target_body_sha256": "3c596f1b5d169ab33dd532b1e0ff53818bdf7c555374077412b5d02d1816df74",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00499634"
+    },
+    {
+      "source_entry": 541536,
+      "entry": 4687872,
+      "name": "Build_Generic_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_LIST.C",
+      "size": 375,
+      "instructions": 105,
+      "source_body_sha256": "8248a86b133c4594b07384acde95118d5d326a1de3f095c053606bb7a5379a76",
+      "target_body_sha256": "d45ecbafad46935a69052c091eb3af5c4e936db61c8eba76b23365e9ab40e300",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "SW_CollectFaceTriangles"
+    },
+    {
+      "source_entry": 552172,
+      "entry": 4746880,
+      "name": "far_strlen_",
+      "module": "prtf",
+      "size": 36,
+      "instructions": 23,
+      "source_body_sha256": "9d8bc97444cfd457f1466e3ddcfe23318765644fb52885eaac30f33960efd1d5",
+      "target_body_sha256": "9d8bc97444cfd457f1466e3ddcfe23318765644fb52885eaac30f33960efd1d5",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00486e80"
+    },
+    {
+      "source_entry": 552243,
+      "entry": 4747021,
+      "name": "fmt4hex_",
+      "module": "prtf",
+      "size": 94,
+      "instructions": 48,
+      "source_body_sha256": "57e32f57c692be37a206ca79c0d1ea07c5887d612c8b36711689a6ea8d72488d",
+      "target_body_sha256": "fa0f5678677b5988725eb01335ae4023cea31469a3c51dffb76ddfc385876f91",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00486f0d"
+    },
+    {
+      "source_entry": 553846,
+      "entry": 4748932,
+      "name": "zupstr_",
+      "module": "prtf",
+      "size": 24,
+      "instructions": 12,
+      "source_body_sha256": "492ca590a52190ef82f62c5e4d7d977785f54e416145db91353bb33502b8830c",
+      "target_body_sha256": "3495a1dd06ec7bf2b5fedde5b5090bad58e268e3add4a28952b6cbdd7c0110b1",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00487684"
+    },
+    {
+      "source_entry": 559205,
+      "entry": 4743264,
+      "name": "__LinkUpNewMHeap_",
+      "module": "grownear",
+      "size": 116,
+      "instructions": 39,
+      "source_body_sha256": "15a1cc5691fa681853363e909a559985364e05f450150e82cee83b17b82e0114",
+      "target_body_sha256": "e726c4ec2dcb7a1bee253c4f66e12be801e10bf13a9fa20a5b33ccff88980f84",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00486060"
+    },
+    {
+      "source_entry": 642967,
+      "entry": 4761111,
+      "name": "get_time_",
+      "module": "cpu.asm",
+      "size": 24,
+      "instructions": 9,
+      "source_body_sha256": "e2d2b62873879590ca9d4dd959596b268643a3d38075fe1ea2fe65f8396cf90f",
+      "target_body_sha256": "a75985688a2e1b731a315eecb63baab3ff8800de9ca9e98b31e7743929f2c843",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0048a617"
+    },
+    {
+      "source_entry": 642991,
+      "entry": 4761135,
+      "name": "vbl_",
+      "module": "cpu.asm",
+      "size": 17,
+      "instructions": 10,
+      "source_body_sha256": "0ac0d4bac03556d613869feee04bd37f9580b1b88a34d428284c84ef2bd09e8f",
+      "target_body_sha256": "0ac0d4bac03556d613869feee04bd37f9580b1b88a34d428284c84ef2bd09e8f",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0048a62f"
+    },
+    {
+      "source_entry": 658544,
+      "entry": 4754260,
+      "name": "fdiv_main_routine",
+      "module": "chipd32",
+      "size": 279,
+      "instructions": 83,
+      "source_body_sha256": "d2e93876b0fad455ceddca8b677c61e3154956ca9e62e07d1bf4d1efd1e6c97f",
+      "target_body_sha256": "ed91fbf89cd75abe134f608d3bd661c31ed1b9ac9415d8d5a87fb9b5de9b6165",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00488b54"
+    },
+    {
+      "source_entry": 661130,
+      "entry": 4761162,
+      "name": "_Display_FL",
+      "module": "3D_FL.asm",
+      "size": 55,
+      "instructions": 25,
+      "source_body_sha256": "f54826c44c81c32d3af7aeb867b5931adea7200657ae0b00e01aba65510d9269",
+      "target_body_sha256": "f54826c44c81c32d3af7aeb867b5931adea7200657ae0b00e01aba65510d9269",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0048a64a"
+    },
+    {
+      "source_entry": 661200,
+      "entry": 4761232,
+      "name": "_Display_LN",
+      "module": "3D_LN.asm",
+      "size": 687,
+      "instructions": 162,
+      "source_body_sha256": "7ec72d63053a1b6fc80987a3dff2604153486d948ce59703b814a8468a77e6d0",
+      "target_body_sha256": "5382914126ff537157bff7c91047efdaba1a2a6088351c46f3edd00ec2909aed",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0048a690"
+    },
+    {
+      "source_entry": 666000,
+      "entry": 4766032,
+      "name": "_Display_EX_tilling",
+      "module": "3D_extil.asm",
+      "size": 3762,
+      "instructions": 937,
+      "source_body_sha256": "74b3a524926c2b6a9d95d82fa578bc501ad0e7092fd9771eed62e0b3cc86ca1f",
+      "target_body_sha256": "435cf54720a6ebc7c2d42cfaa9e6fb31ee7bb029399d60a4a12b452b4d7ee1f6",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0048b950"
+    },
+    {
+      "source_entry": 675168,
+      "entry": 4775200,
+      "name": "_Display_FL_T50",
+      "module": "3D_FLT50.asm",
+      "size": 122,
+      "instructions": 43,
+      "source_body_sha256": "169baad087e313181805e51d2b1c24916860f5eb3a9744a64122e5af81c6429b",
+      "target_body_sha256": "169baad087e313181805e51d2b1c24916860f5eb3a9744a64122e5af81c6429b",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0048dd20"
+    },
+    {
+      "source_entry": 675296,
+      "entry": 4775328,
+      "name": "_Display_LN_T50",
+      "module": "3D_lnt50.asm",
+      "size": 832,
+      "instructions": 202,
+      "source_body_sha256": "5fe633661daf08e761e7f240c474f4f3a5beadc53c113e69f1bf752aa1865b66",
+      "target_body_sha256": "0c0510d2219721b3efa254cae3d382f2249a28d3dbdcb167e2742fa79346c273",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0048dda0"
+    },
+    {
+      "source_entry": 676128,
+      "entry": 4776160,
+      "name": "_Display_EX_T50",
+      "module": "3D_EXT50.asm",
+      "size": 5870,
+      "instructions": 1585,
+      "source_body_sha256": "84673c7f0c9e766054a28b2dd6d494be2fc857b3276fb413636aad551da9750b",
+      "target_body_sha256": "7fae2982fd241c56271b2deeb4d6ffedada0a876b0148c6deef1f101a365a84d",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0048e0e0"
+    },
+    {
+      "source_entry": 682000,
+      "entry": 4782032,
+      "name": "_Display_EX_T50_tilling",
+      "module": "3D_ett50.asm",
+      "size": 5095,
+      "instructions": 1324,
+      "source_body_sha256": "3562823c244b1265b7bf5b547cfc5f61b5f599c3f06ed34d6186eafd73d965d9",
+      "target_body_sha256": "6135c665b3d62caa4195aa50e67e0259eebf620e4d7e42fb83df4270675ed9aa",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0048f7d0"
+    },
+    {
+      "source_entry": 687232,
+      "entry": 4787264,
+      "name": "_Display_LN_Tvar",
+      "module": "3D_lntvr.asm",
+      "size": 315,
+      "instructions": 86,
+      "source_body_sha256": "471a8f3c1b867f02b37bae1bdf7a0fca703e5fee92ed8a2ff14de761965674a8",
+      "target_body_sha256": "b521f8ae0c69cdd553871749242ff57177bd5a5645adc6627ec38ff964969744",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00490c40"
+    },
+    {
+      "source_entry": 687552,
+      "entry": 4787584,
+      "name": "_Display_EX_Tvar",
+      "module": "3D_extvr.asm",
+      "size": 5411,
+      "instructions": 1403,
+      "source_body_sha256": "622f6ce3716595661e0f796224740550de2226edd071a4977d8d0c41aa126d6c",
+      "target_body_sha256": "bc61ae98fa553bf1647ac189d1a77f8166f4ec91563b25fd77a6f011a26aec59",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00490d80"
+    },
+    {
+      "source_entry": 692976,
+      "entry": 4793008,
+      "name": "_Display_LN_Alpha",
+      "module": "3D_lnalf.asm",
+      "size": 337,
+      "instructions": 88,
+      "source_body_sha256": "c868e440f421548d1f2d69a833cd3744bfe1ec4dab37625d3311c3e61686765d",
+      "target_body_sha256": "b87d29d375af4aa99a5432cb3625c92a4d6d0126e54a4065c5c33591f9d2732b",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_004922b0"
+    },
+    {
+      "source_entry": 693328,
+      "entry": 4793360,
+      "name": "_Display_EX_Alpha",
+      "module": "3D_exalf.asm",
+      "size": 5604,
+      "instructions": 1410,
+      "source_body_sha256": "c33a87aa457925cc789728e35840445fc90af8f3588001776eae04c9e18b8259",
+      "target_body_sha256": "584b679ee9bf0df603556a7ca3b0c2b15c5a68c61d5a64cf6295925c743930f9",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00492410"
+    },
+    {
+      "source_entry": 698944,
+      "entry": 4798976,
+      "name": "_Display_BK_Clear",
+      "module": "3D_BK.asm",
+      "size": 49,
+      "instructions": 22,
+      "source_body_sha256": "be9d81ba3ee884e471c28487867139f6b822629f887ea17791d35eb8f2369fa1",
+      "target_body_sha256": "b6a448e9e4d03d3950e1dcf46592bef471fc5cffbba1d74ce1b41ad0f7d633e0",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00493a00"
+    },
+    {
+      "source_entry": 698995,
+      "entry": 4799027,
+      "name": "_Display_BK_Bitmap",
+      "module": "3D_BK.asm",
+      "size": 62,
+      "instructions": 25,
+      "source_body_sha256": "bd032f35b63817bd62f3b6da10d3588030c98da9eba3d72f67a345328a57467a",
+      "target_body_sha256": "d706c62cf41eb8e80d10f6e3fe0851a6c6d58e336bf1371f484a947effbb820d",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00493a33"
+    },
+    {
+      "source_entry": 699072,
+      "entry": 4799104,
+      "name": "_Display_FL8",
+      "module": "3D_fl8.asm",
+      "size": 21,
+      "instructions": 8,
+      "source_body_sha256": "0c2ddcbeb071a86572e700414fd87e927ea24a6c7f5d89389280270d8c71e8bd",
+      "target_body_sha256": "0c2ddcbeb071a86572e700414fd87e927ea24a6c7f5d89389280270d8c71e8bd",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00493a80"
+    },
+    {
+      "source_entry": 699104,
+      "entry": 4799136,
+      "name": "_Display_LN8",
+      "module": "3D_ln8.asm",
+      "size": 181,
+      "instructions": 53,
+      "source_body_sha256": "237e58659e215f40a37cdf003c6acc5b40cf2a43769750f7d36b0be9565fe7df",
+      "target_body_sha256": "9f35d24f100010f3b0e50a1f2706ef1d759d3a48ee817ea9c1790732e5bd47be",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00493aa0"
+    },
+    {
+      "source_entry": 699296,
+      "entry": 4799328,
+      "name": "_Display_EX8",
+      "module": "3D_ex8.asm",
+      "size": 1770,
+      "instructions": 526,
+      "source_body_sha256": "c68938d5b417d30ad4db27733c076f78de9a9d4082029c90ec05eb0852358a0d",
+      "target_body_sha256": "07dfed60cb1015e31e0e49ea4c8bd5991e3b68aec077d43bfc2f9e26e1d135e4",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00493b60"
+    },
+    {
+      "source_entry": 701088,
+      "entry": 4801120,
+      "name": "_Display_EX_mip",
+      "module": "3D_exmip.asm",
+      "size": 4550,
+      "instructions": 1139,
+      "source_body_sha256": "bad01731f85b2d08c93fe3d7eff8ca5ce2186aee89d67c99e3aa616b6c143fe7",
+      "target_body_sha256": "45bea17fc378141dc5f109a3670f733e4b08362c829f21c4a191ba8005d02652",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00494260"
+    },
+    {
+      "source_entry": 705648,
+      "entry": 4805680,
+      "name": "_Display_LN_mip",
+      "module": "3D_lnmip.asm",
+      "size": 741,
+      "instructions": 176,
+      "source_body_sha256": "093752fa14bdc8d542723f40353fdda800a079339ed701a34b83fb671192a169",
+      "target_body_sha256": "2ab20f8a038191987c449d58bd2e5119709e84d3c96d5388a3b20f2fa9bd9e7d",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00495430"
+    },
+    {
+      "source_entry": 706400,
+      "entry": 4806432,
+      "name": "_Display_FLZ",
+      "module": "3D_flz.asm",
+      "size": 185,
+      "instructions": 47,
+      "source_body_sha256": "bea11f401935ba6fc3747be4caebe07d2fd33767a4b9000b5b683a178c73d511",
+      "target_body_sha256": "914da9475e0406a32df79ed079c37e8df0c1e7d35ad5822410fba6f14646e24c",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00495720"
+    },
+    {
+      "source_entry": 706592,
+      "entry": 4806624,
+      "name": "_Display_LNZ",
+      "module": "3D_lnz.asm",
+      "size": 342,
+      "instructions": 91,
+      "source_body_sha256": "a658d60447176429e4768a3f552841b69f1a91666cfefe5e28baa8eabc1a1d3f",
+      "target_body_sha256": "a43e02a8bd9d4b0893ec52784032c358dc132464cd6061f53dd8962c4e5c85eb",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_004957e0"
+    },
+    {
+      "source_entry": 706944,
+      "entry": 4806976,
+      "name": "_Display_LNG",
+      "module": "3D_lng.asm",
+      "size": 280,
+      "instructions": 74,
+      "source_body_sha256": "9b8cdebd09fd75a3da75e855ed0cfed496e1fe1d3514ae4e6213bda558890278",
+      "target_body_sha256": "a6cc5b889566eaaf301f6f570552d4ce2d62a38747215c8d4c2ff22d41689e87",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00495940"
+    },
+    {
+      "source_entry": 707232,
+      "entry": 4807264,
+      "name": "_Display_LNZO",
+      "module": "3D_lnzo.asm",
+      "size": 346,
+      "instructions": 93,
+      "source_body_sha256": "c414a45ab6e290ebafa97375508d3fca11631cc9bdffc5c75626effa16a811d9",
+      "target_body_sha256": "d61cb46804c6a55ab16e005c376d6106c74ebf155531e139bd08eaafd09349bf",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00495a60"
+    },
+    {
+      "source_entry": 707584,
+      "entry": 4807616,
+      "name": "_Display_LNZT",
+      "module": "3D_lnzt.asm",
+      "size": 378,
+      "instructions": 98,
+      "source_body_sha256": "c43e8bf4745b9f7afdbd697876b3609e7ce2991037ee401e020f7c2f0c62c48c",
+      "target_body_sha256": "f34cf6afbf6f6b5ac662888d620fb3837c67a3a3d8e8dfa1cee066159344fca6",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00495bc0"
+    },
+    {
+      "source_entry": 707968,
+      "entry": 4808000,
+      "name": "_Display_LN_g_mip",
+      "module": "3D_lgmip.asm",
+      "size": 342,
+      "instructions": 90,
+      "source_body_sha256": "65cad7cbe7802eb9fec4edba863cc0c91de02ac62017ff0f32c6e0af95fb1360",
+      "target_body_sha256": "ce14305c514a6e735ebcc478c13fe73f69e2cc677c69e6bfd05cc20fa7b7f870",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00495d40"
+    },
+    {
+      "source_entry": 712432,
+      "entry": 4812464,
+      "name": "_Display_LN_T50_OP",
+      "module": "3D_lnot.asm",
+      "size": 226,
+      "instructions": 63,
+      "source_body_sha256": "7c6f2bdfac8506d27f68665f36ad62d9c2cc14a8a314397939dff7b75bc18c5e",
+      "target_body_sha256": "b22f103f2e94cd9730bbfc0e87d475a6539c935473160be780f7677621203a0b",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00496eb0"
+    },
+    {
+      "source_entry": 712672,
+      "entry": 4812704,
+      "name": "_Display_EX_16bit",
+      "module": "3D_ex16.asm",
+      "size": 1657,
+      "instructions": 444,
+      "source_body_sha256": "c1eab14638f54ee1a6df07534db5c784810b48a49d07f6f3df3b10b20f9a2626",
+      "target_body_sha256": "d4321b4fab2a10b7c71a65cd76123b7fadba7c52d7ee7f625b135f4b17baddd4",
+      "method": "unique full body",
+      "details": {},
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00496fa0"
+    },
+    {
+      "source_entry": 321520,
+      "entry": 4574400,
+      "name": "mallocC3D_CSPHERE_OVERLAP_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_COL2.C",
+      "size": 18,
+      "instructions": 4,
+      "source_body_sha256": "6cd6bd9fcff2c0a4672183cc46f7a806bed8137d43365ba6a4c12c590f7ccc8c",
+      "target_body_sha256": "e803f78474cdebbff51f1a7e0f013cd377f0b6c9003e49a4b76fe3b8967dac56",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [],
+        "known_operands": 2,
+        "matched_callers": [
+          4575500
+        ],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0045ccc0"
+    },
+    {
+      "source_entry": 321552,
+      "entry": 4574432,
+      "name": "mallocC3D_CSPHERE_COLLISION_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_COL2.C",
+      "size": 18,
+      "instructions": 4,
+      "source_body_sha256": "bafc94119fdb3049b69049b9511dfb390150d5710cf35d596b36717c487d40a9",
+      "target_body_sha256": "b47f46015827969dba1febd0d930eb68c7aa8664b9520f1385e776977e4506a1",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [],
+        "known_operands": 2,
+        "matched_callers": [
+          4575500
+        ],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0045cce0"
+    },
+    {
+      "source_entry": 331632,
+      "entry": 4584512,
+      "name": "End_Sphere_Collision_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_COL2.C",
+      "size": 13,
+      "instructions": 4,
+      "source_body_sha256": "582e9e6926882424c9f36ebca6cb1c6a595d3def2fb519818f2e3309930f1ffb",
+      "target_body_sha256": "1277f5e2e50345f3f5f0d8b52edd37572d8c3a5402bd7a98fe3e74a34a4bb74f",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            331216,
+            4584096
+          ],
+          [
+            332292,
+            4585016
+          ]
+        ],
+        "known_operands": 2,
+        "matched_callers": [],
+        "globally_unique": false
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0045f440"
+    },
+    {
+      "source_entry": 331888,
+      "entry": 4584748,
+      "name": "Set_Sphere_Flag_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_COL2.C",
+      "size": 11,
+      "instructions": 4,
+      "source_body_sha256": "eff71ff272ae840cc6beca32e418369651e5abc95bea72d5b0c0acffe787e1f0",
+      "target_body_sha256": "e2d2c7f389871cad78ed7c7ee3bb88130d87b9e171b410a2b5ceb8baec382efb",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            331216,
+            4584096
+          ],
+          [
+            332292,
+            4585016
+          ]
+        ],
+        "known_operands": 1,
+        "matched_callers": [],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0045f52c"
+    },
+    {
+      "source_entry": 335628,
+      "entry": 4592924,
+      "name": "Get_Nb_Box_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_COLL.C",
+      "size": 12,
+      "instructions": 3,
+      "source_body_sha256": "c70318a5ed4ddcea0d0a77a5df8c4e1cadc68a20ea819bb6d820e73ffef0af75",
+      "target_body_sha256": "581690a4e984c810589b7161836b60bf0bf279435b9da53ad5ec52c6a75860f7",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            335520,
+            4592816
+          ],
+          [
+            335640,
+            4592936
+          ]
+        ],
+        "known_operands": 1,
+        "matched_callers": [],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0046151c"
+    },
+    {
+      "source_entry": 346204,
+      "entry": 4603500,
+      "name": "InsideInside_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_COLL.C",
+      "size": 5,
+      "instructions": 2,
+      "source_body_sha256": "730b578f2df72ac77ab902955d7bbbdcd3c3278201893bd7e8df0257910d10e9",
+      "target_body_sha256": "730b578f2df72ac77ab902955d7bbbdcd3c3278201893bd7e8df0257910d10e9",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            345592,
+            4602888
+          ],
+          [
+            346292,
+            4603588
+          ]
+        ],
+        "known_operands": 0,
+        "matched_callers": [],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00463e6c"
+    },
+    {
+      "source_entry": 352020,
+      "entry": 4543060,
+      "name": "Get_Free_Memory_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_MEM.C",
+      "size": 6,
+      "instructions": 2,
+      "source_body_sha256": "850aca6a4bb7daa429d595424ad1d46bc573149bf6a145182bb41e61a86d2d9e",
+      "target_body_sha256": "9c99d53dc705073aae98bafc5058a92cb15e88a523455f1eb0bcbd05f8c6db71",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            351960,
+            4543000
+          ],
+          [
+            352028,
+            4543068
+          ]
+        ],
+        "known_operands": 1,
+        "matched_callers": [],
+        "globally_unique": false
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00455254"
+    },
+    {
+      "source_entry": 352052,
+      "entry": 4543092,
+      "name": "debut_obj_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_MEM.C",
+      "size": 4,
+      "instructions": 2,
+      "source_body_sha256": "0c8ac313e7ca7a0625cd5bf5acef15732353176c9b3fb5902b78bb07726b6cd5",
+      "target_body_sha256": "0c8ac313e7ca7a0625cd5bf5acef15732353176c9b3fb5902b78bb07726b6cd5",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            352028,
+            4543068
+          ],
+          [
+            352072,
+            4543112
+          ]
+        ],
+        "known_operands": 0,
+        "matched_callers": [],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00455274"
+    },
+    {
+      "source_entry": 358224,
+      "entry": 4549192,
+      "name": "Set_Aspect_Ratio_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_MEM.C",
+      "size": 14,
+      "instructions": 4,
+      "source_body_sha256": "a446a2da6870319da6496782d9886e53aef21f1703438d81c26d1b6c6ea113f6",
+      "target_body_sha256": "5d254bf104c6060fe2a3bff3789bf00413534ea7f56c4fb6124b1f428711f11b",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            358100,
+            4549068
+          ],
+          [
+            358240,
+            4549208
+          ]
+        ],
+        "known_operands": 1,
+        "matched_callers": [
+          4744788
+        ],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00456a48"
+    },
+    {
+      "source_entry": 364800,
+      "entry": 4555732,
+      "name": "Set_BackGrd_Bmp_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_MEM.C",
+      "size": 6,
+      "instructions": 2,
+      "source_body_sha256": "e6eb51b65cdda966822665186584a87b6362f0efcacfd928f581de3c5edbc4f8",
+      "target_body_sha256": "bbca560e9e02c851fc84977f32a889cd6373a752fcf565951ce8cadd89e9dd8c",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            364780,
+            4555712
+          ],
+          [
+            368512,
+            4559612
+          ]
+        ],
+        "known_operands": 1,
+        "matched_callers": [],
+        "globally_unique": false
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_004583d4"
+    },
+    {
+      "source_entry": 377392,
+      "entry": 4560896,
+      "name": "Get_Nb_Frames_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_ANIM.C",
+      "size": 8,
+      "instructions": 3,
+      "source_body_sha256": "8b479c5b1485fa770543e59717ff38b6f50a569bd3d508fac6d1b297e3813adc",
+      "target_body_sha256": "50a05f1438e8c4b426cc21c9da5433d2d5401912b92dced622fa6c96ebba38b6",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [],
+        "known_operands": 1,
+        "matched_callers": [],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00459800"
+    },
+    {
+      "source_entry": 380840,
+      "entry": 4564336,
+      "name": "Anim_Rot5_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_ANIM.C",
+      "size": 952,
+      "instructions": 315,
+      "source_body_sha256": "2072ccb78221d44107456d09736ab198a3b24a30fd5243f32379227d3e4a6292",
+      "target_body_sha256": "bf02f2c244d8e54c8e507a2dbafcad2483796a9f6e76015f38b759717efadfb8",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            380324,
+            4563820
+          ],
+          [
+            381792,
+            4565288
+          ]
+        ],
+        "known_operands": 8,
+        "matched_callers": [],
+        "globally_unique": false
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0045a570"
+    },
+    {
+      "source_entry": 463360,
+      "entry": 4682824,
+      "name": "Change_BackGrd_Mode_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_SL.C",
+      "size": 16,
+      "instructions": 6,
+      "source_body_sha256": "f8ee83f20409d9f09b220efbb9c6a790d00a9a7401f2e3d537d96cfca01b591d",
+      "target_body_sha256": "5f29960219454c485f5e0e7c6a441cc783fa52c8de832a54b6cd8eb3d32b08cc",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            463080,
+            4682544
+          ],
+          [
+            463376,
+            4682840
+          ]
+        ],
+        "known_operands": 2,
+        "matched_callers": [],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00477448"
+    },
+    {
+      "source_entry": 540812,
+      "entry": 4822540,
+      "name": "cpu_bank_color_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_PROF.C",
+      "size": 11,
+      "instructions": 3,
+      "source_body_sha256": "46de4f17d05cbe0d074091b4402a60b3c666d91c75b0da84faacf0b01c826a8c",
+      "target_body_sha256": "64178028e341493a58b16a8c45c33fb09ea5aa1159dae8fb7b6423c952509538",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            540772,
+            4822500
+          ],
+          [
+            540852,
+            4822580
+          ]
+        ],
+        "known_operands": 1,
+        "matched_callers": [],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0049960c"
+    },
+    {
+      "source_entry": 540824,
+      "entry": 4822552,
+      "name": "cpu_current_bank_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_PROF.C",
+      "size": 6,
+      "instructions": 2,
+      "source_body_sha256": "f6d548d9c4d4919a427d6f847a40ffca39f5cf4b50238564643f51070eef8ea6",
+      "target_body_sha256": "61e9f73fd1a83368201e5f8c88506330aab21ee0af72f80cc8d47e279ee3d400",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            540772,
+            4822500
+          ],
+          [
+            540852,
+            4822580
+          ]
+        ],
+        "known_operands": 1,
+        "matched_callers": [],
+        "globally_unique": false
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00499618"
+    },
+    {
+      "source_entry": 540832,
+      "entry": 4822560,
+      "name": "cpu_init_lib_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_PROF.C",
+      "size": 18,
+      "instructions": 4,
+      "source_body_sha256": "99ab585c2d904de92ed11fa2e50e6d9a38290422646fc9cfc54558441a854110",
+      "target_body_sha256": "0769dd269a352dec8da97a8bcbb2b48f91bf5a667034f284fb4cedf4ab5c82c6",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            540772,
+            4822500
+          ],
+          [
+            540852,
+            4822580
+          ]
+        ],
+        "known_operands": 2,
+        "matched_callers": [],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00499620"
+    },
+    {
+      "source_entry": 554793,
+      "entry": 4713245,
+      "name": "_fpreset_",
+      "module": "chk8087",
+      "size": 10,
+      "instructions": 3,
+      "source_body_sha256": "8b67dd02519131940c2d3f6405b372aaa975dd9dd89b2090e437ca4410189883",
+      "target_body_sha256": "b15a670d402744f11981fc1d29cc40e5d485d17376118ff232c79c0f5ad5484b",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [],
+        "known_operands": 2,
+        "matched_callers": [],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0047eb1d"
+    },
+    {
+      "source_entry": 556743,
+      "entry": 4740167,
+      "name": "__set_ERANGE_",
+      "module": "seterrno",
+      "size": 7,
+      "instructions": 2,
+      "source_body_sha256": "dbbbcb8f3a2fe597177198364021b00a9ea25d1935fd9e63eb7fa0fa5b69f99d",
+      "target_body_sha256": "ece2dda4d5b6645ee21e72ecd541a007c03c08046cf363c530f9a7d80b2d7725",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [],
+        "known_operands": 0,
+        "matched_callers": [
+          4818574
+        ],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00485447"
+    },
+    {
+      "source_entry": 557344,
+      "entry": 4744752,
+      "name": "set_nbbit_of_mask_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_Z.C",
+      "size": 25,
+      "instructions": 6,
+      "source_body_sha256": "b33cf74b87dec3cd067f5bc21eb227e029d1e32c1e23be9baff011f40f1c3027",
+      "target_body_sha256": "c291275e8344b1cbd66a8724ad9b11c6192770e3d008cc499567df5507483f74",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [],
+        "known_operands": 2,
+        "matched_callers": [],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00486630"
+    },
+    {
+      "source_entry": 660003,
+      "entry": 4755719,
+      "name": "__fdivp_sti_st",
+      "module": "chipd32",
+      "size": 19,
+      "instructions": 6,
+      "source_body_sha256": "e19573601ff05787a7fa64f112be73d76b09847092c50f01b512308ff6b770e7",
+      "target_body_sha256": "e19573601ff05787a7fa64f112be73d76b09847092c50f01b512308ff6b770e7",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            658544,
+            4754260
+          ],
+          [
+            660060,
+            4755776
+          ]
+        ],
+        "known_operands": 1,
+        "matched_callers": [
+          4755776,
+          4755852
+        ],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00489107"
+    },
+    {
+      "source_entry": 701072,
+      "entry": 4801104,
+      "name": "_Display_BK8",
+      "module": "3D_bk8.asm",
+      "size": 8,
+      "instructions": 3,
+      "source_body_sha256": "650c96d06ff3460f4e3010d22832d174fb6589d0c4a5fdf6f74171eb6cd64aaf",
+      "target_body_sha256": "4df69d163f195f9e0543ce4e57e28eedb525d8c50f668907a25de6850f8b5eeb",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [],
+        "known_operands": 1,
+        "matched_callers": [],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00494250"
+    },
+    {
+      "source_entry": 731544,
+      "entry": 4758984,
+      "name": "__math1err_",
+      "module": "math2err",
+      "size": 10,
+      "instructions": 5,
+      "source_body_sha256": "815063bd45b6f349f928526849efe0798b6d6e54343b3171b0777c3a8ac4970b",
+      "target_body_sha256": "815063bd45b6f349f928526849efe0798b6d6e54343b3171b0777c3a8ac4970b",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [],
+        "known_operands": 1,
+        "matched_callers": [],
+        "globally_unique": true
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_00489dc8"
+    },
+    {
+      "source_entry": 352392,
+      "entry": 4543432,
+      "name": "Get_Morph_Anim_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_MEM.C",
+      "size": 45,
+      "instructions": 21,
+      "source_body_sha256": "e588792a1f5f0caf7ba0f6811c93c47b56c2b6e75e4a731cd8c2b1a2b3bdeeaa",
+      "target_body_sha256": "e588792a1f5f0caf7ba0f6811c93c47b56c2b6e75e4a731cd8c2b1a2b3bdeeaa",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            352364,
+            4543404
+          ],
+          [
+            352440,
+            4543480
+          ]
+        ],
+        "known_operands": 1,
+        "matched_callers": [],
+        "globally_unique": false
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_004553c8"
+    },
+    {
+      "source_entry": 557372,
+      "entry": 4744780,
+      "name": "set_ZB_ptr_",
+      "module": "C:\\SOURCES\\BEN11\\3DC_Z.C",
+      "size": 6,
+      "instructions": 2,
+      "source_body_sha256": "a91063af257742befbf4dae06e3719a37f5995bd3bc71f5fb96fafcbeec43dd4",
+      "target_body_sha256": "546e21b276ff5ef2a859ee3275f1675c035cf2e03f7caf8c44e876b3d28c0b51",
+      "method": "layout and operand constrained",
+      "details": {
+        "brackets": [
+          [
+            557344,
+            4744752
+          ],
+          [
+            557380,
+            4744788
+          ]
+        ],
+        "known_operands": 1,
+        "matched_callers": [],
+        "globally_unique": false
+      },
+      "shared_returns": [],
+      "tails": [],
+      "current_name": "FUN_0048664c"
+    }
+  ]
+}

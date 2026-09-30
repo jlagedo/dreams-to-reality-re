@@ -9,6 +9,9 @@
  *                             switch table, pointer-only callbacks, helpers)
  *   body      <addr>          recompute the body of the function at addr from
  *                             its flow (code it jumps to but does not own)
+ *   code      <addr> <len>    clear a reviewed misaligned instruction range,
+ *                             then disassemble from the proven boundary;
+ *                             refuses to erase any function entry in the range
  *   data      <addr> <len>    clear instructions over [addr, addr+len): data
  *                             that analysis decoded as code
  *   guid      <addr> <len>    the same, then type the range as GUIDs so that
@@ -25,7 +28,7 @@
  *                             report can be read against it
  *
  * Columns: address, action, length, note. Lines starting with # are comments.
- * `function` rows run first, then `data` and `guid`, then `table`, then
+ * `function` rows run first, then `data` and `guid`, then `code`, `table`, then
  * `body`, so a rebuilt body can stop at a newly created entry.
  *
  * New functions can hold Watcom switch dispatches whose tables nothing has
@@ -123,6 +126,22 @@ public class ApplyBoundaries extends GhidraScript {
             }
             cleared++;
             println((guid ? "guid " : "data ") + a + "-" + end + " cleared");
+        }
+        for (String[] r : rows) {
+            if (!r[1].equals("code")) continue;
+            Address a = toAddr(r[0]);
+            long length = Long.parseLong(r[2]);
+            if (length < 1) throw new IllegalArgumentException("Empty code repair");
+            Address end = a.add(length - 1);
+            for (Function f : currentProgram.getFunctionManager()
+                    .getFunctions(new AddressSet(a, end), true)) {
+                throw new IllegalArgumentException("Code repair would erase entry " + f.getEntryPoint());
+            }
+            currentProgram.getListing().clearCodeUnits(a, end, false);
+            if (!new DisassembleCommand(a, null, true).applyTo(currentProgram, monitor)) {
+                throw new IllegalStateException("Failed to disassemble reviewed code at " + a);
+            }
+            println("code " + a + "-" + end + " realigned");
         }
         for (String[] r : rows) {
             if (!r[1].equals("table")) {

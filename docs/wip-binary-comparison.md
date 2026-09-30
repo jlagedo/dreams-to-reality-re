@@ -1,5 +1,7 @@
 # July 1997 demo: binary comparison and Ghidra improvements
 
+Further Windows transfer: [148 new names and 79 original-name annotations](wip-windows-transfers.md) now pass the stricter loaded-body and address checks.
+
 Follow-up: [editor and type-table exploration](wip-editor-discovery.md) imports all
 four builds, decodes the retained types and applies further checked DOS names.
 
@@ -66,7 +68,7 @@ fixups are excluded from candidate bodies.
 
 ### What the names add
 
-Examples of normalized body matches, **not yet applied as renames**:
+Initial normalized body matches (names shown before the [Windows follow-up](wip-windows-transfers.md)):
 
 | Retail Windows address | Existing name | Demo's original spelling | Source module |
 |---|---|---|---|

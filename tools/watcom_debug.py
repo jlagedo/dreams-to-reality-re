@@ -119,6 +119,57 @@ def read_debug(data: bytes) -> tuple[list[dict], list[dict]]:
     return modules, symbols
 
 
+def read_contributions(data: bytes) -> list[dict]:
+    """Exact linked object contributions from Watcom's address-info sections.
+
+    Each segment group supplies a base and a run of (byte size, module index)
+    records. The next contribution begins exactly where the previous one ends;
+    these are linker records, not inferred intervals between function symbols.
+    """
+    modules, _ = read_debug(data)
+    _, objects = le_objects(data)
+    owners = {(m["section"], m["index"]): m["name"] for m in modules}
+    header = struct.unpack_from("<H4BHHI", data, len(data) - 14)
+    section = len(data) - header[-1] + header[5] + header[6]
+    output = []
+    while section < len(data) - 14:
+        _, _, address_offset, size, section_id = struct.unpack_from("<4IH", data, section)
+        pos, end = section + address_offset, section + size
+        while pos < end:
+            if pos + 8 > end:
+                raise ValueError("truncated address-info group")
+            offset, segment, count = struct.unpack_from("<IHH", data, pos)
+            pos += 8
+            if not 1 <= segment <= len(objects):
+                raise ValueError("address-info references an unknown object")
+            obj_size, base, flags, _, _, _ = objects[segment - 1]
+            for _ in range(count & 0x7FFF):
+                if pos + 6 > end:
+                    raise ValueError("truncated address-info contribution")
+                length, module = struct.unpack_from("<IH", data, pos)
+                pos += 6
+                if offset + length > obj_size:
+                    raise ValueError("contribution leaves its LE object")
+                if module != 0xFFFF and (section_id, module) not in owners:
+                    raise ValueError("contribution references an unknown module")
+                output.append(
+                    {
+                        "section": section_id,
+                        "segment": segment,
+                        "start": base + offset,
+                        "end": base + offset + length,
+                        "size": length,
+                        "module_index": module,
+                        "module": owners.get((section_id, module), "<padding>"),
+                        "executable": bool(flags & 4),
+                        "data_flag": bool(count & 0x8000),
+                    }
+                )
+                offset += length
+        section += size
+    return output
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path)

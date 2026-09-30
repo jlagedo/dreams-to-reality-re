@@ -28,6 +28,8 @@ docs do.
 | [edition-comparison.md](edition-comparison.md) | **Four retail editions**: project-bank revisions, shared visuals versus dubbed movie audio, extra voice/font assets and isolated byte anomalies |
 | [binary-edition-comparison.md](binary-edition-comparison.md) | **Game executable differences across editions**: PE/LE sizes and layouts, imports, function matching and decompilation implications |
 | [wip-editor-discovery.md](wip-editor-discovery.md) | **July demo editor discovery**: separate Ghidra project, 5,147 original function names, the 351-node editor, native mouse input, active EDITOR.DAT, recovered type layouts and 35 more retail names |
+| [wip-layout-compiler.md](wip-layout-compiler.md) | **Linker layout and compiler-aware naming**: 88 more Windows names, exact module contributions, shared tails, biased arrays, two-profile compiler reproduction and candidate-hidden reviews |
+| [wip-windows-transfers.md](wip-windows-transfers.md) | **Further Windows names from the demo**: 148 new original names, 79 original-name annotations, loaded-body hashes, relocation/address consistency checks and held cases |
 | [wip-binary-comparison.md](wip-binary-comparison.md) | **July 1997 demo vs retail**: embedded Watcom symbols, 1,151 Windows body matches, six verified original names applied to both Windows builds, and surviving engine type tables |
 | [cryolib.md](cryolib.md) | `CRYO.DLL` = CryoLib: 165 exports incl. a working **HNM6 decoder** |
 | [game-content.md](game-content.md) | 150 levels, 30 inventory items, save system, from `DREAMS.INI` |
