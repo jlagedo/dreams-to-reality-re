@@ -60,10 +60,10 @@ void imp_CloseHandle(void) { uint32_t gh = ARG(0); int ok = h_index(gh) >= 0; ha
 static void init_thread_state(uint32_t tib, uint32_t stack, uint32_t size) {
     g_fpu_cw = 0x027F; g_fp_top = 0;
     g_fs_base = tib;
-    MEM32(tib + 0x00) = 0xFFFFFFFFu;     /* SEH chain end    */
-    MEM32(tib + 0x04) = stack + size;    /* stack base (top) */
-    MEM32(tib + 0x08) = stack;           /* stack limit      */
-    MEM32(tib + 0x18) = tib;             /* self             */
+    WD_HOST_WRITE32(tib + 0x00) = 0xFFFFFFFFu;     /* SEH chain end    */
+    WD_HOST_WRITE32(tib + 0x04) = stack + size;    /* stack base (top) */
+    WD_HOST_WRITE32(tib + 0x08) = stack;           /* stack limit      */
+    WD_HOST_WRITE32(tib + 0x18) = tib;             /* self             */
     g_esp = stack + size - 64;
 }
 
@@ -93,7 +93,7 @@ void imp_CreateThread(void) {  /* (attr, stackSize, start, param, flags, pTid) *
     unsigned tid = 0;
     g_h[i].h = (HANDLE)_beginthreadex(NULL, 0, thread_main, (void*)(intptr_t)i,
                                       (ARG(4) & CREATE_SUSPENDED) ? CREATE_SUSPENDED : 0, &tid);
-    if (ARG(5)) MEM32(ARG(5)) = tid;
+    if (ARG(5)) WD_HOST_WRITE32(ARG(5)) = tid;
     RET(gh); STDRET(6);
 }
 void imp_ExitThread(void) { _endthreadex(ARG(0)); }

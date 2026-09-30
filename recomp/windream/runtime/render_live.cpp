@@ -2,6 +2,9 @@
 #include "render_boundary.h"
 #include "render_scene_draw.h"
 #include "render_ui.h"
+#include "render_metrics.h"
+#include "render_movie.h"
+#include "render_surface_scope.h"
 #include "render/direct_sokol.h"
 #include "platform/graphics_backend.h"
 #include "port/fog.h"
@@ -10,10 +13,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
 namespace {
+using wd::SurfaceScope;
 // No guest execution occurs inside these snapshots. Cache VirtualQuery's
 // committed ranges only for this read scope; never across guest allocations.
 struct ReadScope {
@@ -30,6 +35,18 @@ struct Surface {
     bool shadow = false;
     uint64_t version = 0;
 };
+struct MetricScope {
+    uint64_t token;
+    explicit MetricScope(wd_render_metric_category category) : token(wd_render_metrics_begin(category)) {}
+    void finish() { wd_render_metrics_end(token); token = 0; }
+    ~MetricScope() { finish(); }
+};
+struct CallbackFrame {
+    uint32_t root, destination, caller;
+    int main_frame;
+    wd::SceneSnapshot scene;
+    wd::SceneLighting lighting;
+};
 struct Live {
     SDL_Window *window = nullptr;
     od::GraphicsBackend backend;
@@ -40,10 +57,18 @@ struct Live {
     uint64_t fog_updates = 0;
     std::map<uint32_t, Surface> surfaces;
     std::vector<std::vector<uint32_t>> caption_surfaces;
+    std::vector<CallbackFrame> callback_frames;
+    std::set<int32_t> observed_face_types;
+    bool observed_lighting = false, observed_environment = false;
+    unsigned surface_depth = 0; // renderer thread only, not a guest-worker lock
     uint64_t allocation = 1, frames = 0, scenes = 0, ui_draws = 0, uploads = 0, copies = 0;
     uint64_t shadows = 0;
+    uint64_t lines = 0;
+    uint64_t hnm5_frames = 0;
     uint64_t export_reads = 0, export_bytes = 0;
+    uint64_t capture_reads = 0, capture_bytes = 0;
     int drawable_w = 640, drawable_h = 480;
+    int present_w = 0, present_h = 0;
     bool pending_present = false, captured_scene = false;
 } state;
 [[noreturn]] void fatal(const std::string &message) {
@@ -66,7 +91,23 @@ uint32_t word(uint32_t address) {
     return value;
 }
 void put(uint32_t address, uint32_t value) { wd_render_write_arena(address, &value, 4); }
+void retire_invalid_surfaces() {
+    // VM decommit may originate on a guest worker thread. It only invalidates
+    // registry IDs; release GPU objects here on the renderer's owning thread.
+    for (auto it = state.surfaces.begin(); it != state.surfaces.end();) {
+        wd_surface_desc descriptor{};
+        if (wd_surface_describe(it->second.registry, &descriptor)) {
+            ++it;
+            continue;
+        }
+        od_renderer_release(state.renderer, it->second.target);
+        std::fprintf(stderr, "[direct] retired decommitted surface=%08x generation=%llu\n",
+                     it->first, (unsigned long long)it->second.registry);
+        it = state.surfaces.erase(it);
+    }
+}
 Surface *find(uint32_t address, uint64_t bytes = 1) {
+    require(state.surface_depth != 0, "GPU surface lookup outside renderer operation");
     auto it = state.surfaces.upper_bound(address);
     if (it == state.surfaces.begin())
         return nullptr;
@@ -110,12 +151,14 @@ Surface &shadow_surface(uint32_t base) {
     return state.surfaces.emplace(base, surface).first->second;
 }
 void draw_shadow(const wd::SceneSnapshot &scene, Surface &surface) {
+    MetricScope metric(WD_METRIC_SCENE);
     std::string error;
     require(wd::SceneDraw::submit_shadow(state.renderer, scene, surface.target, error), error);
     ++surface.version;
     ++state.shadows;
 }
 void draw(od_draw_2d command) {
+    MetricScope metric(command.kind == OD_DRAW_COPY || command.kind == OD_DRAW_DIM ? WD_METRIC_COPY : WD_METRIC_UI);
     require(od_renderer_draw_2d(state.renderer, &command) != 0, od_renderer_error(state.renderer));
 }
 void resize(Surface &surface) {
@@ -148,6 +191,7 @@ void upload(Surface &surface, od_rect rect, const std::vector<uint32_t> &pixels,
             const std::vector<uint32_t> &lookup = {}) {
     if (rect.width <= 0 || rect.height <= 0)
         return;
+    MetricScope metric(WD_METRIC_UPLOAD);
     auto texture = od_renderer_upload_packed(state.renderer, rect.width, rect.height, pixels.data(),
                                              size_t(rect.width) * 4);
     require(texture != 0, od_renderer_error(state.renderer));
@@ -224,6 +268,8 @@ int wd_render_open(SDL_Window *window) {
     desc.buffer_pool_size = 512;
     desc.uniform_buffer_size = 32 * 1024 * 1024;
     sg_setup(&desc);
+    wd_render_metrics_initialize(const_cast<void *>(desc.environment.d3d11.device),
+                                  const_cast<void *>(desc.environment.d3d11.device_context));
     state.renderer = od_renderer_create();
     require(state.renderer != nullptr, "cannot create direct renderer");
     SDL_GetWindowSizeInPixels(window, &state.drawable_w, &state.drawable_h);
@@ -232,18 +278,22 @@ int wd_render_open(SDL_Window *window) {
     return 1;
 }
 void wd_render_close(void) {
+    wd_render_movie_shutdown();
     if (!state.renderer)
         return;
     state.scene.reset(state.renderer);
+    wd_render_metrics_shutdown();
     od_renderer_destroy(state.renderer);
     state.renderer = nullptr;
     state.surfaces.clear();
+    state.callback_frames.clear();
     sg_shutdown();
     state.backend.shutdown();
     state.window = nullptr;
 }
 void wd_render_bind_surface(uint32_t base, uint32_t bytes, int w, int h, int pitch, int format,
                             int main) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     if (!state.renderer)
         return;
     if (auto *old = find(base, bytes)) {
@@ -281,6 +331,7 @@ void wd_render_bind_surface(uint32_t base, uint32_t bytes, int w, int h, int pit
     state.surfaces.emplace(base, surface);
 }
 void wd_render_forget_surface(uint32_t base) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     auto it = state.surfaces.find(base);
     if (it == state.surfaces.end())
         return;
@@ -289,6 +340,8 @@ void wd_render_forget_surface(uint32_t base) {
     state.surfaces.erase(it);
 }
 void wd_render_begin_present(uint32_t base) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
+    MetricScope metric(WD_METRIC_OUTPUT);
     auto &surface = exact(base);
     std::string error;
     sg_swapchain swapchain{};
@@ -297,6 +350,8 @@ void wd_render_begin_present(uint32_t base) {
         fatal(error);
     state.pending_present = acquired == od::FrameState::ready;
     if (state.pending_present) {
+        state.present_w = swapchain.width;
+        state.present_h = swapchain.height;
         sg_pass pass{};
         pass.swapchain = swapchain;
         pass.action.colors[0].load_action = SG_LOADACTION_CLEAR;
@@ -306,6 +361,9 @@ void wd_render_begin_present(uint32_t base) {
                 od_renderer_error(state.renderer));
         sg_end_pass();
     }
+    // End timestamp before commit/retirement; otherwise the GPU interval can
+    // include idle time after the driver's flush rather than the output pass.
+    metric.finish();
     sg_commit();
     state.scene.finish_frame(state.renderer);
     od_renderer_frame_complete(state.renderer);
@@ -314,18 +372,21 @@ void wd_render_begin_present(uint32_t base) {
         std::fprintf(
             stderr,
             "[direct] frames=%llu scenes=%llu ui=%llu uploads=%llu copies=%llu; "
-            "shadows=%llu resolves=%llu routine_readbacks=0 exports=%llu export_bytes=%llu\n",
+            "shadows=%llu resolves=%llu routine_readbacks=0 exports=%llu export_bytes=%llu "
+            "captures=%llu capture_bytes=%llu\n",
             (unsigned long long)state.frames, (unsigned long long)state.scenes,
             (unsigned long long)state.ui_draws, (unsigned long long)state.uploads,
             (unsigned long long)state.copies, (unsigned long long)state.shadows,
             (unsigned long long)od_renderer_stats(state.renderer).shadow_resolves,
-            (unsigned long long)state.export_reads, (unsigned long long)state.export_bytes);
+            (unsigned long long)state.export_reads, (unsigned long long)state.export_bytes,
+            (unsigned long long)state.capture_reads, (unsigned long long)state.capture_bytes);
 }
 void wd_render_end_present(void) {
     if (state.pending_present) {
         std::string error;
         require(state.backend.present(error), error);
         state.pending_present = false;
+        wd_render_metrics_frame_completed();
     }
 }
 void wd_render_capture(const char *path) {
@@ -335,6 +396,15 @@ void wd_render_capture(const char *path) {
     }
     std::string error;
     require(state.backend.capture(path, error), error);
+    // The swapchain image may still have its pre-resize dimensions until the
+    // next acquire. Account for the captured image, not a newer window size.
+    const int width = state.present_w, height = state.present_h;
+    const uint64_t bytes = uint64_t(width) * height * 4;
+    ++state.capture_reads;
+    state.capture_bytes += bytes;
+    std::fprintf(stderr, "[direct] explicit readback reason=capture call=004458bb "
+                         "surface=swapchain region=0,0,%d,%d bytes=%llu\n",
+                 width, height, (unsigned long long)bytes);
     std::fprintf(stderr, "[direct] explicit output capture: %s\n", path);
 }
 void wd_render_mouse(SDL_Event *event) {
@@ -343,6 +413,12 @@ void wd_render_mouse(SDL_Event *event) {
     int ww, wh;
     if (!SDL_GetWindowSize(state.window, &ww, &wh) || ww <= 0 || wh <= 0)
         return;
+    int drawable_w, drawable_h;
+    if (SDL_GetWindowSizeInPixels(state.window, &drawable_w, &drawable_h) &&
+        drawable_w > 0 && drawable_h > 0) {
+        state.drawable_w = drawable_w;
+        state.drawable_h = drawable_h;
+    }
     const int lw = int(word(0x49d9fc)), lh = int(word(0x49da00));
     const auto canvas = od_centered_canvas(state.drawable_w, state.drawable_h, lw, lh);
     float *x = nullptr;
@@ -367,7 +443,27 @@ void wd_render_mouse(SDL_Event *event) {
         event->motion.yrel *= float(state.drawable_h) * lh / (wh * canvas.height);
     }
 }
+int wd_render_surface_owned(uint32_t address) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
+    return state.renderer && find(address) != nullptr;
+}
+void wd_render_line(uint32_t destination, int x0, int y0, int x1, int y1, uint32_t colour) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
+    MetricScope metric(WD_METRIC_UI);
+    auto &surface = exact(destination);
+    require(!surface.shadow, "packed line into a shadow mask");
+    require(surface.width == int(word(0x661ebc)) && surface.height == int(word(0x661ec8)),
+            "line viewport differs from destination");
+    resize(surface);
+    require(od_renderer_line_2d(state.renderer, surface.target, x0, y0, x1, y1,
+                                uint16_t(colour), surface.format) != 0,
+            od_renderer_error(state.renderer));
+    ++state.ui_draws;
+    if (++state.lines == 1 || state.lines % 1000 == 0)
+        std::fprintf(stderr, "[direct] lines=%llu\n", (unsigned long long)state.lines);
+}
 void wd_render_ui(const uint32_t raw[8], uint32_t entry) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     ReadScope scope;
     if (!state.renderer)
         fatal("UI before renderer initialization");
@@ -388,6 +484,34 @@ void wd_render_ui(const uint32_t raw[8], uint32_t entry) {
     upload(surface, batch.rect, batch.pixels, batch.kind, batch.parameter, batch.lookup);
     ++state.ui_draws;
 }
+void wd_render_movie_upload(uint32_t source, uint32_t destination, int x, int y,
+                            int width, int height, int pitch) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
+    ReadScope reads;
+    auto &surface = exact(destination);
+    require(!surface.shadow && x >= 0 && y >= 0 && width > 0 && height > 0 &&
+                width <= surface.width && height <= surface.height &&
+                x <= surface.width - width && y <= surface.height - height &&
+                int64_t(pitch) >= int64_t(width) * 2,
+            "invalid decoded movie rectangle");
+    require(uint64_t(source) + uint64_t(height - 1) * uint32_t(pitch) + uint64_t(width) * 2 <=
+                0x100000000ull, "decoded movie source overflow");
+    std::vector<uint32_t> pixels(size_t(width) * height);
+    std::vector<uint16_t> row(width);
+    for (int line = 0; line < height; ++line) {
+        require(wd_render_read_arena((void *)(uintptr_t)0x42665a,
+                                      source + uint32_t(line) * uint32_t(pitch),
+                                      row.data(), size_t(width) * 2), "unmapped decoded movie row");
+        for (int column = 0; column < width; ++column)
+            pixels[size_t(line) * width + column] = uint32_t(row[column]) | (64u << 16);
+    }
+    resize(surface);
+    upload(surface, {x, y, width, height}, pixels);
+    ++state.ui_draws;
+    if (++state.hnm5_frames == 1 || state.hnm5_frames % 250 == 0)
+        std::fprintf(stderr, "[direct] hnm5_frames=%llu rect=%d,%d,%d,%d pitch=%d\n",
+                     (unsigned long long)state.hnm5_frames, x, y, width, height, pitch);
+}
 void wd_render_fog_update(void) {
     ReadScope scope;
     uint8_t project[0x1d0];
@@ -402,11 +526,92 @@ void wd_render_fog_update(void) {
                  (unsigned long long)state.fog_updates, state.fog.color, state.fog.density,
                  state.fog_water.phase, mode);
 }
+void wd_render_prepare_callback(uint32_t root, uint32_t destination, int main_frame,
+                                 uint32_t caller) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
+    MetricScope metric(WD_METRIC_PREPARE);
+    // A read scope must end before returning to guest execution. Only owned
+    // source snapshots, never VirtualQuery caches, survive the callback.
+    ReadScope scope;
+    CallbackFrame frame{root, destination, caller, main_frame, {}, {}};
+    std::string error;
+    const bool shadow = !main_frame && destination == word(0x62b9a8) &&
+                        word(0x661ebc) == 128 && word(0x661ec8) == 256;
+    if (shadow) shadow_surface(destination);
+    if (!main_frame && destination == 0x5d6b98 && word(0x661ebc) == 64 &&
+        word(0x661ec8) == 64 && caller == 0x40fe13)
+        wd_render_bind_surface(destination, 8192, 64, 64, 128, int(word(0x49da1c)), 0);
+    require(wd::capture_scene({nullptr, wd_render_read_arena, gpu_image}, root, frame.scene, error),
+            error);
+    frame.scene.fog.enabled = state.fog.table_mode;
+    frame.scene.fog.colour = ((state.fog.color >> 16) & 255u) | (state.fog.color & 0xff00u) |
+                             ((state.fog.color & 255u) << 16);
+    std::copy(state.fog.table.begin(), state.fog.table.end(), frame.scene.fog.table);
+    auto &surface = exact(destination);
+    resize(surface);
+    if (!shadow) {
+        float vp[16];
+        require(frame.scene.view_projection(surface.physical_width, surface.physical_height,
+                                             main_frame != 0, vp), "invalid callback camera");
+        require(wd::prepare_scene_lighting(frame.scene, vp, frame.lighting, error, true), error);
+        for (const auto &write : frame.lighting.writes)
+            wd_render_write_arena_at(write.entry, write.address, &write.value, write.bytes);
+    } else {
+        require(std::none_of(frame.scene.nodes.begin(), frame.scene.nodes.end(),
+                    [](const wd::SceneNode &node) { return node.light_count || (node.flags & 0x800); }),
+                "shaded shadow callback metadata is not validated");
+    }
+    std::fprintf(stderr, "[direct] callback_prepare root=%08x writes=%zu\n", root,
+                 frame.lighting.writes.size());
+    state.callback_frames.push_back(std::move(frame));
+}
+void wd_render_collect_scene(uint32_t root) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
+    MetricScope metric(WD_METRIC_PREPARE);
+    ReadScope scope;
+    wd::SceneSnapshot scene;
+    wd::SceneLighting lighting;
+    wd::SceneCollector collector;
+    std::string error;
+    require(wd::capture_scene({nullptr, wd_render_read_arena, gpu_image}, root, scene, error), error);
+    const int width = int(word(0x661ebc)), height = int(word(0x661ec8));
+    float vp[16];
+    require(scene.view_projection(width, height, false, vp), "invalid collector camera");
+    require(wd::prepare_scene_lighting(scene, vp, lighting, error, true), error);
+    require(wd::prepare_scene_collector(scene, width, height, false, collector, error), error);
+    for (const auto &write : lighting.writes)
+        wd_render_write_arena_at(write.entry, write.address, &write.value, write.bytes);
+    // Retail's index array has room for 2048 shorts, so store complete
+    // triangles only. The unbounded original collector can overwrite its
+    // neighbouring arrays. Counts describe the records actually published.
+    uint32_t count = 0;
+    for (const auto &triangle : collector.triangles) {
+        for (unsigned corner = 0; corner < 3; ++corner) {
+            const uint16_t index = uint16_t(count + corner);
+            wd_render_write_arena_at(0x478800, 0x6760e4 + (count + corner) * 8,
+                                      triangle.points[corner].data(), 8);
+            wd_render_write_arena_at(0x478800, 0x67f0e4 + count + corner,
+                                      &triangle.clipped[corner], 1);
+            wd_render_write_arena_at(0x478800, 0x67e0e4 + (count + corner) * 2, &index, 2);
+        }
+        wd_render_write_arena_at(0x478800, 0x6800e4 + count, &triangle.face_flags, 1);
+        count += 3;
+    }
+    put(0x6808e4, count);
+    put(0x6808e8, count);
+    static uint64_t frames = 0;
+    if (++frames == 1 || frames % 25 == 0)
+        std::fprintf(stderr, "[direct] collector=%llu triangles=%zu stored=%zu no_draw=1\n",
+                     (unsigned long long)frames, collector.total_triangles, collector.triangles.size());
+}
 void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32_t caller,
                      uint32_t frame_callback) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
+    MetricScope preparation(WD_METRIC_PREPARE);
     ReadScope scope;
     const uint64_t begin = SDL_GetTicksNS();
     wd::SceneSnapshot scene;
+    wd::SceneLighting prepared_lighting;
     std::string error;
     const bool shadow = !main_frame && destination == word(0x62b9a8) && word(0x661ebc) == 128 &&
                         word(0x661ec8) == 256;
@@ -416,13 +621,39 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
                            word(0x661ec8) == 64 && caller == 0x40fe13;
     if (thumbnail)
         wd_render_bind_surface(destination, 8192, 64, 64, 128, int(word(0x49da1c)), 0);
-    require(wd::capture_scene({nullptr, wd_render_read_arena, gpu_image}, root, scene, error),
-            error);
-    scene.fog.enabled = state.fog.table_mode;
-    scene.fog.colour = ((state.fog.color >> 16) & 255u) | (state.fog.color & 0xff00u) |
-                       ((state.fog.color & 255u) << 16);
-    std::copy(state.fog.table.begin(), state.fog.table.end(), scene.fog.table);
+    if (frame_callback) {
+        require(!state.callback_frames.empty(), "callback scene was not prepared");
+        auto frame = std::move(state.callback_frames.back());
+        state.callback_frames.pop_back();
+        require(frame.root == root && frame.destination == destination && frame.caller == caller &&
+                    frame.main_frame == main_frame, "callback scene nesting mismatch");
+        scene = std::move(frame.scene);
+        prepared_lighting = std::move(frame.lighting);
+    } else {
+        require(wd::capture_scene({nullptr, wd_render_read_arena, gpu_image}, root, scene, error), error);
+        scene.fog.enabled = state.fog.table_mode;
+        scene.fog.colour = ((state.fog.color >> 16) & 255u) | (state.fog.color & 0xff00u) |
+                           ((state.fog.color & 255u) << 16);
+        std::copy(state.fog.table.begin(), state.fog.table.end(), scene.fog.table);
+    }
     const uint64_t captured = SDL_GetTicksNS();
+    preparation.finish();
+    for (const auto &face : scene.faces) {
+        const auto &node = scene.nodes[face.owner];
+        if (!node.submitted && !node.visual_active) continue;
+        if (state.observed_face_types.insert(face.type).second)
+            std::fprintf(stderr, "[direct] source_mode=%d node=%08x block=%08x\n",
+                         face.type, node.address, face.block);
+        if (node.light_count && !state.observed_lighting) {
+            std::fprintf(stderr, "[direct] source_lighting node=%08x count=%u\n",
+                         node.address, node.light_count);
+            state.observed_lighting = true;
+        }
+        if ((node.flags & 0x800) && !state.observed_environment) {
+            std::fprintf(stderr, "[direct] source_environment node=%08x\n", node.address);
+            state.observed_environment = true;
+        }
+    }
     auto *surface = find(destination);
     if (!surface)
         fatal("unregistered 3D destination " + std::to_string(destination));
@@ -431,12 +662,6 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
         return;
     }
     resize(*surface);
-    if (frame_callback &&
-        std::any_of(scene.nodes.begin(), scene.nodes.end(),
-                    [](const wd::SceneNode &n) {
-                        return (n.submitted || n.visual_active) && (n.light_count || (n.flags & 0x800));
-                    }))
-        fatal("shaded frame callback sequencing is not validated");
     const char *capture = std::getenv("WD_SCENE_CAPTURE");
     if (!state.captured_scene && main_frame && capture && *capture) {
         require(wd::write_scene(scene, capture, error), error);
@@ -444,9 +669,14 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
         std::fprintf(stderr, "[render-capture] captured original scene inputs to %s\n", capture);
     }
     std::vector<wd::SceneLightingWrite> lighting_writes;
-    require(state.scene.submit(state.renderer, scene, surface->target, surface->physical_width,
-                               surface->physical_height, main_frame != 0, error, &lighting_writes),
+    {
+        MetricScope metric(WD_METRIC_SCENE);
+        require(state.scene.submit(state.renderer, scene, surface->target, surface->physical_width,
+                               surface->physical_height, main_frame != 0, error,
+                               frame_callback ? nullptr : &lighting_writes,
+                               frame_callback ? &prepared_lighting : nullptr),
             error);
+    }
     for (const auto &write : lighting_writes)
         wd_render_write_arena_at(write.entry, write.address, &write.value, write.bytes);
     if (!lighting_writes.empty() && (state.scenes == 0 || state.scenes % 25 == 0))
@@ -491,6 +721,7 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
 }
 int wd_render_copy(uint32_t instruction, uint32_t source, uint32_t destination, uint32_t count,
                    uint32_t width, int direction) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     if (!state.renderer || !count)
         return 0;
     ReadScope scope;
@@ -559,6 +790,7 @@ int wd_render_copy(uint32_t instruction, uint32_t source, uint32_t destination, 
 }
 int wd_render_fill(uint32_t instruction, uint32_t destination, uint32_t value, uint32_t count,
                    uint32_t width, int direction) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     if (!state.renderer || !count)
         return 0;
     const uint64_t size = uint64_t(count) * width;
@@ -580,6 +812,7 @@ int wd_render_fill(uint32_t instruction, uint32_t destination, uint32_t value, u
     return 1;
 }
 void wd_render_dim_background(uint32_t level) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     auto &target = exact(word(0x5e549c));
     auto &source = exact(word(0x5e1090));
     resize(target);
@@ -595,6 +828,7 @@ void wd_render_dim_background(uint32_t level) {
     put(0x5e1090, word(0x5e1094));
 }
 void wd_render_text_band(int y) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     auto &target = exact(word(0x5e549c));
     resize(target);
     draw({OD_DRAW_BAND,
@@ -606,6 +840,7 @@ void wd_render_text_band(int y) {
           0});
 }
 void wd_render_caption_band(void) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     auto &target = exact(word(0x5e549c));
     const int scale = int(word(0x4a2f1d));
     require(scale > 0, "invalid caption scale");
@@ -619,6 +854,7 @@ void wd_render_caption_band(void) {
           0});
 }
 void wd_render_reset_scene(void) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     if (state.renderer) {
         state.scene.reset(state.renderer);
         std::vector<uint32_t> masks;
@@ -629,10 +865,15 @@ void wd_render_reset_scene(void) {
             wd_render_forget_surface(base);
     }
 }
-void wd_render_caption_scope_begin(void) { state.caption_surfaces.emplace_back(); }
+void wd_render_caption_scope_begin(void) {
+    state.caption_surfaces.emplace_back();
+    std::fprintf(stderr, "[direct] caption_scope=begin depth=%zu\n", state.caption_surfaces.size());
+}
 void wd_render_caption_scope_end(void) {
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     require(!state.caption_surfaces.empty(), "caption scope underflow");
     for (auto base : state.caption_surfaces.back())
         wd_render_forget_surface(base);
     state.caption_surfaces.pop_back();
+    std::fprintf(stderr, "[direct] caption_scope=end depth=%zu\n", state.caption_surfaces.size());
 }

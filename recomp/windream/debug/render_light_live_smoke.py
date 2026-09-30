@@ -31,12 +31,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--oriented", action="store_true")
     parser.add_argument(
+        "--callback", action="store_true", help="install the existing editor frame callback"
+    )
+    parser.add_argument(
         "--gouraud", action="store_true", help="inject type 0x16 into a textured node"
     )
     args = parser.parse_args()
     kind = "oriented" if args.oriented else "radial"
     if args.gouraud:
         kind += "-gouraud"
+    if args.callback:
+        kind += "-callback"
     run = recomp_env.out_dir("windream", f"run-direct-{kind}-light")
     capture = run / "input.wds"
     capture.unlink(missing_ok=True)
@@ -55,6 +60,8 @@ def main():
         WD_SCENE_CAPTURE=str(capture),
         WD_KEYS="2000:ESC,5000:RETURN,8000:ESC,20000:ESC",
     )
+    if args.callback:
+        env["WD_POKE"] = "0x4aa704=0x44d46d"
     kernel = c.WinDLL("kernel32", use_last_error=True)
     kernel.OpenProcess.argtypes = [c.c_uint32, c.c_int, c.c_uint32]
     kernel.OpenProcess.restype = c.c_void_p
@@ -110,6 +117,11 @@ def main():
             ), c.get_last_error()
             assert done.value == len(data)
 
+        def metadata_count(text):
+            if args.callback:
+                return len(re.findall(r"callback_prepare root=[0-9a-f]+ writes=[1-9]\d*", text))
+            return text.count("scene_metadata writes=")
+
         try:
             while time.monotonic() - start < 55:
                 text = log.read_text(errors="replace")
@@ -138,7 +150,9 @@ def main():
                     owner = counts.most_common(1)[0][0]
                     node = nodes[owner]["address"]
                     assert word(node + 0xC4) == 0 and word(0x4AC758) == 0 and word(0x672700) == 0
-                    assert word(0x4AA704) == 0, "lit frame callback requires separate validation"
+                    assert word(0x4AA704) == (0x44D46D if args.callback else 0), (
+                        "unexpected frame callback"
+                    )
                     selected = [
                         f
                         for f in faces
@@ -190,7 +204,7 @@ def main():
                     assert changed > 0 and any(
                         a != b for a, b in zip(before_dots, after_dots, strict=True)
                     ), "no lighting metadata changed"
-                    assert "scene_metadata writes=" in text
+                    assert metadata_count(text) > 0
                     report["changed_corner_shades" if args.gouraud else "changed_face_shades"] = (
                         changed
                     )
@@ -214,14 +228,15 @@ def main():
                     # child is terminated below, so no external state survives.
                     stage = 3
                     transition = elapsed
-                    count_before = text.count("scene_metadata writes=")
+                    count_before = metadata_count(text)
                 elif stage == 3 and elapsed - transition > 3:
-                    assert text.count("scene_metadata writes=") <= count_before + 1, (
+                    assert metadata_count(text) <= count_before + 1, (
                         "lighting persisted after unbind"
                     )
                     assert "routine_readbacks=0" in text
                     report["passed"] = True
                     report["routine_readbacks"] = 0
+                    report["frame_callback"] = "0x44d46d" if args.callback else None
                     break
                 time.sleep(0.1)
             assert report["passed"], "lighting sequence timed out"

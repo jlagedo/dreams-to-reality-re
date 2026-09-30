@@ -83,13 +83,13 @@ void imp_CreateDIBSection(void) {  /* (hdc, pbmi, usage, ppvBits, hSection, offs
         if (g_dib[i].used) continue;
         Dib* d = &g_dib[i];
         memset(d, 0, sizeof *d);
-        int32_t hh = (int32_t)MEM32(bi + W32_BIH_HEIGHT);
-        uint32_t comp = MEM32(bi + W32_BIH_COMPRESSION);
-        d->w = (int32_t)MEM32(bi + W32_BIH_WIDTH);
+        int32_t hh = (int32_t)WD_HOST_READ32(bi + W32_BIH_HEIGHT);
+        uint32_t comp = WD_HOST_READ32(bi + W32_BIH_COMPRESSION);
+        d->w = (int32_t)WD_HOST_READ32(bi + W32_BIH_WIDTH);
         d->h = hh < 0 ? -hh : hh;
         d->topdown = hh < 0;
-        d->bpp = MEM16(bi + W32_BIH_BITCOUNT);
-        d->fmt = dib_format(d->bpp, comp, comp == W32_BI_BITFIELDS ? MEM32(bi + MEM32(bi) + 4) : 0);
+        d->bpp = WD_HOST_READ16(bi + W32_BIH_BITCOUNT);
+        d->fmt = dib_format(d->bpp, comp, comp == W32_BI_BITFIELDS ? WD_HOST_READ32(bi + WD_HOST_READ32(bi) + 4) : 0);
         d->pitch = (uint32_t)(((d->w * d->bpp + 31) / 32) * 4);
         d->size = d->pitch * (uint32_t)d->h;
         d->bits = vm_alloc(0, d->size, W32_MEM_COMMIT | W32_MEM_RESERVE, W32_PAGE_READWRITE);
@@ -109,13 +109,13 @@ void imp_CreateDIBSection(void) {  /* (hdc, pbmi, usage, ppvBits, hSection, offs
             wd_render_bind_surface(d->bits,d->size,d->w,d->h,(int)d->pitch,
                 d->fmt == SDL_PIXELFORMAT_RGB565 ? 0 : 1,1);
         }
-        if (ARG(3)) MEM32(ARG(3)) = d->bits;
+        if (ARG(3)) WD_HOST_WRITE32(ARG(3)) = d->bits;
         fprintf(stderr, "[gdi] CreateDIBSection %dx%d %d bpp%s -> bits 0x%08X (%s)\n", d->w, hh, d->bpp,
                 comp == W32_BI_BITFIELDS ? " bitfields" : "", d->bits, SDL_GetPixelFormatName(d->fmt));
         RET(FAKE_TAG | FAKE_BMP | i); STDRET(6);
         return;
     }
-    if (ARG(3)) MEM32(ARG(3)) = 0;
+    if (ARG(3)) WD_HOST_WRITE32(ARG(3)) = 0;
     RET(0); STDRET(6);
 }
 

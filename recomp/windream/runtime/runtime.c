@@ -51,25 +51,25 @@ uint32_t shim_alloc(uint32_t n, uint32_t align) {
     g_shim_next = va;
     LeaveCriticalSection(&g_alloc_cs);
     VirtualAlloc(PTR(va), n ? n : 1, MEM_COMMIT, PAGE_READWRITE);
-    memset(PTR(va), 0, n);
+    memset(wd_host_range(va, n, 1), 0, n);
     return va;
 }
 uint32_t shim_strdup(const char* s) {
     uint32_t n = (uint32_t)strlen(s) + 1, va = shim_alloc(n, 16);
-    memcpy(PTR(va), s, n);
+    memcpy(wd_host_range(va, n, 1), s, n);
     return va;
 }
 void guest_strcpy_out(uint32_t va, uint32_t cap, const char* s) {
     if (!va || !cap) return;
     uint32_t n = (uint32_t)strlen(s);
     if (n >= cap) n = cap - 1;
-    memcpy(PTR(va), s, n);
-    MEM8(va + n) = 0;
+    memcpy(wd_host_range(va, n, 1), s, n);
+    WD_HOST_WRITE8(va + n) = 0;
 }
 int guest_str(uint32_t va, char* out, int cap) {
     int i = 0;
     if (!va) { out[0] = 0; return 0; }
-    for (; i < cap - 1; i++) { char c = (char)MEM8(va + i); out[i] = c; if (!c) break; }
+    for (; i < cap - 1; i++) { char c = (char)WD_HOST_READ8(va + i); out[i] = c; if (!c) break; }
     out[cap - 1] = 0;
     return i;
 }
@@ -105,7 +105,7 @@ uint32_t wd_com_vtable(const recomp_func_t* fns, int n) {
     for (int i = 0; i < n; i++) g_com_fn[g_com_n++] = fns[i];
     LeaveCriticalSection(&g_alloc_cs);
     uint32_t vt = shim_alloc((uint32_t)n * 4u, 16);
-    for (int i = 0; i < n; i++) MEM32(vt + 4u * (uint32_t)i) = WD_COM_BASE + base + (uint32_t)i;
+    for (int i = 0; i < n; i++) WD_HOST_WRITE32(vt + 4u * (uint32_t)i) = WD_COM_BASE + base + (uint32_t)i;
     return vt;
 }
 recomp_func_t wd_com_lookup(uint32_t va) {
@@ -122,6 +122,7 @@ uint32_t guest_call(uint32_t va, int argc, const uint32_t* args) {
     recomp_func_t fn = recomp_lookup(va);
     if (!fn) { fprintf(stderr, "[callback] no lifted function at 0x%08X\n", va); return 0; }
     uint32_t esp = g_esp, ebx = g_ebx, ecx = g_ecx, edx = g_edx, esi = g_esi, edi = g_edi, ebp = g_ebp;
+    wd_host_range(g_esp - ((uint32_t)argc + 1) * 4, ((size_t)argc + 1) * 4, 1);
     for (int i = argc - 1; i >= 0; i--) PUSH32(g_esp, args[i]);
     PUSH32(g_esp, RECOMP_RETADDR);
     fn();
@@ -138,6 +139,7 @@ uint32_t guest_call_regs(uint32_t va, uint32_t eax, uint32_t edx, uint32_t ebx, 
     uint32_t a = g_eax, esp = g_esp, ebx0 = g_ebx, ecx0 = g_ecx, edx0 = g_edx, esi = g_esi, edi = g_edi,
              ebp = g_ebp;
     g_eax = eax; g_edx = edx; g_ebx = ebx; g_ecx = ecx;
+    wd_host_range(g_esp - 4, 4, 1);
     PUSH32(g_esp, RECOMP_RETADDR);
     fn();
     uint32_t r = g_eax;
@@ -201,7 +203,7 @@ static int setup(const char* exe) {
     /* IAT: each slot holds its own VA, so `call [slot]` and the `jmp [slot]`
      * thunks both dispatch to recomp_lookup_import(slot) -> the bridge. */
     for (uint32_t i = 0; i < wd_import_bridge_count; i++)
-        MEM32(wd_import_bridges[i].address) = wd_import_bridges[i].address;
+        WD_HOST_WRITE32(wd_import_bridges[i].address) = wd_import_bridges[i].address;
 
     wd_thread_init_main();
     fprintf(stderr, "[*] %u lifted functions, %u import bridges, esp=%08X\n",
@@ -223,7 +225,7 @@ static int apply_pokes(void) {
             fprintf(stderr, "FATAL: WD_POKE 0x%08X is outside the image\n", va);
             return 0;
         }
-        MEM32(va) = v;
+        WD_HOST_WRITE32(va) = v;
         fprintf(stderr, "[*] poke [0x%08X] = 0x%X\n", va, v);
         if (*end != ',') { s = end; break; }
         s = end + 1;
@@ -248,7 +250,7 @@ int main(int argc, char** argv) {
     recomp_set_region_describer(region);
     if (!setup(argv[1]) || !apply_pokes()) return 1;
     /* The PE entry point (WINDREAM: 0x465538), from the mapped headers. */
-    uint32_t entry = WD_IMAGE_BASE + MEM32(WD_IMAGE_BASE + MEM32(WD_IMAGE_BASE + 0x3C) + 0x28);
+    uint32_t entry = WD_IMAGE_BASE + WD_HOST_READ32(WD_IMAGE_BASE + WD_HOST_READ32(WD_IMAGE_BASE + 0x3C) + 0x28);
     recomp_func_t entry_fn = recomp_lookup(entry);
     if (!entry_fn) { fprintf(stderr, "FATAL: entry point 0x%08X is not a lifted function\n", entry); return 1; }
     if (!run) { fprintf(stderr, "[*] ready; pass --run to enter the program at 0x%08X\n", entry); return 0; }

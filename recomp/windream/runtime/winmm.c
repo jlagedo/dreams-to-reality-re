@@ -164,22 +164,22 @@ void imp_joyGetDevCapsA(void) {  /* (id, JOYCAPSA*, size) */
     SDL_Gamepad* p = pad_at(ARG(0));
     uint32_t c = ARG(1);
     if (!p || !c || ARG(2) < W32_JOYCAPSA_SIZE) { RET(W32_JOYERR_PARMS); STDRET(3); return; }
-    memset(PTR(c), 0, W32_JOYCAPSA_SIZE);
-    MEM16(c + W32_JC_MID) = SDL_GetGamepadVendor(p);
-    MEM16(c + W32_JC_PID) = SDL_GetGamepadProduct(p);
+    memset(wd_host_range(c, W32_JOYCAPSA_SIZE, 1), 0, W32_JOYCAPSA_SIZE);
+    WD_HOST_WRITE16(c + W32_JC_MID) = SDL_GetGamepadVendor(p);
+    WD_HOST_WRITE16(c + W32_JC_PID) = SDL_GetGamepadProduct(p);
     const char* name = SDL_GetGamepadName(p);
     guest_strcpy_out(c + W32_JC_PNAME, 32, name ? name : "Gamepad");
     for (uint32_t i = 0; i < 3; i++) {   /* X Y Z, then R U V: 0..65535 */
-        MEM32(c + W32_JC_XMIN + 8 * i + 4) = 0xFFFF;
-        MEM32(c + W32_JC_RMIN + 8 * i + 4) = 0xFFFF;
+        WD_HOST_WRITE32(c + W32_JC_XMIN + 8 * i + 4) = 0xFFFF;
+        WD_HOST_WRITE32(c + W32_JC_RMIN + 8 * i + 4) = 0xFFFF;
     }
-    MEM32(c + W32_JC_NUMBUTTONS) = 10;
-    MEM32(c + W32_JC_PERIODMIN) = 10;
-    MEM32(c + W32_JC_PERIODMAX) = 1000;
-    MEM32(c + W32_JC_CAPS) = W32_JOYCAPS_HASZ | W32_JOYCAPS_HASR | W32_JOYCAPS_HASU | W32_JOYCAPS_HASPOV | W32_JOYCAPS_POV4DIR;
-    MEM32(c + W32_JC_MAXAXES) = 6;
-    MEM32(c + W32_JC_NUMAXES) = 5;
-    MEM32(c + W32_JC_MAXBUTTONS) = 32;
+    WD_HOST_WRITE32(c + W32_JC_NUMBUTTONS) = 10;
+    WD_HOST_WRITE32(c + W32_JC_PERIODMIN) = 10;
+    WD_HOST_WRITE32(c + W32_JC_PERIODMAX) = 1000;
+    WD_HOST_WRITE32(c + W32_JC_CAPS) = W32_JOYCAPS_HASZ | W32_JOYCAPS_HASR | W32_JOYCAPS_HASU | W32_JOYCAPS_HASPOV | W32_JOYCAPS_POV4DIR;
+    WD_HOST_WRITE32(c + W32_JC_MAXAXES) = 6;
+    WD_HOST_WRITE32(c + W32_JC_NUMAXES) = 5;
+    WD_HOST_WRITE32(c + W32_JC_MAXBUTTONS) = 32;
     RET(W32_JOYERR_NOERROR); STDRET(3);
 }
 
@@ -187,8 +187,8 @@ void imp_joyGetPosEx(void) {  /* (id, JOYINFOEX*) */
     SDL_Gamepad* p = pad_at(ARG(0));
     uint32_t ji = ARG(1);
     if (!p) { RET(W32_JOYERR_UNPLUGGED); STDRET(2); return; }
-    if (!ji || MEM32(ji) != W32_JOYINFOEX_SIZE) { RET(W32_JOYERR_PARMS); STDRET(2); return; }
-    uint32_t fl = MEM32(ji + W32_JI_FLAGS);
+    if (!ji || WD_HOST_READ32(ji) != W32_JOYINFOEX_SIZE) { RET(W32_JOYERR_PARMS); STDRET(2); return; }
+    uint32_t fl = WD_HOST_READ32(ji + W32_JI_FLAGS);
     int lx, ly, rx, ry;
     stick(p, SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY, &lx, &ly);
     stick(p, SDL_GAMEPAD_AXIS_RIGHTX, SDL_GAMEPAD_AXIS_RIGHTY, &rx, &ry);
@@ -202,7 +202,7 @@ void imp_joyGetPosEx(void) {  /* (id, JOYINFOEX*) */
         (uint32_t)(ry + 32768), (uint32_t)(rx + 32768), 32768,
     };
     for (uint32_t i = 0; i < 6; i++)
-        if (fl & (W32_JOY_RETURNX << i)) MEM32(ji + W32_JI_XPOS + 4 * i) = v[i];
+        if (fl & (W32_JOY_RETURNX << i)) WD_HOST_WRITE32(ji + W32_JI_XPOS + 4 * i) = v[i];
     if (fl & W32_JOY_RETURNBUTTONS) {
         static const SDL_GamepadButton order[10] = {
             SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST, SDL_GAMEPAD_BUTTON_WEST, SDL_GAMEPAD_BUTTON_NORTH,
@@ -212,13 +212,13 @@ void imp_joyGetPosEx(void) {  /* (id, JOYINFOEX*) */
         uint32_t bits = 0, n = 0;
         for (uint32_t i = 0; i < 10; i++)
             if (SDL_GetGamepadButton(p, order[i])) { bits |= 1u << i; n++; }
-        MEM32(ji + W32_JI_BUTTONS) = bits;
-        MEM32(ji + W32_JI_BUTTONNUMBER) = n;
+        WD_HOST_WRITE32(ji + W32_JI_BUTTONS) = bits;
+        WD_HOST_WRITE32(ji + W32_JI_BUTTONNUMBER) = n;
     }
     if (fl & W32_JOY_RETURNPOV) {
         int up = SDL_GetGamepadButton(p, SDL_GAMEPAD_BUTTON_DPAD_UP), dn = SDL_GetGamepadButton(p, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
         int lf = SDL_GetGamepadButton(p, SDL_GAMEPAD_BUTTON_DPAD_LEFT), rt = SDL_GetGamepadButton(p, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
-        MEM32(ji + W32_JI_POV) = rt && !lf ? 9000 : lf && !rt ? 27000 : up && !dn ? 0 : dn && !up ? 18000 : W32_JOY_POVCENTERED;
+        WD_HOST_WRITE32(ji + W32_JI_POV) = rt && !lf ? 9000 : lf && !rt ? 27000 : up && !dn ? 0 : dn && !up ? 18000 : W32_JOY_POVCENTERED;
     }
     RET(W32_JOYERR_NOERROR); STDRET(2);
 }
@@ -276,9 +276,9 @@ void imp_mciSendCommandA(void) {  /* (device, msg, flags, parms): parms use the 
     switch (msg) {
     case W32_MCI_OPEN: {
         char type[32] = "";
-        if (flags & W32_MCI_OPEN_TYPE) guest_str(MEM32(p + W32_MCI_OPEN_DEVICETYPE), type, sizeof type);
+        if (flags & W32_MCI_OPEN_TYPE) guest_str(WD_HOST_READ32(p + W32_MCI_OPEN_DEVICETYPE), type, sizeof type);
         if (SDL_strcasecmp(type, "cdaudio")) { err = W32_MCIERR_UNRECOGNIZED_KEYWORD; break; }
-        MEM32(p + W32_MCI_OPEN_DEVICEID) = CD_DEVICE;
+        WD_HOST_WRITE32(p + W32_MCI_OPEN_DEVICEID) = CD_DEVICE;
         break;
     }
     case W32_MCI_CLOSE: mixer_cd_play(NULL, 0); g_cur = 0; break;
@@ -287,8 +287,8 @@ void imp_mciSendCommandA(void) {  /* (device, msg, flags, parms): parms use the 
         break;
     case W32_MCI_STATUS: {
         if (!(flags & W32_MCI_STATUS_ITEM)) { err = W32_MCIERR_MISSING_PARAMETER; break; }
-        uint32_t* ret = (uint32_t*)PTR(p + W32_MCI_STATUS_RETURN);
-        switch (MEM32(p + W32_MCI_STATUS_ITEMOFF)) {
+        uint32_t* ret = (uint32_t*)wd_host_range(p + W32_MCI_STATUS_RETURN, 4, 1);
+        switch (WD_HOST_READ32(p + W32_MCI_STATUS_ITEMOFF)) {
         case W32_MCI_STATUS_NUMBER_OF_TRACKS: *ret = (uint32_t)g_ntracks; break;
         case W32_MCI_STATUS_MODE: *ret = cd_mode(); break;
         case W32_MCI_STATUS_CURRENT_TRACK: *ret = (uint32_t)g_cur; break;
@@ -298,7 +298,7 @@ void imp_mciSendCommandA(void) {  /* (device, msg, flags, parms): parms use the 
         break;
     }
     case W32_MCI_PLAY: {
-        int n = flags & W32_MCI_FROM ? (int)(MEM32(p + W32_MCI_PLAY_FROM) & 0xFF) : g_cur;
+        int n = flags & W32_MCI_FROM ? (int)(WD_HOST_READ32(p + W32_MCI_PLAY_FROM) & 0xFF) : g_cur;
         if (n < 1 || n > g_ntracks || !g_track[n][0]) { err = W32_MCIERR_OUTOFRANGE; break; }
         mixer_cd_play(g_track[n], n);
         g_cur = n; g_paused = 0;

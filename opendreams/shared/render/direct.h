@@ -53,6 +53,8 @@ typedef struct od_render_stats {
     uint64_t scene_batches;
     uint64_t shadow_resolves;
     uint32_t live_resources;
+    uint64_t stitched_edges;
+    uint64_t stitch_cpu_nanoseconds;
 } od_render_stats;
 
 /* Floating-point, row-major affine transform; parent -1 is a model root.
@@ -96,6 +98,11 @@ typedef struct od_scene_packet {
     int clear;
     od_scene_fog fog;
     float fog_depth_scale; /* 0 means 1; preview normalization converts W back to source units */
+    /* Optional visual compatibility: join near-coincident opaque boundary
+     * edges at intersecting face planes within this world-space source unit.
+     * Zero disables. Separate model roots and parallel/alpha layers never join.
+     * Guest transforms, topology, metadata and draw ordering are unchanged. */
+    float source_edge_quantum;
 } od_scene_packet;
 
 od_renderer *od_renderer_create(void);
@@ -112,6 +119,10 @@ od_render_id od_renderer_upload_rgba(od_renderer *, int width, int height, const
                                      size_t pitch);
 int od_renderer_release(od_renderer *, od_render_id);
 int od_renderer_draw_2d(od_renderer *, const od_draw_2d *);
+/* Inclusive logical-pixel endpoints on the centered UI canvas. Packed stores
+ * preserve RGB555's high bit. Coordinates must lie in [-32767,32767]. */
+int od_renderer_line_2d(od_renderer *, od_render_id target, int x0, int y0, int x1, int y1,
+                        uint16_t colour, od_pixel_format);
 int od_renderer_scene(od_renderer *, const od_scene_packet *);
 /* Paired-P8 shadow appearance: exact source Q15 poses and integer local
  * vertices. The renderer derives projection/coverage internally; no guest

@@ -79,6 +79,109 @@ static void packed_round_trips(od_renderer *r) {
     finish(r);
     std::puts("direct GPU: 131,072 packed round trips and immutable source mutation passed");
 }
+static void packed_lines(od_renderer *r) {
+    // Independent iterative Bresenham oracle: major-axis order, inclusive end,
+    // >=0 tie advance as in retail 0x465c80. Exercise every slope and reversal.
+    for (int format = 0; format < 2; ++format)
+        for (int wide = 0; wide < 2; ++wide) {
+            const int width = wide ? 64 : 16, height = wide ? 24 : 12;
+            const auto target = od_renderer_target(r, width, height, 16, 12);
+            std::vector<uint16_t> expected(16 * 12);
+            submit(r, {OD_DRAW_FILL, target, 0, {0, 0, 16, 12}, od_pixel_format(format), 0, 1});
+            unsigned serial = 0;
+            auto line = [&](int x0, int y0, int x1, int y1) {
+                const uint16_t colour = uint16_t(0x8000u | (++serial * 193u));
+                check(od_renderer_line_2d(r, target, x0, y0, x1, y1, colour,
+                                           od_pixel_format(format)) != 0,
+                      od_renderer_error(r));
+                int dx = std::abs(x1 - x0), dy = std::abs(y1 - y0);
+                const bool major_x = dx >= dy;
+                if ((major_x && x0 > x1) || (!major_x && y0 > y1)) {
+                    std::swap(x0, x1);
+                    std::swap(y0, y1);
+                }
+                const int major = major_x ? dx : dy, minor = major_x ? dy : dx;
+                int error = 2 * minor - major;
+                for (int step = 0; step <= major; ++step) {
+                    if (x0 >= 0 && x0 < 16 && y0 >= 0 && y0 < 12)
+                        expected[y0 * 16 + x0] = colour;
+                    if (error >= 0) {
+                        if (major_x) y0 += y1 >= y0 ? 1 : -1;
+                        else x0 += x1 >= x0 ? 1 : -1;
+                        error -= 2 * major;
+                    }
+                    if (major_x) ++x0;
+                    else ++y0;
+                    error += 2 * minor;
+                }
+            };
+            for (int x = 0; x < 16; ++x) {
+                line(0, 0, x, 11);
+                line(x, 0, 15, 11);
+                line(x, 11, 0, 0);
+            }
+            for (int y = 0; y < 12; ++y) {
+                line(0, y, 15, 11);
+                line(15, y, 0, 11);
+            }
+            line(2, 3, 2, 3);
+            line(-4, -4, 19, 15);
+            finish(r);
+            auto pixels = capture(r, target);
+            for (int y = 0; y < height; ++y)
+                for (int x = 0; x < width; ++x) {
+                    const int lx = wide ? (x - 16) / 2 : x, ly = wide ? y / 2 : y;
+                    const uint16_t wanted = wide && (x < 16 || x >= 48) ? 0 : expected[ly * 16 + lx];
+                    check(od_pack_colour(pixels[y * width + x], od_pixel_format(format)) == wanted,
+                          "packed GPU line coverage/canvas mismatch");
+                }
+            check(!od_renderer_line_2d(r, target, 32768, 0, 0, 0, 0, OD_RGB565),
+                  "unbounded line coordinate accepted");
+            od_renderer_release(r, target);
+            check(!od_renderer_line_2d(r, target, 0, 0, 0, 0, 0, OD_RGB565),
+                  "stale line target accepted");
+            finish(r);
+        }
+    std::puts("direct GPU: packed Bresenham lines, endpoint reversal, RGB555 high bit and centered canvas passed");
+}
+static void line_fixture(od_renderer *r, const char *path) {
+    FILE *file = nullptr;
+    fopen_s(&file, path, "rb");
+    check(file && word(file) == 0x314c4457, "invalid retail line fixture");
+    const uint32_t count = word(file);
+    check(count > 0 && count <= 10000, "invalid retail line case count");
+    for (uint32_t index = 0; index < count; ++index) {
+        const auto width = word(file), height = word(file), format = word(file), colour = word(file);
+        const int x0 = int32_t(word(file)), y0 = int32_t(word(file));
+        const int x1 = int32_t(word(file)), y1 = int32_t(word(file));
+        const auto accepted = word(file);
+        check(width && height && width <= 1920 && height <= 1080 && format < 2 &&
+                  colour <= 65535 && accepted <= 1,
+              "invalid retail line fixture dimensions");
+        std::vector<uint16_t> expected(size_t(width) * height);
+        check(std::fread(expected.data(), sizeof(uint16_t), expected.size(), file) == expected.size(),
+              "short retail line pixels");
+        const auto target = od_renderer_target(r, int(width), int(height), int(width), int(height));
+        submit(r, {OD_DRAW_FILL, target, 0, {0, 0, int(width), int(height)}, od_pixel_format(format), 0});
+        if (accepted)
+            check(od_renderer_line_2d(r, target, x0, y0, x1, y1, uint16_t(colour),
+                                       od_pixel_format(format)) != 0,
+                  od_renderer_error(r));
+        finish(r);
+        const auto pixels = capture(r, target);
+        for (size_t pixel = 0; pixel < pixels.size(); ++pixel)
+            if (od_pack_colour(pixels[pixel], od_pixel_format(format)) != expected[pixel]) {
+                std::fprintf(stderr, "retail line case %u pixel %zu endpoints (%d,%d)-(%d,%d)\n",
+                             index, pixel, x0, y0, x1, y1);
+                check(false, "retail line pixel mismatch");
+            }
+        od_renderer_release(r, target);
+        finish(r);
+    }
+    check(std::fgetc(file) == EOF, "trailing retail line fixture data");
+    std::fclose(file);
+    std::printf("direct GPU: %u original-x86 packed line fixtures passed\n", count);
+}
 static void fixture(od_renderer *r, const char *path) {
     FILE *f = nullptr;
     fopen_s(&f, path, "rb");
@@ -527,8 +630,13 @@ int main(int argc, char **argv) {
     fog_checks(r);
     fog_selector_checks(r);
     packed_round_trips(r);
+    packed_lines(r);
     for (int i = 1; i < argc; ++i)
-        fixture(r, argv[i]);
+        if (std::strcmp(argv[i], "--lines") == 0) {
+            check(++i < argc, "--lines requires a fixture path");
+            line_fixture(r, argv[i]);
+        } else
+            fixture(r, argv[i]);
     od_renderer_destroy(r);
     sg_shutdown();
     context->Release();

@@ -2,6 +2,7 @@
  * composition, callbacks and node-box maintenance remain lifted. */
 #include "imports.h"
 #include "render_live.h"
+#include "render_movie.h"
 
 static recomp_func_t function(uint32_t address) {
     recomp_func_t fn = recomp_lookup(address);
@@ -30,19 +31,52 @@ static void sprite(void) { ui(0x401935); }
 static void faded(void) { ui(0x403bcd); }
 static void gauge(void) { ui(0x40368b); }
 static void masked64(void) { ui(0x427b8c); }
+static void line(void) {
+    const uint32_t destination = g_eax;
+    if (!wd_render_surface_owned(destination)) {
+        recomp_func_t original = recomp_lookup_reference(0x465c80);
+        if (!original) abort();
+        original();
+        return;
+    }
+    /* C3D_Line_: EAX destination, EDX/EBX start, ECX/end y on stack,
+     * packed colour on stack. Keep the retail clipper, including its unusual
+     * right/bottom edge and the write back to the stack's end-y argument. */
+    const uint32_t stack = g_esp, colour = WD_HOST_READ32(stack + 8);
+    g_esp -= 12;
+    WD_HOST_WRITE32(g_esp) = g_edx;
+    WD_HOST_WRITE32(g_esp + 4) = g_ebx;
+    WD_HOST_WRITE32(g_esp + 8) = g_ecx;
+    g_eax = g_esp;
+    g_edx = g_esp + 4;
+    g_ebx = g_esp + 8;
+    g_ecx = stack + 4;
+    call(0x46569c, 0x465caa);
+    if (g_eax) {
+        const int32_t x0 = WD_HOST_READ32(g_esp), y0 = WD_HOST_READ32(g_esp + 4);
+        const int32_t x1 = WD_HOST_READ32(g_esp + 8), y1 = WD_HOST_READ32(stack + 4);
+        const int32_t width = WD_HOST_READ32(0x661ebc), height = WD_HOST_READ32(0x661ec8);
+        if (x0 >= 0 && y0 >= 0 && x1 >= 0 && y1 >= 0 &&
+            x0 <= width && x1 <= width && y0 <= height && y1 <= height) {
+            wd_render_line(destination, x0, y0, x1, y1, colour);
+            // The original swaps to an increasing major axis in its own
+            // stack arguments, even though RET 8 discards those slots.
+            const int steep = abs(x1 - x0) < abs(y1 - y0);
+            if (steep ? y1 < y0 : x1 < x0) WD_HOST_WRITE32(stack + 4) = (uint32_t)y0;
+        }
+    }
+    g_esp = stack + 12; // RET 8: return address plus two stack arguments
+}
 static void compose_object(void) {
     // The helper consumes the existing return address, exactly once.
     function(0x47e634)();
 }
 static void frame(int alternate) {
-    const uint32_t caller = MEM32(g_esp);
+    const uint32_t caller = WD_HOST_READ32(g_esp);
     uint32_t destination = alternate ? g_edx : g_eax;
     uint32_t root;
-    uint32_t post_hook = MEM32(0x4ac8d0);
-    if (MEM8(0x4ac8c8)) {
-        fprintf(stderr, "[direct] diagnostic collector frame not implemented\n");
-        abort();
-    }
+    uint32_t post_hook = WD_HOST_READ32(0x4ac8d0);
+    const int collector = WD_HOST_READ8(0x4ac8c8) != 0;
     if (!alternate)
         PUSH32(g_esp, g_edx);
     PUSH32(g_esp, g_ebp);
@@ -50,23 +84,47 @@ static void frame(int alternate) {
         call(0x455358, 0x4593aa);
     else {
         g_edx = destination;
-        g_eax = MEM32(0x661ee8);
+        g_eax = WD_HOST_READ32(0x661ee8);
     }
     root = g_eax;
-    MEM32(0x4ac8d0) = 0; // the old post-order hook only builds software raster work
-    call(0x47e700, alternate ? 0x4593ff : 0x459384);
-    const uint32_t frame_callback = MEM32(0x4aa704);
-    if (frame_callback)
-        call(frame_callback, alternate ? 0x45940e : 0x459393);
-    call(0x4610e8, alternate ? 0x459413 : 0x459398);
-    MEM32(0x4ac8d0) = post_hook;
-    wd_render_scene(root, destination, !alternate && MEM32(0x661ebc) >= 320, caller,
-                    frame_callback);
-    g_eax = destination;
-    g_ebp = MEM32(g_esp);
+    if (collector) {
+        PUSH32(g_esp, g_esi);
+        PUSH32(g_esp, g_ebx);
+        g_ebx = 0;
+        g_esi = 0x478800;
+        WD_HOST_WRITE32(0x4ac8cc) = g_esi;
+    }
+    WD_HOST_WRITE32(0x4ac8d0) = 0; // the old post-order hook only builds software raster work
+    call(0x47e700, collector ? (alternate ? 0x4593cd : 0x45934c)
+                            : (alternate ? 0x4593ff : 0x459384));
+    const uint32_t frame_callback = WD_HOST_READ32(0x4aa704);
+    const int main_frame = !alternate && WD_HOST_READ32(0x661ebc) >= 320;
+    if (collector) wd_render_collect_scene(root);
+    if (frame_callback) {
+        if (!collector) wd_render_prepare_callback(root, destination, main_frame, caller);
+        call(frame_callback, collector ? (alternate ? 0x4593dc : 0x45935b)
+                                        : (alternate ? 0x45940e : 0x459393));
+    }
+    call(0x4610e8, collector ? (alternate ? 0x4593e1 : 0x459360)
+                            : (alternate ? 0x459413 : 0x459398));
+    if (collector) {
+        // The Windows diagnostic branch restores the standard hooks and
+        // deliberately leaves the previous image untouched (no flush/clear).
+        WD_HOST_WRITE32(0x4ac8cc) = 0x473014;
+        WD_HOST_WRITE32(0x4ac8d0) = 0x4731b8;
+        g_ebx = WD_HOST_READ32(g_esp);
+        g_esp += 4;
+        g_esi = WD_HOST_READ32(g_esp);
+        g_esp += 4;
+    } else {
+        WD_HOST_WRITE32(0x4ac8d0) = post_hook;
+        wd_render_scene(root, destination, main_frame, caller, frame_callback);
+    }
+    g_eax = collector ? 0x4731b8 : destination;
+    g_ebp = WD_HOST_READ32(g_esp);
     g_esp += 4;
     if (!alternate) {
-        g_edx = MEM32(g_esp);
+        g_edx = WD_HOST_READ32(g_esp);
         g_esp += 4;
     }
     g_esp += 4;
@@ -81,7 +139,7 @@ static void dim_background(void) {
     g_esp += 4;
 }
 static void text_band(void) {
-    wd_render_text_band((int32_t)MEM32(g_esp + 4));
+    wd_render_text_band((int32_t)WD_HOST_READ32(g_esp + 4));
     g_esp += 4;
 }
 static void caption_band(void) {
@@ -110,7 +168,7 @@ static void fill_memory(void) {
     g_esp += 4;
 }
 static void free_background(void) {
-    wd_render_forget_surface(MEM32(0x5e1094));
+    wd_render_forget_surface(WD_HOST_READ32(0x5e1094));
     recomp_func_t original = recomp_lookup_reference(0x417e7e);
     if (!original)
         abort();
@@ -125,7 +183,7 @@ static void reset_scene(void) {
 }
 uint32_t wd_render_copy_caller(uint32_t instruction) {
     // memcpy_ saves ECX, ESI, EDI, ES and the original destination (20 bytes).
-    return instruction == 0x45c28c || instruction == 0x45c293 ? MEM32(g_esp + 20) : 0;
+    return instruction == 0x45c28c || instruction == 0x45c293 ? WD_HOST_READ32(g_esp + 20) : 0;
 }
 static void captions(void) {
     wd_render_caption_scope_begin();
@@ -154,6 +212,8 @@ void wd_render_install(void) {
         {0x418060, dim_background},  {0x4018e4, text_band},   {0x4368a1, caption_band},
         {0x417e7e, free_background}, {0x41f9db, reset_scene}, {0x436ab6, captions},
         {0x45fd36, fill_memory},     {0x427b8c, masked64},    {0x41f9ba, fog_update},
+        {0x465c80, line},
+        {0x42665a, wd_render_hnm5},
     };
     for (size_t i = 0; i < sizeof entries / sizeof entries[0]; ++i)
         if (!wd_install_replacement(entries[i].address, entries[i].fn))

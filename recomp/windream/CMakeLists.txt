@@ -25,7 +25,8 @@ set(RUNTIME_SRC
     runtime/user.c runtime/gdi.c runtime/winmm.c runtime/dsound.c
     runtime/crash_report.c runtime/recomp_trace.c runtime/phys_hook.c
     runtime/render_boundary.cpp runtime/render_scene.cpp runtime/render_scene_io.cpp runtime/render_scene_draw.cpp
-    runtime/render_scene_probe.c runtime/render_ui.cpp runtime/render_live.cpp runtime/render_hooks.c)
+    runtime/render_scene_probe.c runtime/render_ui.cpp runtime/render_live.cpp runtime/render_hooks.c
+    runtime/render_metrics.cpp runtime/render_movie.c)
 if(WIN32)
     list(APPEND RUNTIME_SRC runtime/win32_abi_check.c)   # guest_win32.h against the SDK
 endif()

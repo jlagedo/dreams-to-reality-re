@@ -32,6 +32,30 @@ import recomp_env  # noqa: E402
 from dreams import paths  # noqa: E402
 
 
+def schedule(value: str, kind: str) -> str:
+    """Validate the bounded host event grammar before starting the guest."""
+    pattern = (
+        r"(\d+):([1-9]\d*)x([1-9]\d*)"
+        if kind == "resize"
+        else r"(\d+):(move|left-down|left-up|right-down|right-up):(-?\d+):(-?\d+)"
+    )
+    previous = -1
+    entries = value.split(",") if value else []
+    if len(entries) > 128:
+        raise argparse.ArgumentTypeError("at most 128 scheduled events are supported")
+    for entry in entries:
+        match = re.fullmatch(pattern, entry, flags=re.ASCII)
+        if not match or int(match[1]) < previous or int(match[1]) > 0xFFFFFFFF:
+            raise argparse.ArgumentTypeError(f"invalid or unordered {kind} schedule: {entry}")
+        previous = int(match[1])
+        numbers = match.groups()[1:] if kind == "resize" else match.groups()[2:]
+        if kind == "resize" and any(not 64 <= int(number) <= 16384 for number in numbers):
+            raise argparse.ArgumentTypeError("event dimensions must be between 64 and 16384")
+        if any(abs(int(number)) > 32767 for number in numbers):
+            raise argparse.ArgumentTypeError("event dimensions/coordinates must fit signed 16 bits")
+    return value
+
+
 def read_roots() -> str:
     install = paths.configured("install_root")
     if install is None:
@@ -51,6 +75,9 @@ def main() -> int:
     ap.add_argument("--tag", help="isolated run directory suffix under DREAMS_OUT/recomp/windream")
     ap.add_argument("--render-audit", action="store_true", help="run the build-audit executable")
     ap.add_argument(
+        "--render-profile", action="store_true", help="record nonblocking CPU/GPU renderer timings"
+    )
+    ap.add_argument(
         "--capture-scene",
         action="store_true",
         help="capture original scene inputs on the first main 3D frame",
@@ -61,6 +88,20 @@ def main() -> int:
     ap.add_argument("--snap-ms", type=int, default=0, help="snapshot interval")
     ap.add_argument("--fps", type=int, default=25, help="frame cap (0 = uncapped)")
     ap.add_argument("--scale", type=int, default=2, help="window size in multiples of 640x480")
+    ap.add_argument("--width", type=int, help="initial client width; requires --height")
+    ap.add_argument("--height", type=int, help="initial client height; requires --width")
+    ap.add_argument(
+        "--resize",
+        default="",
+        type=lambda s: schedule(s, "resize"),
+        help="scheduled client sizes: ms:WIDTHxHEIGHT,...",
+    )
+    ap.add_argument(
+        "--mouse",
+        default="",
+        type=lambda s: schedule(s, "mouse"),
+        help="scheduled client coordinates: ms:move|left-down|left-up|right-down|right-up:x:y,...",
+    )
     ap.add_argument("--fullscreen", action="store_true", help="start fullscreen (F11 toggles)")
     ap.add_argument(
         "--filter", choices=("pixelart", "nearest", "linear"), default="pixelart",
@@ -88,6 +129,10 @@ def main() -> int:
         help="write a dword into the loaded image before the entry point (repeatable)",
     )  # fmt: skip
     args = ap.parse_args()
+    if (args.width is None) != (args.height is None):
+        ap.error("--width and --height must be supplied together")
+    if args.width is not None and not (64 <= args.width <= 16384 and 64 <= args.height <= 16384):
+        ap.error("--width and --height must be between 64 and 16384")
     if args.headless and args.fullscreen:
         ap.error("--headless and --fullscreen cannot be combined")
     if args.tag and not re.fullmatch(r"[A-Za-z0-9_-]+", args.tag):
@@ -115,6 +160,10 @@ def main() -> int:
         WD_SNAP_MS=str(args.snap_ms) if args.snap_ms else "",
         WD_FPS=str(args.fps),  # "0" = uncapped (an empty value would unset it)
         WD_SCALE=str(args.scale),
+        WD_WIDTH=str(args.width) if args.width else "",
+        WD_HEIGHT=str(args.height) if args.height else "",
+        WD_RESIZE=args.resize,
+        WD_MOUSE=args.mouse,
         WD_FULLSCREEN="1" if args.fullscreen else "",
         WD_FILTER=args.filter,
         WD_PAD=args.pad,
@@ -122,6 +171,7 @@ def main() -> int:
         WD_DUMP=args.dump,
         WD_POKE=",".join(pokes),
         WD_RENDERER=args.renderer,
+        WD_RENDER_PROFILE="1" if args.render_profile else os.environ.get("WD_RENDER_PROFILE", ""),
         WD_MUTE="1" if args.mute or args.headless else os.environ.get("WD_MUTE", ""),
         WD_HEADLESS="1" if args.headless else os.environ.get("WD_HEADLESS", ""),
         WD_SCENE_CAPTURE=str(run / "direct-scene.wds") if args.capture_scene else "",

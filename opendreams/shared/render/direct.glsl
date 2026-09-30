@@ -12,6 +12,7 @@ layout(binding=0) uniform draw_params {
     vec4 canvas;
     vec4 dimensions; // physical xy, logical zw
     ivec4 operation; // kind, parameter, 555, GL render-texture flip
+    ivec4 line_points; // inclusive logical endpoints for packed line stores
 };
 @image_sample_type previous_tex unfilterable_float
 layout(binding=0) uniform texture2D previous_tex;
@@ -91,7 +92,23 @@ void main() {
     vec2 pos=(uv*dimensions.xy-canvas.xy)*dimensions.zw/canvas.zw;
     ivec2 local=ivec2(floor(pos-draw_rect.xy));
     bool inside=all(greaterThanEqual(pos,draw_rect.xy))&&all(lessThan(pos,draw_rect.xy+draw_rect.zw));
-    if(!inside) { frag_color=kind==6?vec4(0,0,0,1):old; return; }
+    if(!inside) { if(kind==11)discard;frag_color=kind==6?vec4(0,0,0,1):old; return; }
+    if(kind==11) {
+        ivec2 a=line_points.xy,b=line_points.zw,p=ivec2(floor(pos));
+        ivec2 delta=abs(b-a);
+        bool major_x=delta.x>=delta.y;
+        if((major_x&&a.x>b.x)||(!major_x&&a.y>b.y)) { ivec2 swap=a;a=b;b=swap; }
+        uint major=uint(major_x?delta.x:delta.y);
+        uint minor=uint(major_x?delta.y:delta.x);
+        uint step=uint(major_x?p.x-a.x:p.y-a.y);
+        int offset=major==0u?0:int((step*minor+major/2u)/major);
+        int expected=major_x?a.y+(b.y>=a.y?offset:-offset):a.x+(b.x>=a.x?offset:-offset);
+        bool hit=(major_x?p.y:p.x)==expected&&all(greaterThanEqual(p,ivec2(0)))&&
+                 all(lessThan(p,ivec2(dimensions.zw)));
+        if(!hit)discard;
+        frag_color=expand_colour(uint(operation.y));
+        return;
+    }
     uint d=pack_colour(old), s=d;
     if(kind==0) { frag_color=old; return; }
     if(kind==3) s=uint(operation.y);

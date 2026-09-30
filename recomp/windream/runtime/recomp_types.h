@@ -50,6 +50,7 @@ static __inline uint32_t RECOMP_BSF(uint32_t v) { unsigned long i; _BitScanForwa
 
 /* Volatile (caller-saved) registers */
 extern RECOMP_TLS uint32_t g_eax, g_ecx, g_edx, g_esp;
+extern RECOMP_TLS uint32_t g_cur_func;
 
 /* Callee-saved registers (also global for implicit parameter passing).
  * ebp is global too, not a per-function local: MSVC's __EH_prolog sets its
@@ -229,10 +230,12 @@ static inline void MEMSET16(void* dst, uint16_t val, uint32_t count) {
 #define PUSH32(sp, val) do { \
     uint32_t _pv = (uint32_t)(val); \
     (sp) -= 4; \
+    WD_AUDIT_MEMORY(g_cur_func, (sp), 4, 1); \
     MEM32(sp) = _pv; \
 } while(0)
 
 #define POP32_VAL(sp) ({ \
+    WD_AUDIT_MEMORY(g_cur_func, (sp), 4, 0); \
     uint32_t _v = MEM32(sp); \
     (sp) += 4; \
     _v; \
@@ -241,6 +244,7 @@ static inline void MEMSET16(void* dst, uint16_t val, uint32_t count) {
 /* MSVC doesn't support statement expressions, so use a function */
 #ifdef _MSC_VER
 static inline uint32_t _pop32(uint32_t* sp) {
+    WD_AUDIT_MEMORY(g_cur_func, *sp, 4, 0);
     uint32_t v = MEM32(*sp);
     *sp += 4;
     return v;
@@ -268,10 +272,12 @@ static inline uint32_t _pop32(uint32_t* sp) {
 #define PUSH16(sp, val) do { \
     uint16_t _pv = (uint16_t)(val); \
     (sp) -= 2; \
+    WD_AUDIT_MEMORY(g_cur_func, (sp), 2, 1); \
     MEM16(sp) = _pv; \
 } while(0)
 
 static inline uint16_t _pop16(uint32_t *sp) {
+    WD_AUDIT_MEMORY(g_cur_func, *sp, 2, 0);
     uint16_t v = MEM16(*sp);
     *sp += 2;
     return v;
@@ -881,7 +887,6 @@ static inline void CPUID_impl(uint32_t eax_val, uint32_t ebx_val, uint32_t ecx_v
 
 /* The VA of the function currently executing (see RECOMP_ENTER below); an
  * unresolved dispatch is far more useful with its caller named. */
-extern RECOMP_TLS uint32_t g_cur_func;
 
 /* ICALL trace ring buffer for crash diagnostics.
  *
@@ -991,7 +996,6 @@ recomp_func_t recomp_lookup_import(uint32_t va);    /* import bridges */
 /* Always-on: the VA of the function currently executing. A plain global store
  * (no call), so unlike the ring tracer below it doesn't force register reloads --
  * useful for pinning a crash to a function without perturbing codegen. */
-extern RECOMP_TLS uint32_t g_cur_func;
 
 #ifdef RECOMP_TRACE
 #define RECOMP_ENTER_SIZE 1024

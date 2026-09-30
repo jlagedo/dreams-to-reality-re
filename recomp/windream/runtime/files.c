@@ -99,28 +99,51 @@ void imp_CreateFileA(void) {  /* (name, access, share, sa, disposition, flags, t
     else resolve_read(rel, host);
     HANDLE h = CreateFileA(host, access, ARG(2), NULL, disp, ARG(5) & 0xFFFF, NULL);
     uint32_t gh = h == INVALID_HANDLE_VALUE ? 0xFFFFFFFFu : handle_new(h, HK_FILE);
-    if (g_log > 0) { g_log--; fprintf(stderr, "[files] open %s \"%s\" -> %s%s\n", write ? "W" : "R", rel, host, gh == 0xFFFFFFFFu ? " (FAILED)" : ""); }
+    const char* leaf = strrchr(rel, '\\');
+    leaf = leaf ? leaf + 1 : rel;
+    int save = 0;
+    if (strlen(leaf) > 4 && !_strnicmp(leaf, "game", 4) && leaf[4] >= '0' && leaf[4] <= '9') {
+        const char* suffix = leaf + 4;
+        while (*suffix >= '0' && *suffix <= '9') ++suffix;
+        save = !_stricmp(suffix, ".dat");
+    }
+    // Save/reload acceptance must remain observable after asset loads exhaust
+    // the general 200-open log budget. Emit exactly one successful save event.
+    if (save && gh != 0xFFFFFFFFu)
+        fprintf(stderr, "[save] open %s \"%s\" -> %s\n", write ? "W" : "R", rel, host);
+    else if (g_log > 0) { g_log--; fprintf(stderr, "[files] open %s \"%s\" -> %s%s\n", write ? "W" : "R", rel, host, gh == 0xFFFFFFFFu ? " (FAILED)" : ""); }
     RET(gh); STDRET(7);
 }
 void imp_ReadFile(void) {  /* (h, buf, n, *read, overlapped) */
     DWORD got = 0;
     HANDLE h = (HANDLE)handle_get(ARG(0), 0);
-    BOOL ok = h && ReadFile(h, PTR(ARG(1)), ARG(2), &got, NULL);
-    if (ARG(3)) MEM32(ARG(3)) = got;
+    /* Stage the host output: EOF/short reads only touch the bytes returned. */
+    uint32_t count = ARG(2);
+    void* data = h ? malloc(count ? count : 1) : NULL;
+    BOOL ok = FALSE;
+    if (h && !data) SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+    if (data) {
+        ok = ReadFile(h, data, count, &got, NULL);
+        DWORD error = GetLastError();
+        if (got) memcpy(wd_host_range(ARG(1), got, 1), data, got);
+        free(data);
+        SetLastError(error);
+    }
+    if (ARG(3)) WD_HOST_WRITE32(ARG(3)) = got;
     RET(ok); STDRET(5);
 }
 void imp_WriteFile(void) {
     DWORD put = 0;
     HANDLE h = (HANDLE)handle_get(ARG(0), 0);
-    BOOL ok = h && WriteFile(h, PTR(ARG(1)), ARG(2), &put, NULL);
-    if (ARG(3)) MEM32(ARG(3)) = put;
+    BOOL ok = h && WriteFile(h, wd_host_range(ARG(1), ARG(2), 0), ARG(2), &put, NULL);
+    if (ARG(3)) WD_HOST_WRITE32(ARG(3)) = put;
     RET(ok); STDRET(5);
 }
 void imp_SetFilePointer(void) {  /* (h, dist, *distHigh, method) */
     HANDLE h = (HANDLE)handle_get(ARG(0), 0);
-    LONG hi = ARG(2) ? (LONG)MEM32(ARG(2)) : 0;
+    LONG hi = ARG(2) ? (LONG)WD_HOST_READ32(ARG(2)) : 0;
     DWORD r = h ? SetFilePointer(h, (LONG)ARG(1), ARG(2) ? &hi : NULL, ARG(3)) : INVALID_SET_FILE_POINTER;
-    if (ARG(2)) MEM32(ARG(2)) = (uint32_t)hi;
+    if (ARG(2)) WD_HOST_WRITE32(ARG(2)) = (uint32_t)hi;
     RET(r); STDRET(4);
 }
 void imp_FlushFileBuffers(void) { HANDLE h = (HANDLE)handle_get(ARG(0), HK_FILE); RET(h ? FlushFileBuffers(h) : 1); STDRET(1); }
@@ -162,14 +185,14 @@ void imp_FindFirstFileA(void) {
     }
     if (g_log > 0) { g_log--; fprintf(stderr, "[files] find \"%s\"%s\n", rel, h == INVALID_HANDLE_VALUE ? " (none)" : ""); }
     if (h == INVALID_HANDLE_VALUE) { RET(0xFFFFFFFFu); STDRET(2); return; }
-    memcpy(PTR(ARG(1)), &fd, sizeof fd);
+    memcpy(wd_host_range(ARG(1), sizeof fd, 1), &fd, sizeof fd);
     RET(handle_new(h, HK_FIND)); STDRET(2);
 }
 void imp_FindNextFileA(void) {
     WIN32_FIND_DATAA fd;
     HANDLE h = (HANDLE)handle_get(ARG(0), HK_FIND);
     BOOL ok = h && FindNextFileA(h, &fd);
-    if (ok) memcpy(PTR(ARG(1)), &fd, sizeof fd);
+    if (ok) memcpy(wd_host_range(ARG(1), sizeof fd, 1), &fd, sizeof fd);
     RET(ok); STDRET(2);
 }
 void imp_FindClose(void) { handle_close(ARG(0)); RET(1); STDRET(1); }
@@ -194,11 +217,31 @@ void imp_GetFullPathNameA(void) {  /* (name, len, buf, *filePart) */
     uint32_t n = (uint32_t)strlen(s);
     if (n + 1 > ARG(1)) { RET(n + 1); STDRET(4); return; }
     guest_strcpy_out(ARG(2), ARG(1), s);
-    if (ARG(3)) { char* f = strrchr(s, '\\'); MEM32(ARG(3)) = ARG(2) + (uint32_t)(f ? f + 1 - s : 0); }
+    if (ARG(3)) { char* f = strrchr(s, '\\'); WD_HOST_WRITE32(ARG(3)) = ARG(2) + (uint32_t)(f ? f + 1 - s : 0); }
     RET(n); STDRET(4);
 }
 
-void imp_DosDateTimeToFileTime(void) { RET(DosDateTimeToFileTime((WORD)ARG(0), (WORD)ARG(1), (LPFILETIME)PTR(ARG(2)))); STDRET(3); }
-void imp_FileTimeToDosDateTime(void) { RET(FileTimeToDosDateTime((const FILETIME*)PTR(ARG(0)), (LPWORD)PTR(ARG(1)), (LPWORD)PTR(ARG(2)))); STDRET(3); }
-void imp_FileTimeToLocalFileTime(void) { RET(FileTimeToLocalFileTime((const FILETIME*)PTR(ARG(0)), (LPFILETIME)PTR(ARG(1)))); STDRET(2); }
-void imp_LocalFileTimeToFileTime(void) { RET(LocalFileTimeToFileTime((const FILETIME*)PTR(ARG(0)), (LPFILETIME)PTR(ARG(1)))); STDRET(2); }
+void imp_DosDateTimeToFileTime(void) {
+    FILETIME value;
+    BOOL ok = DosDateTimeToFileTime((WORD)ARG(0), (WORD)ARG(1), &value);
+    if (ok) memcpy(wd_host_range(ARG(2), sizeof value, 1), &value, sizeof value);
+    RET(ok); STDRET(3);
+}
+void imp_FileTimeToDosDateTime(void) {
+    WORD date, time;
+    BOOL ok = FileTimeToDosDateTime((const FILETIME*)wd_host_range(ARG(0), sizeof(FILETIME), 0), &date, &time);
+    if (ok) { WD_HOST_WRITE16(ARG(1)) = date; WD_HOST_WRITE16(ARG(2)) = time; }
+    RET(ok); STDRET(3);
+}
+void imp_FileTimeToLocalFileTime(void) {
+    FILETIME value;
+    BOOL ok = FileTimeToLocalFileTime((const FILETIME*)wd_host_range(ARG(0), sizeof(FILETIME), 0), &value);
+    if (ok) memcpy(wd_host_range(ARG(1), sizeof value, 1), &value, sizeof value);
+    RET(ok); STDRET(2);
+}
+void imp_LocalFileTimeToFileTime(void) {
+    FILETIME value;
+    BOOL ok = LocalFileTimeToFileTime((const FILETIME*)wd_host_range(ARG(0), sizeof(FILETIME), 0), &value);
+    if (ok) memcpy(wd_host_range(ARG(1), sizeof value, 1), &value, sizeof value);
+    RET(ok); STDRET(2);
+}

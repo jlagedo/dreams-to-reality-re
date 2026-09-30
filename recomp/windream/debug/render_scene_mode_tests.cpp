@@ -91,6 +91,40 @@ int main(int argc, char **argv) {
     face(20, 4, false);
     face(0, 200, false);
     face(2, 4, false);
+    scene.faces[0].flags = 8;
+    wd::SceneCollector collector;
+    const auto collector_before = od_renderer_stats(renderer);
+    check(wd::prepare_scene_collector(scene, 256, 128, false, collector, error), error.c_str());
+    check(collector.total_triangles == 2 && collector.triangles.size() == 2 &&
+              collector.triangles[0].face_flags == 1,
+          "collector visibility or source face flag");
+    const auto collector_after = od_renderer_stats(renderer);
+    check(collector_before.scene_triangles == collector_after.scene_triangles &&
+              collector_before.draws_2d == collector_after.draws_2d,
+          "collector issued GPU work");
+    wd::SceneCollector bounded;
+    check(wd::prepare_scene_collector(scene, 256, 128, false, bounded, error, 1), error.c_str());
+    check(bounded.triangles.size() == 1 && bounded.total_triangles == 2,
+          "collector capacity lost full diagnostic count");
+    auto cross_scene = scene;
+    cross_scene.nodes.push_back(scene.nodes[0]);
+    cross_scene.poses.push_back(scene.poses[0]);
+    cross_scene.poses[1].local[3] = 1;
+    cross_scene.faces[0].corners[0].node = 1;
+    check(wd::prepare_scene_collector(cross_scene, 256, 128, false, bounded, error), error.c_str());
+    check(bounded.triangles[0].points[0][0] == collector.triangles[0].points[0][0] + 32,
+          "collector ignored per-corner transform owner");
+    auto near_scene = scene;
+    near_scene.faces = {scene.faces.front()};
+    near_scene.vertices[near_scene.faces[0].corners[0].vertex].xyz[2] = .5f;
+    check(wd::prepare_scene_collector(near_scene, 256, 128, false, bounded, error), error.c_str());
+    check(!bounded.triangles.empty() && std::any_of(bounded.triangles.begin(), bounded.triangles.end(),
+              [](const auto &t) { return t.clipped[0] || t.clipped[1] || t.clipped[2]; }),
+          "collector near-plane clipping lost geometry/flags");
+    for (const auto &triangle : bounded.triangles)
+        for (const auto &point : triangle.points)
+            check(point[0] >= 0 && point[0] <= 256 && point[1] >= 0 && point[1] <= 128,
+                  "collector projected outside clip canvas");
     auto target = od_renderer_target(renderer, 256, 128, 256, 128);
     wd::SceneDraw draw;
     auto render = [&]() {
@@ -391,6 +425,30 @@ int main(int argc, char **argv) {
     draw.finish_frame(renderer);
     od_renderer_frame_complete(renderer);
     auto baked_env = env_copy;
+    // Preparation can precede a UI-writing callback, while final scene flush
+    // retains retail overwrite order and the exact prepared UV versions.
+    draw.reset(renderer);
+    od_draw_2d callback_fill{OD_DRAW_FILL, target, 0, {0, 0, 256, 128}, OD_RGB565, 0xffff};
+    check(od_renderer_draw_2d(renderer, &callback_fill), "callback diagnostic fill");
+    std::vector<wd::SceneLightingWrite> delayed_writes;
+    check(draw.submit(renderer, env_copy, target, 256, 128, false, error,
+                       &delayed_writes, &prepared), error.c_str());
+    check(delayed_writes.size() == prepared.writes.size() && prepared.writes.size() == 6,
+          "prepared metadata lost or consumed during delayed submission");
+    sg_commit();
+    std::vector<uint32_t> delayed_pixels;
+    check(backend.read_image(od_renderer_image(renderer, target), 0, 0, 256, 128,
+                             delayed_pixels, error), error.c_str());
+    check(delayed_pixels == env_pixels, "delayed prepared scene changed UV or callback order");
+    draw.finish_frame(renderer);
+    od_renderer_frame_complete(renderer);
+    auto malformed = prepared;
+    malformed.corners.pop_back();
+    const auto submissions = od_renderer_stats(renderer).scene_triangles;
+    check(!draw.submit(renderer, env_copy, target, 256, 128, false, error, nullptr, &malformed),
+          "mismatched prepared metadata accepted");
+    check(od_renderer_stats(renderer).scene_triangles == submissions,
+          "mismatched metadata partially submitted");
     for (unsigned i = 0; i < 2; ++i) {
         baked_env.nodes[i + 1].flags &= ~0x800u;
         baked_env.faces[i].corners = prepared.corners[i];

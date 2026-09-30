@@ -1,6 +1,7 @@
 #include "render_scene_draw.h"
 #include <algorithm>
 #include <cstring>
+#include <cmath>
 #include <unordered_map>
 
 namespace wd {
@@ -53,6 +54,109 @@ bool environment_type(int32_t type) {
 // Compatibility UV feedback uses retail's integer camera chain. Geometry
 // still uses renderer-composed floating poses and the separate visual camera.
 } // namespace
+bool prepare_scene_collector(const SceneSnapshot &scene, int width, int height, bool hor_plus,
+                              SceneCollector &output, std::string &error, size_t capacity) {
+    error.clear();
+    float vp[16];
+    std::vector<float> world(scene.poses.size() * 12);
+    if (scene.nodes.size() != scene.poses.size() ||
+        !scene.view_projection(width, height, hor_plus, vp) ||
+        !od_compose_pose(scene.poses.data(), scene.poses.size(), world.data())) {
+        error = "invalid collector hierarchy/camera";
+        return false;
+    }
+    struct Point { std::array<double, 4> p{}; uint8_t clipped = 0; };
+    const auto distance = [](const Point &p, int plane) {
+        switch (plane) {
+        case 0: return p.p[3] + p.p[0];
+        case 1: return p.p[3] - p.p[0];
+        case 2: return p.p[3] + p.p[1];
+        case 3: return p.p[3] - p.p[1];
+        case 4: return p.p[2];
+        default: return p.p[3] - p.p[2];
+        }
+    };
+    SceneCollector result;
+    std::vector<Point> polygon, next;
+    for (const auto &face : scene.faces) {
+        if (face.owner >= scene.nodes.size()) {
+            error = "invalid collector face owner";
+            return false;
+        }
+        if (!scene.nodes[face.owner].submitted)
+            continue;
+        polygon.assign(3, {});
+        for (unsigned c = 0; c < 3; ++c) {
+            const auto &corner = face.corners[c];
+            if (corner.node >= scene.poses.size() || corner.vertex >= scene.vertices.size()) {
+                error = "invalid collector corner owner";
+                return false;
+            }
+            const auto *m = world.data() + corner.node * 12;
+            const auto *v = scene.vertices[corner.vertex].xyz;
+            double p[4] = {0, 0, 0, 1};
+            for (unsigned axis = 0; axis < 3; ++axis)
+                p[axis] = double(m[axis * 4]) * v[0] + double(m[axis * 4 + 1]) * v[1] +
+                          double(m[axis * 4 + 2]) * v[2] + m[axis * 4 + 3];
+            for (unsigned row = 0; row < 4; ++row) {
+                for (unsigned k = 0; k < 4; ++k)
+                    polygon[c].p[row] += vp[k * 4 + row] * p[k];
+                if (!std::isfinite(polygon[c].p[row])) {
+                    error = "nonfinite collector geometry";
+                    return false;
+                }
+            }
+        }
+        for (int plane = 0; plane < 6 && !polygon.empty(); ++plane) {
+            next.clear();
+            Point previous = polygon.back();
+            double pd = distance(previous, plane);
+            for (const auto &current : polygon) {
+                const double cd = distance(current, plane);
+                if ((pd < 0) != (cd < 0)) {
+                    const double t = pd / (pd - cd);
+                    Point crossing;
+                    for (unsigned axis = 0; axis < 4; ++axis)
+                        crossing.p[axis] = previous.p[axis] + t * (current.p[axis] - previous.p[axis]);
+                    crossing.clipped = 1;
+                    next.push_back(crossing);
+                }
+                if (cd >= 0)
+                    next.push_back(current);
+                previous = current;
+                pd = cd;
+            }
+            polygon.swap(next);
+        }
+        for (size_t i = 1; i + 1 < polygon.size(); ++i) {
+            const Point points[3] = {polygon[0], polygon[i], polygon[i + 1]};
+            double area = 0;
+            bool valid = true;
+            for (unsigned c = 0; c < 3; ++c) {
+                const auto &a = points[c].p, &b = points[(c + 1) % 3].p;
+                if (a[3] <= 0 || b[3] <= 0) { valid = false; break; }
+                area += (a[0] * b[1] - b[0] * a[1]) / (a[3] * b[3]);
+            }
+            if (!valid || area <= 0)
+                continue;
+            ++result.total_triangles;
+            if (result.triangles.size() >= capacity)
+                continue;
+            SceneCollectorTriangle triangle;
+            triangle.face_flags = (face.flags & 8) != 0;
+            for (unsigned c = 0; c < 3; ++c) {
+                const auto &p = points[c].p;
+                triangle.points[c] = {
+                    int32_t(std::clamp((p[0] / p[3] + 1) * .5 * width, 0.0, double(width))),
+                    int32_t(std::clamp((1 - p[1] / p[3]) * .5 * height, 0.0, double(height)))};
+                triangle.clipped[c] = points[c].clipped;
+            }
+            result.triangles.push_back(triangle);
+        }
+    }
+    output = std::move(result);
+    return true;
+}
 bool compose_feedback_rotations(const SceneSnapshot &scene, std::vector<int32_t> &result) {
     if (scene.nodes.size() != scene.poses.size())
         return false;
@@ -452,7 +556,8 @@ od_render_id SceneDraw::texture(od_renderer *renderer, const SceneMaterial &mate
 
 bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_render_id target,
                        int width, int height, bool hor_plus, std::string &error,
-                       std::vector<SceneLightingWrite> *lighting_writes) {
+                       std::vector<SceneLightingWrite> *lighting_writes,
+                       const SceneLighting *prepared_lighting, float source_edge_quantum) {
     error.clear();
     float view_projection[16];
     if (!scene.view_projection(width, height, hor_plus, view_projection)) {
@@ -460,9 +565,20 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
         return false;
     }
     std::vector<float> world;
-    SceneLighting lighting;
-    if (!prepare_scene_lighting(scene, view_projection, lighting, error, lighting_writes != nullptr))
+    SceneLighting calculated_lighting;
+    if (!prepared_lighting) {
+        if (!prepare_scene_lighting(scene, view_projection, calculated_lighting, error,
+                                     lighting_writes != nullptr))
+            return false;
+        prepared_lighting = &calculated_lighting;
+    }
+    const SceneLighting &lighting = *prepared_lighting;
+    if (lighting.shades.size() != scene.faces.size() ||
+        lighting.corner_shades.size() != scene.faces.size() ||
+        lighting.corners.size() != scene.faces.size()) {
+        error = "prepared lighting does not match scene face count";
         return false;
+    }
     std::vector<od_scene_triangle> opaque, deferred;
     std::unordered_map<uint32_t, std::vector<const SceneFace *>> blocks;
     std::vector<uint32_t> order, transparent_order;
@@ -588,6 +704,7 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
     od_scene_packet packet{};
     packet.target = target;
     packet.fog = scene.fog;
+    packet.source_edge_quantum = source_edge_quantum;
     packet.clear = 1;
     packet.clear_colour[3] = 1;
     packet.nodes = scene.poses.data();
@@ -602,7 +719,7 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
         return false;
     }
     if (lighting_writes)
-        *lighting_writes = std::move(lighting.writes);
+        *lighting_writes = lighting.writes;
     return true;
 }
 void SceneDraw::finish_frame(od_renderer *renderer) {

@@ -1,7 +1,7 @@
 # 006 — Finish Dreams rendering on Windows
 
-Status: **Windows/D3D11 implementation in progress. The direct first-scene
-route works; Windows acceptance below is not yet complete.**
+Status: **Buildable/playable Windows checkpoint; full Windows acceptance remains
+open. Software stays the default; direct rendering is explicitly selectable.**
 Date: 2026-09-30. Owner direction: close Windows rendering quickly, reproduce
 Dreams' visible rendering and game behavior, and accept imperceptible GPU/CPU
 numerical differences.
@@ -231,6 +231,44 @@ Non-Windows execution and Voodoo hardware captures are outside this Windows
 acceptance gate. Supported Windows development/debug rendering is inside it.
 
 ## Current evidence and remaining work
+
+### Session closure checkpoint — 2026-09-30
+
+This checkpoint adds GPU debug lines and bounded collector output, prepared
+lighting/UV metadata before frame callbacks, expanded guest/host memory auditing,
+VM surface invalidation, exact-size/resize/mouse automation, optional nonblocking
+profiling, and the existing shared adapter's grayscale/type-1 modes.
+The HNM5 movie bridge retains original conversion in one CPU codec buffer and
+uploads only the written rectangle; it performs no scene readback.
+
+Evidence now includes two-dump line/ABI oracles, all five HNM5 conversion modes
+through packed GPU comparisons, actual `CONTROLE.UBB` playback followed by
+Project11 rendering/autosave, and controlled transitions through the original
+loader into Project55 (configured lighting and type-1 geometry) and Project39
+(HNS6 transition and animated texture). The asset inventory covers all 289
+physical DSN/DAN files; the rebuilt native material corpus covers 150 projects
+and 560 placed actors without binding/load-order gaps. These are scoped results,
+not completion of the acceptance matrix.
+
+**Known release blocker:** Project39 exposes one-world-unit gaps between authored
+architecture faces more visibly than software rasterization. The experimental
+source-edge correction is **disabled in live rendering** and only available by
+explicit `WDSceneGpuTests --stitch` replay. Its visual review, bounded caching and
+isolated pacing validation remain unfinished; do not enable it by default.
+
+**Reload acceptance remains open.** Two full reloads passed. Longer attempts
+uncovered caption/menu interleaving and then the existing 200-open diagnostic-log
+limit, which hid subsequent save opens. Successful save opens now have an
+uncapped `[save]` event, and the harness uses that event. Ten completed reloads
+have not yet been established with this corrected observation path.
+
+Next work is to validate/finalize the seam correction, rerun the ten-reload gate,
+close remaining dynamic gameplay/debug/obscure-mode routes, and complete visible
+fullscreen/input and isolated whole-game pacing acceptance. Keep all affected
+function coverage partial and owner-review state honest. Detailed evidence and
+commands are in [implementation.md](implementation.md),
+[the acceptance runner](acceptance-runner.md), and the finite
+[Windows coverage ledger](windows-coverage.tsv).
 
 The live first-scene route, shared renderer/Viewer adapter, GPU UI arithmetic,
 thumbnail export, flat and supported Gouraud lighting, ordered environment UV

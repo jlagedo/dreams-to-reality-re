@@ -71,10 +71,12 @@ bool MDL_RelocPrimitives(const std::vector<uint8_t>& record, int64_t delta,
             return fail(error, "model face list is outside its record");
         for (uint32_t index = 0; index < count; ++index) {
             const size_t at = face_offset + static_cast<size_t>(index) * stride;
-            if (!range(record, at, flat ? 0x34 : 0x40))
+            const bool grayscale = type >= 0x16 && type <= 0x18;
+            if (!range(record, at, grayscale ? 0x44 : flat ? 0x34 : 0x40))
                 return fail(error, "model face ends outside its record");
             ModelFace face;
             face.owner_node = owner;
+            face.source_block = block;
             face.flags = u32(record,at);
             face.type = type;
             face.material_name = material;
@@ -84,7 +86,11 @@ bool MDL_RelocPrimitives(const std::vector<uint8_t>& record, int64_t delta,
             for (size_t axis=0; axis<3; ++axis)
                 face.normal[axis]=i32(record,normal_offset+axis*4u);
             face.plane_distance=i32(record,at+0x30);
-            if (!flat && range(record, at, 0x41)) face.shade = record[at + 0x40];
+            if (!flat && range(record, at, 0x41))
+                face.shade = record[at + 0x40];
+            if (!flat && range(record, at, 0x44)) {
+                std::copy_n(record.data() + at + 0x41, 3, face.corner_shades.begin());
+            }
             constexpr std::array<size_t, 3> vertex_fields{{8, 0x14, 0x20}};
             constexpr std::array<size_t, 3> uv_fields{{0x34, 0x38, 0x3c}};
             for (size_t corner = 0; corner < 3; ++corner) {

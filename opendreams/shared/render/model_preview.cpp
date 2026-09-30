@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <vector>
+#include <map>
 
 namespace od {
 namespace {
@@ -74,8 +75,12 @@ void preview_matrix(const ModelView &view, float *matrix) {
 bool face_mode(int32_t type, od_face_mode &mode, uint32_t &wrap) {
     wrap = 1;
     switch (type) {
+    case 1:
     case 2:
     case 3:
+    case 0x16:
+    case 0x17:
+    case 0x18:
         mode = OD_FACE_OPAQUE;
         wrap = 0;
         return true;
@@ -94,6 +99,16 @@ bool face_mode(int32_t type, od_face_mode &mode, uint32_t &wrap) {
     default:
         return false;
     }
+}
+std::vector<const port::ModelFace *> preview_faces(const port::ModelGraph &graph) {
+    std::vector<const port::ModelFace *> faces;
+    faces.reserve(graph.faces.size() + graph.flat_faces.size());
+    for (const auto &face : graph.faces)
+        faces.push_back(&face);
+    for (const auto &face : graph.flat_faces)
+        if (face.type == 1)
+            faces.push_back(&face);
+    return faces;
 }
 } // namespace
 
@@ -165,6 +180,7 @@ bool ModelPreview::init(std::string &error, int width, int height) {
 }
 bool ModelPreview::stage_graph(const port::ModelGraph &graph, bool fit, std::string &error) {
     if (graph.nodes.empty() || graph.nodes.size() > 10000 || graph.faces.size() > 1000000 ||
+        graph.flat_faces.size() > 1000000 - graph.faces.size() ||
         graph.materials.size() > 512) {
         error = "invalid preview graph size";
         return false;
@@ -198,25 +214,23 @@ bool ModelPreview::stage_graph(const port::ModelGraph &graph, bool fit, std::str
     }
     std::array<float, 3> minimum{}, maximum{};
     bool first = true;
-    for (const auto &face : graph.faces) {
-        if (face.type >= 0x16 && face.type <= 0x18) {
-            error = "preview grayscale lighting is not implemented";
-            return false;
-        }
+    for (const auto *source_face : preview_faces(graph)) {
+        const auto &face = *source_face;
         od_face_mode mode{};
         uint32_t wrap;
-        if (!face_mode(face.type, mode, wrap) || face.material_index >= graph.materials.size() ||
-            graph.materials[face.material_index].bank.size() != 0x18014)
+        if (!face_mode(face.type, mode, wrap) ||
+            (face.type != 1 && (face.material_index >= graph.materials.size() ||
+                               graph.materials[face.material_index].bank.size() != 0x18014)))
             continue;
         if (face.owner_node >= graph.nodes.size()) {
             error = "invalid preview face owner";
             return false;
         }
-        if (graph.nodes[face.owner_node].light_count) {
+        if (face.type != 1 && graph.nodes[face.owner_node].light_count) {
             error = "preview per-object lighting is not implemented";
             return false;
         }
-        const auto lod = graph.materials[face.material_index].preview_lod;
+        const auto lod = face.type == 1 ? 128 : graph.materials[face.material_index].preview_lod;
         if (lod != 128 && lod != 256) {
             error = "invalid preview material LOD";
             return false;
@@ -369,33 +383,81 @@ bool ModelPreview::draw(const ModelView &view, std::string &error) {
         return false;
     }
     std::vector<od_scene_triangle> triangles;
+    const auto faces = preview_faces(graph_);
+    std::vector<float> world;
+    float view_projection[16];
+    preview_matrix(view, view_projection);
+    std::map<std::pair<size_t, uint32_t>, uint32_t> diagnostic_colours;
     for (int pass = 0; pass < 2; ++pass)
-        for (const auto &face : graph_.faces) {
+        for (const auto *source_face : faces) {
+            const auto &face = *source_face;
             od_face_mode mode{};
             uint32_t wrap;
-            if (!face_mode(face.type, mode, wrap) || face.material_index >= materials_.size() ||
-                materials_[face.material_index].bank.size() != 0x18014)
+            if (!face_mode(face.type, mode, wrap) ||
+                (face.type != 1 && (face.material_index >= materials_.size() ||
+                                   materials_[face.material_index].bank.size() != 0x18014)))
                 continue;
             if ((mode == OD_FACE_TRANSLUCENT) != (pass == 1))
                 continue;
-            const auto &material = graph_.materials[face.material_index];
-            const uint32_t row = material.static_palette_row15 || mode == OD_FACE_TRANSLUCENT
-                                     ? 15u
-                                     : std::min(graph_.nodes[face.owner_node].shade, 31u);
             od_scene_triangle triangle{};
             triangle.mode = mode;
             triangle.colour = 0xffffffff;
-            triangle.texture = texture(face.material_index, row, error);
-            if (!triangle.texture)
-                return false;
+            if (face.type != 1) {
+                const auto &material = graph_.materials[face.material_index];
+                const uint32_t row = material.static_palette_row15 || mode == OD_FACE_TRANSLUCENT
+                                         ? 15u
+                                         : std::min(graph_.nodes[face.owner_node].shade, 31u);
+                triangle.texture = texture(face.material_index, row, error);
+                if (!triangle.texture)
+                    return false;
+            }
             triangle.wrap_texture = wrap;
             triangle.cull_back = 1;
+            if (face.type >= 0x16 && face.type <= 0x18) {
+                triangle.use_corner_brightness = 1;
+                for (size_t corner = 0; corner < 3; ++corner)
+                    triangle.corner_brightness[corner] = uint8_t(
+                        std::min(unsigned(face.corner_shades[corner]) * 8u, 255u));
+            }
             for (int i = 0; i < 3; ++i) {
                 const auto &c = face.corners[i];
                 triangle.corners[i] = {
                     uint32_t(c.node + 1),
                     vertex_bases_[c.node] + uint32_t(c.vertex),
                     {float(c.u) / (65536.0f * 256), float(c.v) / (65536.0f * 256)}};
+            }
+            if (face.type == 1) {
+                if (world.empty()) {
+                    world.resize(poses_.size() * 12);
+                    if (!od_compose_pose(poses_.data(), poses_.size(), world.data())) {
+                        error = "invalid diagnostic preview hierarchy";
+                        return false;
+                    }
+                }
+                float clip[12]{};
+                for (unsigned c = 0; c < 3; ++c) {
+                    const auto &corner = triangle.corners[c];
+                    const float *m = world.data() + corner.node * 12;
+                    const float *v = vertices_[corner.vertex].xyz;
+                    float p[4] = {0, 0, 0, 1};
+                    for (unsigned axis = 0; axis < 3; ++axis)
+                        p[axis] = m[axis * 4] * v[0] + m[axis * 4 + 1] * v[1] +
+                                  m[axis * 4 + 2] * v[2] + m[axis * 4 + 3];
+                    for (unsigned row = 0; row < 4; ++row)
+                        for (unsigned k = 0; k < 4; ++k)
+                            clip[c * 4 + row] += view_projection[k * 4 + row] * p[k];
+                }
+                const int visible = od_triangle_visible(clip, 1);
+                if (visible < 0) {
+                    error = "invalid diagnostic preview geometry";
+                    return false;
+                }
+                if (!visible)
+                    continue;
+                auto &colour = diagnostic_colours[{face.owner_node, face.source_block}];
+                triangle.colour = 0xff000000u | ((colour >> 16) & 255u) | (colour & 0xff00u) |
+                                  ((colour & 255u) << 16);
+                colour += 0x24bf9;
             }
             triangles.push_back(triangle);
         }
@@ -412,7 +474,7 @@ bool ModelPreview::draw(const ModelView &view, std::string &error) {
     packet.clear_colour[1] = .055f;
     packet.clear_colour[2] = .08f;
     packet.clear_colour[3] = 1;
-    preview_matrix(view, packet.view_projection);
+    std::copy_n(view_projection, 16, packet.view_projection);
     packet.fog.enabled = fog_.table_mode;
     packet.fog.colour =
         ((fog_.color >> 16) & 255) | (fog_.color & 0xff00) | ((fog_.color & 255) << 16);

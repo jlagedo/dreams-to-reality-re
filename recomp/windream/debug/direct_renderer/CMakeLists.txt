@@ -36,6 +36,8 @@ add_executable(WDRenderBoundaryTests
     "${DREAMS_ROOT}/recomp/windream/runtime/render_boundary.cpp")
 target_include_directories(WDRenderBoundaryTests PRIVATE "${DREAMS_ROOT}/recomp/windream/runtime")
 if(WIN32)
+    add_executable(WDRenderMetricsTests "${DREAMS_ROOT}/recomp/windream/debug/render_metrics_tests.cpp")
+    target_link_libraries(WDRenderMetricsTests PRIVATE d3d11)
     add_executable(WDSceneModeTests "${DREAMS_ROOT}/recomp/windream/debug/render_scene_mode_tests.cpp")
     target_link_libraries(WDSceneModeTests PRIVATE WDSceneAdapter ODGraphics)
     add_executable(ODDirectExportTests "${DREAMS_ROOT}/opendreams/tests/direct_export_tests.cpp")

@@ -1,8 +1,10 @@
 #include "render/direct_sokol.h"
 #include <direct.glsl.h>
 #include "render/direct_shadow.h"
+#include "render/direct_edges.h"
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 #include <cstring>
 #include <limits>
 #include <new>
@@ -336,7 +338,7 @@ sg_image od_renderer_image(od_renderer *r, od_render_id id) {
     auto *t = r ? r->find(id) : nullptr;
     return t ? t->sides[t->current].image : sg_image{};
 }
-int od_renderer_draw_2d(od_renderer *r, const od_draw_2d *c) {
+static int draw_2d(od_renderer *r, const od_draw_2d *c, const int *line) {
     if (!r || !c)
         return 0;
     auto *t = r->find(c->target);
@@ -364,8 +366,8 @@ int od_renderer_draw_2d(od_renderer *r, const od_draw_2d *c) {
     if (c->kind == OD_DRAW_DIM && c->parameter > 3)
         return r->fail("invalid dim level");
     sg_pass pass{};
-    pass.attachments.colors[0] = t->sides[1 - t->current].attachment;
-    pass.action.colors[0].load_action = SG_LOADACTION_DONTCARE;
+    pass.attachments.colors[0] = t->sides[line ? t->current : 1 - t->current].attachment;
+    pass.action.colors[0].load_action = line ? SG_LOADACTION_LOAD : SG_LOADACTION_DONTCARE;
     draw_params_t p{};
     p.draw_rect[0] = float(c->rect.x);
     p.draw_rect[1] = float(c->rect.y);
@@ -386,8 +388,12 @@ int od_renderer_draw_2d(od_renderer *r, const od_draw_2d *c) {
     p.operation[1] = int(c->parameter);
     p.operation[2] = int(c->format);
     p.operation[3] = r->flip;
+    if (line) {
+        p.operation[0] = 11;
+        std::copy_n(line, 4, p.line_points);
+    }
     sg_bindings b{};
-    b.views[VIEW_previous_tex] = t->sides[t->current].texture;
+    b.views[VIEW_previous_tex] = line ? r->dummy_rgba.texture : t->sides[t->current].texture;
     b.views[VIEW_source_tex] =
         copy ? source->sides[source->current].texture : r->dummy_rgba.texture;
     b.views[VIEW_packed_tex] = packed ? source->sides[0].texture : r->dummy_packed.texture;
@@ -396,16 +402,50 @@ int od_renderer_draw_2d(od_renderer *r, const od_draw_2d *c) {
     b.samplers[SMP_point_smp] = r->point;
     sg_begin_pass(&pass);
     sg_apply_pipeline(r->draw_pipeline);
+    if (line) {
+        const int left = std::clamp(int(std::floor(canvas.x + double(c->rect.x) * canvas.width /
+                                                               t->logical_width)), 0, t->width);
+        const int top = std::clamp(int(std::floor(canvas.y + double(c->rect.y) * canvas.height /
+                                                              t->logical_height)), 0, t->height);
+        const int right = std::clamp(int(std::ceil(canvas.x + double(c->rect.x + c->rect.width) *
+                                                                  canvas.width / t->logical_width)),
+                                     left, t->width);
+        const int bottom = std::clamp(int(std::ceil(canvas.y + double(c->rect.y + c->rect.height) *
+                                                                   canvas.height / t->logical_height)),
+                                      top, t->height);
+        sg_apply_scissor_rect(left, top, right - left, bottom - top, true);
+    }
     sg_apply_bindings(&b);
     sg_range u{&p, sizeof p};
     sg_apply_uniforms(UB_draw_params, &u);
     sg_draw(0, 3, 1);
     sg_end_pass();
-    t->current = 1 - t->current;
+    if (!line)
+        t->current = 1 - t->current;
     ++r->stats.draws_2d;
     if (copy)
         ++r->stats.gpu_copies;
     return 1;
+}
+int od_renderer_draw_2d(od_renderer *r, const od_draw_2d *c) {
+    return draw_2d(r, c, nullptr);
+}
+int od_renderer_line_2d(od_renderer *r, od_render_id target, int x0, int y0, int x1, int y1,
+                        uint16_t colour, od_pixel_format format) {
+    if (!r)
+        return 0;
+    const int line[4] = {x0, y0, x1, y1};
+    for (int coordinate : line)
+        if (coordinate < -32767 || coordinate > 32767)
+            return r->fail("line coordinate outside supported integer range");
+    od_draw_2d command{};
+    command.kind = OD_DRAW_FILL;
+    command.target = target;
+    command.rect = {std::min(x0, x1), std::min(y0, y1), std::abs(x1 - x0) + 1,
+                    std::abs(y1 - y0) + 1};
+    command.format = format;
+    command.parameter = colour;
+    return draw_2d(r, &command, line);
 }
 od_render_id od_renderer_resolve_shadow(od_renderer *r, od_render_id mask,
                                         const uint16_t *palette) {
@@ -621,6 +661,14 @@ int od_renderer_scene(od_renderer *r, const od_scene_packet *p) {
             vertices.push_back(out);
         }
     }
+    size_t stitched_edges = 0;
+    const auto stitch_begin = std::chrono::steady_clock::now();
+    if (!od::stitch_source_edges(*p, vertices.empty() ? nullptr : vertices[0].xyz,
+                                 sizeof(Vertex) / sizeof(float), stitched_edges, r->error))
+        return 0;
+    r->stats.stitched_edges += stitched_edges;
+    r->stats.stitch_cpu_nanoseconds += uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now() - stitch_begin).count());
     sg_buffer buffer{};
     if (!vertices.empty()) {
         sg_buffer_desc d{};

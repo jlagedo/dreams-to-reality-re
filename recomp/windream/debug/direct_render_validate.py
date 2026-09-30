@@ -60,6 +60,7 @@ def main():
         for name in ("ODDirectMathTests", "WDRenderBoundaryTests")
     ]
     if args.gpu:
+        commands.append([str(build / "WDRenderMetricsTests.exe")])
         commands.append([str(build / "WDSceneModeTests.exe"), str(out / "fog-roundtrip.wds")])
         commands.append([str(build / "ODDirectExportTests.exe")])
         commands.append([str(build / "ODDirectGpuTests.exe"), *(str(p.resolve()) for p in files)])

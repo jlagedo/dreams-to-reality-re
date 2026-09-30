@@ -28,11 +28,17 @@ static void log_sokol(const char *, uint32_t level, uint32_t, const char *messag
     }
 }
 int main(int argc, char **argv) {
-    require(argc == 3 || (argc == 4 && (!std::strcmp(argv[3], "--geometry") ||
-                                        !std::strcmp(argv[3], "--shadow"))),
-            "usage: WDSceneGpuTests input.wds output-prefix [--geometry|--shadow]");
-    const bool shadow = argc == 4 && !std::strcmp(argv[3], "--shadow");
-    const bool geometry_only = argc == 4 && !shadow;
+    require(argc >= 3 && argc <= 5,
+            "usage: WDSceneGpuTests input.wds output-prefix [--geometry|--shadow] [--stitch]");
+    bool shadow = false, geometry_only = false, no_stitch = true;
+    for (int i = 3; i < argc; ++i) {
+        if (!std::strcmp(argv[i], "--shadow")) shadow = true;
+        else if (!std::strcmp(argv[i], "--geometry")) geometry_only = true;
+        else if (!std::strcmp(argv[i], "--no-stitch")) no_stitch = true;
+        else if (!std::strcmp(argv[i], "--stitch")) no_stitch = false;
+        else require(false, "unknown scene replay option");
+    }
+    require(!shadow || !geometry_only, "shadow and geometry modes are mutually exclusive");
     wd::SceneSnapshot snapshot;
     std::string error;
     require(wd::read_scene(argv[1], snapshot, error), error.c_str());
@@ -83,16 +89,24 @@ int main(int argc, char **argv) {
         packet.triangles = triangles.data();
         packet.triangle_count = triangles.size();
         packet.clear = 1;
+        packet.source_edge_quantum = no_stitch ? 0 : 1;
         packet.clear_colour[3] = 1;
         require(snapshot.view_projection(width, height, true, packet.view_projection),
                 "camera conversion");
+        const auto before_stats = od_renderer_stats(renderer);
         if (shadow)
             require(wd::SceneDraw::submit_shadow(renderer, snapshot, target, error), error.c_str());
         else if (geometry_only)
             require(od_renderer_scene(renderer, &packet) != 0, od_renderer_error(renderer));
         else
-            require(scene_draw.submit(renderer, snapshot, target, width, height, true, error),
+            require(scene_draw.submit(renderer, snapshot, target, width, height, true, error,
+                                        nullptr, nullptr, no_stitch ? 0 : 1),
                     error.c_str());
+        const auto after_stats = od_renderer_stats(renderer);
+        std::printf("source edges: %llu matched joins, %.3f ms CPU at %dx%d\n",
+                    (unsigned long long)(after_stats.stitched_edges - before_stats.stitched_edges),
+                    double(after_stats.stitch_cpu_nanoseconds - before_stats.stitch_cpu_nanoseconds) / 1e6,
+                    width, height);
         auto output = od_renderer_target(renderer, width, height, 640, 480);
         require(output != 0, od_renderer_error(renderer));
         sg_view_desc output_desc{};

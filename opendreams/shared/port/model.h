@@ -24,6 +24,7 @@ enum class FaceBinding : uint8_t {
 
 struct ModelFace {
     size_t owner_node = 0;
+    uint32_t source_block = 0; // Source block identity within the owning node.
     uint32_t flags = 0; // Retail bit 8 recomputes facing from posed corners.
     int32_t type = 0;
     std::array<int32_t,3> normal{}; // Original Q15 face normal.
@@ -31,6 +32,7 @@ struct ModelFace {
     std::string material_name;
     std::array<ModelCorner, 3> corners{};
     uint8_t shade = 0;
+    std::array<uint8_t, 3> corner_shades{}; // Textured face +0x41..+0x43, independent of flat shade.
     size_t material_index = SIZE_MAX; // Graph-local copy of the bound page.
     size_t cache_slot = SIZE_MAX;     // Level material-cache entry (pointer identity).
     FaceBinding binding = FaceBinding::unbound;

@@ -26,6 +26,146 @@ through the shared GPU scene/UI/presentation pipeline for the tested first-scene
 route. Unsupported operations fail explicitly; they do not select software or
 silently download the scene.
 
+## Windows closure checkpoint (2026-09-30)
+
+**Session closed at the owner's request with software still the default.** The
+new boundary/movie/debug paths are retained; full spec acceptance is not claimed.
+Source-edge stitching is an experimental replay option (`WDSceneGpuTests
+--stitch`), disabled by default in SceneDraw and live rendering. The prototype
+has CPU tests and preliminary replay evidence, but its visual review and
+per-model cache/performance work were not completed. Its measured 17–19 ms
+uncached preparation samples were contended and are not an acceptance result.
+
+The Project39 defect is grounded in original source geometry: face1137/owner38
+and face1900/owner57 contain matching edge endpoints at world Y=-102 and Y=-101,
+with X=1117 and Z endpoints -915/-1158. Identity rotations/integer translations
+exclude transform drift for this pair. Geometry-only GPU replay exposes the
+gap, so it is not a black texture sample. Normal-view software/reference and
+replays are under `run-software-projects-55-39-reference` and the corresponding
+direct run. Do not replace the established black clear colour to conceal gaps.
+
+The ten-reload harness is not yet accepted. Its earlier four-read ceiling was
+caused by the host's general 200-open log budget, not proof that the fifth load
+failed. Successful game save opens now emit an uncapped `[save]` event exactly
+once. The harness parses only that event and retains real caption/controller
+recovery. Rerun the ten-count check on the new executable before claiming it.
+
+Closure validation: normal and `--render-audit` recomp builds, shared renderer
+validation, ODViewer/ODRuntime and ODModelAdapterTests builds pass. The Python
+suite reports **207 passed, 2 skipped, 9 deselected**; the separate codegen/host
+suite reports **41 passed**. The shared GPU suite retains all 256 packed-pixel
+checkpoints, and both line and HNM5 CPU/ABI/GPU oracles pass. Changed Python files
+pass Ruff. Repository-wide Ruff still reports the pre-existing import-spacing
+issue in `opendreams/tools/make_app_icons.py`, which this checkpoint does not edit.
+
+Final `run-closure-software-006` boots/New Games and captures the original scene
+through software rendering. `run-closure-direct-006` reaches the first scene and
+dialogue, toggles the collector, draws over 2,000 collision lines, restores normal
+rendering and continues with zero reported routine readbacks. Both smoke runs
+are deliberately time-bounded; neither is whole-game acceptance. Final build and
+validation logs use the `DREAMS_OUT/recomp/closure-*` prefix. The map checker
+passes; changed maps and partial/review-pending tags are applied and inspected in
+both Windows programs and DREAMSFX.
+
+Windows acceptance remains **open**, and direct remains opt-in. The finite
+[Windows coverage ledger](windows-coverage.tsv) tracks blockers, required routes,
+provisional visual differences and deferrals. The
+[acceptance runner](acceptance-runner.md) inventories configured original assets
+and records reached checkpoints without treating timeout, controlled state or
+an isolated oracle as completed gameplay acceptance.
+
+The integrated first-scene checks at **640x480**, **1920x1080**, and
+640x480 → 1920x1080 → 640x480 reached their declared checkpoints. Their initial
+report is `DREAMS_OUT/recomp/acceptance/20260930T053202Z-da24dedb/results.json`.
+`run.py` now supports exact `--width/--height`, timed `--resize` and `--mouse`
+events. Logs record actual client/drawable sizes and logical mouse coordinates.
+Scripted `KP1`–`KP5` invoke the same host debug controls as physical keypad keys;
+scripted `F11` toggles fullscreen in visible runs. Headless remains hidden.
+Native parsing rejects malformed/overflowing schedules instead of wrapping them.
+
+The GPU line boundary retains lifted `Clip_Line_`, including its unusual edge
+rules, and the original line function's stack argument side effects. Ordinary
+RAM destinations still execute the original function. Registered surfaces use
+GPU integer Bresenham coverage with raw packed colour, RGB555 high-bit retention
+and the centered logical canvas. The line pass loads its target, discards
+non-line fragments, and restricts work to a scissor; it never samples an active
+attachment or downloads pixels. Two independent retail dumps supply **1,128**
+original-x86 fixtures; the production-hook harness checks **2,256** owned/RAM
+executions, stack cleanup, callee-saved registers, FPU state and end-y writes.
+The GPU fixtures match. Evidence is under `DREAMS_OUT/recomp/render-line-smoke`.
+
+The collector uses source geometry, per-corner owners and modern homogeneous
+clipping. Its Windows branch deliberately performs **no clear or scene draw**,
+preserving the previous image for collision lines. The compatibility arrays
+receive at most 682 complete triangles (2,046 indices), within the actual
+2,048-index capacity. Counters describe stored records; logs also report the
+uncapped modern triangle count. This avoids retail's unbounded overwrite.
+Modern clipping, counts and capacity are declared diagnostic differences, still
+subject to the wider useful-output acceptance gate. Fresh Ghidra references
+found no external consumers of these counters. The strict-audit
+`run-debug-006` route toggles keypad 3, draws over 8,000 collision lines using
+Backspace, then restores ordinary rendering; zero routine readbacks are reported.
+`snap_00360_025364ms.png` shows the accumulated collision wireframe at native size.
+
+Callback frames now capture immutable source inputs and prepare/publish lighting
+and environment metadata **before** the lifted callback. GPU scene submission
+occurs afterward, at the original flush position. A supplied preparation is
+validated and consumed without recomputation. The production frame-hook harness
+checks main/alternate, callback/no-callback and collector branches against the
+recorded frame control flow; its callees are mocked, so this is orchestration
+evidence. The controlled `render_light_live_smoke.py --oriented --gouraud
+--callback` run installs the existing editor callback at `0x44d46d`, changes
+144 corner shades, observes normal-dot updates after rotation, unbinds, and
+continues with zero routine readbacks. Arbitrary callback mutations, shaded
+shadow callbacks and complete metadata closure remain unverified.
+
+Auditing now covers implicit stack operations (including optimized and host
+PUSH/POP helpers), actually executed CMPS/SCAS iterations and production host
+bridge transfers. Short file reads and conversions audit their actual output,
+not unused destination capacity. CPU tests exercise zero counts, early exits,
+backward traversal, POP stack addressing and real host transfers. Canonical
+relifting activates the new generated probes. Deliberate crash/research readers
+are outside the normal game transfer contract. Instrumented live-route success
+still does not establish the entire acceptance matrix.
+
+Successful VM decommit/release invalidates every overlapping surface registry
+entry without performing GPU work on the freeing thread. Renderer-thread lookup
+retires invalid GPU targets through the existing deferred release mechanism;
+reused addresses receive new IDs. Failed frees preserve registry state.
+Tests include real Windows decommit/recommit, partial pages, neighbours, stale
+IDs and host failure. Ten full recomp reloads remain a separate acceptance check.
+
+The existing ModelPreview adapter now retains source-block identity and original
+corner shade bytes, supports unlit 0x16–0x18, and draws type-1 flat diagnostics
+with per-block colour reset and modern visibility. This adds no Viewer control
+or platform. Required active-light input and remaining obscure modes stay open.
+
+`render_content_inventory.py` follows actual source block chains across all
+289 physical DSN/DAN files (191 DAN, 98 DSN), with zero parsing failures. Static
+types are `-7,-6,-5,-4,-3,1,2,3,9`, all implemented by SceneDraw; no source node
+light binding or environment flag was observed. Unlike the earlier scan, this
+includes 1,873 stored type-1 flat faces. Stored geometry is not automatically
+visible: retail hides actor collision proxies such as ZZZZZ/BASSIN01 at runtime.
+The O01EAU01 tunnel block (projects 55/138) is a nonproxy natural candidate.
+The rebuilt native material corpus passes all 150 projects and 560 placed
+actors with zero load-order, textured-binding or flat-binding gaps. Dynamic
+setters/effects and gameplay triggers remain required evidence. Reports and
+source hashes live under `DREAMS_OUT/recomp/render-content-inventory`.
+
+Optional `WD_RENDER_PROFILE=1` records bounded rolling CPU/frame percentiles and
+asynchronous D3D11 timestamp results for scene, upload, copy, UI and output work;
+source preparation is CPU-only. Query polling never flushes or waits. Reports
+include skipped/pending/disjoint/failed samples. Profiling does not alter the
+25 FPS cap. Whole-game performance acceptance is still pending. Explicit output
+captures now log caller, surface, region and byte count separately from thumbnail
+exports and routine reads.
+
+The shared validator retains the 256-checkpoint, 14,769,600-pixel packed corpus
+and existing light/environment/shadow regressions. New and materially changed
+port-map rows remain `partial`, `reviewed=no`; map validation and Ghidra tags
+must accompany the checkpoint in both Windows programs (and the changed shared
+Glide adapter row in DREAMSFX).
+
 ## Live integration checkpoint
 
 Unattended runs now support `run.py --mute` (`WD_MUTE=1`) and `--headless`

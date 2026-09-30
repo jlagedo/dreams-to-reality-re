@@ -33,6 +33,10 @@ typedef void (*wd_surface_violation)(const wd_surface_access *, void *);
  * the adapter must register the owning allocation rather than guess. */
 wd_surface_id wd_surface_register(const wd_surface_desc *);
 int wd_surface_unregister(wd_surface_id);
+/* Atomically retire every overlapping surface after a successful allocation
+ * decommit/free. No GPU work runs here; renderer owners retire stale handles
+ * on their own thread. Zero/overflowing ranges remove nothing. IDs never reuse. */
+uint32_t wd_surface_invalidate_range(uint32_t base, uint32_t bytes);
 wd_surface_id wd_surface_find(uint32_t address, uint32_t bytes);
 int wd_surface_describe(wd_surface_id, wd_surface_desc *);
 int wd_surface_set_authority(wd_surface_id, wd_surface_authority);

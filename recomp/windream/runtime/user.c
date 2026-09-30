@@ -36,6 +36,8 @@
  *   WD_HEADLESS=1       keep the window hidden; force focus/quiet and mute the mixer
  */
 #include <ctype.h>
+#include <math.h>
+#include "display_script_parse.h"
 #define RECOMP_GENERATED_CODE
 #include "host.h"
 #include "render_live.h"
@@ -61,6 +63,33 @@ const char* host_env(const char* name) {
 #define KEY_HOLD_MS 150u
 static struct { uint32_t ms; uint8_t vk; } g_script[64];
 static int g_script_n;
+static uint8_t g_script_fired[64];
+typedef struct { uint32_t ms; int width, height, fired; } ResizeStep;
+typedef struct { uint32_t ms; float x, y; int kind, fired; } MouseStep;
+static ResizeStep g_resize[128];
+static MouseStep g_mouse_script[128];
+static int g_resize_n, g_mouse_script_n;
+
+static void script_error(const char* name) {
+    fprintf(stderr, "[user] invalid %s script\n", name);
+    abort();
+}
+static void display_script_init(void) {
+    const char* spec = host_env("WD_RESIZE");
+    while (spec && *spec) {
+        uint32_t ms; int w, h;
+        if (g_resize_n == 128 || !wd_script_resize(&spec, &ms, &w, &h) ||
+            (g_resize_n && ms < g_resize[g_resize_n - 1].ms)) script_error("WD_RESIZE");
+        g_resize[g_resize_n++] = (ResizeStep){ms, w, h, 0};
+    }
+    spec = host_env("WD_MOUSE");
+    while (spec && *spec) {
+        uint32_t ms; int x, y, kind;
+        if (g_mouse_script_n == 128 || !wd_script_mouse(&spec, &ms, &kind, &x, &y) ||
+            (g_mouse_script_n && ms < g_mouse_script[g_mouse_script_n - 1].ms)) script_error("WD_MOUSE");
+        g_mouse_script[g_mouse_script_n++] = (MouseStep){ms, (float)x, (float)y, kind, 0};
+    }
+}
 
 static uint8_t vk_from_name(const char* s, size_t n) {
     static const struct { const char* name; uint8_t vk; } tab[] = {
@@ -69,6 +98,10 @@ static uint8_t vk_from_name(const char* s, size_t n) {
         {"ESCAPE", W32_VK_ESCAPE}, {"SPACE", W32_VK_SPACE}, {"TAB", W32_VK_TAB},
         {"CTRL", W32_VK_CONTROL}, {"SHIFT", W32_VK_SHIFT}, {"ALT", W32_VK_MENU},
         {"F1", W32_VK_F1}, {"F2", W32_VK_F1 + 1}, {"F3", W32_VK_F1 + 2}, {"F10", W32_VK_F10},
+        {"F4", W32_VK_F1 + 3}, {"F5", W32_VK_F1 + 4}, {"F6", W32_VK_F1 + 5},
+        {"F7", W32_VK_F1 + 6}, {"F8", W32_VK_F1 + 7}, {"F9", W32_VK_F1 + 8},
+        {"F11", W32_VK_F10 + 1},
+        {"KP1", 0x61}, {"KP2", 0x62}, {"KP3", 0x63}, {"KP4", 0x64}, {"KP5", 0x65},
         {"BACK", W32_VK_BACK},
     };
     for (size_t i = 0; i < sizeof tab / sizeof tab[0]; i++)
@@ -83,6 +116,7 @@ void host_init(void) {
     g_wd_quiet = g_headless || host_env("WD_QUIET") != NULL;
     g_force_focus = g_headless || host_env("WD_FOCUS") != NULL;
     if (g_headless) fprintf(stderr, "[user] WD_HEADLESS: window remains hidden, scripted focus enabled\n");
+    display_script_init();
     const char* spec = host_env("WD_KEYS");
     while (spec && *spec && g_script_n < 64) {
         char* end;
@@ -100,6 +134,7 @@ void host_init(void) {
 uint32_t host_elapsed_ms(void) { return (uint32_t)(SDL_GetTicks() - g_t0); }
 
 static int script_down(int vk) {
+    if (vk >= 0x61 && vk <= 0x65) return 0; // host debug controls, as with physical keypad
     uint32_t t = host_elapsed_ms();
     for (int i = 0; i < g_script_n; i++)
         if (g_script[i].vk == vk && t >= g_script[i].ms && t < g_script[i].ms + KEY_HOLD_MS) return 1;
@@ -235,7 +270,7 @@ static void mouse_game_pos(SDL_Event* e, float* x, float* y) {
     SDL_Renderer* r = host_renderer();
     if (r) SDL_ConvertEventToRenderCoordinates(r, e);
     else if (wd_render_requested()) wd_render_mouse(e);
-    int w = (int)MEM32(0x0049D9FCu), h = (int)MEM32(0x0049DA00u);   /* game frame size */
+    int w = (int)WD_HOST_READ32(0x0049D9FCu), h = (int)WD_HOST_READ32(0x0049DA00u);   /* game frame size */
     if (w <= 0 || h <= 0) { w = 640; h = 480; }
     float cx = *x < 0 ? 0 : *x > (float)(w - 1) ? (float)(w - 1) : *x;
     float cy = *y < 0 ? 0 : *y > (float)(h - 1) ? (float)(h - 1) : *y;
@@ -257,7 +292,7 @@ static void mouse_button_game(SDL_Event* e) {
 }
 
 static void mouse_post(void) {
-    uint32_t h = MEM32(WD_GAME_HANDLER), q = MEM32(WD_GAME_QUEUE);
+    uint32_t h = WD_HOST_READ32(WD_GAME_HANDLER), q = WD_HOST_READ32(WD_GAME_QUEUE);
     int ok = q && (h == 0x00416D45u || h == 0x0040E75Cu);
     if (ok && (g_mmoved || g_mbtn_n)) {
         uint32_t pos = (uint32_t)g_mx << 16 | ((uint32_t)g_my & 0xFFFFu);
@@ -272,7 +307,7 @@ static void mouse_post(void) {
  * runs the Dreams Editor draw 0x44d46d, which retail never calls, while the
  * editor flag (keypad 5) is set. Every guest register is restored. */
 void wd_editor_frame(void) {
-    if (MEM32(0x004A477Cu))
+    if (WD_HOST_READ32(0x004A477Cu))
         guest_call_regs(0x0044D46Du, g_eax, g_edx, g_ebx, g_ecx);
 }
 
@@ -316,7 +351,7 @@ static int debug_toggle(const SDL_KeyboardEvent* k) {
         uint32_t va = g_debug_keys[i].va;
         if (k->scancode != g_debug_keys[i].sc) continue;
         if (k->down && !k->repeat) {
-            uint32_t v = g_debug_keys[i].byte ? (MEM8(va) = !MEM8(va)) : (MEM32(va) = !MEM32(va));
+            uint32_t v = g_debug_keys[i].byte ? (WD_HOST_WRITE8(va) = !WD_HOST_READ8(va)) : (WD_HOST_WRITE32(va) = !WD_HOST_READ32(va));
             fprintf(stderr, "[debug] [0x%08X] = %u\n", va, v);
         }
         return 1;
@@ -324,8 +359,65 @@ static int debug_toggle(const SDL_KeyboardEvent* k) {
     return 0;
 }
 
+static void display_checkpoint(const char* reason) {
+    int w = 0, h = 0, pw = 0, ph = 0;
+    SDL_GetWindowSize(g_window, &w, &h);
+    SDL_GetWindowSizeInPixels(g_window, &pw, &ph);
+    fprintf(stderr, "[display] client=%dx%d drawable=%dx%d fullscreen=%d reason=%s\n",
+            w, h, pw, ph, (SDL_GetWindowFlags(g_window) & SDL_WINDOW_FULLSCREEN) != 0, reason);
+}
+
+static void display_script_pump(void) {
+    if (!g_window || g_destroyed) return;
+    const uint32_t now = host_elapsed_ms();
+    for (int i = 0; i < g_script_n; ++i) {
+        if (g_script_fired[i] || now < g_script[i].ms) continue;
+        g_script_fired[i] = 1;
+        if (g_script[i].vk == W32_VK_F10 + 1) {
+            if (g_headless) fprintf(stderr, "[display] headless F11 ignored\n");
+            else if (!SDL_SetWindowFullscreen(g_window, !(SDL_GetWindowFlags(g_window) & SDL_WINDOW_FULLSCREEN)))
+                script_error("F11 fullscreen");
+        } else if (g_script[i].vk >= 0x61 && g_script[i].vk <= 0x65) {
+            SDL_KeyboardEvent key = {0};
+            key.scancode = g_debug_keys[g_script[i].vk - 0x61].sc;
+            key.down = true;
+            debug_toggle(&key);
+        }
+    }
+    for (int i = 0; i < g_resize_n; ++i) {
+        ResizeStep* step = &g_resize[i];
+        if (step->fired || now < step->ms) continue;
+        step->fired = 1;
+        if (!SDL_SetWindowSize(g_window, step->width, step->height)) script_error("WD_RESIZE");
+        display_checkpoint("resize");
+    }
+    for (int i = 0; i < g_mouse_script_n; ++i) {
+        MouseStep* step = &g_mouse_script[i];
+        if (step->fired || now < step->ms) continue;
+        step->fired = 1;
+        SDL_Event e = {0};
+        if (!step->kind) {
+            e.type = SDL_EVENT_MOUSE_MOTION;
+            e.motion.windowID = SDL_GetWindowID(g_window);
+            e.motion.x = step->x; e.motion.y = step->y;
+            /* Absolute test input; do not invent relative camera motion. */
+            mouse_motion(&e);
+        } else {
+            e.type = (step->kind & 1) ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
+            e.button.windowID = SDL_GetWindowID(g_window);
+            e.button.x = step->x; e.button.y = step->y;
+            e.button.button = step->kind <= 2 ? SDL_BUTTON_LEFT : SDL_BUTTON_RIGHT;
+            e.button.down = (step->kind & 1) != 0;
+            mouse_event(&e.button); mouse_button_game(&e);
+        }
+        fprintf(stderr, "[mouse-script] ms=%u kind=%d client=%.3f,%.3f logical=%d,%d\n",
+                step->ms, step->kind, step->x, step->y, g_mx, g_my);
+    }
+}
+
 void host_pump(void) {
     if (!SDL_WasInit(SDL_INIT_EVENTS)) return;
+    display_script_pump();
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         switch (e.type) {
@@ -346,6 +438,11 @@ void host_pump(void) {
         case SDL_EVENT_MOUSE_BUTTON_UP: mouse_event(&e.button); mouse_button_game(&e); break;
         case SDL_EVENT_MOUSE_MOTION: mouse_motion(&e); break;
         case SDL_EVENT_WINDOW_FOCUS_LOST: release_all(); break;
+        case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+        case SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
+        case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
+            if (g_window) display_checkpoint("event");
+            break;
         default: joy_event(&e); break;
         }
     }
@@ -359,13 +456,13 @@ static uint32_t wndproc(uint32_t msg, uint32_t wp, uint32_t lp) {
 }
 
 static void write_msg(uint32_t va, const Msg* m) {
-    MEM32(va + W32_MSG_HWND) = m->hwnd;
-    MEM32(va + W32_MSG_MESSAGE) = m->msg;
-    MEM32(va + W32_MSG_WPARAM) = m->wp;
-    MEM32(va + W32_MSG_LPARAM) = m->lp;
-    MEM32(va + W32_MSG_TIME) = host_elapsed_ms();
-    MEM32(va + W32_MSG_PT_X) = 0;
-    MEM32(va + W32_MSG_PT_Y) = 0;
+    WD_HOST_WRITE32(va + W32_MSG_HWND) = m->hwnd;
+    WD_HOST_WRITE32(va + W32_MSG_MESSAGE) = m->msg;
+    WD_HOST_WRITE32(va + W32_MSG_WPARAM) = m->wp;
+    WD_HOST_WRITE32(va + W32_MSG_LPARAM) = m->lp;
+    WD_HOST_WRITE32(va + W32_MSG_TIME) = host_elapsed_ms();
+    WD_HOST_WRITE32(va + W32_MSG_PT_X) = 0;
+    WD_HOST_WRITE32(va + W32_MSG_PT_Y) = 0;
 }
 
 void imp_PeekMessageA(void) {  /* (lpMsg, hWnd, min, max, remove) */
@@ -392,8 +489,8 @@ void imp_PeekMessageA(void) {  /* (lpMsg, hWnd, min, max, remove) */
 void imp_TranslateMessage(void) { RET(0); STDRET(1); }
 void imp_DispatchMessageA(void) {
     uint32_t m = ARG(0), r = 0;
-    if (MEM32(m + W32_MSG_HWND) == WD_HWND_MAIN && !g_destroyed)
-        r = wndproc(MEM32(m + W32_MSG_MESSAGE), MEM32(m + W32_MSG_WPARAM), MEM32(m + W32_MSG_LPARAM));
+    if (WD_HOST_READ32(m + W32_MSG_HWND) == WD_HWND_MAIN && !g_destroyed)
+        r = wndproc(WD_HOST_READ32(m + W32_MSG_MESSAGE), WD_HOST_READ32(m + W32_MSG_WPARAM), WD_HOST_READ32(m + W32_MSG_LPARAM));
     RET(r); STDRET(1);
 }
 void imp_PostQuitMessage(void) { g_quit = 1; g_quit_code = ARG(0); STDRET(1); }
@@ -415,10 +512,10 @@ void imp_LoadCursorA(void) { RET(WD_HCURSOR); STDRET(2); }
 void imp_RegisterClassA(void) {  /* (const WNDCLASSA*) */
     uint32_t wc = ARG(0);
     char cls[128];
-    guest_str(MEM32(wc + W32_WC_CLASSNAME), cls, sizeof cls);
-    if (g_guest_wndproc && g_guest_wndproc != MEM32(wc + W32_WC_WNDPROC))
+    guest_str(WD_HOST_READ32(wc + W32_WC_CLASSNAME), cls, sizeof cls);
+    if (g_guest_wndproc && g_guest_wndproc != WD_HOST_READ32(wc + W32_WC_WNDPROC))
         fprintf(stderr, "[user] second window class \"%s\": only one guest WndProc is tracked\n", cls);
-    g_guest_wndproc = MEM32(wc + W32_WC_WNDPROC);
+    g_guest_wndproc = WD_HOST_READ32(wc + W32_WC_WNDPROC);
     fprintf(stderr, "[user] RegisterClassA(\"%s\") WndProc=0x%08X\n", cls, g_guest_wndproc);
     RET(0xC001u); STDRET(1);
 }
@@ -458,7 +555,17 @@ void imp_CreateWindowExA(void) {  /* (exStyle, cls, name, style, x, y, w, h, par
     int cw = (int)ARG(6) - 1, ch = (int)ARG(7) - 1;
     if (cw < 64 || ch < 64) { cw = 640; ch = 480; }
     int scale = window_scale(cw, ch);
-    g_window = SDL_CreateWindow(title, cw * scale, ch * scale, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | wd_render_window_flags());
+    int width = cw * scale, height = ch * scale;
+    const char* ew = host_env("WD_WIDTH");
+    const char* eh = host_env("WD_HEIGHT");
+    if (ew || eh) {
+        if (!ew || !eh) script_error("WD_WIDTH/WD_HEIGHT");
+        int w, h;
+        if (!wd_script_dimension(&ew, &w) || *ew || !wd_script_dimension(&eh, &h) || *eh)
+            script_error("WD_WIDTH/WD_HEIGHT");
+        width = w; height = h;
+    }
+    g_window = SDL_CreateWindow(title, width, height, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | wd_render_window_flags());
     g_renderer = g_window && !wd_render_requested() ? SDL_CreateRenderer(g_window, NULL) : NULL;
     if (!g_window || (wd_render_requested() ? !wd_render_open(g_window) : !g_renderer)) {
         fprintf(stderr, "[user] SDL window: %s\n", SDL_GetError());
@@ -468,22 +575,23 @@ void imp_CreateWindowExA(void) {  /* (exStyle, cls, name, style, x, y, w, h, par
         return;
     }
     SDL_SetWindowPosition(g_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-    SDL_SetWindowMinimumSize(g_window, cw / 2, ch / 2);
+    SDL_SetWindowMinimumSize(g_window, 64, 64);
     if (!g_headless && host_env("WD_FULLSCREEN")) SDL_SetWindowFullscreen(g_window, true);
     fprintf(stderr, "[user] CreateWindowExA(\"%s\", %dx%d) -> SDL window %dx%d, renderer %s\n",
-            title, (int)ARG(6), (int)ARG(7), cw * scale, ch * scale,
+            title, (int)ARG(6), (int)ARG(7), width, height,
             wd_render_requested() ? "sokol direct" : SDL_GetRendererName(g_renderer));
+    display_checkpoint("initial");
 
     uint32_t cs = shim_alloc(W32_CS_SIZE, 16);
-    MEM32(cs + W32_CS_INSTANCE) = ARG(10);
-    MEM32(cs + W32_CS_CY) = ARG(7);
-    MEM32(cs + W32_CS_CX) = ARG(6);
-    MEM32(cs + W32_CS_Y) = ARG(5);
-    MEM32(cs + W32_CS_X) = ARG(4);
-    MEM32(cs + W32_CS_STYLE) = ARG(3);
-    MEM32(cs + W32_CS_NAME) = ARG(2);
-    MEM32(cs + W32_CS_CLASS) = ARG(1);
-    MEM32(cs + W32_CS_EXSTYLE) = ARG(0);
+    WD_HOST_WRITE32(cs + W32_CS_INSTANCE) = ARG(10);
+    WD_HOST_WRITE32(cs + W32_CS_CY) = ARG(7);
+    WD_HOST_WRITE32(cs + W32_CS_CX) = ARG(6);
+    WD_HOST_WRITE32(cs + W32_CS_Y) = ARG(5);
+    WD_HOST_WRITE32(cs + W32_CS_X) = ARG(4);
+    WD_HOST_WRITE32(cs + W32_CS_STYLE) = ARG(3);
+    WD_HOST_WRITE32(cs + W32_CS_NAME) = ARG(2);
+    WD_HOST_WRITE32(cs + W32_CS_CLASS) = ARG(1);
+    WD_HOST_WRITE32(cs + W32_CS_EXSTYLE) = ARG(0);
     if ((int32_t)wndproc(W32_WM_CREATE, 0, cs) == -1) {
         fprintf(stderr, "[user] WM_CREATE failed\n");
         wd_render_close();
@@ -509,9 +617,9 @@ void imp_GetClientRect(void) {  /* (hwnd, RECT*) */
     int w = 0, h = 0;
     if (ARG(0) != WD_HWND_MAIN || !g_window) { RET(0); STDRET(2); return; }
     SDL_GetWindowSize(g_window, &w, &h);
-    memset(PTR(ARG(1)), 0, 16);
-    MEM32(ARG(1) + W32_RECT_RIGHT) = (uint32_t)w;
-    MEM32(ARG(1) + W32_RECT_BOTTOM) = (uint32_t)h;
+    memset(wd_host_range(ARG(1), 16, 1), 0, 16);
+    WD_HOST_WRITE32(ARG(1) + W32_RECT_RIGHT) = (uint32_t)w;
+    WD_HOST_WRITE32(ARG(1) + W32_RECT_BOTTOM) = (uint32_t)h;
     RET(1); STDRET(2);
 }
 void imp_AdjustWindowRectEx(void) { RET(1); STDRET(4); }   /* no frame: SDL owns the decorations */
@@ -560,7 +668,7 @@ static uint8_t cp1252_upper(uint8_t c) {
     }
 }
 void imp_CharUpperBuffA(void) {  /* (str, len) -> len */
-    for (uint32_t i = 0; i < ARG(1); i++) MEM8(ARG(0) + i) = cp1252_upper(MEM8(ARG(0) + i));
+    for (uint32_t i = 0; i < ARG(1); i++) WD_HOST_WRITE8(ARG(0) + i) = cp1252_upper(WD_HOST_READ8(ARG(0) + i));
     RET(ARG(1)); STDRET(2);
 }
 

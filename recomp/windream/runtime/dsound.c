@@ -52,14 +52,14 @@ static FILE* g_cd;
 static int g_cd_paused;
 
 static Buf* buf_of(uint32_t obj) {
-    uint32_t i = MEM32(obj + 4);
+    uint32_t i = WD_HOST_READ32(obj + 4);
     return i < MAX_BUF && g_buf[i].used && g_buf[i].obj == obj ? &g_buf[i] : NULL;
 }
 static void set_format(Buf* b, uint32_t wfx) {
     if (!wfx) return;
-    b->ch = MEM16(wfx + 2) ? MEM16(wfx + 2) : 1;
-    b->rate = (int)MEM32(wfx + 4);
-    b->bits = MEM16(wfx + 14) ? MEM16(wfx + 14) : 16;
+    b->ch = WD_HOST_READ16(wfx + 2) ? WD_HOST_READ16(wfx + 2) : 1;
+    b->rate = (int)WD_HOST_READ32(wfx + 4);
+    b->bits = WD_HOST_READ16(wfx + 14) ? WD_HOST_READ16(wfx + 14) : 16;
     b->align = b->ch * b->bits / 8;
 }
 static double db_gain(int32_t hundredths) { return hundredths <= -10000 ? 0.0 : pow(10.0, hundredths / 2000.0); }
@@ -84,6 +84,9 @@ static void mix(int16_t* out, int frames) {
                 else { b->playing = 0; b->pos = 0; break; }
             }
             const uint8_t* s = src + k * (uint32_t)b->align;
+            /* Audit only the sample actually consumed, including loop wraps. */
+            wd_host_range(b->data + k * (uint32_t)b->align,
+                          (b->bits == 8 ? 1u : 2u) * (b->ch > 1 ? 2u : 1u), 0);
             int l, r;
             if (b->bits == 8) { l = (s[0] - 128) << 8; r = b->ch > 1 ? (s[1] - 128) << 8 : l; }
             else { l = ((const int16_t*)s)[0]; r = b->ch > 1 ? ((const int16_t*)s)[1] : l; }
@@ -160,7 +163,7 @@ void mixer_cd_pause(int paused) { mixer_start(); g_cd_paused = paused; }
 int mixer_cd_playing(void) { return g_cd != NULL; }
 
 /* ---- IUnknown ---- */
-static void m_QueryInterface(void) { if (ARG(2)) MEM32(ARG(2)) = 0; RET(E_NOINTERFACE_); STDRET(3); }
+static void m_QueryInterface(void) { if (ARG(2)) WD_HOST_WRITE32(ARG(2)) = 0; RET(E_NOINTERFACE_); STDRET(3); }
 static void m_AddRef(void) {
     Buf* b = buf_of(ARG(0));
     RET(b ? ++b->refs : 1); STDRET(1);
@@ -180,7 +183,7 @@ static void m_Release(void) {
 /* ---- IDirectSound ---- */
 static void ds_CreateSoundBuffer(void) {  /* (this, desc, ppBuf, unk) */
     uint32_t desc = ARG(1);
-    uint32_t flags = MEM32(desc + 4), bytes = MEM32(desc + 8), wfx = MEM32(desc + 16);
+    uint32_t flags = WD_HOST_READ32(desc + 4), bytes = WD_HOST_READ32(desc + 8), wfx = WD_HOST_READ32(desc + 16);
     SDL_LockMutex(g_cs);
     int i = 0;
     while (i < MAX_BUF && g_buf[i].used) i++;
@@ -196,19 +199,26 @@ static void ds_CreateSoundBuffer(void) {  /* (this, desc, ppBuf, unk) */
         b->data = vm_alloc(0, bytes, W32_MEM_COMMIT | W32_MEM_RESERVE, W32_PAGE_READWRITE);
     }
     if (!b->obj) { b->obj = shim_alloc(8, 16); }
-    MEM32(b->obj) = g_dsb_vtbl;
-    MEM32(b->obj + 4) = (uint32_t)i;
+    WD_HOST_WRITE32(b->obj) = g_dsb_vtbl;
+    WD_HOST_WRITE32(b->obj + 4) = (uint32_t)i;
     SDL_UnlockMutex(g_cs);
-    MEM32(ARG(2)) = b->obj;
+    WD_HOST_WRITE32(ARG(2)) = b->obj;
     fprintf(stderr, "[dsound] CreateSoundBuffer #%d %s %u bytes, %d Hz %d-bit %s\n", i,
             b->primary ? "primary" : "secondary", bytes, b->rate, b->bits, b->ch > 1 ? "stereo" : "mono");
     RET(DS_OK); STDRET(4);
 }
-static void ds_GetCaps(void) { if (ARG(1)) memset((uint8_t*)PTR(ARG(1)) + 4, 0, MEM32(ARG(1)) > 4 ? MEM32(ARG(1)) - 4 : 0); RET(DS_OK); STDRET(2); }
+static void ds_GetCaps(void) {
+    uint32_t destination = ARG(1);
+    if (destination) {
+        uint32_t size = WD_HOST_READ32(destination);
+        if (size > 4) memset(wd_host_range(destination + 4, size - 4, 1), 0, size - 4);
+    }
+    RET(DS_OK); STDRET(2);
+}
 static void ds_Duplicate(void) { RET(DSERR_INVALIDCALL); STDRET(3); }
 static void ds_SetCooperativeLevel(void) { RET(DS_OK); STDRET(3); }
 static void ds_Compact(void) { RET(DS_OK); STDRET(1); }
-static void ds_GetSpeakerConfig(void) { if (ARG(1)) MEM32(ARG(1)) = 4; /* stereo */ RET(DS_OK); STDRET(2); }
+static void ds_GetSpeakerConfig(void) { if (ARG(1)) WD_HOST_WRITE32(ARG(1)) = 4; /* stereo */ RET(DS_OK); STDRET(2); }
 static void ds_SetSpeakerConfig(void) { RET(DS_OK); STDRET(2); }
 static void ds_Initialize(void) { RET(DSERR_ALREADYINIT); STDRET(2); }
 
@@ -220,7 +230,7 @@ static uint32_t play_cursor(const Buf* b) { return (uint32_t)b->pos * (uint32_t)
 static void b_GetCaps(void) {  /* (this, DSBCAPS*) */
     BUF_OR_FAIL(2);
     uint32_t c = ARG(1);
-    MEM32(c + 4) = b->flags; MEM32(c + 8) = b->size; MEM32(c + 12) = 0; MEM32(c + 16) = 0;
+    WD_HOST_WRITE32(c + 4) = b->flags; WD_HOST_WRITE32(c + 8) = b->size; WD_HOST_WRITE32(c + 12) = 0; WD_HOST_WRITE32(c + 16) = 0;
     RET(DS_OK); STDRET(2);
 }
 static void b_GetCurrentPosition(void) {  /* (this, *play, *write) */
@@ -229,27 +239,27 @@ static void b_GetCurrentPosition(void) {  /* (this, *play, *write) */
     uint32_t p = b->size ? play_cursor(b) % b->size : 0;
     uint32_t w = b->playing && b->size ? (p + (uint32_t)(b->rate / 50 * b->align)) % b->size : p;
     SDL_UnlockMutex(g_cs);
-    if (ARG(1)) MEM32(ARG(1)) = p;
-    if (ARG(2)) MEM32(ARG(2)) = w;
+    if (ARG(1)) WD_HOST_WRITE32(ARG(1)) = p;
+    if (ARG(2)) WD_HOST_WRITE32(ARG(2)) = w;
     RET(DS_OK); STDRET(3);
 }
 static void b_GetFormat(void) {  /* (this, wfx, size, *written) */
     BUF_OR_FAIL(4);
     uint32_t w = ARG(1);
     if (w && ARG(2) >= 16) {
-        MEM16(w) = 1; MEM16(w + 2) = (uint16_t)b->ch; MEM32(w + 4) = (uint32_t)b->rate;
-        MEM32(w + 8) = (uint32_t)(b->rate * b->align); MEM16(w + 12) = (uint16_t)b->align; MEM16(w + 14) = (uint16_t)b->bits;
-        if (ARG(2) >= 18) MEM16(w + 16) = 0;
+        WD_HOST_WRITE16(w) = 1; WD_HOST_WRITE16(w + 2) = (uint16_t)b->ch; WD_HOST_WRITE32(w + 4) = (uint32_t)b->rate;
+        WD_HOST_WRITE32(w + 8) = (uint32_t)(b->rate * b->align); WD_HOST_WRITE16(w + 12) = (uint16_t)b->align; WD_HOST_WRITE16(w + 14) = (uint16_t)b->bits;
+        if (ARG(2) >= 18) WD_HOST_WRITE16(w + 16) = 0;
     }
-    if (ARG(3)) MEM32(ARG(3)) = 18;
+    if (ARG(3)) WD_HOST_WRITE32(ARG(3)) = 18;
     RET(DS_OK); STDRET(4);
 }
-static void b_GetVolume(void) { BUF_OR_FAIL(2); MEM32(ARG(1)) = (uint32_t)b->vol; RET(DS_OK); STDRET(2); }
-static void b_GetPan(void) { BUF_OR_FAIL(2); MEM32(ARG(1)) = (uint32_t)b->pan; RET(DS_OK); STDRET(2); }
-static void b_GetFrequency(void) { BUF_OR_FAIL(2); MEM32(ARG(1)) = b->freq ? b->freq : (uint32_t)b->rate; RET(DS_OK); STDRET(2); }
+static void b_GetVolume(void) { BUF_OR_FAIL(2); WD_HOST_WRITE32(ARG(1)) = (uint32_t)b->vol; RET(DS_OK); STDRET(2); }
+static void b_GetPan(void) { BUF_OR_FAIL(2); WD_HOST_WRITE32(ARG(1)) = (uint32_t)b->pan; RET(DS_OK); STDRET(2); }
+static void b_GetFrequency(void) { BUF_OR_FAIL(2); WD_HOST_WRITE32(ARG(1)) = b->freq ? b->freq : (uint32_t)b->rate; RET(DS_OK); STDRET(2); }
 static void b_GetStatus(void) {
     BUF_OR_FAIL(2);
-    MEM32(ARG(1)) = (b->playing ? 1u : 0u) | (b->playing && b->looping ? 4u : 0u);
+    WD_HOST_WRITE32(ARG(1)) = (b->playing ? 1u : 0u) | (b->playing && b->looping ? 4u : 0u);
     RET(DS_OK); STDRET(2);
 }
 static void b_Initialize(void) { RET(DSERR_ALREADYINIT); STDRET(3); }
@@ -262,10 +272,10 @@ static void b_Lock(void) {  /* (this, offset, bytes, *p1, *n1, *p2, *n2, flags) 
     off %= b->size;
     if (n > b->size) n = b->size;
     uint32_t n1 = n < b->size - off ? n : b->size - off, n2 = n - n1;
-    MEM32(ARG(3)) = b->data + off;
-    MEM32(ARG(4)) = n1;
-    if (ARG(5)) MEM32(ARG(5)) = n2 ? b->data : 0;
-    if (ARG(6)) MEM32(ARG(6)) = n2;
+    WD_HOST_WRITE32(ARG(3)) = b->data + off;
+    WD_HOST_WRITE32(ARG(4)) = n1;
+    if (ARG(5)) WD_HOST_WRITE32(ARG(5)) = n2 ? b->data : 0;
+    if (ARG(6)) WD_HOST_WRITE32(ARG(6)) = n2;
     RET(DS_OK); STDRET(8);
 }
 static void b_Play(void) {  /* (this, reserved, priority, flags) */
@@ -320,7 +330,7 @@ static void b_Restore(void) { RET(DS_OK); STDRET(1); }
 void imp_DirectSoundCreate(void) {  /* (guid, ppDS, outer) */
     if (host_env("WD_NOSOUND")) {
         fprintf(stderr, "[dsound] WD_NOSOUND: DirectSoundCreate -> DSERR_NODRIVER\n");
-        if (ARG(1)) MEM32(ARG(1)) = 0;
+        if (ARG(1)) WD_HOST_WRITE32(ARG(1)) = 0;
         RET(DSERR_NODRIVER); STDRET(3); return;
     }
     mixer_start();
@@ -339,9 +349,9 @@ void imp_DirectSoundCreate(void) {  /* (guid, ppDS, outer) */
         g_dsb_vtbl = wd_com_vtable(dsb, (int)(sizeof dsb / sizeof dsb[0]));
     }
     uint32_t obj = shim_alloc(8, 16);
-    MEM32(obj) = g_ds_vtbl;
-    MEM32(obj + 4) = 0xFFFFFFFFu;   /* not a buffer index */
-    MEM32(ARG(1)) = obj;
+    WD_HOST_WRITE32(obj) = g_ds_vtbl;
+    WD_HOST_WRITE32(obj + 4) = 0xFFFFFFFFu;   /* not a buffer index */
+    WD_HOST_WRITE32(ARG(1)) = obj;
     fprintf(stderr, "[dsound] DirectSoundCreate -> 0x%08X\n", obj);
     RET(DS_OK); STDRET(3);
 }
@@ -350,6 +360,6 @@ void imp_DirectSoundCreate(void) {  /* (guid, ppDS, outer) */
  * GDIDREAM.EXE (GDI window). Fail cleanly so a DirectDraw run reports it. */
 void imp_DirectDrawCreate(void) {
     fprintf(stderr, "[ddraw] DirectDrawCreate: not emulated (use the GDI build)\n");
-    if (ARG(1)) MEM32(ARG(1)) = 0;
+    if (ARG(1)) WD_HOST_WRITE32(ARG(1)) = 0;
     RET(0x80004005u); STDRET(3);
 }

@@ -14,9 +14,25 @@
 #define WD_IMPORTS_H
 
 #include "recomp_types.h"
+#include "render_boundary.h"
 
-#define ARG(n)      MEM32(g_esp + 4 + (n) * 4)
 #define PTR(va)     ((void*)(uintptr_t)ADDR(va))
+/* Host shims bypass the generated instruction probes. Check each actual
+ * transfer here; PTR alone intentionally carries no guessed access size. */
+static inline void* wd_host_range(uint32_t va, size_t bytes, int write) {
+#ifdef WD_RENDER_AUDIT
+    if (bytes > UINT32_MAX || (uint64_t)va + bytes > 0x100000000ull) abort();
+    WD_AUDIT_MEMORY(g_cur_func, va, (uint32_t)bytes, write);
+#endif
+    return PTR(va);
+}
+#define WD_HOST_READ8(va)  (*(const uint8_t*)wd_host_range((va), 1, 0))
+#define WD_HOST_READ16(va) (*(const uint16_t*)wd_host_range((va), 2, 0))
+#define WD_HOST_READ32(va) (*(const uint32_t*)wd_host_range((va), 4, 0))
+#define WD_HOST_WRITE8(va)  (*(uint8_t*)wd_host_range((va), 1, 1))
+#define WD_HOST_WRITE16(va) (*(uint16_t*)wd_host_range((va), 2, 1))
+#define WD_HOST_WRITE32(va) (*(uint32_t*)wd_host_range((va), 4, 1))
+#define ARG(n)      WD_HOST_READ32(g_esp + 4 + (n) * 4)
 #define RET(v)      do { g_eax = (uint32_t)(v); } while (0)
 #define STDRET(k)   do { g_esp += 4 + (uint32_t)(k) * 4; } while (0)
 

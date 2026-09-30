@@ -14,6 +14,19 @@ struct SceneLighting {
 bool prepare_scene_lighting(const SceneSnapshot &, const float view_projection[16], SceneLighting &,
                            std::string &error, bool require_metadata = false);
 bool compose_feedback_rotations(const SceneSnapshot &, std::vector<int32_t> &);
+struct SceneCollectorTriangle {
+    std::array<std::array<int32_t, 2>, 3> points{};
+    std::array<uint8_t, 3> clipped{};
+    uint8_t face_flags = 0; // Original face bit 8, normalized to 0/1.
+};
+struct SceneCollector {
+    std::vector<SceneCollectorTriangle> triangles;
+    size_t total_triangles = 0; // Includes triangles omitted by the output capacity.
+};
+// Diagnostic-only projection of source geometry; no GPU work or retail scratch
+// input. Modern frustum clipping may split faces differently from retail.
+bool prepare_scene_collector(const SceneSnapshot &, int width, int height, bool hor_plus,
+                              SceneCollector &, std::string &, size_t capacity = 682);
 struct ShadowInput {
     std::vector<od_shadow_node> nodes;
     std::vector<od_shadow_vertex> vertices;
@@ -27,9 +40,14 @@ bool prepare_shadow_input(const SceneSnapshot &, od_render_id, ShadowInput &, st
 class SceneDraw {
   public:
     static bool submit_shadow(od_renderer *, const SceneSnapshot &, od_render_id, std::string &);
+    // A prepared result belongs to this immutable snapshot and viewport. It
+    // lets callers publish metadata before callbacks while drawing afterward.
+    // Submission never recomputes or mutates supplied preparation.
     bool submit(od_renderer *, const SceneSnapshot &, od_render_id target, int drawable_width,
                 int drawable_height, bool hor_plus, std::string &error,
-                std::vector<SceneLightingWrite> *lighting_writes = nullptr);
+                std::vector<SceneLightingWrite> *lighting_writes = nullptr,
+                const SceneLighting *prepared_lighting = nullptr,
+                float source_edge_quantum = 0.0f); // experimental replay only; disabled in live game
     // After all frame submissions, before od_renderer_frame_complete().
     void finish_frame(od_renderer *);
     void reset(od_renderer *); // level/resource lifetime boundary

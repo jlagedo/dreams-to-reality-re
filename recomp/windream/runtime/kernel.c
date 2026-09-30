@@ -17,8 +17,8 @@ void imp_GetACP(void)     { RET(1252); STDRET(0); }
 void imp_GetOEMCP(void)   { RET(437);  STDRET(0); }
 void imp_GetCPInfo(void) {  /* (codepage, CPINFO*) 20 bytes */
     uint32_t p = ARG(1);
-    memset(PTR(p), 0, 20);
-    MEM32(p) = 1; MEM8(p + 4) = '?';
+    memset(wd_host_range(p, 20, 1), 0, 20);
+    WD_HOST_WRITE32(p) = 1; WD_HOST_WRITE8(p + 4) = '?';
     RET(1); STDRET(2);
 }
 
@@ -33,7 +33,7 @@ void imp_GetCommandLineW(void) {
         const char* s = GUEST_EXE;
         uint32_t n = (uint32_t)strlen(s) + 1;
         va = shim_alloc(n * 2, 16);
-        for (uint32_t i = 0; i < n; i++) MEM16(va + i * 2) = (uint16_t)(uint8_t)s[i];
+        for (uint32_t i = 0; i < n; i++) WD_HOST_WRITE16(va + i * 2) = (uint16_t)(uint8_t)s[i];
     }
     RET(va); STDRET(0);
 }
@@ -56,7 +56,7 @@ void imp_GetEnvironmentStrings(void) {
         buf[n++] = 0;
         va = shim_alloc((uint32_t)n, 16);
         if (n > 6) fprintf(stderr, "[kernel] guest environment: WD=1 %s ...\n", buf + 5);
-        memcpy(PTR(va), buf, n);
+        memcpy(wd_host_range(va, n, 1), buf, n);
     }
     RET(va); STDRET(0);
 }
@@ -77,8 +77,8 @@ void imp_GetModuleFileNameW(void) {
     const char* s = GUEST_EXE;
     uint32_t buf = ARG(1), cap = ARG(2), n = (uint32_t)strlen(s);
     if (n >= cap) n = cap ? cap - 1 : 0;
-    for (uint32_t i = 0; i < n; i++) MEM16(buf + i * 2) = (uint16_t)(uint8_t)s[i];
-    if (cap) MEM16(buf + n * 2) = 0;
+    for (uint32_t i = 0; i < n; i++) WD_HOST_WRITE16(buf + i * 2) = (uint16_t)(uint8_t)s[i];
+    if (cap) WD_HOST_WRITE16(buf + n * 2) = 0;
     RET(n); STDRET(3);
 }
 void imp_LoadLibraryA(void) {
@@ -105,7 +105,7 @@ void imp_ExitProcess(void) {
 }
 void imp_QueryPerformanceCounter(void) {
     LARGE_INTEGER t; QueryPerformanceCounter(&t);
-    MEM32(ARG(0)) = t.LowPart; MEM32(ARG(0) + 4) = (uint32_t)t.HighPart;
+    WD_HOST_WRITE32(ARG(0)) = t.LowPart; WD_HOST_WRITE32(ARG(0) + 4) = (uint32_t)t.HighPart;
     RET(1); STDRET(1);
 }
 
@@ -120,25 +120,66 @@ void imp_SetStdHandle(void) { RET(1); STDRET(2); }
 void imp_GetConsoleMode(void) { RET(0); STDRET(2); }
 void imp_SetConsoleMode(void) { RET(0); STDRET(2); }
 void imp_SetConsoleCtrlHandler(void) { RET(1); STDRET(2); }
-void imp_PeekConsoleInputA(void) { if (ARG(3)) MEM32(ARG(3)) = 0; RET(0); STDRET(4); }
-void imp_ReadConsoleInputA(void) { if (ARG(3)) MEM32(ARG(3)) = 0; RET(0); STDRET(4); }
+void imp_PeekConsoleInputA(void) { if (ARG(3)) WD_HOST_WRITE32(ARG(3)) = 0; RET(0); STDRET(4); }
+void imp_ReadConsoleInputA(void) { if (ARG(3)) WD_HOST_WRITE32(ARG(3)) = 0; RET(0); STDRET(4); }
 void imp_WriteConsoleA(void) {  /* (h, buf, n, *written, reserved) */
-    fwrite(PTR(ARG(1)), 1, ARG(2), stderr);
-    if (ARG(3)) MEM32(ARG(3)) = ARG(2);
+    fwrite(wd_host_range(ARG(1), ARG(2), 0), 1, ARG(2), stderr);
+    if (ARG(3)) WD_HOST_WRITE32(ARG(3)) = ARG(2);
     RET(1); STDRET(5);
 }
 
 /* ---- strings ---- */
+static void* conversion_source(uint32_t address, int count, unsigned width) {
+    if (count == -1) {
+        /* NUL termination is an actual read boundary, not an ECX-sized range. */
+        uint32_t cursor = address;
+        for (;;) {
+            uint32_t value = width == 1 ? WD_HOST_READ8(cursor) : WD_HOST_READ16(cursor);
+            if (!value) break;
+            if (cursor > UINT32_MAX - width) abort();
+            cursor += width;
+        }
+    } else if (count > 0) {
+        wd_host_range(address, (size_t)count * width, 0);
+    }
+    return PTR(address);
+}
 void imp_MultiByteToWideChar(void) {  /* (cp, flags, src, srcLen, dst, dstLen) */
-    int r = MultiByteToWideChar(ARG(0), ARG(1), (LPCCH)PTR(ARG(2)), (int)ARG(3),
-                                ARG(4) ? (LPWSTR)PTR(ARG(4)) : NULL, (int)ARG(5));
+    int capacity = (int)ARG(5);
+    if (capacity > 0 && ARG(2) == ARG(4)) {
+        // Staging must not make an invalid in-place Win32 conversion succeed.
+        SetLastError(ERROR_INVALID_PARAMETER); RET(0); STDRET(6); return;
+    }
+    WCHAR* output = ARG(4) && capacity > 0 ? malloc((size_t)capacity * sizeof(WCHAR)) : NULL;
+    if (ARG(4) && capacity > 0 && !output) { SetLastError(ERROR_NOT_ENOUGH_MEMORY); RET(0); STDRET(6); return; }
+    int r = MultiByteToWideChar(ARG(0), ARG(1), (LPCCH)conversion_source(ARG(2), (int)ARG(3), 1),
+                                (int)ARG(3), output, capacity);
+    DWORD error = GetLastError();
+    if (r && output) memcpy(wd_host_range(ARG(4), (size_t)r * sizeof(WCHAR), 1), output, (size_t)r * sizeof(WCHAR));
+    free(output);
+    SetLastError(error);
     RET(r); STDRET(6);
 }
 void imp_WideCharToMultiByte(void) {  /* (cp, flags, src, srcLen, dst, dstLen, defChar, usedDef) */
-    int r = WideCharToMultiByte(ARG(0), ARG(1), (LPCWCH)PTR(ARG(2)), (int)ARG(3),
-                                ARG(4) ? (LPSTR)PTR(ARG(4)) : NULL, (int)ARG(5),
-                                ARG(6) ? (LPCCH)PTR(ARG(6)) : NULL,
-                                ARG(7) ? (LPBOOL)PTR(ARG(7)) : NULL);
+    int capacity = (int)ARG(5);
+    if (capacity > 0 && ARG(2) == ARG(4)) {
+        SetLastError(ERROR_INVALID_PARAMETER); RET(0); STDRET(8); return;
+    }
+    char* output = ARG(4) && capacity > 0 ? malloc((size_t)capacity) : NULL;
+    if (ARG(4) && capacity > 0 && !output) { SetLastError(ERROR_NOT_ENOUGH_MEMORY); RET(0); STDRET(8); return; }
+    char replacement[2] = {0, 0};
+    if (ARG(6)) {
+        replacement[0] = (char)WD_HOST_READ8(ARG(6));
+        if (IsDBCSLeadByteEx(ARG(0), (BYTE)replacement[0])) replacement[1] = (char)WD_HOST_READ8(ARG(6) + 1);
+    }
+    BOOL used = FALSE;
+    int r = WideCharToMultiByte(ARG(0), ARG(1), (LPCWCH)conversion_source(ARG(2), (int)ARG(3), 2),
+                                (int)ARG(3), output, capacity, ARG(6) ? replacement : NULL, ARG(7) ? &used : NULL);
+    DWORD error = GetLastError();
+    if (r && output) memcpy(wd_host_range(ARG(4), (size_t)r, 1), output, (size_t)r);
+    if (r && ARG(7)) WD_HOST_WRITE32(ARG(7)) = (uint32_t)used;
+    free(output);
+    SetLastError(error);
     RET(r); STDRET(8);
 }
 

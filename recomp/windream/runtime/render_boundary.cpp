@@ -93,6 +93,18 @@ int wd_surface_unregister(wd_surface_id id) {
     surfaces.erase(it);
     return 1;
 }
+uint32_t wd_surface_invalidate_range(uint32_t base, uint32_t bytes) {
+    if (!bytes || uint64_t(base) + bytes > 0x100000000ull)
+        return 0;
+    std::lock_guard<std::mutex> lock(surface_mutex);
+    const auto before = surfaces.size();
+    surfaces.erase(std::remove_if(surfaces.begin(), surfaces.end(),
+                                   [&](const Surface &s) {
+                                       return overlap(base, bytes, s.desc.base, s.desc.bytes);
+                                   }),
+                   surfaces.end());
+    return uint32_t(before - surfaces.size());
+}
 wd_surface_id wd_surface_find(uint32_t address, uint32_t bytes) {
     if (!bytes || uint64_t(address) + bytes > 0x100000000ull)
         return 0;

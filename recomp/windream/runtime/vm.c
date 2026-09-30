@@ -57,20 +57,36 @@ done:
 
 int vm_free(uint32_t addr, uint32_t size, uint32_t type) {
     int ok = 0;
+    DWORD error = ERROR_INVALID_ADDRESS;
     AcquireSRWLockExclusive(&g_vm_lock);
     int i = vm_find(addr);
     if (i >= 0) {
         if (type & MEM_RELEASE) {
-            VirtualFree(PTR(g_vm[i].base), g_vm[i].size, MEM_DECOMMIT);
-            g_vm[i].freed = g_vm[i].size;
-            g_vm[i].size = 0;
-        } else {
-            uint32_t lo = addr & ~0xFFFu, hi = (addr + size + 0xFFFu) & ~0xFFFu;
-            VirtualFree(PTR(lo), hi - lo, MEM_DECOMMIT);
+            /* Guest release retains the enclosing host arena reservation. */
+            ok = VirtualFree(PTR(g_vm[i].base), g_vm[i].size, MEM_DECOMMIT) != 0;
+            error = GetLastError();
+            if (ok) {
+                wd_surface_invalidate_range(g_vm[i].base, g_vm[i].size);
+                g_vm[i].freed = g_vm[i].size;
+                g_vm[i].size = 0;
+            }
+        } else if (type & MEM_DECOMMIT) {
+            uint32_t lo = addr & ~0xFFFu;
+            uint64_t hi = ((uint64_t)addr + size + 0xFFFu) & ~0xFFFull;
+            if (!size && addr == g_vm[i].base) hi = (uint64_t)addr + g_vm[i].size;
+            /* Do not turn zero-size interior requests into an arena-wide free,
+             * or let an overflowing/cross-allocation range decommit neighbors. */
+            if ((size || addr == g_vm[i].base) && hi > lo &&
+                hi <= (uint64_t)g_vm[i].base + g_vm[i].size) {
+                uint32_t bytes = (uint32_t)(hi - lo);
+                ok = VirtualFree(PTR(lo), bytes, MEM_DECOMMIT) != 0;
+                error = GetLastError();
+                if (ok) wd_surface_invalidate_range(lo, bytes);
+            }
         }
-        ok = 1;
     }
     ReleaseSRWLockExclusive(&g_vm_lock);
+    if (!ok) SetLastError(error);
     return ok;
 }
 
@@ -102,13 +118,13 @@ uint32_t vm_query(uint32_t addr, uint32_t mbi) {
     ReleaseSRWLockShared(&g_vm_lock);
     if (addr >= WD_IMAGE_BASE && addr < WD_IMAGE_BASE + wd_image_span()) abase = WD_IMAGE_BASE;
     if (addr >= WD_STACK_BASE && addr < WD_STACK_BASE + WD_STACK_SIZE) abase = WD_STACK_BASE;
-    MEM32(mbi + 0) = base;
-    MEM32(mbi + 4) = abase;
-    MEM32(mbi + 8) = PAGE_READWRITE;
-    MEM32(mbi + 12) = (uint32_t)h.RegionSize;
-    MEM32(mbi + 16) = h.State;
-    MEM32(mbi + 20) = h.State == MEM_COMMIT ? PAGE_READWRITE : 0;
-    MEM32(mbi + 24) = h.State == MEM_FREE ? 0 : (abase == WD_IMAGE_BASE ? MEM_IMAGE : MEM_PRIVATE);
+    WD_HOST_WRITE32(mbi + 0) = base;
+    WD_HOST_WRITE32(mbi + 4) = abase;
+    WD_HOST_WRITE32(mbi + 8) = PAGE_READWRITE;
+    WD_HOST_WRITE32(mbi + 12) = (uint32_t)h.RegionSize;
+    WD_HOST_WRITE32(mbi + 16) = h.State;
+    WD_HOST_WRITE32(mbi + 20) = h.State == MEM_COMMIT ? PAGE_READWRITE : 0;
+    WD_HOST_WRITE32(mbi + 24) = h.State == MEM_FREE ? 0 : (abase == WD_IMAGE_BASE ? MEM_IMAGE : MEM_PRIVATE);
     return 28;
 }
 

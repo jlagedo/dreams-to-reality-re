@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "acceptance": "pending",
+  "routes": [
+    {"id": "first-scene-native", "evidence_kind": "scripted gameplay smoke", "args": ["--headless", "--width", "640", "--height", "480", "--seconds", "45", "--keys", "2000:ESC,5000:RETURN,8000:ESC"], "checkpoints": ["shared renderer ready at 640x480", "\\[direct\\] scene=25\\b", "\\[direct\\] frames=250\\b"], "remaining": ["matched visual and movement review", "dialogue and HUD semantic checks"]},
+    {"id": "first-scene-wide", "evidence_kind": "scripted gameplay smoke", "args": ["--headless", "--width", "1920", "--height", "1080", "--seconds", "45", "--keys", "2000:ESC,5000:RETURN,8000:ESC"], "checkpoints": ["shared renderer ready at 1920x1080", "\\[direct\\] scene=25\\b", "\\[direct\\] frames=250\\b"], "remaining": ["Hor+ visual comparison", "centered UI, movie aspect and mouse hit checks"]},
+    {"id": "resize", "evidence_kind": "scripted display smoke", "args": ["--headless", "--width", "640", "--height", "480", "--seconds", "45", "--keys", "2000:ESC,5000:RETURN,8000:ESC", "--resize", "22000:1920x1080,32000:640x480"], "checkpoints": ["\\[direct\\] scene=25\\b", "\\[display\\] client=1920x1080 drawable=1920x1080 fullscreen=0 reason=resize", "\\[display\\] client=640x480 drawable=640x480 fullscreen=0 reason=resize"], "remaining": ["actual drawable and target dimensions", "visual restoration and input mapping"]},
+    {"id": "intro-movies", "args": [], "expected": "Boot/intro and in-game movies preserve placement, aspect, captions and audio timing"},
+    {"id": "all-projects", "args": [], "expected": "Inventory 150 projects/95 scenes, assets and dynamic calls; exercise distinct shipped rendering modes"},
+    {"id": "transitions", "args": [], "expected": "Normal level transitions preserve state, surfaces, autosave and presentation"},
+    {"id": "combat-spells", "args": [], "expected": "Naturally triggered combat/spells/effects and changing gauges render correctly"},
+    {"id": "options-shadow", "args": [], "expected": "Normal options activate real shadows with correct GPU interleave"},
+    {"id": "pause-inventory-dialogue", "args": [], "expected": "Pause/inventory, portrait/caption/dialogue, background capture/dim/restore"},
+    {"id": "debug-modes", "args": [], "expected": "Keypad controls, collector, diagnostic/flat, lines/wireframe and supported obscure modes; intentional no-draw remains intentional"},
+    {"id": "game-feedback", "args": [], "expected": "Pointer-1/spawn, cross-node ownership, callbacks/ABI, transform timing, RNG and collision separation"},
+    {"id": "fullscreen-input", "args": [], "expected": "Visible fullscreen/F11/resize and centered-canvas mouse hits at native/widescreen sizes"},
+    {"id": "save-load-ten-reloads", "args": [], "expected": "New and valid external saves, explicit thumbnail export, restoration and ten consecutive full level reloads with bounded resources"},
+    {"id": "pacing", "args": [], "expected": "Representative play sustains default 25 FPS; record CPU/GPU pass/copy, readbacks and resource costs without concurrent GPU work"},
+    {"id": "shared-consumers", "args": [], "expected": "Existing Windows shared adapter consumers build and supported modes remain useful"},
+    {"id": "release", "args": [], "expected": "All blockers/route gaps closed, visual variations recorded, regressions pass, both Windows maps synchronized, direct default only after acceptance"}
+  ]
+}
