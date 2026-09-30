@@ -1,370 +1,255 @@
-# 006 — Direct 3D and GPU 2D renderer for the recomp
+# 006 — Finish Dreams rendering on Windows
 
-Status: **Live direct first-scene slice implemented; full R0–R4 acceptance
-remains partial. Software stays the default reference.**
-Date: 2026-09-30.
+Status: **Windows/D3D11 implementation in progress. The direct first-scene
+route works; Windows acceptance below is not yet complete.**
+Date: 2026-09-30. Owner direction: close Windows rendering quickly, reproduce
+Dreams' visible rendering and game behavior, and accept imperceptible GPU/CPU
+numerical differences.
 
-The renderer is built directly for the modernized frame:
+## Deliverable
 
-**posed scene -> direct GPU 3D -> GPU sprites/text/UI -> output correction -> present**
+A dependable **Windows GDIDREAM recomp with direct GPU rendering**, reproducing
+the original game's recognizable appearance throughout shipped gameplay:
+levels, actors, animation, effects, lighting, shadows, HUD, menus, dialogue,
+movies, save thumbnails and the supported Windows development/debug outputs.
+It renders at native and high resolutions with Hor+ widescreen, preserves the
+game, and needs no recurring scene readback or
+software rasterizer.
 
-The owner has chosen this architecture. A Glide-call wrapper, a software
-Voodoo renderer, routine scene readback and a changed-pixel overlay are not
-implementation stages. The existing software recomp and original game remain
-independent comparison tools. No production renderer integration is complete;
-the existing CPU/GPU smokes establish only their recorded contracts.
+The frame remains:
 
-Dependencies and evidence:
+**lifted game and posed source geometry -> direct GPU 3D -> GPU 2D -> final
+output correction -> present**
 
-- [000: the recomp](../000-the-recomp/spec.md), [north star](../../north-star.md).
-- [3D boundary and smoke evidence](modern-cut.md).
-- [2D function/address map, contracts and smoke evidence](2d-cut.md).
-- [Implementation status, interfaces and validation](implementation.md).
-- [Demo-informed retail layouts, boundary and type-2 lighting](debug-renderer-contracts.md).
-- [Glide appearance rules](../../glide-renderer.md),
-  [Glide call inventory](../../glide-call-inventory.md),
-  [engine](../../engine.md), [port-map policy](../../../opendreams/PORT_MAP.md).
-- [Historical backend exploration](backend-exploration.md): the three-build
-  comparison, original backend slots and alternative approaches.
+006 closes when its Windows acceptance matrix passes and no known rendering
+blocker remains in the supported game and development/debug routes. Direct then
+becomes the default; software remains an explicitly selected reference tool.
+Completion of a single
+scene, an isolated oracle or shader generation is insufficient.
 
-This file is the implementation authority for 006. The companion investigations
-retain their evidence and limitations; their earlier staging suggestions are
-superseded wherever they conflict with this decision.
+This file is the implementation and acceptance authority. Older investigations
+and numerical checklists retain their evidence; this scope and fidelity policy
+supersede their broader or stricter delivery suggestions.
 
-## Decisions
+## Scope and deferred work
 
-| Area | Selected design |
+| In 006 | Separate later work |
 |---|---|
-| Renderer | A shared direct renderer built on sokol_gfx; SDL3 remains the platform layer |
-| Sharing | Extract the required rendering core from existing shared rendering code; OpenDreams and the recomp supply separate input adapters |
-| 3D boundary | Before retail visual culling, clipping and integer projection; consume original geometry, posed transforms, camera, materials and lighting state |
-| Visual ownership | The modern renderer owns geometry processing, visibility, projection, clipping, shading, fog, transparency and rasterization, including offscreen 3D |
-| 2D boundary | Replace pixel-producing leaves and classified surface fills/copies; keep lifted layout, selection, formatting, timing and control flow |
-| Normal frame | GPU 3D, GPU UI composition, one present; no recurring framebuffer download |
-| Resolution | Render the scene at drawable/internal resolution from the first integrated slice; target size is a parameter, not hard-coded to 640x480 |
-| Aspect | Hor+ widescreen: retain original vertical FOV and reveal more at the sides; retain a 4:3 comparison view |
-| UI layout | Center the original logical 4:3 layout/artwork over the wider scene; keep proportions and map input through that same canvas; preserve movie aspect |
-| Appearance | Retain recovered material, palette, fog, depth and ordering rules; preserve tested integer 2D arithmetic |
-| Display correction | Apply gamma/output correction after 3D and UI composition |
-| Colour precision | Correction-free RGBA8 scene targets; quantize only where a packed-pixel operation requires it, leaving untouched 3D pixels at modern precision |
-| Readback | Explicit CPU output or diagnosed compatibility barrier only; never the ordinary bridge from 3D to UI |
-| Platforms | D3D11, Metal, GL core and WebGL2; one shader/core design, validated per backend. Remaining recomp OS/runtime portability is separate work |
+| Windows/D3D11 game and development/debug rendering in the existing recomp | Metal/macOS, Linux/GL and WebGL2 execution and performance validation |
+| Rendering required by shipped levels, actors, effects, UI, options and movies | Browser packaging and remaining non-Windows runtime/OS portability |
+| Renderer boundary correctness, resource ownership and GPU surface access | Full handwritten native ODRuntime migration and additional Viewer features |
+| Windowed/fullscreen/resize, high resolution, widescreen and mouse mapping | Display interpolation, new artwork, new lighting styles and optional enhancements |
+| Shadow rendering, thumbnail rendering and their normal game consumers | Voodoo hardware emulation, scan-out replication and exhaustive historical renderer research |
+| Windows debug/collector, wireframe/line, diagnostic/flat and obscure supported renderer modes, including existing required shared adapter modes | New developer tools and inspection UI beyond the existing renderer controls |
 
-Windows/D3D11 gameplay is the first delivery gate. The shared renderer is then
-validated independently on Metal, GL core and WebGL2 in R4; unavailable hardware
-is recorded as unvalidated, never counted as a runtime pass from shader generation.
+Keep the shared sokol_gfx/SDL3 core and the existing shader-generation workflow.
+Keep existing consumers building when shared interfaces change. Existing
+required Windows shared-adapter/debug rendering remains in scope. New platform
+or Viewer features are not Windows completion gates.
 
-Direct rendering does not mean changing the artwork, lighting style, animation
-system or game rules. It also does not require every renderer calculation to
-be a GPU kernel: CPU packet preparation or visibility inside the new renderer
-is an implementation choice. Visual ownership and independence from the old
-projected/culled output are the requirements.
+Windows development/debug rendering remains in 006 by explicit owner choice.
+Inventory its controls, collector/wireframe/line paths and obscure supported
+modes, preserve their useful output and dependencies, and exercise them even
+when normal gameplay does not trigger them. A mode is not omitted merely because
+it is absent from the first scene or static geometry corpus. An intentional
+Windows no-draw branch is recorded and respected; it does not imply inventing a
+new visual feature. A missing Glide branch alone cannot justify dropping a
+visible Windows mode. Exact diagnostic numbering/counts can differ when they
+truthfully reflect modern visibility/clipping and do not break identification
+or controls; document that difference under the same fidelity policy.
 
-## What stays with the game
+Unrelated game/runtime defects belong to their own spec; record them as Windows
+release blockers if they prevent the acceptance routes. This rendering spec is
+not authorization to rewrite the rest of the game or change its rules.
 
-Keep resource loading/relocation, entity state, animation evaluation, camera
-gameplay, collision, sound, palette-state updates and RNG consumption lifted.
-Keep HUD/menu/dialogue/movie decisions and logical layout lifted. CPU movie
-decoding and generation of sprite/palette data produce uploads; they do not
-require scene downloads.
+## Fidelity: preserve the game and visible result
 
-One renderer-era side effect is especially important: node `+0x4c` contains a
-camera-space position read by sound and line-of-sight code on the following
-game update. Preserve its original arithmetic, visitation and timing, including
-stale values in skipped subtrees. The validated transform helper can perform
-the compatibility composition without rendering. This belongs to the
-game-facing adapter, not to the display camera or interpolation path.
+The target is visually faithful Dreams on a modern GPU. Software rendering,
+fixed-point projection and modern GPU arithmetic need not produce identical
+floating-point values or identical final pixels.
 
-The retained hierarchy walk may perform that update and collect scene input.
-It must not invoke the old visual culling/projection/shading tail. The renderer
-must not use the gameplay feedback fields as its authoritative visual pose:
-pass local/posed transforms and camera separately, with an explicit coordinate
-space contract. Apply the camera once. Do not add an authored-root transform
-or reinterpret encoded pointer `1` as null.
+| Contract | Required fidelity |
+|---|---|
+| Game-consumed state, pointer interpretation, visitation and side-effect timing | Preserve retail behavior; visual tolerance cannot waive a gameplay change |
+| ABI, callbacks, lifetimes, surface routing, aliases and source versions | Correct and validated at the actual boundary |
+| Packed-pixel operations, palette/key semantics and CPU serialization | Preserve the defined operation and format; final GPU imagery can have accepted visual variation |
+| Art, model placement, animation poses, camera/FOV, lighting style, fog, materials, transparency and UI | Recognizably faithful and complete for supported Windows content |
+| Visual projection, interpolation, filtering, light/fog arithmetic, clipping edges and shadow contour | Small numerical/raster differences are acceptable when imperceptible in normal viewing and free of functional regressions |
 
-Account for frame callbacks, scratch lifetime, node-box/debug outputs and the
-diagnostic collector branch at their actual callers. Preserve or explicitly
-replace their contracts; do not discard them when bypassing the pixel backend.
-In particular, retain collision separation in `GAME_DrawFrame`.
+Do not make bit-for-bit 3D images, exact edge pixels, exact floating-point
+lighting values or identical shadow-mask pixel counts a universal completion
+gate. A tiny rounding difference found only by subtraction, extreme zoom or an
+isolated mathematical probe is not automatically a rendering bug. Retain useful
+oracles as regression and diagnosis tools; an exact match is evidence, not an
+obligation to emulate the software pipeline everywhere.
 
-006 preserves the recomp's existing simulation timing and frame limiting.
-A faster GPU is not authorization to uncap physics, substitute OpenDreams'
-fixed-step loop, or move state/RNG updates to the display clock. Independent
-render interpolation or scheduling is a later, separately validated change.
+Visual acceptance uses matched camera, pose, effect state and viewport wherever
+possible, side-by-side or toggled stills, and movement at normal viewing size.
+Use the original/all-lifted build for content, layout and game behavior, and the
+recovered Glide rules for the selected 3D appearance. High-resolution/widescreen
+sampling improvements are declared policy, so an upscaled 640x480 image is not
+a universal pixel oracle.
 
-## Renderer and adapter structure
+Accept small differences in rounding, subpixel positions, edge coverage,
+interpolation and quantization if they do not create noticeable wrong placement,
+missing geometry, holes, seams, persistent jitter, shimmer, clipping pops, wrong
+occlusion, altered lighting/fog style, transparency faults, or unreadable/cropped
+UI. Judge scale and temporal visibility, not a universal one-pixel threshold.
+An obvious or persistent defect still blocks completion.
 
-```mermaid
-flowchart TD
-    G["Lifted game, animation and camera"] --> A["Recomp adapter: preserve feedback and capture scene"]
-    A --> R["Shared direct 3D renderer"]
-    O["OpenDreams scene adapter"] --> R
-    R --> T["GPU colour, depth and offscreen targets"]
-    L["Lifted HUD, menu, dialogue and movie control"] --> U["2D adapter: ordered draw and copy requests"]
-    T --> C["GPU 2D composition"]
-    U --> C
-    C --> P["Output correction and one present"]
-    T -. "explicit CPU consumer only" .-> X["Readback/export barrier"]
-    C -. "requested capture" .-> X
-```
+For an accepted difference, record a representative normal-view comparison and
+the reason it is expected. Group repeated differences with the same established
+cause into one variation entry; do not catalog every changed pixel or demand a
+new numeric proof for every pose. Stop precision investigation once the source
+contract and intended operation are established, the difference is explained,
+and normal-view/functional checks show no meaningful defect. Reopen it for a
+new visible defect, functional error or contradictory source evidence.
+If its cause is uncertain, investigate enough to exclude a wrong source layout,
+transform, pointer, ordering or lifetime contract.
+Screenshots establish appearance; boundary/oracle evidence establishes game and
+memory behavior. Neither substitutes for the other.
 
-The shared renderer accepts host-owned descriptions and resource IDs, not guest
-addresses, `ModelGraph` ownership, GDI handles or the recomp register file.
-Provide a narrow C-compatible interface for the C recomp, backed by shared
-C++ rendering code. Reuse appearance/resource code where contracts match,
-while completing the currently partial material and shader paths.
+## Architecture and invariants
 
-Do not link a second SDL3/sokol instance or import the viewer shell, ImGui and
-asset-loader graph merely to share drawing code. Factor only the needed core;
-existing preview/runtime callers become its adapters. Production shaders use
-the project's shader-generation workflow, not separate hand-written programs
-for each graphics API. The D3D11 smoke shaders remain isolated test prototypes.
+- Keep resource loading/relocation, entity/animation/camera gameplay, collision,
+  sound, palette-state updates, RNG, UI decisions and simulation timing lifted.
+  Keep the recomp's existing frame cap/timing. Faster rendering is not a change
+  to physics, RNG consumption or the game's update clock.
+- Capture original model-space vertices/normals/triangles, posed locals, per-corner
+  owners, signed UVs, materials, lighting inputs and a separate camera. The
+  modern renderer owns visual transformation, visibility, projection, clipping,
+  shading, fog, depth and ordered transparency. No old visible lists, generated
+  clip lists or retail integer screen coordinates are its input.
+- Preserve game-facing transform feedback, especially node `+0x4c` read by sound
+  and line-of-sight, with original visitation/timing and skipped-subtree staleness.
+  Use the retained transform helper for that contract. Visual pose/camera stay
+  separate. Apply the camera once. Encoded source parent `1` resolves to the first
+  model node, and the player model root lands at the recorded project spawn.
+- Trace callbacks, scratch and node-box consumers at their callers. Preserve
+  game and supported debug dependencies and collision separation in
+  `GAME_DrawFrame`. Close their actual contracts; additional historical research
+  needs a concrete rendering or boundary question.
+- Shared rendering accepts host-owned data/resource IDs through the C-compatible
+  interface. The recomp adapter owns guest addresses and ABI. Reuse the extracted
+  core without a second SDL/sokol instance or the Viewer/ImGui/loader shell.
+- Render the scene at drawable/internal resolution. Keep original vertical FOV
+  for Hor+ widescreen and retain a 4:3 comparison setting. Center the original
+  logical 4:3 UI, keep artwork proportions, and use that canvas for input mapping.
+  Preserve movie aspect and apply output correction after 3D and UI composition.
+- Keep recovered material/palette sampling, keyed transparency, fog intent,
+  `GREATER` depth, deferred order and depth writes. Include texture/palette
+  animation and environment-version timing where shipped content uses them.
+  Reproduce observable behavior, not the historical Glide call API.
+- All normal offscreen 3D uses the same direct renderer. Shadows remain GPU masks
+  sampled later with correct palette-index packing; small imperceptible contour
+  differences are allowed. Thumbnails are small GPU renders followed by the
+  explicit packed export required by their file consumer. Neither presents.
+- GPU 2D covers sprites, text, gauges, masked images, fills/bars, fades, captions,
+  background capture/restore/dimming and movie placement. Keep integer operation,
+  clipping/source-step, keyed-neighbor and metadata semantics. Preserve RGB555's
+  high bit in raw copies/fills. Existing packed-pixel oracles remain valuable.
+- Register GPU surfaces by range, allocation generation, dimensions, pitch,
+  format, aliases and version. Snapshot CPU-mutated sources before reuse/free and
+  retain GPU resources until completion. Preserve ordered overlapping operations;
+  sample destinations through scratch/ping-pong copies, never an active output
+  attachment. Ordinary RAM operations remain lifted.
+- Main 3D, UI, saved backgrounds and shadows stay on GPU. There is one outer
+  presentation owner. Execute dependent work in order, including menus/movies
+  without 3D. No changed-pixel overlay, software Voodoo path or recurring CPU
+  gauge/shadow/scene bridge is an implementation stage.
 
-### Scene input
+Readback is allowed for explicit CPU consumers such as thumbnail serialization
+and requested captures, or oracle comparisons. Record call site, surface,
+region, bytes and reason. Uploads/GPU copies are not readbacks. Compatibility
+fallbacks are disabled for acceptance: unknown access reports and fails; it
+cannot silently download stale surfaces or introduce a recurring CPU renderer.
 
-Each scene submission contains:
+## Work order: close Windows failures first
 
-- original model-space vertices, normals, stored triangles and signed UVs;
-- posed node transforms and hierarchy/instance identity, including the owner
-  of each face corner (cross-node triangles are common);
-- a camera/projection policy separate from game-facing transform feedback;
-- material/face modes, visibility flags, current texture/palette versions,
-  lighting inputs, fog and render-order information;
-- a typed target, viewport and frame/resource generation.
+1. **Boundary/runtime blockers:** shaded callbacks, valid surface transfers and
+   fills, memory ownership, renderer-related save/load faults, and ABI or metadata
+   errors reached by supported game routes.
+2. **Shipped-content coverage:** inventory the scene/model/movie data and dynamic
+   call sites, exercise levels/effects/UI, and implement or fix missing rendering
+   behavior demonstrated by those routes.
+3. **Windows operation:** finish resize/fullscreen/input, thumbnails, transitions,
+   reload/lifetime stability and measured frame pacing; finish the required
+   Windows development/debug rendering routes and controls.
+4. **Acceptance:** run the matrix below, fix remaining visible/functional defects,
+   document accepted tiny differences, then enable direct by default.
 
-Use original face records/count/stride, not retail `visible` lists or generated
-clip polygons. Never use integer screen coordinates as modern renderer input.
-The renderer computes visual transforms, enlarged-view visibility, projection
-and clipping. Explicit game hiding remains binding.
+Maintain one finite failure/coverage list. Each item has a route or source/caller,
+expected behavior, observable consequence, owner and a concrete passing check.
+Classify items as **Windows blocker**, **required route not yet exercised**,
+**accepted visual variation**, or **deferred work**. Unknown usage needs a focused
+caller/content check before speculative implementation.
 
-Keep the source-to-runtime checks through integration: encoded parent `1`
-resolves to the first player-model node, and the model root lands at the
-project spawn. The adapter must not invent a second placement system.
+Prioritize reproducible crashes, missing content, visible defects and unsafe
+access. Do not repeatedly expand a numerical oracle after a visual-only
+variation has been explained and accepted. Run affected tests during edits,
+then the integrated suite per coherent feature checkpoint. Batch related Ghidra
+reads and apply port-map updates with the code checkpoint.
 
-### 3D scope
+R0–R4 remain progress labels, not separate architectures:
 
-The renderer owns the complete visual path: level and actor geometry, posed
-models, sky and effect geometry, material sampling, dynamic pages/palettes,
-lighting, environment mapping, fog, depth and ordered translucent submission.
-Include diagnostic/flat modes where supported; absence from a static corpus
-does not establish that a retail mode can be dropped. Preserve stored triangles.
+| Stage | Windows exit |
+|---|---|
+| R0 — boundary/ownership | Supported renderer calls preserve game-consumed effects and ABI; surface lifetimes/versions are sound; unclassified GPU-surface access is observable |
+| R1 — direct slice | Boot/New Game/first scene/HUD/dialogue work through direct 3D, GPU UI and one present at native and widescreen sizes |
+| R2 — required 3D | Shipped and supported diagnostic/obscure geometry/material modes render faithfully; lighting/fog/transparency/shadows, visibility and offscreen consumers work; no known visible or functional defect |
+| R3 — regular 2D | Shipped sprite/text/gauge/menu/dialogue/movie/copy/fill routes work with correct layout, integer operations, versions and lifetimes |
+| R4 — Windows acceptance | The complete game and development/debug matrix passes with strict auditing, bounded resources and acceptable pacing; remaining nonblocking/deferred items are explicit |
 
-The Glide rules specify appearance, not a required 35-call API to emulate.
-Implement them directly as renderer state/shaders. Account for `GREATER`
-depth, translucent-pass order and retained depth writes, palette-cache
-behaviour, clipping and environment-map update timing. Any previous-frame
-dependency must remain explicit when the processing moves into the renderer.
+Function port coverage and owner review remain governed by
+[PORT_MAP.md](../../../opendreams/PORT_MAP.md). Windows delivery acceptance is not
+proof that every historical branch of every mapped function is complete, nor
+personal owner review. Keep partial/unverified rows honest and apply changed
+maps to both Windows programs in Ghidra.
 
-All offscreen 3D uses this renderer too. The real shadow is not an optional
-software exception: reproduce its observed palette-index mask/packing on the
-GPU and expose the result to later texture sampling. A save thumbnail is a
-small direct GPU render; its CPU file consumer may then request readback.
-Finishing either target does not present a window.
+## Windows acceptance and definition of done
 
-### 2D scope
+Record results on the Windows/D3D11 test machine, with direct rendering and
+compatibility fallbacks disabled. Use `--mute`/`--headless` for unattended runs;
+use normal visible playback for appearance, fullscreen and input review.
 
-The [2D address map](2d-cut.md#main-interception-points) defines the leaves.
-Normal play requires GPU sprites, all text routes, the pyramid compositor,
-masked menu images, fills/bars, captions, captures/restores/dimming, fades and
-movie placement. Include direct framebuffer bypasses in the registry/audit;
-intercepting `SPR_BlitSprite` alone is insufficient.
+| Gate | Required evidence |
+|---|---|
+| Game/content coverage | Shipped level/asset and dynamic-route inventory; exercise boot/intro/New Game, level transitions, movement/combat/spells, normal options including real shadows, pause/inventory, changing gauges, dialogue/portraits and movies. No known missing required rendering route or unsupported-operation abort |
+| Visible fidelity | Representative matched stills and movement for each distinct used rendering mode/effect; no obvious missing/wrong geometry, camera placement, material/light/fog style, ordering, shadow, UI or movie behavior. Accepted imperceptible differences have evidence and rationale |
+| Development/debug rendering | Existing Windows debug controls, diagnostic collector, geometry/flat modes, lines/wireframes and overlays work without unsupported-path aborts or unsafe access. Output remains useful/readable; obscure supported modes have focused route/caller tests and declared visual differences |
+| Game-facing correctness | Retained transform/ABI/callback/source-version checks on supported routes; pointer-1/spawn and cross-node checks; no renderer-induced change to gameplay state, sound/visibility feedback, collision separation, update timing or RNG |
+| GPU ownership | Audited 3D/UI/background/shadow runs with zero routine scene readbacks, no unclassified surface access, no hidden CPU renderer and correctly ordered explicit exports |
+| Windows display/input | Same direct implementation at 640x480 and 1920x1080, plus fullscreen and resizing; correct Hor+ view, centered UI/movie aspect and mouse hit mapping |
+| Save/load and lifetimes | Thumbnail render/export and screen restoration; renderer state survives valid save/load and level transitions; ten consecutive reloads without stale resources, violations or unbounded growth |
+| Pacing/resources | CPU preparation/upload/submission and GPU pass/copy costs, resource counts and explicit-readback totals recorded. Representative play sustains the existing default cap on the test machine without sustained renderer-induced pacing regression or noticeable rendering stalls |
+| Release state | Windows blockers and required route gaps closed, useful regression tests pass, accepted variations/deferred work listed, docs/port map synchronized, and direct selected by default |
 
-Use GPU copies for saved/background/caption images and destination-sampling
-passes for integer blends. Never sample an active output attachment: use
-ping-pong targets or an ordered scratch-region copy. Batch only where overlap
-and mutation order permit it.
+A level-load sweep alone does not establish combat, event, transition or movie
+coverage. Isolated timings do not establish whole-game pacing. Exact pixel
+mismatch counts alone neither fail visual acceptance nor prove it passes.
+Non-Windows execution and Voodoo hardware captures are outside this Windows
+acceptance gate. Supported Windows development/debug rendering is inside it.
 
-Preserve RGB565/RGB555 integer rules, palette semantics, keyed neighbour
-stores, clipping/source-step quirks and relevant metadata side effects.
-Ordinary alpha-over is not equivalent. Move the existing preview shader's
-early gamma correction to final output before sharing it.
+## Current evidence and remaining work
 
-At high resolution, UI positions/artwork retain the logical canvas. Sample the
-actual GPU destination under each output pixel and apply the declared retail
-integer operation there. This is the selected modern sampling policy; it is
-not a claim of identical pixels to an upscaled 640x480 render. Nearest artwork
-sampling is the initial choice. Native-size rendering is a test setting of
-this same implementation, not a separate implementation milestone.
+The live first-scene route, shared renderer/Viewer adapter, GPU UI arithmetic,
+thumbnail export, flat and supported Gouraud lighting, ordered environment UV
+versions, and the recorded GPU shadow oracle are implemented. Muted/headless
+startup is available. These results are scoped evidence, not Windows completion.
 
-Pack sampled RGBA8 bytes with RGB565/RGB555 bit shifts and expand results with
-bit replication. This is a declared modern conversion policy, not proof of
-Voodoo scan-out parity. Preserve RGB555's otherwise unused high bit through raw
-copies/fills: the current shared core reserves alpha byte 1 for that bit and
-uses opaque alpha for normal colours. Final output writes opaque alpha; the
-tag must not be treated as UI opacity.
+The authoritative checkpoint details, remaining route gaps and reproduction
+commands are in [implementation.md](implementation.md#stage-status).
 
-### Resource and surface ownership
+Supporting research:
 
-Map a guest surface by byte range, allocation generation, dimensions, pitch,
-format, aliases and content version. Main colour, saved images, movie buffers,
-thumbnails and P8 shadow masks have different contracts. The names "front"
-and "back" must not override actual pointer aliasing.
+- [000: recomp](../000-the-recomp/spec.md), [north star](../../north-star.md).
+- [3D boundary](modern-cut.md), [2D map/contracts](2d-cut.md).
+- [Retail layouts and lighting](debug-renderer-contracts.md).
+- [Glide appearance rules](../../glide-renderer.md),
+  [call inventory](../../glide-call-inventory.md), [engine](../../engine.md).
+- [Archived backend investigation](backend-exploration.md).
 
-Snapshot or upload CPU-mutated source versions before reuse/free. Commands
-retain GPU resources through completion. Keep ordinary RAM operations lifted;
-translate only classified operations on registered surfaces. Preserve pointer
-and allocator metadata.
-
-Capture target identity and order with each request. Execute queued work before
-dependent copies, 3D passes, CPU consumers and presents. Menus/movies can present
-without 3D. One presentation owner remains at the existing outer boundary.
-
-## Readback and compatibility policy
-
-Readback is allowed for explicit CPU serialization/capture (save thumbnails,
-TGA/BMP output), test comparisons, or a diagnosed unported CPU consumer. Each
-barrier identifies call site, surface, region, byte count and reason. GPU copies
-and CPU-to-GPU uploads are not readbacks.
-
-Compatibility fallbacks are optional diagnostic tools, disabled for the direct
-renderer acceptance run. Unknown access must be reported and fail that run;
-it must not silently materialize every frame. A temporary fallback is tracked
-as remaining work and cannot satisfy a milestone requiring its GPU operation.
-
-A recurring CPU pyramid blend, software shadow pass or whole-scene download
-before UI is not an acceptable completed path. Do not build these as
-prerequisites. A colour-key/changed-pixel overlay, Voodoo emulator or
-screen-space Glide renderer is not an intermediate architecture. Use the
-existing all-lifted build as the comparison tool.
-
-## Implementation sequence
-
-Each stage extends the same direct renderer. No stage produces a separate
-compatibility renderer that later has to be replaced.
-
-| Stage | Work | Exit evidence |
-|---|---|---|
-| R0 — guest boundary and ownership | Replacement ABI covering registers, stack, flags, x87 and direct/indirect/tail calls; preserve feedback transforms; capture scene inputs; typed surface/resource registry and diagnostics | Existing transform/ABI/player-placement checks pass through the actual adapter; unknown accesses are observable |
-| R1 — direct vertical slice | Extract minimal shared core; connect original geometry/posed transforms and float projection; draw at drawable resolution; connect GPU UI primitives and direct present | Boot/New Game/first scene on the direct path at two sizes including widescreen; no scene download for covered UI; incomplete features explicitly listed |
-| R2 — complete visual 3D | Required face/material modes, lighting, palette/texture animation, environment mapping, fog, transparency and new-frustum visibility; GPU shadow and thumbnail targets | Source-corner and boundary cases checked; widescreen visibility works; shadow sampling/packing agrees with the oracle; game-facing state unchanged |
-| R3 — complete regular GPU 2D | Normal sprite/text variants, pyramid markers, dynamic fire sources, menu/caption lifetimes, fades/bars, HNM placement and memory bypasses | Interleaved oracle comparisons plus gameplay/menu/dialogue/movie runs with zero compatibility readbacks |
-| R4 — integration and platforms | Remaining active debug/rare paths, explicit CPU exports, reload/lifetime checks, performance and backend validation | Acceptance matrix below; no hidden recurring CPU renderer; per-platform results recorded |
-
-R2 and R3 can develop incrementally around R1. This does not reopen the
-architecture or make an unfinished gauge/shadow a permanent fallback.
-R1 includes the gauge branches and movie/boot paths actually encountered on
-its first-playable route; R3 completes their remaining variants. An absent gauge
-or a hidden CPU gauge fallback does not satisfy the R1 exit evidence.
-Follow `PORT_MAP.md` for actual ports/adaptations. Coverage stays partial while
-known branches/side effects remain; owner review is never inferred from tests
-or this architecture decision.
-
-## Acceptance
-
-- Direct native/high-resolution and Hor+ widescreen rendering, independent of
-  old integer projection and frustum rejection. The 640x480 test configuration
-  exercises the same implementation.
-- Main rendering, regular UI, backgrounds and shadow sampling stay on the GPU.
-  Trace **zero routine GPU-to-CPU scene readbacks**, with compatibility
-  fallbacks disabled. Explicit exports/test readbacks are counted separately.
-- Exercise boot, New Game, movement/combat, pause/inventory, gauge changes,
-  dialogue/portraits, movies, resize, save/load thumbnails and level reload.
-  Validate target changes and source mutation, not just isolated pictures.
-- Preserve game-facing transform/timing/RNG effects against the all-lifted
-  reference. Repeat pointer-1/spawn and cross-node geometry checks.
-- Retain packed-pixel 2D oracle cases and independent 3D projection/material/
-  depth checks. Declare high-resolution sampling enhancements; screenshots
-  alone do not establish compatibility.
-- Measure CPU adapter/upload/submission cost, GPU pass/copy cost, resource
-  growth, explicit readbacks and pacing. Isolated smoke timings are not a
-  full-game budget or a cross-platform result.
-- Record native/backend build and smoke results. Keep the API/shaders portable;
-  recomp KERNEL32/thread/browser-loop work is a separate dependency for running
-  on other platforms.
-
-## Proven so far and still unproven
-
-The implementation record distinguishes the new shared-core results from the
-older isolated prototypes. `ODRender`/`ODGraphics` build without ImGui or game
-loaders; both projects link the extracted graphics targets. The shared C API
-implements generation-checked targets/uploads, ordered GPU composition,
-floating-point posed-corner preparation, a basic scene pipeline and final output
-correction. The lifter emits replacement/reference entries and optional memory
-probes; GDI DIB allocation/free registers its surfaces. The opt-in `direct` mode
-now submits the live first scene, HUD and dialogue through GPU targets and the
-shared presentation boundary. Software remains the default. This first working
-slice does not close the remaining acceptance gates.
-
-`ModelPreview` is now a source adapter for `ODRender`, with the old preview
-shader/pipelines removed. Viewer and recomp share pose preparation, depth,
-material sampling, fog and output correction. Dynamic-batch, mutation, resize
-and model-reload checks pass; see the [adapter evidence](implementation.md#modelpreview-adapter-checkpoint).
-
-The D3D11 thumbnail path now uses a dedicated 64x64 target and one explicit
-8,192-byte packed export at the retail serialization boundary. A controlled
-live autosave test verifies file bytes, the guest copy and restored screen size;
-the production export API passes exhaustive packed-value tests. This is not yet
-full save/load acceptance. See the [thumbnail evidence](implementation.md#explicit-thumbnail-export-checkpoint).
-
-The source-derived GPU shadow mask now matches the recorded original-x86 oracle
-in all 65,536 bytes, resolving the prior 456-byte mismatch. Retail pose/projection
-and 12-bit edge coverage are computed inside the renderer; the game supplies
-original geometry and exact local state. Muted headless live shadow runs report
-zero routine readbacks. Broader shadow/clipping/metadata acceptance remains open;
-see the [shadow checkpoint](implementation.md#gpu-real-shadow-checkpoint).
-
-The native sprite adapter now covers flag 4's unusual memory stride and
-signed-high blend coverage with immutable GPU lookup tables. The expanded
-original-x86 comparison passes 105 checkpoints and 5,055,744 packed pixels;
-full ABI and allocation-edge closure remain open. See the
-[sprite evidence](implementation.md#remaining-sprite-branches-checkpoint).
-
-Type-1 diagnostic 3D now has direct constant-colour submission and new-frustum
-visibility. Original Glide call replay verifies the colour sequence and block
-resets; GPU tests verify winding and Hor+ behavior. Near-plane diagnostic
-numbering and viewer diagnostic-mode coverage remain partial; see the
-[mode evidence](implementation.md#type-1-diagnostic-3d-checkpoint).
-
-Fog now follows the original level-load/water-transition call boundary and is
-composed by the shared GPU scene shader using reciprocal-W selection and packed
-delta interpolation. Original-x86 controller tests, 131,072 reference samples
-and controlled live water transitions pass. Zero-density hardware behavior
-and broader natural gameplay coverage remain open. See the
-[fog evidence](implementation.md#fog-control-and-composition-checkpoint).
-
-Radial lighting now uses shared arithmetic checked against 1,533 original x86
-cases, with live shade/normal-dot feedback and stale list-head palette binding.
-Controlled live binding/movement tests pass. WDS6 adds feedback addresses and
-the refreshed-light prefix. Type-2 flat lighting now also passes 1,063 mixed
-retail-x86 shade/normal cases, 400 direction cases and a controlled live
-rotation/unbind run. Other face modes, callback and full camera-chain feedback cases
-remain open. See the [demo-informed follow-up](debug-renderer-contracts.md) and
-the [lighting evidence](implementation.md#radial-lighting-kernels-and-capture).
-
-Demo-identified corner shade bytes now reach the shared GPU shader for unlit
-Gouraud types `0x16`..`0x18`; WDS7 round-trip and controlled interpolation pass.
-Lit `0x16`/`0x17` now uses retail-checked corner lighting and normal-pool feedback;
-`0x18` retains the original flat-light branch and stored corner bytes. The
-3,165 arithmetic and 128 ordered adapter comparisons pass; natural Gouraud
-assets, other modes and full guest closure remain open. See the
-[lit Gouraud checkpoint](implementation.md#lit-gouraud-and-normal-pool-checkpoint) and
-the [Gouraud checkpoint](implementation.md#unlit-gouraud-input-and-gpu-interpolation-checkpoint).
-
-The new shared compositor independently passes the same 256 checkpoints and
-14,769,600 packed pixels, plus exhaustive CPU and GPU packed-value round trips.
-Production replacement dispatch is exercised by the captured transform replay.
-Environment mapping now preserves shared UV versions at opaque/deferred draw
-boundaries, with original integer camera-chain feedback derived from source
-rotations. Retail arithmetic, source capture and muted/headless live checks
-pass; natural environment routes, mirror setup and shaded callbacks remain open.
-See the [environment checkpoint](implementation.md#environment-mapping-and-uv-version-checkpoint).
-See [the current gates](implementation.md#stage-status) for everything still
-required before R0/R1 or a playable direct renderer can be declared complete.
-
-The [3D smokes](modern-cut.md#smoke-results-2026-09-29) preserve composed
-transforms for 735 nodes in each of two retail snapshots and exercise the
-lifted helper/ABI/shared tail. They resolve cross-node faces, pointer `1`,
-spawn placement and the observed shadow-mask destination. The isolated D3D11
-test establishes offscreen targets, depth and transfer feasibility.
-
-The [2D smokes](2d-cut.md#smoke-tests-and-results) compare 256 checkpoints and
-14,769,600 packed pixels with zero mismatches, including captured font/sprite
-inputs, overlap, clipping, surface changes, copies, dimming and movie placement.
-Their compositor performs no target readback; validation does read results.
-
-Still unproven: the in-game replacement ABI/metadata closure, renderer-owned
-visual transforms/camera normalization across all data, full material/gauge
-coverage, exact GPU shadow silhouette coverage, full high-res acceptance, complete
-surface access coverage and other backends. These are implementation gates
-within the selected architecture, not reasons to return to the archived
-alternatives. Unresolved contracts remain explicit and partial.
+The recorded shadow now matches all 65,536 oracle bytes, and existing 2D
+fixtures have zero packed-pixel mismatches. Keep these fast regression checks.
+Neither result creates a new requirement to chase every imperceptible numerical
+difference in other poses, effects or GPU implementations.

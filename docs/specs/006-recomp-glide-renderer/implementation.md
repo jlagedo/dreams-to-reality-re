@@ -2,6 +2,16 @@
 
 Date: 2026-09-30. Authority: [spec 006](spec.md).
 
+**Current delivery scope: Windows/D3D11 game and development/debug rendering.**
+The owner accepts imperceptible CPU/GPU numerical and raster differences under
+[the spec's fidelity policy](spec.md#fidelity-preserve-the-game-and-visible-result).
+Historical exact-match numbers below are evidence and regression diagnostics,
+not universal image-parity gates. Game-consumed state, ABI, ordering, lifetimes,
+formats and unsafe access retain their correctness requirements. Other platform
+execution/validation belongs to later work and cannot keep Windows 006 open.
+Existing Windows development/debug rendering stays in 006; new tools and the
+full native game migration remain separate.
+
 Latest follow-up: [demo-informed contracts](debug-renderer-contracts.md) confirms
 the hierarchy cut, corrects retail UV field names, and adds type-2 flat lighting.
 Mixed-light retail oracles and a controlled live rotation/unbind run pass;
@@ -259,12 +269,14 @@ A 45-second muted headless strict-audit run, including scripted movement/control
 records 315 shadow submissions/resolves by its 500-frame checkpoint, with zero
 routine readbacks and no reported instrumented surface violation.
 
-Coverage remains partial beyond this fixture: additional poses/assets, near/far
-and screen-clipping boundary oracles, extreme coordinates, complete shadow
-metadata/callback contracts and backend execution still need closure. The near
-clip is renderer-owned; its current float intersection path has not yet been
-proved against every retail temporary-face branch. The existing corpus pass is
-not a claim of full shadow or R2 acceptance.
+Coverage remains partial beyond this fixture: exercise additional Windows game
+and debug shadow/clipping routes and close their game-consumed metadata/callback
+contracts. The renderer-owned float near intersection has not been compared
+against every retail temporary-face branch. Under the current fidelity policy,
+that is not itself a demand for exhaustive numeric parity: visible missing/wrong
+geometry or mask behavior and functional errors block; imperceptible contour
+differences can be accepted with comparison evidence. Other backend execution
+is later work. This fixture alone does not establish the full Windows R2 gate.
 
 ```powershell
 uv run --with unicorn python recomp/windream/debug/render_shadow_smoke.py --require-parity
@@ -664,16 +676,22 @@ oracle, not authorization for routine scene downloads.
 
 | Stage | Current evidence | Required exit work |
 |---|---|---|
-| R0 | Live handlers installed; registry, transform replay and local-camera tests pass; native UI scratch matches tested x86 cases; segment-stack ABI defect fixed | Validate alternate targets, full callback/flag closure, all lifetimes and complete access instrumentation |
+| R0 | Live handlers installed; registry, transform replay and local-camera tests pass; native UI scratch matches tested x86 cases; segment-stack ABI defect fixed | Close supported Windows game/debug callback and ABI/metadata dependencies, alternate-target ownership, lifetimes and unclassified GPU-surface access |
 | R1 | Live direct boot, first scene/HUD, dialogue and movement; shared ModelPreview adapter; 640x480, 1280x960 and fullscreen 3840x2160 routes exercised | Broader integrated acceptance and uncovered startup/UI variants remain |
-| R2 | Textured 3D and depth/order primitives; source-derived GPU shadow matches recorded 65536-byte oracle; thumbnail export; diagnostic mode, fog, lit 0x16/0x17 corners, flat-lit 0x18 and ordered environment UV versions | Wider shadow/clipping/metadata closure, other material/Gouraud/specular modes, remaining lighting/shaded-callback contracts, mirror setup, natural environment routes, hardware fog parity, wider visibility corpus and save/load acceptance remain |
-| R3 | Normalized sprite/text/copy/dim/movie streams match retail CPU checkpoints, including flag 4 and signed-high coverage | Full ABI/helper-side-effect closure, gauge and fire-source versions, menu/caption lifetimes, HNM5/other movie modes, direct bypass writers |
-| R4 | Four shader dialects generate; D3D11 standalone/export tests and direct audit first-scene routes pass; muted/headless runs preserve mixer state and verify hidden native windows | Active debug/rare paths, remaining CPU exports, resize/input/present integration, ten reloads, performance/synchronization measurements, Metal/GL/WebGL2 runtime validation |
+| R2 | Textured 3D and depth/order primitives; source-derived GPU shadow matches recorded 65536-byte oracle; thumbnail export; diagnostic mode, fog, lit 0x16/0x17 corners, flat-lit 0x18 and ordered environment UV versions | Exercise additional Windows game/debug routes; fix visible shadow/clipping/material/light/fog defects, required obscure/mirror modes and game-consumed metadata/callback errors. Tiny visual-only numerical differences are accepted with evidence |
+| R3 | Normalized sprite/text/copy/dim/movie streams match retail CPU checkpoints, including flag 4 and signed-high coverage | Close required Windows sprite/text/gauge/fire/menu/caption/movie/debug-line routes, helper effects, source versions/lifetimes and direct bypass writers |
+| R4 | D3D11 standalone/export tests and direct audit first-scene routes pass; muted/headless runs preserve mixer state and verify hidden native windows; four dialects also generate | Windows game/debug acceptance matrix, required exports, resize/fullscreen/input/present, save/load, ten reloads, bounded resources and measured pacing; then direct becomes default |
 
 No stage is marked complete. The new port-map rows cover shader arithmetic,
 live main/alternate frame boundaries and UI handlers including `SPR_DrawMasked64`.
 They are `adapted`, `partial`, `reviewed=no`, explicitly listing the absent
 rendering/guest closure. Both Windows Ghidra programs carry the same map tags.
+
+The table identifies Windows work/coverage gaps, not a requirement to prove every
+historical numeric branch bit-for-bit. Convert a broad gap into a concrete route,
+expected output/side effect and passing check before opening more implementation
+or reverse-engineering work. Use the spec's blocker/coverage/variation/deferred
+classification. Required development/debug modes remain genuine coverage work.
 
 ## Validation
 
@@ -794,8 +812,10 @@ Close R0's remaining native contracts and access audit through the installed
 live handlers. Extend R1's working scene/UI/presentation route to the uncovered
 startup, gauge and input/resize variants at native and widescreen resolutions.
 Complete R2 and R3 around that same path; do not add CPU gauge/shadow/readback
-bridges as prerequisites. R4 adds explicit exports, operational tests, measured
-optimization and per-backend execution.
+bridges as prerequisites. R4 closes required Windows game/development/debug
+exports, operational tests and measured pacing. Additional platform execution
+is deferred; visual-only precision investigations need an observable problem
+or an unresolved source contract under the spec's fidelity policy.
 
 The explicit `direct`/`software` selection is available for the current slice.
 Keep direct opt-in until Windows R4 acceptance, then make it the default. Keep

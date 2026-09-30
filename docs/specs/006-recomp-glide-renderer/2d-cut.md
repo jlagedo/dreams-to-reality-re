@@ -8,6 +8,13 @@ The evidence below supports it; the current implementation sequence and
 acceptance policy come from that spec. Native-size or CPU-fallback experiments
 are comparison tools, not required intermediate renderer architectures.
 
+**Current acceptance is Windows/D3D11 game and development/debug rendering.**
+The owner accepts imperceptible visual CPU/GPU differences under
+[spec.md](spec.md#fidelity-preserve-the-game-and-visible-result). Keep discrete
+operation/format, metadata, ordering and memory semantics correct. The pixel
+counts below are scoped evidence; other-platform work and exhaustive historical
+precision checks are not Windows delivery gates.
+
 ## Recommendation
 
 The intended architecture should be **GPU 3D -> GPU sprites/text/UI -> present**.

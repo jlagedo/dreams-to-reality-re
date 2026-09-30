@@ -6,6 +6,13 @@ description, and adds type-2 **flat** lighting. A subsequent retail-oracle pass
 adds lit 0x16/0x17 Gouraud, corrects 0x18 flat dispatch and implements ordered
 environment UV versions. Mirror setup and wider renderer acceptance remain open.
 
+Current completion follows [the Windows fidelity policy](spec.md#fidelity-preserve-the-game-and-visible-result).
+The owner keeps supported development/debug rendering in 006 while allowing
+imperceptible visual numerical differences. Original-x86 numerical results here
+prove their recorded contracts; they do not require reproducing every
+software-era visual rounding decision. Game-consumed feedback and source/ABI
+contracts remain protected. Non-Windows execution is later work.
+
 ## Evidence and replacement boundary
 
 The demo's Watcom symbols identify `3DC_HIER.C` as the owner of the following

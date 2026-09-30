@@ -9,6 +9,12 @@ and GPU 2D from the first integrated renderer.** This document preserves the
 boundary evidence and smoke results. Compatibility composition remains on the
 game side; visual transforms/projection and offscreen 3D belong to the renderer.
 
+**Acceptance scope updated 2026-09-30:** Windows/D3D11 game and supported
+development/debug rendering close in 006. Imperceptible visual CPU/GPU numerical
+differences are allowed; game-consumed effects and memory contracts remain
+protected. Historical clipping/parity and other-platform work lists below do
+not override [the current spec](spec.md).
+
 **Finding:** the engine has a compact rendering front end, entered through
 `REND_DrawFrame` / `REND_DrawFrameEx`. Within it, the useful geometry boundary
 is **after node transform composition and before object culling in
@@ -317,11 +323,12 @@ validated composition helper from a replacement per-object function. Rewriting
 the hierarchy walk is unnecessary for the first integration. The native
 transform state and any enhanced/interpolated display state must stay separate.
 
-Remaining gates are the first **in-game** replacement run from New Game,
-material/light/env-map timing and clipping parity, GPU shadow packing and
-sampling, correct high-resolution 2D coverage, and the other platform backends.
-The isolated tests do not establish those. No port-map coverage or owner-review
-flags were changed.
+At this investigation's checkpoint, live integration, material/light/env-map
+timing, shadow sampling and high-resolution UI still needed work. Later results
+are recorded in [implementation.md](implementation.md#stage-status). Windows
+acceptance now follows the spec's visual/functional policy; exact raster parity
+and other-platform execution are not blanket 006 gates. No port-map coverage or
+owner-review flags were changed by this original investigation.
 
 ## Local audit outputs
 
