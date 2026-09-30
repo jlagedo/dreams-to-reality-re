@@ -33,6 +33,7 @@
  *   WD_FOCUS=1          report the window as focused, so a background run
  *                       still reads (scripted) keys
  *   WD_QUIET=1          log message boxes instead of showing them
+ *   WD_HEADLESS=1       keep the window hidden; force focus/quiet and mute the mixer
  */
 #include <ctype.h>
 #define RECOMP_GENERATED_CODE
@@ -41,6 +42,7 @@
 
 int g_wd_quiet;
 static int g_force_focus;
+static int g_headless;
 static uint64_t g_t0, g_last_pump;
 static uint32_t g_guest_wndproc;
 static SDL_Window* g_window;
@@ -77,8 +79,10 @@ static uint8_t vk_from_name(const char* s, size_t n) {
 void host_init(void) {
     SDL_SetAppMetadata("Dreams to Reality (recomp)", NULL, "org.opendreams.windream-recomp");
     g_t0 = SDL_GetTicks();   /* also sets the 1 ms Windows timer resolution (SDL_HINT_TIMER_RESOLUTION) */
-    g_wd_quiet = host_env("WD_QUIET") != NULL;
-    g_force_focus = host_env("WD_FOCUS") != NULL;
+    g_headless = host_env("WD_HEADLESS") != NULL;
+    g_wd_quiet = g_headless || host_env("WD_QUIET") != NULL;
+    g_force_focus = g_headless || host_env("WD_FOCUS") != NULL;
+    if (g_headless) fprintf(stderr, "[user] WD_HEADLESS: window remains hidden, scripted focus enabled\n");
     const char* spec = host_env("WD_KEYS");
     while (spec && *spec && g_script_n < 64) {
         char* end;
@@ -465,7 +469,7 @@ void imp_CreateWindowExA(void) {  /* (exStyle, cls, name, style, x, y, w, h, par
     }
     SDL_SetWindowPosition(g_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_SetWindowMinimumSize(g_window, cw / 2, ch / 2);
-    if (host_env("WD_FULLSCREEN")) SDL_SetWindowFullscreen(g_window, true);
+    if (!g_headless && host_env("WD_FULLSCREEN")) SDL_SetWindowFullscreen(g_window, true);
     fprintf(stderr, "[user] CreateWindowExA(\"%s\", %dx%d) -> SDL window %dx%d, renderer %s\n",
             title, (int)ARG(6), (int)ARG(7), cw * scale, ch * scale,
             wd_render_requested() ? "sokol direct" : SDL_GetRendererName(g_renderer));
@@ -489,12 +493,12 @@ void imp_CreateWindowExA(void) {  /* (exStyle, cls, name, style, x, y, w, h, par
         RET(0); STDRET(12);
         return;
     }
-    if (ARG(3) & W32_WS_VISIBLE) SDL_ShowWindow(g_window);
+    if (!g_headless && (ARG(3) & W32_WS_VISIBLE)) SDL_ShowWindow(g_window);
     RET(WD_HWND_MAIN); STDRET(12);
 }
 void imp_ShowWindow(void) {  /* (hwnd, nCmdShow): shown whatever the CRT's nCmdShow */
     int was = g_window && !(SDL_GetWindowFlags(g_window) & SDL_WINDOW_HIDDEN);
-    if (ARG(0) == WD_HWND_MAIN && g_window && !g_destroyed) {
+    if (ARG(0) == WD_HWND_MAIN && g_window && !g_destroyed && !g_headless) {
         SDL_ShowWindow(g_window);
         SDL_RaiseWindow(g_window);
     }

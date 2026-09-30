@@ -15,6 +15,7 @@
  * cursors still advance and the game's polling behaves.
  *
  *   WD_NOSOUND=1   DirectSoundCreate fails (DSERR_NODRIVER): the game runs mute
+ *   WD_MUTE=1      mix silently on the normal timer, retaining buffers/cursors/CD state
  */
 #define RECOMP_GENERATED_CODE
 #include "host.h"
@@ -127,6 +128,12 @@ static void mixer_start(void) {
     static SDL_InitState once;
     if (!SDL_ShouldInit(&once)) return;
     g_cs = SDL_CreateMutex();
+    if (host_env("WD_MUTE") || host_env("WD_HEADLESS")) {
+        fprintf(stderr, "[dsound] WD_MUTE: mixing silently on a timer (no audio device)\n");
+        SDL_DetachThread(SDL_CreateThread(mixer_silent, "mixer", NULL));
+        SDL_SetInitialized(&once, true);
+        return;
+    }
     SDL_AudioSpec spec = {SDL_AUDIO_S16, 2, OUT_RATE};
     SDL_AudioStream* s = NULL;
     if (SDL_InitSubSystem(SDL_INIT_AUDIO))

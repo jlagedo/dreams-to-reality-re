@@ -37,6 +37,8 @@ uv run --with capstone --with pefile python recomp/windream/lift.py          # g
 uv run --with capstone --with pefile python recomp/windream/gen_imports.py   # gen/imports_gen.c
 uv run python recomp/windream/build.py        # out/recomp/windream/build (unoptimized)
 uv run python recomp/windream/run.py          # play; logs and dumps in out/recomp/windream/run
+uv run python recomp/windream/run.py --mute --renderer direct --seconds 30 # silent unattended run
+uv run python recomp/windream/run.py --headless --renderer direct --seconds 30 # hidden, muted run
 uv run python recomp/windream/run.py --seconds 60 --keys 2000:ESC,5000:RETURN --snap-ms 4000
 uv run python recomp/windream/run.py --overlays   # retail debug flags on; keypad 1-4 toggle (spec 005)
 uv run python recomp/windream/run.py --poke 0x49da14=1   # any dword into the image before entry
@@ -61,6 +63,8 @@ does. F11 toggles fullscreen; the game sees F11 too.
 | `--pad` | `WD_PAD` | `winmm` | Gamepads: `winmm` shows them as WinMM joysticks (press J in game), `keys` makes them press keys, `off` ignores them |
 | `--deadzone IN,OUT` | `WD_DEADZONE` | `10,95` | Scaled radial deadzone for sticks and triggers, percent of full deflection: below IN reads centred, past OUT reads full |
 | `--fps N` | `WD_FPS` | 25 | Present cap; above 30 the original physics breaks (`docs/running.md`) |
+| `--mute` | `WD_MUTE` | off | Open no audio device; keep mixing on a timer so sound/CD cursors and completion polling still advance |
+| `--headless` | `WD_HEADLESS` | off | Keep the SDL window hidden, run muted, and enable scripted input while reporting focus |
 
 With `--pad keys`, the stick and d-pad are the arrows, A is Ctrl, X is Alt,
 Y is Space, B is Down, LB, RB and LT are 1, 2 and 3, and Start is Esc: the

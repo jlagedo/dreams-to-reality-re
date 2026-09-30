@@ -44,6 +44,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Run the recompiled game.")
     ap.add_argument("--exe", help="guest exe (default DREAMS_DISC1/GDIDREAM.EXE)")
     ap.add_argument("--renderer", choices=("software", "direct"), default="software")
+    ap.add_argument("--headless", action="store_true", help="keep the window hidden and run muted")
+    ap.add_argument(
+        "--mute", action="store_true", help="mix silently without opening an audio device"
+    )
     ap.add_argument("--tag", help="isolated run directory suffix under DREAMS_OUT/recomp/windream")
     ap.add_argument("--render-audit", action="store_true", help="run the build-audit executable")
     ap.add_argument(
@@ -84,6 +88,8 @@ def main() -> int:
         help="write a dword into the loaded image before the entry point (repeatable)",
     )  # fmt: skip
     args = ap.parse_args()
+    if args.headless and args.fullscreen:
+        ap.error("--headless and --fullscreen cannot be combined")
     if args.tag and not re.fullmatch(r"[A-Za-z0-9_-]+", args.tag):
         ap.error("--tag must contain only letters, numbers, underscores or hyphens")
 
@@ -116,9 +122,11 @@ def main() -> int:
         WD_DUMP=args.dump,
         WD_POKE=",".join(pokes),
         WD_RENDERER=args.renderer,
+        WD_MUTE="1" if args.mute or args.headless else os.environ.get("WD_MUTE", ""),
+        WD_HEADLESS="1" if args.headless else os.environ.get("WD_HEADLESS", ""),
         WD_SCENE_CAPTURE=str(run / "direct-scene.wds") if args.capture_scene else "",
-        WD_QUIET="1" if unattended else "",
-        WD_FOCUS="1" if unattended else "",
+        WD_QUIET="1" if unattended or args.headless else "",
+        WD_FOCUS="1" if unattended or args.headless else "",
     )
     binary = (
         out
@@ -127,10 +135,12 @@ def main() -> int:
     )
     with open(run / "stderr.txt", "wb") as err, open(run / "stdout.txt", "wb") as so:
         p = subprocess.Popen([str(binary), exe, "--run"], cwd=run, env=env, stdout=so, stderr=err)
+        stopped = False
         try:
             p.wait(timeout=args.seconds or None)
             print(f"exited with code {p.returncode}")
         except subprocess.TimeoutExpired:
+            stopped = True
             p.kill()
             p.wait()
             print(f"still running after {args.seconds} s (stopped)")
@@ -148,7 +158,7 @@ def main() -> int:
         if not captured or at is not None:
             print("scene capture failed or the run crashed", file=sys.stderr)
             return 1
-    return 0
+    return 1 if at is not None or (not stopped and p.returncode != 0) else 0
 
 
 if __name__ == "__main__":
