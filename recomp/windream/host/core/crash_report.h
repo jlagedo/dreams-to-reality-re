@@ -11,7 +11,12 @@
  *
  *     recomp_install_crash_handler();
  *
- * The handler reports and then declines to swallow the exception, so the process
+ * The installer is one file per OS: crash_win32.c (a vectored exception
+ * handler, with a host stack walk and a minidump), crash_posix.c (signal
+ * handlers on Linux and macOS), crash_none.c (nothing to install). The report
+ * they print is crash_report.c, the same everywhere.
+ *
+ * The handler reports and then declines to swallow the fault, so the process
  * still dies and a debugger still gets its turn. Nothing here allocates, so it
  * stays honest inside a fault.
  *
@@ -22,7 +27,8 @@
 
 #include <stdint.h>
 
-/* Install the vectored exception handler. Safe to call more than once. */
+/* Install this OS's fault handler (a vectored exception handler on Windows,
+ * signal handlers on Linux and macOS). Safe to call more than once. */
 void recomp_install_crash_handler(void);
 
 /* Print the simulated machine's state. Called by the handler; also useful to

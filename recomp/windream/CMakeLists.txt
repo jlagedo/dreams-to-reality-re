@@ -30,12 +30,21 @@ file(GLOB GEN_SRC CONFIGURE_DEPENDS ${WD_GEN_DIR}/recomp_*.c)
 #           every disagreement is reported (WD_VM_SHADOW=abort stops at the first)
 set(WD_VM "ledger" CACHE STRING "virtual memory implementation: win32, ledger or shadow")
 set_property(CACHE WD_VM PROPERTY STRINGS win32 ledger shadow)
+# The same split picks the crash handler (host/core/crash_*.c) under the
+# portable report in crash_report.c: minidump and dbghelp stack on Windows,
+# signals and backtrace on Linux and macOS, nothing in the browser.
 if(WIN32)
     set(VM_OS_SRC host/vm/vm_os_win32.c)
+    set(CRASH_OS_SRC host/core/crash_win32.c)
 elseif(EMSCRIPTEN)
     set(VM_OS_SRC host/vm/vm_os_wasm.c)
+    set(CRASH_OS_SRC host/core/crash_none.c)
 else()
     set(VM_OS_SRC host/vm/vm_os_posix.c)
+    set(CRASH_OS_SRC host/core/crash_posix.c)
+endif()
+if(NOT WIN32 AND WD_VM MATCHES "^(win32|shadow)$")
+    message(FATAL_ERROR "WD_VM=${WD_VM} needs host/vm/vm_win32.c, which is Windows only; use ledger")
 endif()
 set(VM_SRC host/vm/vm_front.c)
 if(WD_VM STREQUAL "win32")
@@ -50,7 +59,7 @@ else()
     message(FATAL_ERROR "WD_VM must be win32, ledger or shadow (got '${WD_VM}')")
 endif()
 set(RUNTIME_SRC
-    host/core/runtime.c host/core/crash_report.c host/core/recomp_trace.c
+    host/core/runtime.c host/core/crash_report.c ${CRASH_OS_SRC} host/core/recomp_trace.c
     ${WD_GEN_DIR}/imports_gen.c
     ${VM_SRC}
     host/sdl/threads.c host/sdl/kernel.c host/sdl/files.c
@@ -67,7 +76,13 @@ endif()
 add_executable(windream_recomp ${RUNTIME_SRC} ${GEN_SRC} ${WD_GEN_DIR}/recomp_dispatch.c)
 target_include_directories(windream_recomp PRIVATE
     host/core host/sdl host/vm host/render host/hooks ${WD_GEN_DIR})
-target_compile_definitions(windream_recomp PRIVATE _CRT_SECURE_NO_WARNINGS WIN32_LEAN_AND_MEAN)
+if(WIN32)
+    target_compile_definitions(windream_recomp PRIVATE _CRT_SECURE_NO_WARNINGS WIN32_LEAN_AND_MEAN)
+else()
+    # clock_gettime (recomp_types.h) and the signal context's register names
+    # (crash_posix.c), whatever C standard and include order a file has.
+    target_compile_definitions(windream_recomp PRIVATE _GNU_SOURCE)
+endif()
 option(WD_TRACE "function-entry trace ring (RECOMP_TRACE)" OFF)
 option(WD_RENDER_AUDIT "guest memory checks against registered GPU-owned surfaces" OFF)
 if(WD_RENDER_AUDIT)
@@ -76,22 +91,61 @@ endif()
 if(WD_TRACE)
     target_compile_definitions(windream_recomp PRIVATE RECOMP_TRACE)
 endif()
-if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
     # Lifted code is one C statement per x86 instruction: silence the noise
     # (unused labels, parentheses, volatile casts) and keep real errors.
     set_source_files_properties(${GEN_SRC} PROPERTIES COMPILE_OPTIONS "-w")
 endif()
-target_link_libraries(windream_recomp PRIVATE ODGraphics dbghelp)
+# The lifted x87 code is modelled with doubles and has to give the same results
+# on every host: no fused multiply-add (arm64 compilers contract a*b+c by
+# default). clang-cl ignores the plain spelling with a warning and needs it
+# passed through /clang:; cl has no such option.
+include(CheckCCompilerFlag)
+if(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    set(WD_FP_CONTRACT_OFF /clang:-ffp-contract=off)
+else()
+    set(WD_FP_CONTRACT_OFF -ffp-contract=off)
+endif()
+check_c_compiler_flag(${WD_FP_CONTRACT_OFF} WD_HAS_FP_CONTRACT_OFF)
+if(WD_HAS_FP_CONTRACT_OFF)
+    target_compile_options(windream_recomp PRIVATE ${WD_FP_CONTRACT_OFF})
+endif()
+target_link_libraries(windream_recomp PRIVATE ODGraphics)
+if(WIN32)
+    target_link_libraries(windream_recomp PRIVATE dbghelp)
+elseif(NOT EMSCRIPTEN)
+    # SDL3's static target brings its own m, dl and pthread; the host uses
+    # them directly too (libm in recomp_types.h, dladdr in crash_posix.c).
+    find_package(Threads REQUIRED)
+    target_link_libraries(windream_recomp PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+    if(NOT APPLE)
+        target_link_libraries(windream_recomp PRIVATE m)
+    endif()
+    # Export the executable's symbols (-rdynamic) so backtrace_symbols_fd in
+    # crash_posix.c can name the lifted functions.
+    set_target_properties(windream_recomp PROPERTIES ENABLE_EXPORTS ON)
+endif()
 # Line tables + PDB in every config: the crash report walks the host stack and
 # maps each lifted frame back to its guest instruction (the generated line's
 # comment). Line tables only: full debug info of 700k generated lines is slow.
-if(CMAKE_C_COMPILER_ID MATCHES "Clang")
-    target_compile_options(windream_recomp PRIVATE /Z7 -gline-tables-only)
-    target_link_options(windream_recomp PRIVATE /DEBUG)
+# By front end, not compiler: clang-cl is Clang with the MSVC command line.
+if(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+        target_compile_options(windream_recomp PRIVATE /Z7 -gline-tables-only)
+        target_link_options(windream_recomp PRIVATE /DEBUG)
+    endif()
+else()
+    target_compile_options(windream_recomp PRIVATE -g1)
 endif()
 # One unoptimized development build (build.py leaves CMAKE_BUILD_TYPE empty).
 # Optimizing buys nothing while we debug and dominates the build: sub_0044E9B0
 # alone is 27k generated lines, 90 s to compile at /O2, 68 s at /O1, 4 s at /Od.
-if(NOT CMAKE_BUILD_TYPE AND CMAKE_C_COMPILER_ID MATCHES "Clang")
-    target_compile_options(windream_recomp PRIVATE /Od)
+if(NOT CMAKE_BUILD_TYPE)
+    if(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+            target_compile_options(windream_recomp PRIVATE /Od)
+        endif()
+    else()
+        target_compile_options(windream_recomp PRIVATE -O0)
+    endif()
 endif()

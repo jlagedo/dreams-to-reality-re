@@ -34,19 +34,35 @@ VM_CHOICES = ("win32", "ledger", "shadow")
 VM_DEFAULT = "ledger"  # the implementation plain build.py / run.py use (CMakeLists.txt WD_VM)
 
 
+def platform_suffix() -> str:
+    """Empty on Windows, otherwise -<sys.platform> (-linux, -darwin): what
+    keeps the builds of two hosts apart when they share one DREAMS_OUT (WSL on
+    the Windows checkout). The Windows names are the original ones."""
+    return "" if sys.platform == "win32" else f"-{sys.platform}"
+
+
 def vm_sources(host: Path, vm: str) -> list[tuple[Path, list[str]]]:
     """The host/vm sources of one implementation, each with its compile
     definitions (the shadow build compiles the two it compares under their own
-    prefixes). A tree from before host/vm has its single win32/vm.c."""
+    prefixes). A tree from before host/vm has its single win32/vm.c.
+
+    The ledger stands on vm_os_win32.c on Windows and vm_os_posix.c elsewhere;
+    win32 and shadow need vm_win32.c and exist on Windows only."""
     legacy = host / "win32" / "vm.c"
     if legacy.is_file():
         return [(legacy, [])]
     d = host / "vm"
     front = [(d / "vm_front.c", [])]
+    windows = sys.platform == "win32"
+    if vm in ("win32", "shadow") and not windows:
+        raise ValueError(f"vm implementation {vm!r} is Windows only; use 'ledger'")
     if vm == "win32":
         return front + [(d / "vm_win32.c", [])]
     if vm == "ledger":
-        return front + [(d / "vm_ledger.c", []), (d / "vm_os_win32.c", [])]
+        return front + [
+            (d / "vm_ledger.c", []),
+            (d / ("vm_os_win32.c" if windows else "vm_os_posix.c"), []),
+        ]
     if vm == "shadow":
         return front + [
             (d / "vm_shadow.c", []),
@@ -58,7 +74,9 @@ def vm_sources(host: Path, vm: str) -> list[tuple[Path, list[str]]]:
 
 
 def host_includes() -> list[str]:
-    """One /I option per host source directory (clang-cl and cl)."""
+    """One /I option per host source directory, in the clang-cl and cl
+    spelling: only the Windows-only verify scripts use it (CMake has its own
+    list)."""
     return [f"/I{d}" for d in HOST_DIRS]
 
 
@@ -123,7 +141,10 @@ def ensure_sdl3() -> Path:
     The pinned source (the SDL3 URL in
     recomp/render/cmake/Dependencies.cmake), built once under
     DREAMS_OUT/recomp/sdl3/<commit> and shared by every recomp and difftest
-    build.
+    build. The archive and the extracted src are shared by every host; build
+    and install are <commit>/build and <commit>/install on Windows and
+    <commit>/<sys.platform>/build and .../install elsewhere, so that Windows
+    and WSL can use one DREAMS_OUT.
     """
     deps = RECOMP / "render" / "cmake" / "Dependencies.cmake"
     m = re.search(r"FetchContent_Declare\(SDL3\s+URL\s+(\S+)", deps.read_text())
@@ -131,7 +152,8 @@ def ensure_sdl3() -> Path:
         sys.exit(f"no SDL3 URL in {deps}")
     url = m.group(1)
     root = out_dir("sdl3", url.rstrip("/").rsplit("/", 1)[-1][:12])
-    install = root / "install"
+    host = root if sys.platform == "win32" else root / sys.platform
+    build, install = host / "build", host / "install"
     stamp = install / "built-from.txt"
     if stamp.is_file() and stamp.read_text().strip() == url:
         return install
@@ -139,22 +161,33 @@ def ensure_sdl3() -> Path:
     archive = root / "sdl3.tar.gz"
     if not archive.is_file():
         urllib.request.urlretrieve(url, archive)
+    # src may be in use by another host's build of the same commit: extract
+    # beside it and rename, and never remove a complete one.
     src = root / "src"
-    if src.exists():
-        shutil.rmtree(src)
-    with tarfile.open(archive) as tar:
-        tar.extractall(src, filter="data")
+    if not (src.is_dir() and any(p.is_dir() for p in src.iterdir())):
+        partial = root / f"src.partial{platform_suffix()}"
+        for stale in (partial, src):
+            if stale.exists():
+                shutil.rmtree(stale)
+        with tarfile.open(archive) as tar:
+            tar.extractall(partial, filter="data")
+        try:
+            partial.rename(src)
+        except OSError:
+            if not src.is_dir():
+                raise
+            shutil.rmtree(partial)  # another host extracted it first
     (top,) = [p for p in src.iterdir() if p.is_dir()]
     env = build_env()
     cmake = _cmake(env)
     subprocess.run(
-        [cmake, "--fresh", "-S", str(top), "-B", str(root / "build"), "-G", "Ninja",
+        [cmake, "--fresh", "-S", str(top), "-B", str(build), "-G", "Ninja",
          "-DCMAKE_BUILD_TYPE=Release", *_compilers(cxx=True), f"-DCMAKE_INSTALL_PREFIX={install}",
          "-DSDL_STATIC=ON", "-DSDL_SHARED=OFF", "-DSDL_TESTS=OFF", "-DSDL_EXAMPLES=OFF"],
         env=env, check=True, stdout=subprocess.DEVNULL,
     )  # fmt: skip
-    subprocess.run([cmake, "--build", str(root / "build")], env=env, check=True)
-    install_cmd = [cmake, "--install", str(root / "build")]
+    subprocess.run([cmake, "--build", str(build)], env=env, check=True)
+    install_cmd = [cmake, "--install", str(build)]
     subprocess.run(install_cmd, env=env, check=True, stdout=subprocess.DEVNULL)
     stamp.write_text(url + "\n")
     return install
@@ -170,8 +203,10 @@ def configure_and_build(
     vm: str = VM_DEFAULT,
 ) -> int:
     """Configure (from scratch when the build dir belongs to another source
-    tree) and build windream_recomp with clang-cl and Ninja. Returns the exit
-    code of the build."""
+    tree) and build windream_recomp with Ninja: clang-cl on Windows, the
+    default compiler (cc, c++) elsewhere. Returns the exit code of the build."""
+    if vm != "ledger" and sys.platform != "win32":
+        sys.exit(f"--vm {vm} is Windows only (host/vm/vm_win32.c); use ledger")
     sdl3 = ensure_sdl3()
     env = build_env()
     cmake = _cmake(env)
@@ -201,11 +236,12 @@ def build_dir(
 ) -> Path:
     """The windream build directory of one configuration: build, build-trace,
     build-audit, and -vm-<impl> appended for an implementation other than the
-    default (build.py writes it, run.py picks the executable from it)."""
+    default (build.py writes it, run.py picks the executable from it). Off
+    Windows the host comes last (build-linux, build-trace-darwin)."""
     name = "build" + ("-trace" if trace else "") + ("-audit" if render_audit else "")
     if vm != VM_DEFAULT:
         name += f"-vm-{vm}"
-    return out / name
+    return out / (name + platform_suffix())
 
 
 def exe_name(stem: str) -> str:

@@ -85,6 +85,11 @@ def main():
     lines += ["", "const recomp_dispatch_entry_t wd_import_bridges[] = {"]
     lines += [f"    {{ 0x{va:08X}u, imp_{name} }},  /* {dll}!{name} */" for va, (dll, name) in rows]
     lines += ["};", f"const uint32_t wd_import_bridge_count = {len(rows)};", ""]
+    # Same order as wd_import_bridges: the crash report names an IAT slot from
+    # this, without host debug symbols.
+    lines += ["const char* const wd_import_bridge_names[] = {"]
+    lines += [f'    "imp_{name}",' for _va, (_dll, name) in rows]
+    lines += ["};", ""]
     open(out, "w").write("\n".join(lines))
     print(f"{len(rows)} imports: {len(rows) - stubs} hand-written, {stubs} stubs -> {out}")
     if unknown:

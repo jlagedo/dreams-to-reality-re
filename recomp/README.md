@@ -18,21 +18,41 @@ sandboxes, crash dumps and the difftest work directories.
 - `DREAMS_DISC1` (the exe), `DREAMS_INSTALL_ROOT` (the retail `CRYO\DREAMS`
   tree the game reads), `DREAMS_GHIDRA_ROOT` and the Watcom settings, as in
   `.dreams.example.env`.
-- Visual Studio with clang-cl, CMake and Ninja (found through `vswhere` and
-  `vcvarsall.bat`; elsewhere, from `PATH`).
+- Windows: Visual Studio with clang-cl, CMake and Ninja (found through
+  `vswhere` and `vcvarsall.bat`). Linux: gcc or clang, CMake, Ninja and the
+  X11/Wayland, OpenGL and ALSA or PulseAudio development packages, from `PATH`.
 - SDL3 for the window, input and sound. The first build downloads the source
   pinned in `recomp/render/cmake/Dependencies.cmake` and builds a static release
-  library once into `out\recomp\sdl3\<commit>`, which every recomp and
-  difftest build then shares.
+  library once into `out\recomp\sdl3\<commit>` (`<commit>/linux`,
+  `<commit>/darwin` off Windows), which every recomp and difftest build then
+  shares.
 - The KERNEL32 file, process, thread and synchronisation bridges and the
   USER32, GDI32, WinMM and DirectSound bridges run on SDL3 and build without
   `<windows.h>`. The guest's virtual memory is the portable ledger
   (`host/vm/vm_ledger.c`); only its three-call OS layer is per system
-  (`vm_os_win32.c`, `vm_os_posix.c`, `vm_os_wasm.c`; the POSIX and wasm ones
-  compile but have not run the game). The crash report
-  (`host/core/crash_report.c`) still calls Win32, so the recompiled game builds
-  and runs on Windows only for now. Nothing asks Win32 what is at a guest
-  address: that is `vm_state`.
+  (`vm_os_win32.c`, `vm_os_posix.c`, `vm_os_wasm.c`). The crash report is
+  split the same way: `host/core/crash_report.c` prints the guest's state on
+  every host, and one file per system catches the fault (`crash_win32.c`:
+  exception handler, dbghelp stack walk, minidump; `crash_posix.c`: signals and
+  raw `backtrace` frames; `crash_none.c` for WebAssembly). Nothing asks the
+  host what is at a guest address: that is `vm_state`.
+- The game builds and runs on Windows and on Linux (x86-64, gcc, checked under
+  WSL: same virtual-memory log as the Windows run for the same key script).
+  The macOS paths (`vm_os_posix.c` with 16 KB pages, `crash_posix.c`, the Metal
+  backend) have not been compiled; the WebAssembly ones have not been built.
+  The `win32` and `shadow` virtual-memory builds and the retail-oracle
+  verification scripts stay Windows-only.
+
+On Linux there is no `uv` requirement for building and running: the scripts
+need only the standard library. `.dreams.local.env` holds Windows paths, so
+give the two the run needs in the environment. Builds go to
+`out/recomp/windream/build-linux` and share the generated C with Windows:
+
+```sh
+PYTHONPATH=src python3 recomp/windream/build.py
+DREAMS_DISC1=/mnt/e/<disc 1> DREAMS_INSTALL_ROOT=/mnt/e/<...>/CRYO/DREAMS \
+  PYTHONPATH=src python3 recomp/windream/run.py --headless --renderer direct --seconds 30
+```
 
 ## Commands
 
@@ -96,7 +116,7 @@ the centre, so leave the stick alone while the game starts.
 | `windream/host/hooks/` | `phys_hook.c` collision hooks |
 | `windream/verify/` | Renderer verification: retail-x86 oracles (`render_*_smoke.py`), live isolated runs (`render_*_live_smoke.py`, project and thumbnail smokes), `render_acceptance.py`, `render_content_inventory.py`, `direct_render_validate.py`, `test_render_codegen.py`, and the dump reader `mdmp.py`; and `kernel_bridge_smoke.py`, the retail-x86 oracle for the KERNEL32 bridges. The scripts import each other by name, so they share one directory; their C/C++ sources are in `native/` |
 | `windream/debug/` | Collision and dump tools: the collision invariant, Unicorn replay of one `PHYS_SweepAxis` call, `x86dis.py`, `flag_hunt.py` (unwritten debug flags, address-copy scan) |
-| `windream/CMakeLists.txt`, `build.py`, `run.py` | Build (clang-cl + Ninja) and sandboxed run (scripted keys, snapshots, fps cap, window, pad and dump modes) |
+| `windream/CMakeLists.txt`, `build.py`, `run.py` | Build (Ninja; clang-cl on Windows, gcc or clang elsewhere) and sandboxed run (scripted keys, snapshots, fps cap, window, pad and dump modes) |
 | `render/` | GPU renderer: `ODRender` (sokol_gfx core: `direct.*`, shadows, fog) and `ODGraphics` (SDL3 backends for D3D11, Metal, OpenGL); pinned dependencies and shader generation in `cmake/`; tests in `tests/` |
 | `difftest/` | `difftest.py` (compile with Watcom, bounds with Ghidra cached per source/flags/compiler, lift, build, run, diff), `wat.py`, the test programs `t_core.c` and `t_switch.c`, `gen_insn.py` (generates `t_insn.c` into the work root), `coverage.py`, `flagdiff.py`, `consumers.py`, `map2bounds.py` |
 

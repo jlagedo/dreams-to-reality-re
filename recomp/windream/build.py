@@ -1,9 +1,11 @@
-"""Configure and build windream_recomp with clang-cl and Ninja.
+"""Configure and build windream_recomp with Ninja (clang-cl on Windows, the
+default compiler elsewhere).
 
 Sources: this directory. Generated C: DREAMS_OUT/recomp/windream/gen (lift.py,
 gen_imports.py). Build: DREAMS_OUT/recomp/windream/build (build-trace with
 --trace, build-audit with --render-audit, build-vm-<impl> with --vm other
-than the default ledger); one unoptimized development build, see CMakeLists.txt.
+than the default ledger; off Windows each name ends in -linux or -darwin, and
+only the ledger exists); one unoptimized development build, see CMakeLists.txt.
 
 usage: uv run python recomp/windream/build.py [--trace] [--render-audit] [--vm win32|ledger|shadow]
 """

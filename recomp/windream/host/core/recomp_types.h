@@ -24,6 +24,20 @@ int wd_render_fill(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, int);
 #include <intrin.h>
 #endif
 
+/* WINDREAM: the lifter emits `rdtsc` as __rdtsc(), which <intrin.h> supplies
+ * under MSVC and clang-cl. Every other compiler gets a monotonic nanosecond
+ * count instead of the instruction: arm64 and wasm have no TSC, and the game
+ * only needs a counter that rises. */
+#ifndef _MSC_VER
+#include <time.h>
+static inline uint64_t recomp_rdtsc(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
+}
+#define __rdtsc() recomp_rdtsc()
+#endif
+
 /* WINDREAM: the guest is multi-threaded (CreateThread), so the register file
  * is per host thread, as in pod-recomp. Memory (the arena) is shared. */
 #ifdef _MSC_VER
