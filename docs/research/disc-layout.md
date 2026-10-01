@@ -156,7 +156,9 @@ a reusable buffer on request; it does not preload the entire bank into memory.
 Second — and this is the important one — **`FULL.ID` is written only by the
 maxi install**. It is the "maximum installation" marker, matching
 `README.TXT`'s note that the maxi version "also offers video-maps in the game".
-It is *not* self-evidently a "no-disc-needed" flag.
+It is not a "no-disc-needed" flag: it makes the game cache each section's
+files on the hard disk and read them from there, and the disc check still
+runs. See [install-and-discs.md](install-and-discs.md).
 
 Other useful keys:
 
@@ -217,8 +219,10 @@ The game locates itself by probing for small marker files in `DATA\`. **[verifie
 
 So: `1CD.ID` / `2CD.ID` identify which disc is mounted, `HD.ID` marks a hard-disk
 install, and `FULL.ID` marks a maxi install. The `kjk` and `toto` payloads are
-French keyboard-mash placeholders — the content is almost certainly irrelevant
-and only the file's existence is tested. **[unverified]**
+French keyboard-mash placeholders. The game opens these files and closes them
+without reading a byte. **[verified]** What each marker changes at run time,
+and what triggers the disc swap, is in
+[install-and-discs.md](install-and-discs.md).
 
 Disc 2's `HD.ID` being binary `01 00 00 00` while disc 1's is the text `toto`
 is unexplained and is an open question.

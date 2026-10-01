@@ -535,6 +535,9 @@ Full analysis in [assets.md](assets.md).
    `(word 0, word 1)` pairs do **not** align with object-name families, so the
    classes stay unnamed.
 5. Does a merged install with `FULL.ID` present actually suppress disc swapping?
+   **Answered from the code (2026-10-01):** `FULL.ID` does not; having both
+   `1CD.ID` and `2CD.ID` on the CD root does. Not yet run. See
+   [install-and-discs.md](install-and-discs.md).
 6. Why is disc 2's `HD.ID` binary (`01 00 00 00`) when disc 1's is text (`toto`)?
 
 ### Earlier list

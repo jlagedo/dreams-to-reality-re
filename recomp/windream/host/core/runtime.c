@@ -10,9 +10,26 @@
 #include <stdio.h>
 #include <string.h>
 #include <SDL3/SDL_atomic.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
 #include "imports.h"
 #include "crash_report.h"
 #include "recomp_trace.h"
+/* WD_WITH_LAUNCHER (CMakeLists.txt) links recomp/launcher and lets main run it;
+ * a build that compiles this file on its own (the verify hosts) has neither.
+ * SDL_main.h makes argv UTF-8 on Windows and supplies WinMain for the release
+ * build, which has no console (WD_GUI_LOG, recomp/windream/release.py). */
+#ifdef WD_WITH_LAUNCHER
+#include <SDL3/SDL_messagebox.h>
+#include <SDL3/SDL_main.h>
+#include "launcher.h"
+#endif
+#ifdef WD_GUI_LOG
+#include <direct.h>
+#include <io.h>
+#include <wchar.h>
+#endif
 
 /* ---- register file (per host thread) ---- */
 RECOMP_TLS uint32_t g_eax, g_ecx, g_edx, g_esp;
@@ -151,13 +168,37 @@ uint32_t guest_call_regs(uint32_t va, uint32_t eax, uint32_t edx, uint32_t ebx, 
 typedef struct { char name[8]; uint32_t vsize, vaddr, rsize, roff, a, b; uint16_t c, d; uint32_t chr; } SecHdr;
 #pragma pack(pop)
 
+#define DISC_EXE "GDIDREAM.EXE"
+
+/* The guest EXE's bytes: a host file, or with no path GDIDREAM.EXE of disc 1.
+ * The path is UTF-8, as SDL takes it and as files.c reads it: main's argv is
+ * UTF-8 on Windows too (SDL_main.h), where fopen would want the ANSI code page. */
+static uint8_t* read_image(const char* path, size_t* size) {
+    if (!path) {
+        uint8_t* buf = (uint8_t*)files_disc_read(1, DISC_EXE, size);
+        if (!buf) fprintf(stderr, "FATAL: cannot read %s from disc 1\n", DISC_EXE);
+        return buf;
+    }
+    SDL_IOStream* f = SDL_IOFromFile(path, "rb");
+    if (!f) { fprintf(stderr, "FATAL: cannot open %s\n", path); return NULL; }
+    Sint64 sz = SDL_GetIOSize(f);
+    uint8_t* buf = sz >= 0 ? (uint8_t*)malloc(sz ? (size_t)sz : 1) : NULL;
+    if (!buf || SDL_ReadIO(f, buf, (size_t)sz) != (size_t)sz) { free(buf); buf = NULL; }
+    SDL_CloseIO(f);
+    *size = (size_t)sz;
+    return buf;
+}
+
 static int load_image(const char* path) {
-    FILE* f = fopen(path, "rb");
-    if (!f) { fprintf(stderr, "FATAL: cannot open %s\n", path); return 0; }
-    fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
-    uint8_t* buf = (uint8_t*)malloc((size_t)sz);
-    if (!buf || fread(buf, 1, (size_t)sz, f) != (size_t)sz) { fclose(f); free(buf); return 0; }
-    fclose(f);
+    size_t size = 0;
+    uint8_t* buf = read_image(path, &size);
+    if (!buf) return 0;
+    long sz = (long)size;
+    if (sz < 0x40 || *(uint32_t*)(buf + 0x3C) > (uint32_t)sz - 0x40) {
+        fprintf(stderr, "FATAL: %s is not a Windows executable\n", path ? path : DISC_EXE);
+        free(buf);
+        return 0;
+    }
     uint8_t* nt = buf + *(uint32_t*)(buf + 0x3C);
     uint16_t nsec = *(uint16_t*)(nt + 6), optsz = *(uint16_t*)(nt + 20);
     uint32_t hdrsz = *(uint32_t*)(nt + 24 + 60);
@@ -232,29 +273,155 @@ static int apply_pokes(void) {
     return 1;
 }
 
-int main(int argc, char** argv) {
-    if (argc < 2) {
-        fprintf(stderr, "usage: %s <GDIDREAM.EXE> [--run] [trace options]\n", argv[0]);
-        recomp_trace_help();
-        return 2;
+/* Where the guest EXE comes from: a host path as the first argument (run.py,
+ * the verify hosts), else GDIDREAM.EXE of disc 1 when WD_DISC1 and WD_DISC2
+ * name the discs. Returns 0 to go on (*exe NULL: the disc's; *options: the
+ * index of the first option), else the exit code. */
+static const char* exe_argument(int argc, char** argv) {
+    return argc >= 2 && strncmp(argv[1], "--", 2) ? argv[1] : NULL;
+}
+static int choose_exe(int argc, char** argv, const char** exe, int* options) {
+    *exe = exe_argument(argc, argv);
+    *options = *exe ? 2 : 1;
+    int discs = files_open_discs();
+    if (discs < 0) return 1;
+    if (*exe || discs) return 0;
+    fprintf(stderr, "usage: %s [<GDIDREAM.EXE>] [--run] [trace options]\n"
+                    "  without <GDIDREAM.EXE>, WD_DISC1 and WD_DISC2 name the discs (.cue, .iso or\n"
+                    "  directory) and the program is read from disc 1\n", argv[0]);
+    recomp_trace_help();
+    return 2;
+}
+
+/* ---- the release build's log (WD_GUI_LOG: Windows GUI subsystem) ----
+ * Without a console stderr and stdout lead nowhere, so both go to log.txt in
+ * the user data directory, unbuffered (the crash report and a killed process
+ * lose nothing). The directory is known once WD_DATA_DIR is set: from the
+ * launcher, or from the environment when the launcher is skipped; until then,
+ * and with no WD_DATA_DIR at all, output is dropped. gui_enter_data_dir makes
+ * it the current directory, where crash_win32.c writes crash-<pid>.dmp and
+ * user.c the snapshots; it runs after files_init, which resolves a relative
+ * WD_DATA_DIR against the directory the program was started in. */
+#ifdef WD_GUI_LOG
+static wchar_t* wide(const char* utf8) {
+    return (wchar_t*)SDL_iconv_string("UTF-16LE", "UTF-8", utf8, SDL_strlen(utf8) + 1);
+}
+static void gui_log_open(void) {
+    static int opened;
+    const char* dir = SDL_getenv("WD_DATA_DIR");
+    if (opened || !dir || !*dir) return;
+    opened = 1;
+    SDL_CreateDirectory(dir);   /* with its parents */
+    char path[1100];
+    snprintf(path, sizeof path, "%s/log.txt", dir);
+    wchar_t* w = wide(path);
+    if (w && _wfreopen(w, L"w", stderr)) {
+        setvbuf(stderr, NULL, _IONBF, 0);
+        if (freopen("NUL", "w", stdout) && _dup2(_fileno(stderr), _fileno(stdout)) == 0) setvbuf(stdout, NULL, _IONBF, 0);
     }
-    int run = 0;
-    for (int i = 2; i < argc; i++) {
+    SDL_free(w);
+}
+static void gui_enter_data_dir(void) {
+    const char* dir = SDL_getenv("WD_DATA_DIR");
+    wchar_t* w = dir && *dir ? wide(dir) : NULL;
+    if (w && _wchdir(w)) fprintf(stderr, "[*] cannot enter the data directory %s\n", dir);
+    SDL_free(w);
+}
+#else
+#define gui_log_open() ((void)0)
+#define gui_enter_data_dir() ((void)0)
+#endif
+
+/* ---- launcher ----
+ * The launcher does not know the host and the host does not know the launcher.
+ * This is the only code that knows both: it runs the launcher when the
+ * program is started with neither an EXE path nor WD_DISC1 (so run.py never
+ * sees it), and puts the WD_* pairs it returns into the process environment,
+ * where the host reads every option. A variable that is already set (and not
+ * empty) is kept: the real environment wins over dreams.ini.
+ *
+ * The host reads the environment through SDL_getenv (files.c: the paths,
+ * UTF-8) and through C getenv (host_env and others), and on Windows the two do
+ * not share a copy: SDL_setenv_unsafe updates SDL's table and the Win32
+ * environment (SetEnvironmentVariableA), which the C runtime's getenv, a
+ * snapshot taken at start, never looks at again. So the C runtime's copy is
+ * set as well, with the same UTF-8 bytes, and each pair is read back through
+ * both: a "WARNING: ... not visible" line means a launcher setting is ignored. */
+#ifdef WD_WITH_LAUNCHER
+static int launcher_wanted(int argc, char** argv) {
+    const char* disc1 = SDL_getenv("WD_DISC1");
+    return !exe_argument(argc, argv) && !(disc1 && *disc1);
+}
+/* -1: play, the pairs are in the environment; else the exit code. */
+static int launch(int argc, char** argv) {
+    LauncherResult r;
+    int rc = launcher_run(argc, argv, &r), code = rc < 0 ? 2 : rc == 0 ? 0 : -1;
+    if (rc < 0) {
+        fprintf(stderr, "launcher: %s\n", r.error[0] ? r.error : "failed");
+#ifdef WD_GUI_LOG
+        const char* headless = SDL_getenv("WD_HEADLESS");
+        if (!(headless && *headless))
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Dreams to Reality", r.error[0] ? r.error : "failed", NULL);
+#endif
+    }
+    uint8_t kept[64] = { 0 };
+    for (int i = 0; rc > 0 && i < r.count; i++) {
+        const char* set = SDL_getenv(r.vars[i].name);   /* also: SDL's table exists before the first change */
+        if (set && *set) { if (i < 64) kept[i] = 1; continue; }
+        SDL_setenv_unsafe(r.vars[i].name, r.vars[i].value, 1);
+#ifdef _WIN32
+        _putenv_s(r.vars[i].name, r.vars[i].value);
+#endif
+    }
+    if (rc > 0) gui_log_open();
+    for (int i = 0; rc > 0 && i < r.count; i++) {
+        const char* name = r.vars[i].name;
+        const char* value = r.vars[i].value;
+        const char* c = getenv(name);
+        const char* sdl = SDL_getenv(name);
+        if (i < 64 && kept[i]) {
+            fprintf(stderr, "[launcher] %s=%s (set in the environment; the launcher's \"%s\" is not used)\n", name, sdl, value);
+            continue;
+        }
+        fprintf(stderr, "[launcher] %s=%s\n", name, value);
+        if (!c || strcmp(c, value)) fprintf(stderr, "[launcher] WARNING: %s not visible to getenv (\"%s\")\n", name, c ? c : "unset");
+        if (!sdl || strcmp(sdl, value)) fprintf(stderr, "[launcher] WARNING: %s not visible to SDL_getenv (\"%s\")\n", name, sdl ? sdl : "unset");
+    }
+    launcher_free(&r);
+    return code;
+}
+#endif
+
+int main(int argc, char** argv) {
+    const char* exe;
+    int options, run = 0;
+#ifdef WD_WITH_LAUNCHER
+    if (launcher_wanted(argc, argv)) {
+        int code = launch(argc, argv);
+        if (code >= 0) return code;
+        run = 1;   /* Play: no --run needed */
+    }
+#endif
+    gui_log_open();
+    int rc = choose_exe(argc, argv, &exe, &options);
+    if (rc) return rc;
+    for (int i = options; i < argc; i++) {
         int n = recomp_trace_arg(argc, argv, i);
         if (n) { i += n - 1; continue; }
         if (!strcmp(argv[i], "--run")) run = 1;
     }
     recomp_install_crash_handler();
     recomp_set_region_describer(region);
-    if (!setup(argv[1]) || !apply_pokes()) return 1;
+    if (!setup(exe) || !apply_pokes()) return 1;
     /* The PE entry point (WINDREAM: 0x465538), from the mapped headers. */
     uint32_t entry = WD_IMAGE_BASE + WD_HOST_READ32(WD_IMAGE_BASE + WD_HOST_READ32(WD_IMAGE_BASE + 0x3C) + 0x28);
     recomp_func_t entry_fn = recomp_lookup(entry);
     if (!entry_fn) { fprintf(stderr, "FATAL: entry point 0x%08X is not a lifted function\n", entry); return 1; }
     if (!run) { fprintf(stderr, "[*] ready; pass --run to enter the program at 0x%08X\n", entry); return 0; }
 
-    g_wd_exe = argv[1];
-    files_init(argv[1]);
+    g_wd_exe = exe ? exe : DISC_EXE;
+    files_init(exe);
+    gui_enter_data_dir();
     host_init();
     wd_scene_probe_init();
     wd_render_install();

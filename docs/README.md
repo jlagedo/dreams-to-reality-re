@@ -18,6 +18,7 @@ docs do.
 | [Spec 000 — the recomp](specs/000-the-recomp/spec.md) | The static recompilation, differential tests and matching decompilation in `recomp/` and `re/matchdecomp/`; W1–W3 done: tools on Watcom 11.0, function boundaries fixed in Ghidra, 131 prototypes proven by byte-exact compiles; the recomp's collision bug traced to a lifter flag defect |
 | [Spec 005 — retail debug tools](specs/005-debug-tools/spec.md) | **The shipped debug layer**: Frame Rate/Mem readout, object HUD, collision view and step override enabled in the recomp by data pokes and keypad 1–4; retail hotkeys incl. Ctrl+I+R; the Dreams Editor (`DREAMS.DAT` editor) running with a restored mouse and draw call, its broken file pickers; dead demo-recorder start and debug draws |
 | [Spec 006 — finish Dreams rendering on Windows](specs/006-recomp-glide-renderer/spec.md) | Windows/D3D11 game and development/debug rendering; visual fidelity with imperceptible GPU/CPU differences accepted, protected game/memory contracts, finite Windows acceptance gates; live direct slice implemented, completion pending; [current status and evidence](specs/006-recomp-glide-renderer/implementation.md) |
+| [Spec 007 — running the port](specs/007-port-launcher/spec.md) | **Planned**: a Dear ImGui launcher (disc setup and settings, shown on every start) instead of an installer, the user's two `.cue` disc images read in place, both discs open with the host switching on the game's marker polls, saves in a per-user directory, edition check by hash |
 
 ## Research
 
@@ -58,6 +59,7 @@ docs do.
 | [hnm-video.md](research/hnm-video.md) | HNM inventory **and how to decode it** — all 113 videos decode |
 | [hnm6-spec.md](research/hnm6-spec.md) | Full HNM6 container + codec specification (MultimediaWiki, mirrored) |
 | [disc-layout.md](research/disc-layout.md) | Both discs inventoried, install manifest, disc-check mechanism, merge map |
+| [install-and-discs.md](research/install-and-discs.md) | **Install, data roots and the disc swap**: what each installer copies, which files the game reads from the install, the data root and the CD, level numbers → disc, the full-install cache, what a port needs |
 | [asset-access.md](research/asset-access.md) | **Recovered asset lookup and file access**: disc/install roots, UBIK VFS, project and DSN/DAN resource paths, dialogue and sound banks; contract for spec 002 |
 | [running.md](research/running.md) | How to actually run the game, ranked by difficulty; **3dfx build verified** under DOSBox Staging; controllers |
 | [research-log.md](research/research-log.md) | Findings log, corrections, dead ends, open questions |

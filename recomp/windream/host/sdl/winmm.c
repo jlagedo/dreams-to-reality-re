@@ -25,8 +25,22 @@
  * CD audio is emulated. The game drives an MCI "cdaudio" device (CD_OpenAudio
  * 0x4042f1 and friends: OPEN, SET time format TMSF, STATUS number of tracks /
  * mode, PLAY from track n to n+1, STOP, PAUSE, RESUME). There is no CD drive;
- * the tracks are the disc image's raw Red Book files "... (Track NN).bin"
- * (44.1 kHz 16-bit stereo), played through the DirectSound mixer.
+ * the tracks are the disc image's raw Red Book audio (44.1 kHz 16-bit stereo),
+ * played through the DirectSound mixer. In disc mode (WD_DISC1 and WD_DISC2,
+ * files.c) they are the active disc's, as its .cue lists them: a track plays
+ * from its INDEX 01, after the pregap, for its own length, whether the image
+ * has one .bin per track or one for all; a change of the active disc stops
+ * the music and the device then has the other disc's tracks. Otherwise they
+ * are the "... (Track NN).bin" files of one directory (WD_CD_DIR), each played
+ * whole. The number of tracks is the disc's, data track included, as a drive
+ * reports it (12 on disc 1, 14 on disc 2); a data track does not play.
+ * MCI_PLAY with no start position and no current track succeeds and plays
+ * nothing: CD_PromptSwap ends with that call (MGM 0x23, CD_ResumeAudio), and
+ * an error there is shown to the player as an "MCI Error" box. What a real
+ * drive answers is unverified. MCI_PLAY of any track succeeds and plays
+ * nothing when the device has no audio track at all (an .iso image, which has
+ * no music), for the same reason; with audio tracks, a track that is not one
+ * of them is still MCIERR_OUTOFRANGE.
  *
  *   WD_PAD=winmm|keys|off  winmm (default): pads are WinMM joysticks (press J
  *               in game). keys: pads press keys instead, with the
@@ -34,12 +48,35 @@
  *               Y Space, B Down, LB 1, RB 2, LT 3, Start Esc) plus Back as
  *               Return for the menus; joysticks then read as unplugged.
  *               off: no pads.
+ *   WD_PAD_DIRECTION=stick|dpad|both  which control gives direction.
+ *               winmm: stick (default) the left stick drives the X/Y axes and
+ *               the d-pad the POV hat; dpad the d-pad drives X/Y at full
+ *               deflection, the stick does nothing and the POV reads centred;
+ *               both either drives X/Y (per axis, the d-pad wins when pressed;
+ *               POV as with stick). keys: both (default) the stick and the
+ *               d-pad press the arrow keys; stick only the stick; dpad only the d-pad.
+ *   WD_PADMAP=a=button5,start=button1  BUTTON=TARGET pairs over the default
+ *               layout. BUTTON: a b x y (SDL south east west north), lb rb
+ *               back start ls rs, and in keys mode lt rt (the triggers read as
+ *               buttons past half deflection; in winmm mode they are the Z
+ *               axis, not buttons, and are rejected). TARGET: winmm
+ *               button1..button32, the joystick button the game sees (the
+ *               default is a b x y lb rb back start ls rs = 1..10, and
+ *               wNumButtons grows to the highest one named); keys a key name
+ *               as WD_KEYMAP in user.c (default as in WD_PAD=keys: a Ctrl, b
+ *               Down, x Alt, y Space, lb 1, rb 2, lt 3, back Return, start
+ *               Esc; ls rs rt none). Unlisted buttons keep their default; a
+ *               bad entry is logged and skipped. The d-pad and stick are
+ *               directions (WD_PAD_DIRECTION), not mapped buttons.
  *   WD_DEADZONE=10,95  inner and outer deadzone, percent of full deflection
  *   WD_CD_DIR   directory holding the "(Track NN).bin" files; default: the
- *               parent of the directory holding the EXE (the disc image folder)
+ *               parent of the directory holding the EXE (the disc image
+ *               folder). Not used in disc mode.
  */
 #define RECOMP_GENERATED_CODE
 #include "host.h"
+#include "input_map.h"
+#include "disc.h"
 
 void imp_timeGetTime(void) { RET((uint32_t)SDL_GetTicks() + 60000u); STDRET(0); }
 
@@ -49,6 +86,14 @@ static SDL_Gamepad* g_pad[JOY_IDS];
 static enum { PAD_WINMM, PAD_KEYS, PAD_OFF } g_pad_mode;
 static SDL_InitState g_joy_init;
 static float g_dz_in = 0.10f, g_dz_out = 0.95f;
+static WdPadMap g_padmap;              /* WD_PADMAP over the defaults: one table for both modes */
+static int g_dir;                      /* WD_DIR_* bits: the controls that give direction */
+static uint32_t g_joy_nbuttons = 10;   /* wNumButtons: the default ten, or up to the highest mapped */
+
+static void padmap_bad(void* ctx, const char* e, size_t n, const char* why) {
+    (void)ctx;
+    fprintf(stderr, "[joy] WD_PADMAP entry \"%.*s\" ignored: %s\n", (int)n, e, why);
+}
 
 static void pad_open(SDL_JoystickID id) {
     int free_id = -1;
@@ -73,6 +118,31 @@ void joy_init(void) {
         if (*end == ',') out = (float)SDL_strtod(end + 1, NULL);
         if (in >= 0 && in < out && out <= 100) { g_dz_in = in / 100; g_dz_out = out / 100; }
         else fprintf(stderr, "[joy] WD_DEADZONE=%s ignored: want inner,outer with 0 <= inner < outer <= 100\n", dz);
+    }
+    /* direction source and button table; unset gives the shipped behaviour */
+    g_dir = g_pad_mode == PAD_KEYS ? WD_DIR_STICK | WD_DIR_DPAD : WD_DIR_STICK;
+    wd_padmap_defaults(&g_padmap);
+    const char* dir = host_env("WD_PAD_DIRECTION");
+    const char* pm = host_env("WD_PADMAP");
+    if (g_pad_mode != PAD_OFF && dir) {
+        if (wd_dir_parse(dir)) g_dir = wd_dir_parse(dir);
+        else fprintf(stderr, "[joy] WD_PAD_DIRECTION=%s ignored: want stick, dpad or both\n", dir);
+    }
+    if (g_pad_mode != PAD_OFF && pm) wd_padmap_parse(&g_padmap, g_pad_mode == PAD_KEYS, pm, padmap_bad, NULL);
+    for (int i = 0; i < WD_PB_N; i++)
+        if (g_padmap.joy[i] > g_joy_nbuttons) g_joy_nbuttons = g_padmap.joy[i];
+    if (g_pad_mode != PAD_OFF && (dir || pm)) {   /* the effective tables */
+        char t[256];
+        int n = 0;
+        for (int i = 0; i < WD_PB_N; i++) {
+            uint16_t k = g_padmap.key[i];
+            if (g_pad_mode == PAD_KEYS) {
+                if (k) n += snprintf(t + n, sizeof t - (size_t)n, " %s=vk0x%02X", wd_pb_names[i], k & 0xFF);
+                else n += snprintf(t + n, sizeof t - (size_t)n, " %s=none", wd_pb_names[i]);
+            } else if (g_padmap.joy[i]) n += snprintf(t + n, sizeof t - (size_t)n, " %s=button%u", wd_pb_names[i], g_padmap.joy[i]);
+        }
+        fprintf(stderr, "[joy] direction %s%s, buttons:%s\n", g_dir & WD_DIR_STICK ? "stick" : "",
+                g_dir & WD_DIR_DPAD ? (g_dir & WD_DIR_STICK ? "+dpad" : "dpad") : "", t);
     }
     if (g_pad_mode != PAD_OFF) {
         if (SDL_InitSubSystem(SDL_INIT_GAMEPAD)) {
@@ -107,31 +177,44 @@ static int trigger(SDL_Gamepad* p, SDL_GamepadAxis a) {
     return (int)(dz_scale(SDL_GetGamepadAxis(p, a) / 32767.0f) * 32767.0f);
 }
 
-/* WD_PAD=keys */
-static const struct { uint8_t vk; SDL_GamepadButton b; } g_keymap[] = {
-    {W32_VK_CONTROL, SDL_GAMEPAD_BUTTON_SOUTH}, {W32_VK_LCONTROL, SDL_GAMEPAD_BUTTON_SOUTH},
-    {W32_VK_MENU, SDL_GAMEPAD_BUTTON_WEST}, {W32_VK_LMENU, SDL_GAMEPAD_BUTTON_WEST},
-    {W32_VK_SPACE, SDL_GAMEPAD_BUTTON_NORTH}, {W32_VK_DOWN, SDL_GAMEPAD_BUTTON_EAST},
-    {'1', SDL_GAMEPAD_BUTTON_LEFT_SHOULDER}, {'2', SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER},
-    {W32_VK_ESCAPE, SDL_GAMEPAD_BUTTON_START}, {W32_VK_RETURN, SDL_GAMEPAD_BUTTON_BACK},
+/* The mappable buttons (WD_PB_*, input_map.h) and what reads them. The
+ * triggers are no SDL buttons: a trigger counts as one past half deflection. */
+static const SDL_GamepadButton g_pb_sdl[WD_PB_N] = {
+    SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST, SDL_GAMEPAD_BUTTON_WEST, SDL_GAMEPAD_BUTTON_NORTH,
+    SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, SDL_GAMEPAD_BUTTON_BACK,
+    SDL_GAMEPAD_BUTTON_START, SDL_GAMEPAD_BUTTON_LEFT_STICK, SDL_GAMEPAD_BUTTON_RIGHT_STICK,
+    SDL_GAMEPAD_BUTTON_INVALID, SDL_GAMEPAD_BUTTON_INVALID,
+};
+#define STICK_KEY 16384   /* half deflection */
+static int pb_down(SDL_Gamepad* p, int b) {
+    if (b == WD_PB_LT) return trigger(p, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) > STICK_KEY;
+    if (b == WD_PB_RT) return trigger(p, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) > STICK_KEY;
+    return SDL_GetGamepadButton(p, g_pb_sdl[b]);
+}
+
+/* WD_PAD=keys: the d-pad's arrows (the stick's are in joy_key_down) */
+static const struct { uint8_t vk; SDL_GamepadButton b; } g_dpad_keys[] = {
     {W32_VK_UP, SDL_GAMEPAD_BUTTON_DPAD_UP}, {W32_VK_DOWN, SDL_GAMEPAD_BUTTON_DPAD_DOWN},
     {W32_VK_LEFT, SDL_GAMEPAD_BUTTON_DPAD_LEFT}, {W32_VK_RIGHT, SDL_GAMEPAD_BUTTON_DPAD_RIGHT},
 };
-#define STICK_KEY 16384   /* half deflection */
 
 int joy_key_down(int vk) {
     if (g_pad_mode != PAD_KEYS) return 0;
     for (int i = 0; i < JOY_IDS; i++) {
         SDL_Gamepad* p = g_pad[i];
         if (!p) continue;
-        for (size_t k = 0; k < sizeof g_keymap / sizeof g_keymap[0]; k++)
-            if (g_keymap[k].vk == vk && SDL_GetGamepadButton(p, g_keymap[k].b)) return 1;
-        int x, y;
-        stick(p, SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY, &x, &y);
-        if ((vk == W32_VK_LEFT && x < -STICK_KEY) || (vk == W32_VK_RIGHT && x > STICK_KEY) ||
-            (vk == W32_VK_UP && y < -STICK_KEY) || (vk == W32_VK_DOWN && y > STICK_KEY) ||
-            (vk == '3' && trigger(p, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) > STICK_KEY))
-            return 1;
+        for (int b = 0; b < WD_PB_N; b++)
+            if (wd_padmap_key_is(&g_padmap, b, vk) && pb_down(p, b)) return 1;
+        if (g_dir & WD_DIR_DPAD)
+            for (size_t k = 0; k < sizeof g_dpad_keys / sizeof g_dpad_keys[0]; k++)
+                if (g_dpad_keys[k].vk == vk && SDL_GetGamepadButton(p, g_dpad_keys[k].b)) return 1;
+        if (g_dir & WD_DIR_STICK) {
+            int x, y;
+            stick(p, SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY, &x, &y);
+            if ((vk == W32_VK_LEFT && x < -STICK_KEY) || (vk == W32_VK_RIGHT && x > STICK_KEY) ||
+                (vk == W32_VK_UP && y < -STICK_KEY) || (vk == W32_VK_DOWN && y > STICK_KEY))
+                return 1;
+        }
     }
     return 0;
 }
@@ -150,9 +233,16 @@ void joy_event(const SDL_Event* e) {
             }
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-        if (g_pad_mode == PAD_KEYS)
-            for (size_t k = 0; k < sizeof g_keymap / sizeof g_keymap[0]; k++)
-                if (g_keymap[k].b == e->gbutton.button) host_key_latch(g_keymap[k].vk);
+        if (g_pad_mode == PAD_KEYS) {   /* a tap shorter than a frame still counts */
+            for (int b = 0; b < WD_PB_N; b++)
+                if (g_pb_sdl[b] == e->gbutton.button && g_padmap.key[b]) {
+                    host_key_latch(g_padmap.key[b] & 0xFF);
+                    if (g_padmap.key[b] >> 8) host_key_latch(g_padmap.key[b] >> 8);
+                }
+            if (g_dir & WD_DIR_DPAD)
+                for (size_t k = 0; k < sizeof g_dpad_keys / sizeof g_dpad_keys[0]; k++)
+                    if (g_dpad_keys[k].b == e->gbutton.button) host_key_latch(g_dpad_keys[k].vk);
+        }
         break;
     default: break;
     }
@@ -173,7 +263,7 @@ void imp_joyGetDevCapsA(void) {  /* (id, JOYCAPSA*, size) */
         WD_HOST_WRITE32(c + W32_JC_XMIN + 8 * i + 4) = 0xFFFF;
         WD_HOST_WRITE32(c + W32_JC_RMIN + 8 * i + 4) = 0xFFFF;
     }
-    WD_HOST_WRITE32(c + W32_JC_NUMBUTTONS) = 10;
+    WD_HOST_WRITE32(c + W32_JC_NUMBUTTONS) = g_joy_nbuttons;
     WD_HOST_WRITE32(c + W32_JC_PERIODMIN) = 10;
     WD_HOST_WRITE32(c + W32_JC_PERIODMAX) = 1000;
     WD_HOST_WRITE32(c + W32_JC_CAPS) = W32_JOYCAPS_HASZ | W32_JOYCAPS_HASR | W32_JOYCAPS_HASU | W32_JOYCAPS_HASPOV | W32_JOYCAPS_POV4DIR;
@@ -189,8 +279,14 @@ void imp_joyGetPosEx(void) {  /* (id, JOYINFOEX*) */
     if (!p) { RET(W32_JOYERR_UNPLUGGED); STDRET(2); return; }
     if (!ji || WD_HOST_READ32(ji) != W32_JOYINFOEX_SIZE) { RET(W32_JOYERR_PARMS); STDRET(2); return; }
     uint32_t fl = WD_HOST_READ32(ji + W32_JI_FLAGS);
-    int lx, ly, rx, ry;
-    stick(p, SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY, &lx, &ly);
+    int lx = 0, ly = 0, rx, ry;
+    int up = SDL_GetGamepadButton(p, SDL_GAMEPAD_BUTTON_DPAD_UP), dn = SDL_GetGamepadButton(p, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
+    int lf = SDL_GetGamepadButton(p, SDL_GAMEPAD_BUTTON_DPAD_LEFT), rt = SDL_GetGamepadButton(p, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
+    if (g_dir & WD_DIR_STICK) stick(p, SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY, &lx, &ly);
+    if (g_dir & WD_DIR_DPAD) {   /* full deflection; per axis the d-pad wins over the stick */
+        if (rt != lf) lx = rt ? 32767 : -32767;
+        if (dn != up) ly = dn ? 32767 : -32767;
+    }
     stick(p, SDL_GAMEPAD_AXIS_RIGHTX, SDL_GAMEPAD_AXIS_RIGHTY, &rx, &ry);
     int z = trigger(p, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) - trigger(p, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
     static uint8_t logged[JOY_IDS];
@@ -203,31 +299,26 @@ void imp_joyGetPosEx(void) {  /* (id, JOYINFOEX*) */
     };
     for (uint32_t i = 0; i < 6; i++)
         if (fl & (W32_JOY_RETURNX << i)) WD_HOST_WRITE32(ji + W32_JI_XPOS + 4 * i) = v[i];
-    if (fl & W32_JOY_RETURNBUTTONS) {
-        static const SDL_GamepadButton order[10] = {
-            SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST, SDL_GAMEPAD_BUTTON_WEST, SDL_GAMEPAD_BUTTON_NORTH,
-            SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, SDL_GAMEPAD_BUTTON_BACK,
-            SDL_GAMEPAD_BUTTON_START, SDL_GAMEPAD_BUTTON_LEFT_STICK, SDL_GAMEPAD_BUTTON_RIGHT_STICK,
-        };
+    if (fl & W32_JOY_RETURNBUTTONS) {   /* button b is the game's button g_padmap.joy[b] */
         uint32_t bits = 0, n = 0;
-        for (uint32_t i = 0; i < 10; i++)
-            if (SDL_GetGamepadButton(p, order[i])) { bits |= 1u << i; n++; }
+        for (int b = 0; b < WD_PB_LT; b++)
+            if (g_padmap.joy[b] && pb_down(p, b)) bits |= 1u << (g_padmap.joy[b] - 1);
+        for (uint32_t i = 0; i < 32; i++) n += bits >> i & 1;
         WD_HOST_WRITE32(ji + W32_JI_BUTTONS) = bits;
         WD_HOST_WRITE32(ji + W32_JI_BUTTONNUMBER) = n;
     }
-    if (fl & W32_JOY_RETURNPOV) {
-        int up = SDL_GetGamepadButton(p, SDL_GAMEPAD_BUTTON_DPAD_UP), dn = SDL_GetGamepadButton(p, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
-        int lf = SDL_GetGamepadButton(p, SDL_GAMEPAD_BUTTON_DPAD_LEFT), rt = SDL_GetGamepadButton(p, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
-        WD_HOST_WRITE32(ji + W32_JI_POV) = rt && !lf ? 9000 : lf && !rt ? 27000 : up && !dn ? 0 : dn && !up ? 18000 : W32_JOY_POVCENTERED;
-    }
+    if (fl & W32_JOY_RETURNPOV)   /* a d-pad that drives the axes alone is not also the hat */
+        WD_HOST_WRITE32(ji + W32_JI_POV) = g_dir == WD_DIR_DPAD ? W32_JOY_POVCENTERED
+            : rt && !lf ? 9000 : lf && !rt ? 27000 : up && !dn ? 0 : dn && !up ? 18000 : W32_JOY_POVCENTERED;
     RET(W32_JOYERR_NOERROR); STDRET(2);
 }
 
 /* ---- CD audio ---- */
 #define CD_DEVICE 1u
-static char g_track[100][1024];
-static int g_ntracks = -1;
-static int g_cur;            /* track playing or paused, 0 = none */
+static char g_track[100][1024];   /* legacy mode: the track files */
+static int g_ntracks = -1;        /* -1: not looked at yet, or the active disc changed */
+static int g_cd_disc;             /* disc mode: the disc the device holds (1, 2), else 0 */
+static int g_cur;                 /* track playing or paused, 0 = none */
 static int g_paused;
 
 static char* last_sep(char* s) {
@@ -236,8 +327,22 @@ static char* last_sep(char* s) {
     return a > b ? a : b;
 }
 
+/* files.c switched the active disc: the music stops, and the next MCI call
+ * finds the new disc in the drive. */
+static void cd_disc_changed(void) {
+    mixer_cd_play(NULL, 0, 0, 0, 0);
+    g_cur = 0; g_paused = 0;
+    g_ntracks = -1;
+}
+
 static void cd_scan(void) {
     char dir[1024];
+    struct Disc* disc = files_active_disc(&g_cd_disc, cd_disc_changed);
+    if (disc) {
+        g_ntracks = disc_track_count(disc);
+        fprintf(stderr, "[cd] %d tracks on disc %d\n", g_ntracks, g_cd_disc);
+        return;
+    }
     const char* env = host_env("WD_CD_DIR");
     if (env) SDL_strlcpy(dir, env, sizeof dir);
     else {   /* the directory above the one holding the EXE */
@@ -263,6 +368,29 @@ static void cd_scan(void) {
     fprintf(stderr, "[cd] %d tracks in %s\n", g_ntracks, dir);
 }
 
+/* Start track n. 0 if the disc has no such audio track. */
+static int cd_play(int n) {
+    DiscTrack track;
+    struct Disc* disc = files_active_disc(NULL, NULL);
+    if (disc) {
+        if (!disc_track(disc, n, &track) || !track.is_audio) return 0;
+        mixer_cd_play(track.path, track.offset, track.length, n, g_cd_disc);
+        return 1;
+    }
+    if (n < 1 || n > g_ntracks || !g_track[n][0]) return 0;
+    mixer_cd_play(g_track[n], 0, 0, n, 0);
+    return 1;
+}
+
+/* Does the device hold an audio track at all? A bare .iso has none. */
+static int cd_has_audio(void) {
+    DiscTrack track;
+    struct Disc* disc = files_active_disc(NULL, NULL);
+    for (int n = 1; n <= g_ntracks && n < 100; n++)
+        if (disc ? disc_track(disc, n, &track) && track.is_audio : g_track[n][0] != 0) return 1;
+    return 0;
+}
+
 static uint32_t cd_mode(void) {
     if (g_cur && g_paused) return W32_MCI_MODE_PAUSE;
     if (g_cur && mixer_cd_playing()) return W32_MCI_MODE_PLAY;
@@ -281,9 +409,9 @@ void imp_mciSendCommandA(void) {  /* (device, msg, flags, parms): parms use the 
         WD_HOST_WRITE32(p + W32_MCI_OPEN_DEVICEID) = CD_DEVICE;
         break;
     }
-    case W32_MCI_CLOSE: mixer_cd_play(NULL, 0); g_cur = 0; break;
+    case W32_MCI_CLOSE: mixer_cd_play(NULL, 0, 0, 0, 0); g_cur = 0; break;
     case W32_MCI_SET:
-        if (flags & W32_MCI_SET_DOOR_OPEN) { mixer_cd_play(NULL, 0); g_cur = 0; }
+        if (flags & W32_MCI_SET_DOOR_OPEN) { mixer_cd_play(NULL, 0, 0, 0, 0); g_cur = 0; }
         break;
     case W32_MCI_STATUS: {
         if (!(flags & W32_MCI_STATUS_ITEM)) { err = W32_MCIERR_MISSING_PARAMETER; break; }
@@ -299,12 +427,17 @@ void imp_mciSendCommandA(void) {  /* (device, msg, flags, parms): parms use the 
     }
     case W32_MCI_PLAY: {
         int n = flags & W32_MCI_FROM ? (int)(WD_HOST_READ32(p + W32_MCI_PLAY_FROM) & 0xFF) : g_cur;
-        if (n < 1 || n > g_ntracks || !g_track[n][0]) { err = W32_MCIERR_OUTOFRANGE; break; }
-        mixer_cd_play(g_track[n], n);
+        if (!(flags & W32_MCI_FROM) && !g_cur) break;   /* nothing to resume: success, silent */
+        if (!cd_play(n)) {   /* no such track; on a disc without music (.iso): success, silent */
+            static int said;
+            if (cd_has_audio()) err = W32_MCIERR_OUTOFRANGE;
+            else if (!said++) fprintf(stderr, "[cd] no audio tracks: play track %d and later ones play nothing\n", n);
+            break;
+        }
         g_cur = n; g_paused = 0;
         break;
     }
-    case W32_MCI_STOP: mixer_cd_play(NULL, 0); g_cur = 0; g_paused = 0; break;
+    case W32_MCI_STOP: mixer_cd_play(NULL, 0, 0, 0, 0); g_cur = 0; g_paused = 0; break;
     case W32_MCI_PAUSE: if (g_cur) { mixer_cd_pause(1); g_paused = 1; } break;
     case W32_MCI_RESUME: if (g_cur) { mixer_cd_pause(0); g_paused = 0; } break;
     case W32_MCI_SEEK: break;
@@ -313,6 +446,7 @@ void imp_mciSendCommandA(void) {  /* (device, msg, flags, parms): parms use the 
         break;
     }
     if (dev != CD_DEVICE && msg != W32_MCI_OPEN && !err) err = W32_MCIERR_INVALID_DEVICE_ID;
+    wd_devtools_cd(g_cur, g_cd_disc, cd_mode());
     RET(err); STDRET(4);
 }
 

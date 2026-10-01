@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "dreams-game": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--with",
+        "mcp",
+        "--with",
+        "pillow",
+        "python",
+        "recomp/windream/debug/wd_mcp.py"
+      ]
+    }
+  }
+}

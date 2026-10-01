@@ -70,6 +70,9 @@ uv run python recomp/windream/run.py --overlays   # retail debug flags on; keypa
 uv run python recomp/windream/run.py --poke 0x49da14=1   # any dword into the image before entry
 uv run --with capstone --with pefile python recomp/windream/debug/flag_hunt.py   # unwritten flags
 uv run python recomp/windream/run.py --fullscreen --pad keys
+uv run python recomp/windream/run.py --discs  # play from the two disc images, not the extracted trees
+uv run python recomp/windream/run.py --headless --discs --ctl   # with the development control channel (debug/wdctl.py)
+uv run --with pefile python recomp/windream/release.py   # DreamsToReality.exe + README.txt, zipped
 uv run --with capstone --with pefile python recomp/difftest/difftest.py t_core --tag od110
 ```
 
@@ -88,6 +91,9 @@ does. F11 toggles fullscreen; the game sees F11 too.
 | `--filter` | `WD_FILTER` | `pixelart` | Scaling: `pixelart` (sharp, even pixels), `nearest` or `linear` |
 | `--pad` | `WD_PAD` | `winmm` | Gamepads: `winmm` shows them as WinMM joysticks (press J in game), `keys` makes them press keys, `off` ignores them |
 | `--deadzone IN,OUT` | `WD_DEADZONE` | `10,95` | Scaled radial deadzone for sticks and triggers, percent of full deflection: below IN reads centred, past OUT reads full |
+| none | `WD_KEYMAP` | unset | Keyboard remap, comma-separated `PHYSICAL=GAME` key pairs: `W=UP,A=LEFT,S=DOWN,D=RIGHT` makes WASD the arrows (W then no longer reads as W). Names: letters, digits, `UP DOWN LEFT RIGHT`, `CTRL SHIFT ALT` (`LCTRL`, `RALT`... for one side), `SPACE RETURN ESC TAB BACKSPACE`, `F1`-`F24`, `KP0`-`KP9`, `INSERT DELETE HOME END PAGEUP PAGEDOWN`, and punctuation (`MINUS EQUALS COMMA PERIOD SLASH SEMICOLON QUOTE GRAVE LBRACKET RBRACKET BACKSLASH`). The `WD_KEYS` script is not remapped |
+| none | `WD_PAD_DIRECTION` | `stick` (`winmm`), `both` (`keys`) | Which pad control gives direction: `stick`, `dpad` or `both`. `winmm`: the stick drives X/Y and the d-pad the POV hat; `dpad` makes the d-pad drive X/Y (POV centred); `both` lets either drive X/Y. `keys`: which of them press the arrows |
+| none | `WD_PADMAP` | unset | Pad button remap, comma-separated `BUTTON=TARGET` pairs over the defaults. BUTTON: `a b x y lb rb back start ls rs`, and in `keys` mode `lt rt`. TARGET: `button1`-`button32` in `winmm` mode (default `a b x y lb rb back start ls rs` = 1-10), a key name as for `WD_KEYMAP` in `keys` mode |
 | `--fps N` | `WD_FPS` | 25 | Present cap; above 30 the original physics breaks (`docs/research/running.md`) |
 | `--mute` | `WD_MUTE` | off | Open no audio device; keep mixing on a timer so sound/CD cursors and completion polling still advance |
 | `--headless` | `WD_HEADLESS` | off | Keep the SDL window hidden, run muted, and enable scripted input while reporting focus |
@@ -100,22 +106,295 @@ POV the d-pad, buttons A B X Y LB RB Back Start LS RS as 1 to 10). The game
 reads only X, Y and the buttons, and it takes the stick position at start as
 the centre, so leave the stick alone while the game starts.
 
+The three remap variables work on devices only: one physical key or button
+stands in for another, and the host knows nothing about game actions. Bad
+entries are logged (`[keys]`, `[joy]`) and skipped, and a start-up line prints
+the effective pad table when either pad variable is set. In `winmm` mode the
+triggers are the Z axis, not buttons, so `lt` and `rt` cannot be mapped there;
+a mapped button above 10 raises the button count the game reads. The pure
+parsing and lookup is `windream/host/sdl/input_map.h`, tested by
+`tests/recomp/test_input_map.py`.
+
+## Reading the game from the disc images
+
+By default `run.py` gives the host directories: the extracted disc 1 tree and
+the install tree (`WD_READ_ROOTS`), with the guest EXE as the first argument.
+In disc mode the host needs neither. It opens the user's two discs through
+`recomp/disc`, loads `GDIDREAM.EXE` from disc 1, serves every file the game
+asks for from them, and plays the CD music from the same images.
+
+| `run.py` option | Environment | What |
+|---|---|---|
+| `--discs` | `WD_DISC1`, `WD_DISC2` | Disc mode with the one `.cue` in the folder that holds each of `DREAMS_DISC1` and `DREAMS_DISC2` |
+| `--disc1 PATH --disc2 PATH` | `WD_DISC1`, `WD_DISC2` | Disc mode with the given discs: each a `.cue`, an `.iso` (no music) or an extracted directory (music from the `(Track NN).bin` files beside it). Both are required, and each must be the disc its variable names |
+| set by `--discs`/`--disc1` | `WD_DATA_DIR` | The user data directory: every write goes there and every read looks there first. It is the write sandbox under another name and takes the place of `WD_WRITE_ROOT`; `run.py` sets it to `<run dir>/sandbox` |
+| none | `WD_DISC_ACTIVE` | `2` starts with disc 2 in the drive (default 1), for testing the change back to disc 1 |
+| none | `WD_FILES_LOG` | How many file opens are logged (default 200; either mode) |
+
+With `WD_DISC1` unset nothing changes: `WD_READ_ROOTS`, `WD_WRITE_ROOT`,
+`WD_CD_DIR` and the EXE path work as before. With it set and no EXE path on
+the command line (`windream_recomp --run`), the EXE is disc 1's.
+
+What the guest sees in disc mode (`windream/host/sdl/files.c`, spec 007):
+
+- A path at the CD root, or relative: the data directory, then the active disc.
+- A path under `CRYO\DREAMS\`: the data directory, then the same path without
+  that prefix on the active disc, then on the other one. Two exceptions:
+  `CRYO\DREAMS\DATA\FULL.ID` is never found, so the game stays in its
+  read-from-CD mode and copies nothing; and files of `CRYO\DREAMS\DATA\GAME\`
+  (the saves) come from the data directory only, because disc 2 carries a
+  leftover `GAME.DAT`, `GAME0.DAT` and `GAME0.ICO` there.
+- Disc 1 is active at start. `DATA\1CD.ID` and `DATA\2CD.ID` open only on
+  their own disc; when the game opens the other disc's marker twice in a row
+  (its "Please change to CD" prompt polling), the host makes that disc the
+  active one and logs `[disc] active disc 1 -> 2`. The music stops and the CD
+  device then has the new disc's tracks.
+- Log lines name the source: `[files] open R "DATA\1CD.ID" -> disc1:DATA/1CD.ID`.
+
+CD music in disc mode plays each track from its `INDEX 01` for its own length,
+so a single-`.bin` image works and the 2-second pregap is skipped; with
+`WD_CD_DIR` (directory mode) a track file is still played whole. The MCI
+device reports the disc's track count with the data track (12 on disc 1, 14 on
+disc 2) in both modes. `MCI_PLAY` with no start position and no current track
+succeeds silently in both modes; it used to fail, which the game showed as an
+"MCI Error" box after its disc prompt. `MCI_PLAY` of any track also succeeds
+silently when the device has no audio track at all (an `.iso`); with audio
+tracks, a track that is not one of them is still out of range.
+
+The three disc-mode paths are read with `SDL_getenv`, which on Windows gives
+the Unicode environment as UTF-8, so paths with non-ASCII characters work
+whatever the ANSI code page; code that sets them inside the process must use
+`SDL_setenv_unsafe` before the host's first file call. `tests/recomp/test_disc_mode.py`
+runs the production file bridges on two small directory discs
+(`windream/verify/native/disc_mode_tests.c`): resolution, the marker rule in
+both directions, the saves, listings and reads.
+
+## Launcher and release
+
+The executable started without arguments opens the launcher (`launcher/`):
+choose the two disc images, change the port settings, press Play. It keeps
+them in `dreams.ini` beside the executable and the game's files in `userdata/`
+there; when that folder cannot be written to, both go to the per-user
+directory (`%APPDATA%\DreamsToReality` on Windows).
+
+| Option | What |
+|---|---|
+| `--play` | No window: validate the discs and start the game, or print the reason and exit with code 2 |
+| `--disc1 PATH`, `--disc2 PATH` | The discs for this run (`.cue`, `.iso` or directory); not saved |
+| `--data DIR` | The user data directory for this run; not saved |
+
+The launcher and the host do not know each other. `launcher_run` returns `WD_*`
+name and value pairs, and `main` (`windream/host/core/runtime.c`, the only code
+that knows both) puts each into the process environment and starts the host as
+in disc mode, with `--run` implied. A variable already set in the real
+environment is kept, so it wins over `dreams.ini`. The log shows both cases:
+
+```
+[launcher] WD_DISC1=E:\discs\Dreams to Reality (Europe) (Disc 1).cue
+[launcher] WD_SCALE=3 (set in the environment; the launcher's "4" is not used)
+```
+
+`main` runs the launcher only when the first argument is not an EXE path and
+`WD_DISC1` is not set. `run.py` always gives one or the other, so it never
+shows the launcher; neither do the difftests and verify hosts. `-DWD_LAUNCHER=OFF`
+builds without it.
+
+On Windows the C runtime's `getenv` reads a copy of the environment made at
+start and does not see `SDL_setenv_unsafe`, which changes SDL's table and the
+Win32 environment only. `main` therefore sets the C runtime's copy too
+(`_putenv_s`, the same UTF-8 bytes) and reads every pair back through both; a
+`[launcher] WARNING: NAME not visible to ...` line means a setting is ignored.
+`main` receives UTF-8 arguments on Windows (`SDL_main.h`), and the EXE path
+argument is opened as UTF-8 through SDL.
+
+`release.py` builds the executable users get, in `out/recomp/windream/build-release`,
+and stages `out/recomp/windream/release/DreamsToReality/` (`DreamsToReality.exe`
+and `README.txt`) and `DreamsToReality-windows-x64.zip` beside it. It fails if
+the folder holds any other file or if the executable imports a DLL Windows
+does not ship: the release links the C runtime and SDL3 statically (a second
+SDL3 build, `out/recomp/sdl3/<commit>/install-mt`). The compiler flags are the
+development build's; `--optimize` builds CMake's Release type, which has never
+been verified on the lifted code.
+
+The launcher's test-only machinery (the `DREAMS_LAUNCHER_SCRIPT` driver in
+`launcher/testscript.cpp` and the variables `DREAMS_LAUNCHER_HOME`,
+`DREAMS_LAUNCHER_SHOT`, `DREAMS_LAUNCHER_SHOT_TAB` and `DREAMS_LAUNCHER_VERBOSE`,
+all documented in `launcher/launcher.h`) is compiled only with the CMake option
+`DREAMS_LAUNCHER_TESTING` (default ON, so `launcher/build.py` and development
+builds have it). `WD_RELEASE` forces it OFF: `testscript.cpp` is not compiled,
+the hooks in `launcher.cpp` and `ui.cpp` are the empty inline stand-ins of
+`launcher/testing.h`, and none of the variables is read. The release executable
+has to be driven the way a user does: `--play`, `--disc1`/`--disc2`, `--data DIR`,
+with `dreams.ini` beside the executable. `release.py` fails if the executable
+holds the text `launcher-testing` (which the compiled-in code embeds) or if the
+build's CMake cache does not say `DREAMS_LAUNCHER_TESTING` is OFF.
+
+The release executable is a GUI-subsystem program (`WD_RELEASE` in
+`CMakeLists.txt`): no console window. Its stderr and stdout go to `log.txt` in
+the user data directory, opened once `WD_DATA_DIR` is known (output before
+that, and a launcher error, is not logged: a failed `--play` shows a message
+box instead, unless `WD_HEADLESS` is set). Once the file layer is up the data
+directory is also the current directory, so `crash-<pid>.dmp` and `WD_SNAP_MS`
+snapshots land beside `log.txt`.
+
+## Development control channel
+
+A live way into a running game for tests and for work at a shell: press a
+game key, wait for a condition, save a frame, read guest memory, pause and
+step, tail the file opens, record the mixer's output. Scripted runs
+(`--keys 2000:ESC,...`) press keys at fixed times and are read afterwards from
+the log; with the channel a test waits for what it needs and decides the next
+step.
+
+It is development-only and separate from the game:
+
+- All of it is `windream/devtools/`. The host calls it through seven one-line
+  hooks declared in `devtools/devtools.h` (included once, by `host/sdl/host.h`),
+  which are empty inline functions unless the build defines `WD_DEVTOOLS`.
+  Scripts that compile host files without CMake get the empty ones.
+- The CMake option `WD_DEVTOOLS` is on for development builds and forced off by
+  `WD_RELEASE`. `release.py` fails if the release executable holds the text
+  `wd-devtools`, which the channel embeds, or if its CMake cache does not say
+  `WD_DEVTOOLS` is off.
+- Without `WD_CTL` in the environment a devtools build does nothing different:
+  no socket, no thread, no log line.
+
+`run.py --ctl [PORT]` sets `WD_CTL` (default 0: a free port). The host listens
+on 127.0.0.1 only, writes the port to `<run dir>/ctl.port` and logs
+`[ctl] listening on 127.0.0.1:<port>`. One client at a time.
+
+```sh
+uv run python recomp/windream/run.py --headless --discs --tag play --ctl   # in one shell (or in the background)
+uv run python recomp/windream/debug/wdctl.py --run-dir out/recomp/windream/run-play status
+uv run python recomp/windream/debug/wdctl.py --run-dir out/recomp/windream/run-play key ESC
+uv run python recomp/windream/debug/wdctl.py --run-dir out/recomp/windream/run-play wait_until opened generic.hnm --since 23   # 23: the "seq" the key answered with
+uv run python recomp/windream/debug/wdctl.py --run-dir out/recomp/windream/run-play screenshot out/tmp/x.bmp
+uv run python recomp/windream/debug/wdctl.py --run-dir out/recomp/windream/run-play read 0x661e04 4
+uv run python recomp/windream/debug/wdctl.py --run-dir out/recomp/windream/run-play project
+uv run python recomp/windream/debug/wdctl.py --run-dir out/recomp/windream/run-play quit
+```
+
+Each `wdctl.py` invocation is one connection and prints the answer as JSON. A
+pause, a held key, a tap still to be released and an audio dump stay in force
+when the client disconnects; an answer it was still waiting for is dropped.
+
+From Python (`windream/debug/wdctl.py`, standard library only; used by
+`tests/recomp/test_devtools.py`):
+
+```python
+# The process ends when the block is left.
+with wdctl.start_game(tag="mytest", discs=True, headless=True) as game:
+    ctl = game.ctl
+    intro = ctl.wait_until_opened("intro.hnm", since=0)
+    ctl.tap("ESC")
+    ctl.wait_until_opened("generic.hnm", since=intro["event"])
+    # {'name': 'Project0', 'level': 1, 'objet0': 'OBJET0', 'objet0_asset': 'H18ANGKR.DSN', ...}
+    print(ctl.current_project())
+```
+
+`start_game` builds the command with `run.py`'s own `parse_args` and `prepare`,
+so the run directory, the environment and the log (`<run dir>/stderr.txt`) are
+those of `run.py`. What a guest address means (`current_project`: the record
+behind the pointer at `0x661e04`) is the client's knowledge; the host side
+knows keys, frames, memory, files and sound only.
+
+The protocol is one JSON object per line each way: `{"id":N,"cmd":"...", ...}`
+is answered by `{"id":N,"ok":true, ...}` or `{"id":N,"ok":false,"error":"..."}`.
+Requests are flat (strings, numbers, booleans); a number may also be a string
+such as `"0x661e04"`. Every `ok:true` answer carries `frame` (frames presented
+since start), `ms` (host time since start) and `seq` (the number of the last
+recorded event). The listener thread only queues requests; they run on the
+host's main thread at `host_pump`, where SDL events are drained.
+
+| Command | Arguments | Answer, and what it does |
+|---|---|---|
+| `ping` | | `build`, `render_audit` |
+| `status` | `opens` (how many, default 8) | `headless`, `renderer`, `disc_mode`, `disc` (active disc, 0 outside disc mode), `paused`, `audio_dump`, `cd_track`, `cd_disc`, `cd_state` (`playing`, `paused`, `stopped`), `opens` (the last file opens, as in `log`) |
+| `key` | `name` (a `WD_KEYS` name), `action` `down`, `up` or `tap` (default), for a tap `frames` or `ms` (default 150 ms) | `vk`. A game key, read where a `WD_KEYS` key is: not remapped by `WD_KEYMAP`. Unlike in a `WD_KEYS` script, `F11` and `KP1`-`KP5` are plain game keys here, not the host's fullscreen and debug toggles |
+| `wait` | `frames` and/or `ms` | Answers after that many presented frames or host milliseconds, the first to pass: `waited_frames`, `waited_ms` |
+| `wait_until` | `cond` and its arguments, `timeout_frames` and/or `timeout_ms` (60000 ms when neither is given) | Answers when the condition holds, or with the error `timeout after N frames (M ms)`. Checked at every pump, at least once per frame |
+| | `cond: "mem"`, `addr`, `size` 1, 2 or 4 (default 4), `op` `==` `!=` `<` `>` `&`, `value` | `value`: what was read. Unsigned compare; `&` is "any of these bits set"; an address that is not mapped is not true |
+| | `cond: "opened"`, `path` (part of a guest path, case ignored), `ok` (optional: the open succeeded or failed), `since` (optional event number) | `event`, `path`, `host`, `open_ok`. A matching open after the command was issued, or after event `since`: pass the `seq` of an answer received before the key that causes the open |
+| | `cond: "disc"`, `"cd_track"` or `"frame"`, `value` | The active disc is `value`; the CD's current track is `value`; the frame counter has reached `value` |
+| `read` | `addr`, `size` (at most 65536) | `hex`. Guest memory; an error unless every page is committed (`vm_state`) |
+| `read_cstr` | `addr`, `max` (default 256) | `text`, `length` |
+| `write` | `addr`, `hex` | `size`. For test setup, as `WD_POKE` is |
+| `screenshot` | `path` | `path`, `width`, `height`, `format`. The next presented frame, written by the host's snapshot code (`WD_SNAP_MS`): a 24-bit BMP of the game's frame with the software renderer, a PNG of the window with the direct one, whatever the name's extension. While paused it steps one frame. The limits are the snapshot code's: with the direct renderer a hidden (headless) window can be captured on the D3D11 backend only, and elsewhere the host stops with `FATAL: hidden frame capture currently requires the D3D11 backend` |
+| `pause`, `resume` | | Pause holds the guest inside `host_pump`; the channel is still served and SDL keeps the window alive (a close request resumes) |
+| `step` | `frames` (default 1) | Lets that many frames be presented, pauses again, then answers |
+| `log` | `since` (event number, default 0), `max` (default 100) | `events`, `dropped`. File opens (`kind: "open"`: `path`, `host`, `write`, `ok`), CD changes (`"cd"`: `text` such as `play track 9 (disc 1)`) and changes of the active disc (`"disc"`), each with `seq`, `ms`, `frame`. A ring of the last 512; every open is recorded, also those past the `WD_FILES_LOG` budget |
+| `audio_dump` | `path` | Writes the mixer's output (44.1 kHz 16-bit stereo, what goes to the audio device) to a WAV file from now on; works muted and headless, where the mixer runs on a timer |
+| `audio_dump_stop` | | `path`, `frames`, `rate` |
+| `quit` | `code` (default 0) | Ends the process as `main` does when the game returns: trace flushed, renderer closed, `exit(code)` |
+
+Time is not paused: `timeGetTime` is the host's clock (`SDL_GetTicks`), and the
+mixer has its own thread. During a pause the guest's clock therefore keeps
+running and sound and CD music play on while the picture stands still; the
+frame after a pause sees the whole pause as elapsed time (how each of the
+game's timers takes that has not been examined).
+
+### MCP server for the control channel
+
+`windream/debug/wd_mcp.py` wraps `wdctl.py` as an MCP server (stdio), so an AI
+coding assistant can drive a running game as tools: start one, press keys, wait
+for a file to open or a memory cell to change, read guest memory, look at a
+frame. It has no game logic of its own: each tool is one call into `wdctl`
+(`start_game`, `Ctl`), and it needs the same development build with
+`WD_DEVTOOLS` as the channel. It exists for development only; nothing in the
+game or the release depends on it.
+
+In Claude Code the repository's `.mcp.json` registers it as the project-scope
+server `dreams-game` (Claude Code asks once to approve a project server; the
+relative path is resolved from the repository root, where `claude` is started):
+
+```json
+{"mcpServers": {"dreams-game": {"command": "uv", "args": ["run", "--with", "mcp", "--with", "pillow", "python", "recomp/windream/debug/wd_mcp.py"]}}}
+```
+
+Any other MCP client runs the same command over stdio. `mcp` is the official
+Python SDK (1.x `FastMCP` and 2.x `MCPServer` both work); Pillow only turns the
+software renderer's BMP into a PNG for `game_screenshot`.
+
+| Tool | What |
+|---|---|
+| `game_start(tag, discs=True, headless=True, renderer="software", extra_env={})` | Start a game as `run.py` does (run directory `out/recomp/windream/run-<tag>`) and keep it; one at a time. Returns `port`, `run_dir`, `pid` |
+| `game_attach(run_dir=None, port=None)` | Attach to a game already running with `run.py --ctl` |
+| `game_stop()`, `game_status()` | End the game this server started (an attached one is only disconnected); the host's status and whether the process is alive |
+| `game_key(name, action="tap", frames=None)` | A game key: tap, down or up |
+| `game_wait(frames=None, ms=None)`, `game_wait_until(cond, value, addr, op, size, path, since, ok, timeout_ms, timeout_frames)` | Wait; `cond` is `opened`, `mem`, `disc`, `cd_track` or `frame`, 60 s timeout by default |
+| `game_read(addr, size)`, `game_read_cstr(addr)`, `game_write(addr, hex)`, `game_project()` | Guest memory (addresses are ints or hex strings) and the current project record |
+| `game_log(since=0)`, `game_stderr(tail=50)` | File-open and CD events; the last lines of the run's `stderr.txt` |
+| `game_pause()`, `game_resume()`, `game_step(frames=1)` | Hold, release, single-step |
+| `game_audio_dump(path)`, `game_audio_dump_stop()` | Record the mixer's output to a WAV file |
+| `game_screenshot()` | The next frame, saved as a PNG under `<run dir>/mcp-shots/` and returned as an image with its path |
+
+An error from the channel comes back as a tool error with the channel's message.
+The game the server started is ended when the server exits (`wdctl.Game`'s
+`atexit` and, on Windows, a job object).
+`tests/recomp/test_wd_mcp.py` (run with `uv run --with mcp --with pillow pytest
+tests/recomp/test_wd_mcp.py`) lists the tools and runs one short headless
+session; it is skipped without `mcp`, the development build or the discs.
+
 ## Layout
 
 | Path | What |
 |---|---|
-| `recomp_env.py` | Shared paths (output root, pcrecomp, `LIFT`, `HOST`, `HOST_DIRS`), the build environment (Visual Studio via vcvarsall on Windows), the shared SDL3 build, configure + build |
+| `windream/devtools/` | The development control channel (`WD_CTL`): `devtools.h` (the hooks the host calls, empty without `WD_DEVTOOLS`), `devtools.c` (commands), `ctl_net.c` (the TCP listener), `ctl_json.c`. Not in a release build |
+| `launcher/` | The launcher library (`launcher.h`, one entry point): `dreams.ini`, disc validation and the Dear ImGui window; `launcher_demo`, `build.py`. Linked into the host (`dreams_launcher`) |
+| `windream/release.py` | The release build, its checks and the zip |
+| `disc/` | The disc library (`disc.h`): opens a `.cue`, `.iso` or extracted directory, reads its ISO 9660 files and lists its audio tracks; `disc_list` tool, `build.py`. Linked into the host (`dreams_disc`) |
+| `recomp_env.py` | Shared paths (output root, pcrecomp, `LIFT`, `HOST`, `HOST_DIRS`, `DISC`), the build environment (Visual Studio via vcvarsall on Windows), the shared SDL3 build, configure + build |
 | `windream/lift/lift.py` | `bounds.csv` → `gen/`: lift32 plus the lifter fixes this game needed (flags at block starts, patched immediates, `push label; ret`, x87 and narrow mul/div), diagnostic `HOOKS` and `PROBES`, and `CALLS` (runtime calls inserted before an instruction, such as the editor draw of spec 005) |
 | `windream/lift/bounds.csv` | Function bounds exported from Ghidra with pcrecomp's `DumpBounds.java` |
 | `windream/lift/gen_imports.py` | One bridge per import; stubs for those no `host/*/*.c` implements |
 | `windream/lift/replacements.py`, `render_audit.py`, `render_bulk.py` | Generated entry wrappers for the renderer boundary, guest-memory probes and GPU-aware bulk transfers |
 | `windream/host/core/` | Guest runtime (`runtime.c`), function-entry trace, crash report and minidumps, `recomp_types.h`, `imports.h` |
-| `windream/host/sdl/` | The Win32 the guest sees, on SDL3 (`host.h`): `files.c` (read roots, write sandbox, case-insensitive names, `FindFirstFile` wildcards, file times), `kernel.c` (process, console, code pages 1252 and 437, last error), `threads.c` (handles, threads, events, critical sections, TLS), and `user.c`, `gdi.c`, `winmm.c`, `dsound.c` for USER32, GDI32, WinMM and DirectSound; `guest_win32.h` holds the guest's Win32 constants and 32-bit layouts, which `win32_abi_check.c` checks against the SDK |
+| `windream/host/sdl/` | The Win32 the guest sees, on SDL3 (`host.h`): `files.c` (read roots or the two discs, write sandbox, case-insensitive names, `FindFirstFile` wildcards, file times), `kernel.c` (process, console, code pages 1252 and 437, last error), `threads.c` (handles, threads, events, critical sections, TLS), and `user.c`, `gdi.c`, `winmm.c`, `dsound.c` for USER32, GDI32, WinMM and DirectSound; `guest_win32.h` holds the guest's Win32 constants and 32-bit layouts, which `win32_abi_check.c` checks against the SDK |
 | `windream/host/vm/` | The guest's virtual memory: `vm_front.c` (`VirtualAlloc`/`VirtualFree`/`VirtualQuery` bridges and `vm_state`, the one way host code asks what is at a guest address), `vm_win32.c` (the original, on Windows page state), `vm_ledger.c` (the portable one, over the `vm_os_*.c` layer), `vm_shadow.c` (both, compared); chosen with `build.py --vm` |
 | `windream/host/render/` | Adapters between the lifted game and the GPU renderer: boundary and surface ownership, scene capture and draw, UI, movies, live frame, metrics, hooks |
 | `windream/host/hooks/` | `phys_hook.c` collision hooks |
 | `windream/verify/` | Renderer verification: retail-x86 oracles (`render_*_smoke.py`), live isolated runs (`render_*_live_smoke.py`, project and thumbnail smokes), `render_acceptance.py`, `render_content_inventory.py`, `direct_render_validate.py`, `test_render_codegen.py`, and the dump reader `mdmp.py`; and `kernel_bridge_smoke.py`, the retail-x86 oracle for the KERNEL32 bridges. The scripts import each other by name, so they share one directory; their C/C++ sources are in `native/` |
-| `windream/debug/` | Collision and dump tools: the collision invariant, Unicorn replay of one `PHYS_SweepAxis` call, `x86dis.py`, `flag_hunt.py` (unwritten debug flags, address-copy scan) |
+| `windream/debug/` | Collision and dump tools: the collision invariant, Unicorn replay of one `PHYS_SweepAxis` call, `x86dis.py`, `flag_hunt.py` (unwritten debug flags, address-copy scan); `wdctl.py`, the client of the development control channel; `wd_mcp.py`, its MCP server |
 | `windream/CMakeLists.txt`, `build.py`, `run.py` | Build (Ninja; clang-cl on Windows, gcc or clang elsewhere) and sandboxed run (scripted keys, snapshots, fps cap, window, pad and dump modes) |
 | `render/` | GPU renderer: `ODRender` (sokol_gfx core: `direct.*`, shadows, fog) and `ODGraphics` (SDL3 backends for D3D11, Metal, OpenGL); pinned dependencies and shader generation in `cmake/`; tests in `tests/` |
 | `difftest/` | `difftest.py` (compile with Watcom, bounds with Ghidra cached per source/flags/compiler, lift, build, run, diff), `wat.py`, the test programs `t_core.c` and `t_switch.c`, `gen_insn.py` (generates `t_insn.c` into the work root), `coverage.py`, `flagdiff.py`, `consumers.py`, `map2bounds.py` |

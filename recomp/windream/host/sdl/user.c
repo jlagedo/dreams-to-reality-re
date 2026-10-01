@@ -30,6 +30,19 @@
  *   WD_SCALE=2          initial window size in multiples of the game's size
  *   WD_FULLSCREEN=1     start fullscreen (borderless, desktop resolution)
  *   WD_KEYS="3000:RETURN,5000:ESC"  press keys at ms since start (150 ms hold)
+ *   WD_KEYMAP="W=UP,A=LEFT,S=DOWN,D=RIGHT"  physical=game key pairs: the key
+ *                       pressed (physical, by layout for letters) is seen by the game as
+ *                       the other. A listed physical key stops being itself
+ *                       (W above no longer reads as W; a pair elsewhere that
+ *                       names W as its game key still gives it). Names: A-Z,
+ *                       0-9, UP DOWN LEFT RIGHT, CTRL SHIFT ALT (either side;
+ *                       LCTRL RCTRL ... for one), SPACE RETURN ESC TAB
+ *                       BACKSPACE, F1-F24, KP0-KP9, INSERT DELETE HOME END
+ *                       PAGEUP PAGEDOWN, MINUS EQUALS COMMA PERIOD SLASH
+ *                       SEMICOLON QUOTE GRAVE LBRACKET RBRACKET BACKSLASH;
+ *                       case-insensitive. A bad entry is logged and skipped.
+ *                       The WD_KEYS script is not remapped, and the host
+ *                       keys (F11, keypad 1-5) follow the physical key.
  *   WD_FOCUS=1          report the window as focused, so a background run
  *                       still reads (scripted) keys
  *   WD_QUIET=1          log message boxes instead of showing them
@@ -38,6 +51,7 @@
 #include <ctype.h>
 #include <math.h>
 #include "display_script_parse.h"
+#include "input_map.h"
 #define RECOMP_GENERATED_CODE
 #include "host.h"
 #include "render_live.h"
@@ -91,22 +105,20 @@ static void display_script_init(void) {
     }
 }
 
-static uint8_t vk_from_name(const char* s, size_t n) {
-    static const struct { const char* name; uint8_t vk; } tab[] = {
-        {"UP", W32_VK_UP}, {"DOWN", W32_VK_DOWN}, {"LEFT", W32_VK_LEFT}, {"RIGHT", W32_VK_RIGHT},
-        {"RETURN", W32_VK_RETURN}, {"ENTER", W32_VK_RETURN}, {"ESC", W32_VK_ESCAPE},
-        {"ESCAPE", W32_VK_ESCAPE}, {"SPACE", W32_VK_SPACE}, {"TAB", W32_VK_TAB},
-        {"CTRL", W32_VK_CONTROL}, {"SHIFT", W32_VK_SHIFT}, {"ALT", W32_VK_MENU},
-        {"F1", W32_VK_F1}, {"F2", W32_VK_F1 + 1}, {"F3", W32_VK_F1 + 2}, {"F10", W32_VK_F10},
-        {"F4", W32_VK_F1 + 3}, {"F5", W32_VK_F1 + 4}, {"F6", W32_VK_F1 + 5},
-        {"F7", W32_VK_F1 + 6}, {"F8", W32_VK_F1 + 7}, {"F9", W32_VK_F1 + 8},
-        {"F11", W32_VK_F10 + 1},
-        {"KP1", 0x61}, {"KP2", 0x62}, {"KP3", 0x63}, {"KP4", 0x64}, {"KP5", 0x65},
-        {"BACK", W32_VK_BACK},
-    };
-    for (size_t i = 0; i < sizeof tab / sizeof tab[0]; i++)
-        if (strlen(tab[i].name) == n && !SDL_strncasecmp(tab[i].name, s, n)) return tab[i].vk;
-    return n == 1 ? (uint8_t)toupper((unsigned char)s[0]) : 0;
+/* WD_KEYMAP: a physical key stands in for another. Applied where a held key
+ * becomes virtual keys (key_event), never to the WD_KEYS script, which injects
+ * game keys. Names are those of WD_KEYS (input_map.h). */
+static WdKeyMap g_keymap;
+
+static void keymap_bad(void* ctx, const char* e, size_t n, const char* why) {
+    fprintf(stderr, "[keys] %s entry \"%.*s\" ignored: %s\n", (const char*)ctx, (int)n, e, why);
+}
+static void keymap_init(void) {
+    const char* spec = host_env("WD_KEYMAP");
+    if (!spec) return;
+    wd_keymap_parse(&g_keymap, spec, keymap_bad, "WD_KEYMAP");
+    for (int i = 0; i < g_keymap.n; i++)
+        fprintf(stderr, "[keys] WD_KEYMAP: physical vk 0x%02X -> game vk 0x%02X\n", g_keymap.from[i], g_keymap.to[i]);
 }
 
 void host_init(void) {
@@ -117,6 +129,7 @@ void host_init(void) {
     g_force_focus = g_headless || host_env("WD_FOCUS") != NULL;
     if (g_headless) fprintf(stderr, "[user] WD_HEADLESS: window remains hidden, scripted focus enabled\n");
     display_script_init();
+    keymap_init();
     const char* spec = host_env("WD_KEYS");
     while (spec && *spec && g_script_n < 64) {
         char* end;
@@ -125,11 +138,12 @@ void host_init(void) {
         const char* name = end + 1;
         const char* comma = strchr(name, ',');
         size_t len = comma ? (size_t)(comma - name) : strlen(name);
-        uint8_t vk = vk_from_name(name, len);
+        uint8_t vk = wd_vk_from_name(name, len);
         if (vk) { g_script[g_script_n].ms = ms; g_script[g_script_n].vk = vk; g_script_n++; }
         fprintf(stderr, "[keys] %ums %.*s -> vk 0x%02X\n", ms, (int)len, name, vk);
         spec = comma ? comma + 1 : name + len;
     }
+    wd_devtools_init();
 }
 uint32_t host_elapsed_ms(void) { return (uint32_t)(SDL_GetTicks() - g_t0); }
 
@@ -229,7 +243,7 @@ static uint16_t vk_of(const SDL_KeyboardEvent* k) {
 static void key_event(const SDL_KeyboardEvent* k) {
     if ((unsigned)k->scancode >= SDL_SCANCODE_COUNT) return;
     if (k->down) {
-        uint16_t v = vk_of(k);
+        uint16_t v = wd_keymap_apply(&g_keymap, vk_of(k));   /* WD_KEYMAP: the one place a key is translated */
         if (!v || g_sc_vk[k->scancode]) return;   /* unmapped, or auto-repeat */
         g_sc_vk[k->scancode] = v;
         vk_press(v & 0xFF);
@@ -416,6 +430,7 @@ static void display_script_pump(void) {
 }
 
 void host_pump(void) {
+    wd_devtools_pump();
     if (!SDL_WasInit(SDL_INIT_EVENTS)) return;
     display_script_pump();
     SDL_Event e;
@@ -649,7 +664,7 @@ void imp_GetAsyncKeyState(void) {  /* (vk) -> SHORT */
     int vk = (int)(ARG(0) & 0xFF);
     if (SDL_GetTicks() - g_last_pump >= 4) host_pump();   /* loops that poll keys without PeekMessageA */
     uint16_t s = 0;
-    if (g_vk_count[vk] || script_down(vk) || joy_key_down(vk)) s |= 0x8000;
+    if (g_vk_count[vk] || script_down(vk) || joy_key_down(vk) || wd_devtools_key_down(vk)) s |= 0x8000;
     if (g_vk_latch[vk]) { s |= 1; g_vk_latch[vk] = 0; }
     RET((uint32_t)(int32_t)(int16_t)s); STDRET(1);
 }

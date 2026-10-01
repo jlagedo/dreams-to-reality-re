@@ -137,14 +137,15 @@ void imp_GetStockObject(void) { RET(FAKE_TAG | FAKE_STOCK | (ARG(0) & 0xFF)); ST
 void imp_SetBkMode(void) { RET(W32_OPAQUE); STDRET(2); }
 
 /* ---- snapshots: the DIB as a 24-bit BMP, for checking a run without watching it ---- */
-static void snap(const Dib* d) {
+static void snap(const Dib* d, const char* to) {   /* to: the file, or NULL for snap_<present>_<ms> */
     if(wd_render_requested()) {
         char path[64];SDL_snprintf(path,sizeof path,"snap_%05u_%06ums.png",g_presents,host_elapsed_ms());
-        wd_render_capture(path);return;
+        wd_render_capture(to ? to : path);return;
     }
     WD_AUDIT_MEMORY(0x004458BBu, d->bits, d->size, 0);
-    char name[64];
-    SDL_snprintf(name, sizeof name, "snap_%05u_%06ums.bmp", g_presents, host_elapsed_ms());
+    char numbered[64];
+    SDL_snprintf(numbered, sizeof numbered, "snap_%05u_%06ums.bmp", g_presents, host_elapsed_ms());
+    const char* name = to ? to : numbered;
     SDL_Surface* s = SDL_CreateSurfaceFrom(d->w, d->h, d->fmt, PTR(d->bits), (int)d->pitch);
     SDL_Surface* c = s ? SDL_ConvertSurface(s, SDL_PIXELFORMAT_BGR24) : NULL;
     if (c && !d->topdown) SDL_FlipSurface(c, SDL_FLIP_VERTICAL);
@@ -174,8 +175,9 @@ static void present_hook(const Dib* d) {
     }
     g_presents++;
     if (g_presents == 1) fprintf(stderr, "[gdi] first present at %u ms\n", host_elapsed_ms());
-    for (int i = 0; i < nsnaps; i++) if (snaps[i] == g_presents) snap(d);
-    if (every && host_elapsed_ms() >= next) { snap(d); next = host_elapsed_ms() + every; }
+    for (int i = 0; i < nsnaps; i++) if (snaps[i] == g_presents) snap(d, NULL);
+    if (every && host_elapsed_ms() >= next) { snap(d, NULL); next = host_elapsed_ms() + every; }
+    { const char* shot = wd_devtools_frame(d->w, d->h); if (shot) snap(d, shot); }
     static long crash_at = -1;
     if (crash_at < 0) { const char* s = host_env("WD_CRASH_AT"); crash_at = s ? atol(s) : 0; }
     if (crash_at && g_presents == (uint32_t)crash_at) *(volatile uint32_t*)PTR(0x25) = 0;

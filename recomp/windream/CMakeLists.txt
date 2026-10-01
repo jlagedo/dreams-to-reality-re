@@ -13,6 +13,22 @@ find_package(SDL3 3.4 REQUIRED CONFIG COMPONENTS SDL3-static)
 include(../render/cmake/Dependencies.cmake)
 include(../render/cmake/Shaders.cmake)
 include(../render/cmake/RenderCore.cmake)
+# The disc library (recomp/disc): the host reads the game from the user's disc
+# images (host/sdl/files.c, winmm.c). Its disc_list tool is not built here.
+add_subdirectory(../disc ${CMAKE_BINARY_DIR}/disc EXCLUDE_FROM_ALL)
+# The launcher (recomp/launcher): disc setup and port settings in a Dear ImGui
+# window. main (host/core/runtime.c, under WD_WITH_LAUNCHER) runs it when the
+# program is started with neither an EXE path nor WD_DISC1, and puts the WD_*
+# pairs it returns into the environment; nothing else in the host knows it.
+option(WD_LAUNCHER "link the launcher and run it from main" ON)
+# The launcher's test-only script and environment variables (launcher/testing.h): on for
+# development builds, never in a release, whatever the cache says (release.py checks).
+if(WD_RELEASE OR EMSCRIPTEN)
+    set(DREAMS_LAUNCHER_TESTING OFF CACHE BOOL "compile the launcher's test script and test-only environment variables" FORCE)
+endif()
+if(WD_LAUNCHER)
+    add_subdirectory(../launcher ${CMAKE_BINARY_DIR}/launcher EXCLUDE_FROM_ALL)
+endif()
 
 # WD_GEN_DIR: lift.py + gen_imports.py output (the game's by default; a
 # difftest program's own directory otherwise).
@@ -110,7 +126,40 @@ check_c_compiler_flag(${WD_FP_CONTRACT_OFF} WD_HAS_FP_CONTRACT_OFF)
 if(WD_HAS_FP_CONTRACT_OFF)
     target_compile_options(windream_recomp PRIVATE ${WD_FP_CONTRACT_OFF})
 endif()
-target_link_libraries(windream_recomp PRIVATE ODGraphics)
+target_link_libraries(windream_recomp PRIVATE ODGraphics dreams_disc)
+if(WD_LAUNCHER)
+    target_link_libraries(windream_recomp PRIVATE dreams_launcher)
+    target_compile_definitions(windream_recomp PRIVATE WD_WITH_LAUNCHER)
+endif()
+# WD_RELEASE (release.py): the executable a user gets. Named DreamsToReality,
+# and on Windows a GUI-subsystem program (no console window; SDL_main.h in
+# runtime.c supplies WinMain) whose stderr and stdout go to log.txt in the user
+# data directory (WD_GUI_LOG). release.py also links the C runtime statically
+# (CMAKE_MSVC_RUNTIME_LIBRARY), so the executable needs no redistributable.
+option(WD_RELEASE "the release executable: DreamsToReality, no console on Windows" OFF)
+if(WD_RELEASE)
+    set_target_properties(windream_recomp PROPERTIES OUTPUT_NAME DreamsToReality)
+    if(WIN32)
+        set_target_properties(windream_recomp PROPERTIES WIN32_EXECUTABLE ON)
+        target_compile_definitions(windream_recomp PRIVATE WD_GUI_LOG)
+    endif()
+endif()
+# WD_DEVTOOLS: the development control channel (devtools/, enabled at run time
+# with WD_CTL; recomp/README.md). The host calls it through devtools/devtools.h
+# alone, whose functions are empty without the WD_DEVTOOLS definition, so
+# leaving it out needs nothing else. A release never has it: WD_RELEASE forces
+# it off whatever the cache says, and release.py checks the executable.
+option(WD_DEVTOOLS "development control channel (WD_CTL); never in a release" ON)
+if(WD_RELEASE OR EMSCRIPTEN)
+    set(WD_DEVTOOLS OFF CACHE BOOL "development control channel (WD_CTL); never in a release" FORCE)
+endif()
+if(WD_DEVTOOLS)
+    target_sources(windream_recomp PRIVATE devtools/devtools.c devtools/ctl_json.c devtools/ctl_net.c)
+    target_compile_definitions(windream_recomp PRIVATE WD_DEVTOOLS)
+    if(WIN32)
+        target_link_libraries(windream_recomp PRIVATE ws2_32)
+    endif()
+endif()
 if(WIN32)
     target_link_libraries(windream_recomp PRIVATE dbghelp)
 elseif(NOT EMSCRIPTEN)

@@ -58,7 +58,11 @@ int      guest_str(uint32_t va, char* out, int cap);  /* copy a guest C string *
 uint32_t wd_image_span(void);
 
 /* files.c */
-void     files_init(const char* exe);
+struct Disc;                                          /* recomp/disc/disc.h */
+int      files_open_discs(void);                      /* 1 disc mode (WD_DISC1, WD_DISC2), 0 legacy, -1 failed (message printed) */
+void*    files_disc_read(int disc, const char* path, size_t* size);   /* a whole file of disc 1 or 2, malloc'd; NULL if absent */
+struct Disc* files_active_disc(int* number, void (*on_switch)(void)); /* NULL in legacy mode; on_switch: called after each change */
+void     files_init(const char* exe);                 /* exe: the legacy read root's file; unused in disc mode */
 void     files_release(int kind, void* host);         /* drop a reference to an HK_FILE or HK_FIND object */
 
 /* kernel.c */
@@ -97,7 +101,7 @@ void     handle_close(uint32_t gh);
 enum { HK_FILE = 1, HK_FIND = 2, HK_STD = 3, HK_MAP = 6 };
 
 /* runtime.c: calling back into lifted code, and synthetic COM methods */
-extern const char* g_wd_exe;                           /* host path of the guest EXE */
+extern const char* g_wd_exe;                           /* host path of the guest EXE; its bare name when it came from disc 1 */
 uint32_t guest_call(uint32_t va, int argc, const uint32_t* args);  /* stdcall into lifted code */
 uint32_t guest_call_regs(uint32_t va, uint32_t eax, uint32_t edx, uint32_t ebx, uint32_t ecx);  /* __watcall */
 #define WD_COM_BASE 0xCD000000u                        /* synthetic COM method VAs */
@@ -110,7 +114,10 @@ uint32_t host_elapsed_ms(void);
 extern int g_wd_quiet;                                 /* WD_QUIET: log message boxes, don't show */
 
 /* dsound.c */
-void     mixer_cd_play(const char* path, int track);   /* NULL path stops */
+/* Play raw 44.1 kHz 16-bit stereo from a host file (UTF-8 path): length bytes
+ * from offset, or to the end of the file when length is 0. NULL path stops.
+ * track and disc (0: none) are for the log. */
+void     mixer_cd_play(const char* path, uint64_t offset, uint64_t length, int track, int disc);
 void     mixer_cd_pause(int paused);
 int      mixer_cd_playing(void);
 

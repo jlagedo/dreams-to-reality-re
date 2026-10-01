@@ -48,7 +48,8 @@ typedef struct {
 static Buf g_buf[MAX_BUF];
 static SDL_Mutex* g_cs;
 static uint32_t g_ds_vtbl, g_dsb_vtbl;
-static FILE* g_cd;
+static SDL_IOStream* g_cd;
+static uint64_t g_cd_left;      /* bytes of the track still to play */
 static int g_cd_paused;
 
 static Buf* buf_of(uint32_t obj) {
@@ -97,15 +98,19 @@ static void mix(int16_t* out, int frames) {
     }
     if (g_cd && !g_cd_paused) {
         static int16_t cd[OUT_FRAMES * 2];
-        size_t got = fread(cd, 4, (size_t)frames, g_cd);
+        size_t want = (size_t)frames * 4;
+        if (want > g_cd_left) want = (size_t)g_cd_left;
+        size_t got = SDL_ReadIO(g_cd, cd, want) / 4;
+        g_cd_left -= got * 4;
         for (size_t f = 0; f < got; f++) { acc[f * 2] += cd[f * 2]; acc[f * 2 + 1] += cd[f * 2 + 1]; }
-        if (got < (size_t)frames) { fclose(g_cd); g_cd = NULL; }
+        if (got < (size_t)frames) { SDL_CloseIO(g_cd); g_cd = NULL; }   /* the end of the track */
     }
     SDL_UnlockMutex(g_cs);
     for (int i = 0; i < frames * 2; i++) {
         int32_t v = acc[i];
         out[i] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
     }
+    wd_devtools_audio(out, frames, OUT_RATE);
 }
 
 static void SDLCALL mixer_feed(void* unused, SDL_AudioStream* stream, int additional, int total) {
@@ -150,13 +155,18 @@ static void mixer_start(void) {
     SDL_SetInitialized(&once, true);
 }
 
-void mixer_cd_play(const char* path, int track) {
+void mixer_cd_play(const char* path, uint64_t offset, uint64_t length, int track, int disc) {
     mixer_start();
-    FILE* f = path ? fopen(path, "rb") : NULL;
-    if (path) fprintf(stderr, "[cd] play track %d%s\n", track, f ? "" : " (cannot open)");
+    SDL_IOStream* f = path ? SDL_IOFromFile(path, "rb") : NULL;
+    if (f && SDL_SeekIO(f, (Sint64)offset, SDL_IO_SEEK_SET) < 0) { SDL_CloseIO(f); f = NULL; }
+    if (path) {
+        char on[16] = "";
+        if (disc) SDL_snprintf(on, sizeof on, " (disc %d)", disc);
+        fprintf(stderr, "[cd] play track %d%s%s\n", track, on, f ? "" : " (cannot open)");
+    }
     SDL_LockMutex(g_cs);
-    if (g_cd) fclose(g_cd);
-    g_cd = f; g_cd_paused = 0;
+    if (g_cd) SDL_CloseIO(g_cd);
+    g_cd = f; g_cd_left = length ? length : UINT64_MAX; g_cd_paused = 0;
     SDL_UnlockMutex(g_cs);
 }
 void mixer_cd_pause(int paused) { mixer_start(); g_cd_paused = paused; }

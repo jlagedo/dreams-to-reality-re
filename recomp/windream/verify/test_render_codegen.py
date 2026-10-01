@@ -234,6 +234,7 @@ def test_host_bridge_access_footprints(vm):
         )
     ]
     sources += recomp_env.vm_sources(recomp_env.HOST, vm)
+    sources += [(path, ["_CRT_SECURE_NO_WARNINGS"]) for path in recomp_env.disc_sources()]
     sources.append((recomp_env.HOST / "render/render_boundary.cpp", []))
     sources.append((Path(__file__).parent / "native" / "render_host_audit_tests.c", []))
     for source, defines in sources:

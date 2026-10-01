@@ -809,7 +809,8 @@ The strings from `+0x03C` onward are 16-byte cells. The decompiled users
 - `+0x138` `i32`: Raw lighting mode. Exact 0/1 branches assign positive/negative biases; 16 occurs in P0/P108 and bypasses those assignments. Actor binding separately uses the non-1 branch for 16; author intent remains unknown.
 - `+0x1C0/+0x1C4/+0x1C8/+0x1CC` `i32`: Glide fog RGB and density input, with water override behavior; see [glide-renderer.md](glide-renderer.md).
 - `+0x1E8/+0x1EC` `i32`: Optional palette contrast strength and material-name filter.
-- `+0x1F8` `i32`: Redbook CD audio track number (matches audio tracks 2..14).
+- `+0x11C` `i32`: CD music playlist, one Redbook track number per byte, of the disc the level is on (`CD_SetPlaylist`; Project0 = 9, Project116 = 2, Project113 = 0). Seen live 2026-10-01, see [install-and-discs.md](install-and-discs.md).
+- `+0x1F8` `i32`: not the CD track, as this page said before: Project0 has 2 here while the game plays track 9. Meaning unknown.
 
 ##### `OBJET` fields (0xC0 bytes) **[verified]**
 Decompiled from `ENT_InstantiateFromObjet` (`0x41deb8`) (entity instantiation) and `DBG_DrawObjectInfo` (`0x416606`) (the engine's developer debug HUD):

@@ -491,7 +491,7 @@ def build(output: Path, host: Path, exe: Path, vm: str = recomp_env.VM_DEFAULT):
         raise RuntimeError("clang-cl unavailable")
     # "win32" stays for a --host tree from before the vm directory.
     includes = [f"/I{host / d}" for d in ("core", "sdl", "win32", "vm", "render", "hooks")]
-    includes += [f"/I{output}", f"/I{sdl / 'include'}"]
+    includes += [f"/I{output}", f"/I{sdl / 'include'}", f"/I{recomp_env.DISC}"]
     common = [compiler, "/nologo", "/Od", "/MD", "/w", "/D_CRT_SECURE_NO_WARNINGS", *includes]
     library = output / "kernel_bridge.dll"
     steps = [
@@ -508,6 +508,9 @@ def build(output: Path, host: Path, exe: Path, vm: str = recomp_env.VM_DEFAULT):
         else:
             plain.append(str(path))
     others = [str(path) for path in sources[len(vm_files) :]]
+    # files.c reads disc images through the disc library (a --host tree from
+    # before that does not use it; linking it anyway is harmless).
+    others += [str(path) for path in recomp_env.disc_sources()]
     steps.append(
         [*common, "/LD", f"/Fe{library}", f"/Fo{output}/",
          str(Path(__file__).parent / "native" / "kernel_bridge_host.c"), *plain, *others,

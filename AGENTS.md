@@ -14,9 +14,12 @@ either builds that or supplies the reverse engineering it depends on.
 | `recomp/windream/lift/` | `lift.py` (`bounds.csv` → `out/recomp/windream/gen/`), `gen_imports.py` (import bridges), `replacements.py`, `render_audit.py`, `render_bulk.py`, `bounds.csv` (from Ghidra, pcrecomp `DumpBounds.java`) |
 | `recomp/windream/host/` | Host runtime by API: `core/` (guest runtime, trace, crash report: `crash_report.c` portable, `crash_win32.c`/`crash_posix.c`/`crash_none.c` per system), `sdl/` (KERNEL32 files, process and threads, USER32, GDI32, WinMM and DirectSound on SDL3), `vm/` (the guest's virtual memory: `vm_win32.c` the original on Windows page state, `vm_ledger.c` the portable one over the `vm_os_*.c` layer, `vm_shadow.c` both compared; chosen with `build.py --vm`), `render/` (GPU renderer adapters, `render_*`), `hooks/` (`phys_hook.c` collision hooks) |
 | `recomp/windream/verify/` | Renderer verification: retail-x86 Unicorn oracles (`render_*_smoke.py`), live isolated runs (`render_*_live_smoke.py`), the acceptance runner (`render_acceptance.py`), `direct_render_validate.py`, `test_render_codegen.py`, the dump reader `mdmp.py`; `kernel_bridge_smoke.py`, the retail-x86 Unicorn oracle for the KERNEL32 bridges; C/C++ tests, oracles and hook hosts in `native/` |
-| `recomp/windream/debug/` | Collision and dump tools: `colliders.py`, `invariant.py`, `replay_sweep.py`, `replay_full.py`, `sortcheck.py`, `x86dis.py`, `flag_hunt.py` |
+| `recomp/windream/debug/` | Collision and dump tools: `colliders.py`, `invariant.py`, `replay_sweep.py`, `replay_full.py`, `sortcheck.py`, `x86dis.py`, `flag_hunt.py`; live control: `wdctl.py` (client and CLI of the control channel), `wd_mcp.py` (MCP server over it, registered in `.mcp.json`), `bank_patch.py` (a modified `DREAMS.DAT` under `out/` to start a new game in any project), `cd_audio_check.py` (aligns a mixer dump with a disc track) |
+| `recomp/windream/devtools/` | Development-only control channel inside the host (`WD_DEVTOOLS`, off in release; inert unless `WD_CTL` is set): keys, wait-until conditions, guest memory, screenshots, pause and step, event log, audio dump. `devtools.h` is the only header the host includes and lists what to delete to remove it |
 | `recomp/windream/build.py`, `run.py`, `CMakeLists.txt` | Build (Ninja, unoptimized; clang-cl on Windows, gcc or clang on Linux) and sandboxed run (scripted keys, snapshots, window and pad options) |
 | `recomp/render/` | GPU renderer: `ODRender` (sokol_gfx core, `direct.*`, shadows, fog) and `ODGraphics` (SDL3 backends), pinned dependencies in `cmake/`, tests in `tests/` |
+| `recomp/disc/` | Disc library (C99, no host or SDL dependency): opens a `.cue`, `.iso` or extracted directory, ISO 9660 lookup and reads, audio track table, SHA-256; `build.py`, the `disc_list` tool |
+| `recomp/launcher/` | Launcher library (Dear ImGui on `SDL_Renderer`, no host or render headers): disc setup and port settings, `dreams.ini`, one entry point returning `WD_*` pairs; `build.py`, `launcher_demo` |
 | `recomp/difftest/` | Differential tests: a Watcom 11.0 test program (`--cc wc106` for 10.6) native vs recompiled (`difftest.py`, `wat.py`, `coverage.py`) |
 | `re/tools/` | `ghidra_import.py` Ghidra project import, `re_checkpoint.py` checkpoint, `ghidra_headless.py` analyzeHeadless wrapper; `lx-loader-watcom.cspec` for the DOS-build LE loader; `match_functions.py` cross-build function matcher; `match_identical.py` byte-identical code shared between binaries (CryoLib in the game); `find_modules.py` source-file blocks; `find_cut.py` link slots where two builds swap code (backend cut); `check_names.py` checks and applies the name registry; `sync_doc_comments.py` copies doc text into Ghidra comments; `fps_limit_launcher.py` starts the retail Windows build with a frame limiter patched in memory |
 | `re/ghidra_scripts/` | Java scripts for Ghidra |
@@ -28,8 +31,8 @@ either builds that or supplies the reverse engineering it depends on.
 | `re/matchdecomp/` | Matching decompilation scripts: `match.py <c> <func_> <va> [--flags "-5r -otexan -s"]` byte-diffs a compiled function against WINDREAM.EXE (defaults: Watcom 11.0 from `DREAMS_WATCOM_COMPILER`, `-5r -d2`); `flagsweep.py`, `cases.txt`, compiler probes, the blind test (`blind/`) |
 | `src/dreams/` | Python support package: `paths.py` (local path settings), `watcom.py`, `formats/` (`lz`, `node`, `project`, `rig`, `scene`: the readers the verification scripts use) |
 | `tests/` | Python tests: `recomp/`, `re/`, `toolkit/` |
-| `docs/specs/` | Recomp plans and status: 000 the recomp, 005 retail debug tools, 006 Windows rendering |
-| `docs/research/` | What is known about the game and its binaries (`re-setup.md` Ghidra workflow, `re-status.md`, `engine.md`, `toolchain.md`, ...); index in `docs/README.md` |
+| `docs/specs/` | Recomp plans and status: 000 the recomp, 005 retail debug tools, 006 Windows rendering, 007 launcher, disc images and user data |
+| `docs/research/` | What is known about the game and its binaries (`re-setup.md` Ghidra workflow, `re-status.md`, `engine.md`, `toolchain.md`, `install-and-discs.md` install, data roots and disc swap, ...); index in `docs/README.md` |
 | `.dreams.example.env` | Template for local path settings |
 | `.dreams.local.env` | Machine paths (gitignored) |
 | `ghidra/` | Local Ghidra project (gitignored) |
@@ -65,6 +68,14 @@ uv run python recomp/windream/build.py
 uv run python recomp/windream/build.py --vm shadow
 uv run python recomp/windream/run.py
 uv run python recomp/windream/run.py --headless --renderer direct --seconds 30
+uv run python recomp/windream/run.py --discs
+uv run python recomp/disc/build.py
+uv run python recomp/launcher/build.py
+uv run python recomp/windream/run.py --discs --headless --ctl --tag play
+uv run python recomp/windream/debug/wdctl.py --run-dir out/recomp/windream/run-play status
+uv run python recomp/windream/debug/bank_patch.py list
+uv run --with pefile python recomp/windream/release.py
+uv run --with mcp --with pillow pytest
 uv run python recomp/windream/verify/direct_render_validate.py --gpu
 uv run --with unicorn --with capstone --with pefile python recomp/windream/verify/kernel_bridge_smoke.py
 uv run --with capstone --with pefile python recomp/difftest/difftest.py t_core --tag od110
@@ -94,7 +105,11 @@ Found by running (Windows, Git Bash tool):
 - Unicorn 2.1.4, 32-bit guest needing `fs:` (TIB) → writing `UC_X86_REG_FS_BASE` is a no-op with a deprecation warning; load a GDT entry instead (`Cpu.set_fs` in `recomp/windream/verify/kernel_bridge_smoke.py`).
 - pcrecomp `analyze_pe()` → returns a `PEInfo` object, not a dict: `analyze_pe(exe).entry_point_rva`.
 - Loading a save in a `--tag` run crashes `GAME_LoadGame` at `memcpy_` (NULL from `DDAT_LoadRecord`), in every `--vm` build → the tag's sandbox starts empty, so the slot list comes from the install root, whose six `game<n>.dat` are foreign 10,364-byte files (retail is 11,388); run untagged, or copy `out/recomp/windream/run/sandbox/CRYO` into the tag's `sandbox/` first.
-- Replaying a save load headless with the thumbnail smoke's key schedule (`...,28000:ESC,30000:LEFT,32000:RETURN,34000:RETURN`) → never opens a save (no `[save] open` line); load by hand in a windowed `run.py` (unverified beyond one attempt).
+- Replaying a save load headless with the thumbnail smoke's key schedule (`...,28000:ESC,30000:LEFT,32000:RETURN,34000:RETURN`) → never opens a save (no `[save] open` line): fixed timings miss the menu states. Drive it through the control channel instead; the working key sequences are helpers in `tests/recomp/test_disc_play.py`.
+- Looking for a Save command in the game → there is none in retail (the system page is Load / Options / Quit); the game autosaves on every level entry.
+- Setting a `WD_*` variable inside the process with `SDL_setenv_unsafe` only → C `getenv` (`host_env`) does not see it on Windows; `main` also calls `_putenv_s`.
+- Starting `windream_recomp.exe` with no arguments and no `WD_DISC1` → opens the launcher window instead of printing usage; pass the EXE path or use `run.py`.
+- Rebuilding while a game from that build directory is still running → the link fails (the executable is locked); stop the run first.
 - `run.py` importing `build.py` → `ModuleNotFoundError: build` when `tests/recomp` load `run.py` via importlib without `recomp/windream` on `sys.path`; shared helpers go in `recomp/recomp_env.py`.
 - clangd "'imports.h' file not found" cascades in `host/` → include-path noise, not errors; syntax-check one file with `clang-cl /c` from a `uv run python -c` snippet using `recomp_env.build_env()`, `recomp_env.host_includes()` and `/I<recomp_env.ensure_sdl3()>/include`.
 - Compiling a POSIX-only host file on this machine → WSL (Debian, gcc 14): `wsl -e sh -c 'cd /mnt/e/dev/dreams && gcc -std=c99 -fsyntax-only -Irecomp/windream/host/core -Irecomp/windream/host/sdl -Irecomp/windream/host/vm -Irecomp/windream/host/render recomp/windream/host/vm/vm_os_posix.c'`.

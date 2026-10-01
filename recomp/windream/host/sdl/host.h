@@ -13,6 +13,7 @@
 #include <SDL3/SDL.h>
 #include "imports.h"
 #include "guest_win32.h"
+#include "../../devtools/devtools.h"   /* development control channel hooks; empty unless built with WD_DEVTOOLS */
 
 /* A file or find object behind a guest handle. Another thread may close the
  * handle while this one uses the object, so users hold a reference

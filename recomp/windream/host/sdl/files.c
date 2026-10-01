@@ -32,9 +32,50 @@
  * (its "." entry), hiding the read roots' files; CREATE_NEW, CREATE_ALWAYS,
  * DeleteFileA and MoveFileA look for an existing file in the sandbox only;
  * SetCurrentDirectoryA accepts a directory that does not exist.
+ *
+ * Disc mode (WD_DISC1 and WD_DISC2 set: each a .cue, .iso or extracted
+ * directory, read through recomp/disc): the read roots are the two discs
+ * instead of directories, and WD_READ_ROOTS and the EXE's directory are not
+ * used. Host-only structure; the guest keeps its retail view of a CD root and
+ * an install root C:\CRYO\DREAMS (docs/research/install-and-discs.md):
+ *   - a read looks in the sandbox, then on the active disc;
+ *   - below CRYO\DREAMS\ it then drops that prefix and looks on the active
+ *     disc and on the other one (DATA\HD.ID, DATA\3DC\DIALOG.DRD which only
+ *     disc 1 has, data\anim\*.HNM, data\replay.bin); but never for a file of
+ *     CRYO\DREAMS\DATA\GAME\, the saves: an install starts with that
+ *     directory empty, and disc 2 carries a leftover GAME.DAT, GAME0.DAT and
+ *     GAME0.ICO there that would show up as the player's own;
+ *   - CRYO\DREAMS\DATA\FULL.ID is never found, not even in the sandbox: disc 1
+ *     has a DATA\FULL.ID, and seeing it at the install root would switch the
+ *     game to its copy-to-hard-disk mode;
+ *   - writes, creates, deletes and moves go to the sandbox, as always.
+ * Disc 1 is active at start. The game asks about discs only by opening
+ * DATA\1CD.ID or DATA\2CD.ID at the CD root (CD_FindDrive, CD_GetDiscNumber,
+ * CD_PromptSwap), and each disc holds only its own marker, so the open
+ * succeeds for the active disc alone; the sandbox is not consulted for them.
+ * Two CreateFileA calls in a row for the other disc's marker are the swap
+ * prompt polling: the second one makes that disc the active one and succeeds
+ * ("[disc] active disc 1 -> 2"). A file already open keeps reading the disc it
+ * was opened on. FindFirstFileA answers from the sandbox, the active disc and,
+ * below CRYO\DREAMS\, the prefix-less directory of the active and the other
+ * disc (not for the saves directory): the first with a match, unmerged as
+ * above. Disc files have no dates (FILETIME 1970-01-01).
+ *
+ *   WD_DISC1, WD_DISC2  the discs (disc mode); both or neither
+ *   WD_DISC_ACTIVE=2    start with disc 2 in the drive (default 1; either disc
+ *                       boots the game, and a new game then asks for disc 1)
+ *   WD_DATA_DIR         the user data directory: the sandbox under its
+ *                       product name; takes the place of WD_WRITE_ROOT
+ *   WD_FILES_LOG=N      log the first N opens (default 200)
+ * These and WD_READ_ROOTS, WD_WRITE_ROOT are read with SDL_getenv, which on
+ * Windows is the Unicode environment as UTF-8 (C getenv gives ANSI code page
+ * bytes): a path with non-ASCII characters works whatever the code page, and
+ * a setter inside the process must use SDL_setenv_unsafe, before the first
+ * file call.
  */
 #define RECOMP_GENERATED_CODE
 #include "host.h"
+#include "disc.h"
 
 #define MAX_ROOTS 4
 #define HOST_PATH 1024               /* host paths; guest paths are at most W32_MAX_PATH */
@@ -43,8 +84,18 @@ static int g_folds[MAX_ROOTS + 1];   /* the root's file system ignores case (san
 static int g_nroots;
 static char g_sandbox[HOST_PATH];
 static char g_cwd[W32_MAX_PATH] = "";   /* guest cwd below C:\, no leading/trailing '\' */
-static int g_log = 200;                 /* log the first N opens */
+static int g_log = 200;                 /* log the first N opens (WD_FILES_LOG) */
 static int g_walk;                      /* WD_FILES_CASE_WALK */
+
+/* Disc mode. A Disc is read-only once open; only the active number and the
+ * marker count change, and guest threads open files concurrently. */
+static Disc* g_disc[3];                 /* [1], [2]: WD_DISC1, WD_DISC2; NULL in legacy mode */
+static SDL_AtomicInt g_active;          /* 1 or 2 */
+static SDL_SpinLock g_marker_lock;
+static int g_marker_miss;               /* the marker (1, 2) whose open just failed, no other open since */
+static int g_log_disc = 200;            /* marker opens and failed install-root opens, logged past g_log */
+static void (*g_on_switch)(void);       /* winmm.c: the CD audio device follows the active disc */
+typedef struct { int disc; const char* path; DiscEntry entry; } DiscHit;   /* disc 0: not on a disc; path: in the caller's rel */
 
 /* An SDL stream is not safe to use from two threads at once, a Win32 handle
  * is: each file's operations take its lock. */
@@ -118,24 +169,180 @@ static int folds_case(const char* directory) {
     return letters && path_type(flipped, NULL) == SDL_PATHTYPE_DIRECTORY;
 }
 
+/* ---- disc mode ---- */
+/* Open the discs. 1: disc mode; 0: WD_DISC1 is unset, the directory read
+ * roots apply; -1: a disc is missing or wrong (the message is printed). */
+int files_open_discs(void) {
+    const char* path[3] = { NULL, SDL_getenv("WD_DISC1"), SDL_getenv("WD_DISC2") };
+    if (g_disc[1]) return 1;
+    if (!path[1] || !*path[1]) return 0;
+    for (int n = 1; n <= 2; n++) {
+        char err[512] = "";
+        Disc* disc = path[n] && *path[n] ? disc_open(path[n], err, sizeof err) : NULL;
+        int number = disc ? disc_number(disc) : 0;
+        if (!path[n] || !*path[n]) fprintf(stderr, "FATAL: WD_DISC1 is set but WD_DISC2 is not: the game needs both discs\n");
+        else if (!disc) fprintf(stderr, "FATAL: WD_DISC%d: cannot open %s: %s\n", n, path[n], err);
+        else if (number != n) fprintf(stderr, "FATAL: WD_DISC%d: %s is not disc %d of the game (DATA\\%dCD.ID %s)\n", n, path[n], n, n,
+                                      number ? "is missing, it holds the other disc's marker" : "is missing");
+        if (number != n) {
+            disc_close(disc); disc_close(g_disc[1]);
+            g_disc[1] = NULL;
+            return -1;
+        }
+        g_disc[n] = disc;
+        fprintf(stderr, "[files] disc %d: %s (%d tracks)\n", n, path[n], disc_track_count(disc));
+    }
+    const char* first = SDL_getenv("WD_DISC_ACTIVE");
+    SDL_SetAtomicInt(&g_active, first && *first == '2' ? 2 : 1);
+    return 1;
+}
+/* A whole file of a disc (1, 2) in a malloc'd block: the guest EXE. */
+void* files_disc_read(int disc, const char* path, size_t* size) {
+    DiscEntry entry;
+    if (disc < 1 || disc > 2 || !g_disc[disc] || !disc_find(g_disc[disc], path, &entry) || entry.is_dir) return NULL;
+    DiscFile* file = disc_file_open(g_disc[disc], &entry);
+    void* data = file ? malloc(entry.size ? (size_t)entry.size : 1) : NULL;
+    if (data && disc_file_read(file, 0, data, (size_t)entry.size) != (int64_t)entry.size) { free(data); data = NULL; }
+    disc_file_close(file);
+    if (data) *size = (size_t)entry.size;
+    return data;
+}
+/* The active disc and its number, NULL in legacy mode; on_switch (when given)
+ * is called after every change of the active disc. */
+Disc* files_active_disc(int* number, void (*on_switch)(void)) {
+    int active = SDL_GetAtomicInt(&g_active);
+    if (on_switch) g_on_switch = on_switch;
+    if (number) *number = g_disc[1] ? active : 0;
+    return g_disc[1] ? g_disc[active] : NULL;
+}
+
+/* 1 or 2 for DATA\1CD.ID and DATA\2CD.ID at the CD root, else 0. */
+static int marker_of(const char* rel) {
+    return !SDL_strcasecmp(rel, "DATA\\1CD.ID") ? 1 : !SDL_strcasecmp(rel, "DATA\\2CD.ID") ? 2 : 0;
+}
+/* rel at or below the install root: what follows it ("" for the root). */
+static const char* below_install(const char* rel) {
+    static const char install[] = "CRYO\\DREAMS";
+    size_t n = sizeof install - 1;
+    if (SDL_strncasecmp(rel, install, n)) return NULL;
+    return rel[n] == '\\' ? rel + n + 1 : rel[n] ? NULL : rel + n;
+}
+/* sub (a path below the install root) is the saves directory (1) or in it (2). */
+static int in_saves(const char* sub) {
+    static const char saves[] = "DATA\\GAME";
+    size_t n = sizeof saves - 1;
+    if (SDL_strncasecmp(sub, saves, n)) return 0;
+    return sub[n] == '\\' ? 2 : sub[n] ? 0 : 1;
+}
+static int full_id(const char* rel) {
+    const char* sub = below_install(rel);
+    return sub && !SDL_strcasecmp(sub, "DATA\\FULL.ID");
+}
+/* Every CreateFileA passes here (marker: marker_of a path opened for reading,
+ * else 0). The second of two opens in a row of the other disc's marker is the
+ * swap prompt's poll: that disc becomes the active one. */
+static void disc_note_open(int marker) {
+    int from = 0;
+    SDL_LockSpinlock(&g_marker_lock);
+    int active = SDL_GetAtomicInt(&g_active);
+    if (!marker || marker == active) g_marker_miss = 0;
+    else if (g_marker_miss != marker) g_marker_miss = marker;
+    else { g_marker_miss = 0; from = active; SDL_SetAtomicInt(&g_active, marker); }
+    SDL_UnlockSpinlock(&g_marker_lock);
+    if (from) {
+        fprintf(stderr, "[disc] active disc %d -> %d\n", from, marker);
+        if (g_on_switch) g_on_switch();
+    }
+}
+/* rel on the active disc, or for a path below the install root on either
+ * (the saves are the sandbox's alone). */
+static int disc_lookup(const char* rel, DiscHit* hit) {
+    int active = SDL_GetAtomicInt(&g_active);
+    const char* sub = below_install(rel);
+    if (sub && in_saves(sub) == 2) sub = NULL;
+    hit->disc = 0;
+    if (disc_find(g_disc[active], rel, &hit->entry)) { hit->disc = active; hit->path = rel; }
+    for (int k = 0; sub && !hit->disc && k < 2; k++) {
+        int n = k ? 3 - active : active;
+        if (disc_find(g_disc[n], sub, &hit->entry)) { hit->disc = n; hit->path = sub; }
+    }
+    return hit->disc;
+}
+static void disc_name(int disc, const char* path, char* out) {   /* "disc1:DATA/1CD.ID", for the log */
+    SDL_snprintf(out, HOST_PATH, "disc%d:%s", disc, path);
+    slashes(out);
+}
+
+/* A disc file as an SDL stream: its own DiscFile, so its own host file position. */
+typedef struct { DiscFile* file; Sint64 size, pos; } DiscStream;
+static Sint64 SDLCALL disc_io_size(void* userdata) { return ((DiscStream*)userdata)->size; }
+static Sint64 SDLCALL disc_io_seek(void* userdata, Sint64 offset, SDL_IOWhence whence) {
+    DiscStream* s = (DiscStream*)userdata;
+    Sint64 base = whence == SDL_IO_SEEK_SET ? 0 : whence == SDL_IO_SEEK_CUR ? s->pos : s->size;
+    if (base + offset < 0) { SDL_SetError("seek before the start of the file"); return -1; }
+    return s->pos = base + offset;                 /* past the end is allowed, as for a Win32 file */
+}
+static size_t SDLCALL disc_io_read(void* userdata, void* ptr, size_t size, SDL_IOStatus* status) {
+    DiscStream* s = (DiscStream*)userdata;
+    int64_t got = s->pos < s->size ? disc_file_read(s->file, (uint64_t)s->pos, ptr, size) : 0;
+    if (got < 0) { *status = SDL_IO_STATUS_ERROR; return 0; }
+    if ((size_t)got < size) *status = SDL_IO_STATUS_EOF;
+    s->pos += got;
+    return (size_t)got;
+}
+static bool SDLCALL disc_io_close(void* userdata) {
+    disc_file_close(((DiscStream*)userdata)->file);
+    SDL_free(userdata);
+    return true;
+}
+static SDL_IOStream* disc_io(const DiscHit* hit) {
+    SDL_IOStreamInterface iface;
+    DiscFile* file = disc_file_open(g_disc[hit->disc], &hit->entry);
+    if (!file) return NULL;
+    DiscStream* s = (DiscStream*)SDL_calloc(1, sizeof *s);
+    s->file = file; s->size = (Sint64)hit->entry.size;
+    SDL_INIT_INTERFACE(&iface);
+    iface.size = disc_io_size; iface.seek = disc_io_seek; iface.read = disc_io_read; iface.close = disc_io_close;
+    SDL_IOStream* io = SDL_OpenIO(&iface, s);
+    if (!io) disc_io_close(s);
+    return io;
+}
+/* Copy a disc file to a host path (a file opened for update is seeded in the sandbox). */
+static void disc_copy_out(const DiscHit* hit, const char* out) {
+    SDL_IOStream* from = disc_io(hit);
+    SDL_IOStream* to = from ? SDL_IOFromFile(out, "wb") : NULL;
+    size_t size = 65536;
+    char* block = (char*)SDL_malloc(size);
+    for (size_t n; to && block && (n = SDL_ReadIO(from, block, size)) > 0;)
+        if (SDL_WriteIO(to, block, n) != n) break;
+    SDL_free(block);
+    if (to) SDL_CloseIO(to);
+    if (from) SDL_CloseIO(from);
+}
+
 void files_init(const char* exe) {
     char dir[HOST_PATH];
-    absolute(exe, dir);
-    char* s = strrchr(dir, '/');
-    if (s) *s = 0;
-    SDL_strlcpy(g_roots[g_nroots++], dir, HOST_PATH);
-    const char* extra = SDL_getenv("WD_READ_ROOTS");
-    if (extra) {
-        char tmp[4 * HOST_PATH]; char* ctx = NULL;
-        SDL_strlcpy(tmp, extra, sizeof tmp);
-        for (char* t = SDL_strtok_r(tmp, ";", &ctx); t && g_nroots < MAX_ROOTS; t = SDL_strtok_r(NULL, ";", &ctx))
-            absolute(t, g_roots[g_nroots++]);
+    if (!g_disc[1]) {
+        absolute(exe, dir);
+        char* s = strrchr(dir, '/');
+        if (s) *s = 0;
+        SDL_strlcpy(g_roots[g_nroots++], dir, HOST_PATH);
+        const char* extra = SDL_getenv("WD_READ_ROOTS");
+        if (extra) {
+            char tmp[4 * HOST_PATH]; char* ctx = NULL;
+            SDL_strlcpy(tmp, extra, sizeof tmp);
+            for (char* t = SDL_strtok_r(tmp, ";", &ctx); t && g_nroots < MAX_ROOTS; t = SDL_strtok_r(NULL, ";", &ctx))
+                absolute(t, g_roots[g_nroots++]);
+        }
     }
-    const char* w = SDL_getenv("WD_WRITE_ROOT");
+    const char* w = SDL_getenv("WD_DATA_DIR");
+    if (!w || !*w) w = SDL_getenv("WD_WRITE_ROOT");
     absolute(w && *w ? w : "sandbox", g_sandbox);
     SDL_CreateDirectory(g_sandbox);
     const char* walk = SDL_getenv("WD_FILES_CASE_WALK");
     g_walk = walk && *walk && *walk != '0';
+    const char* budget = SDL_getenv("WD_FILES_LOG");
+    if (budget && *budget) g_log = SDL_atoi(budget);
     for (int i = 0; i < g_nroots; i++) {
         g_folds[i] = folds_case(g_roots[i]);
         fprintf(stderr, "[files] read root %d: %s\n", i, g_roots[i]);
@@ -237,11 +444,47 @@ static SDL_PathType locate(const char* root, const char* rel, char* out, SDL_Pat
 
 /* Resolve for reading: sandbox copy wins, then the read roots in order. When
  * nothing is found, out and *error are those of the first read root. */
-static SDL_PathType resolve_read(const char* rel, char* out, SDL_PathInfo* info, uint32_t* error) {
+static SDL_PathType resolve_read_disc(const char* rel, char* out, SDL_PathInfo* info, uint32_t* error, DiscHit* hit);
+static SDL_PathType resolve_read(const char* rel, char* out, SDL_PathInfo* info, uint32_t* error, DiscHit* hit) {
+    if (hit) hit->disc = 0;
+    if (g_disc[1]) return resolve_read_disc(rel, out, info, error, hit);
     SDL_PathType type = locate(g_sandbox, rel, out, info, error);
     for (int i = 0; type == SDL_PATHTYPE_NONE && i < g_nroots; i++)
         type = locate(g_roots[i], rel, out, info, error);
     if (type == SDL_PATHTYPE_NONE) locate(g_roots[0], rel, out, info, error);
+    return type;
+}
+/* The same in disc mode: the sandbox copy wins (but a disc marker is the
+ * active disc's alone and FULL.ID at the install root is never there), then
+ * the discs. *hit says which disc has it; out is then a name for the log, not
+ * a host path. When nothing is found, out and *error are the active disc's. */
+static SDL_PathType resolve_read_disc(const char* rel, char* out, SDL_PathInfo* info, uint32_t* error, DiscHit* hit) {
+    SDL_PathInfo local_info;
+    DiscHit local_hit;
+    uint32_t err = 0;
+    int hidden = full_id(rel);
+    if (!info) info = &local_info;
+    if (!hit) hit = &local_hit;
+    hit->disc = 0;
+    SDL_PathType type = hidden || marker_of(rel) ? SDL_PATHTYPE_NONE : locate(g_sandbox, rel, out, info, &err);
+    if (type == SDL_PATHTYPE_NONE && !hidden && disc_lookup(rel, hit)) {
+        SDL_zerop(info);
+        info->type = type = hit->entry.is_dir ? SDL_PATHTYPE_DIRECTORY : SDL_PATHTYPE_FILE;
+        info->size = hit->entry.size;
+        disc_name(hit->disc, hit->path, out);
+        err = 0;
+    } else if (type == SDL_PATHTYPE_NONE) {
+        /* the name is missing if its directory is on a disc or in the sandbox, else the path is */
+        char parent[W32_MAX_PATH];
+        DiscHit dir;
+        SDL_strlcpy(parent, rel, sizeof parent);
+        char* leaf = strrchr(parent, '\\');
+        if (leaf) *leaf = 0; else parent[0] = 0;
+        if (err != W32_ERROR_FILE_NOT_FOUND)
+            err = disc_lookup(parent, &dir) && dir.entry.is_dir ? W32_ERROR_FILE_NOT_FOUND : W32_ERROR_PATH_NOT_FOUND;
+        disc_name(SDL_GetAtomicInt(&g_active), rel, out);
+    }
+    if (error) *error = err;
     return type;
 }
 /* Resolve for writing: always the sandbox, parents created; seed it from a
@@ -254,7 +497,10 @@ static SDL_PathType resolve_write(const char* rel, char* out, int keep, SDL_Path
     if (leaf) { *leaf = 0; SDL_CreateDirectory(out); *leaf = '/'; }
     if (keep) {
         char src[HOST_PATH];
-        if (resolve_read(rel, src, NULL, NULL) == SDL_PATHTYPE_FILE) SDL_CopyFile(src, out);
+        DiscHit hit;
+        if (resolve_read(rel, src, NULL, NULL, &hit) == SDL_PATHTYPE_FILE) {
+            if (hit.disc) disc_copy_out(&hit, out); else SDL_CopyFile(src, out);
+        }
     }
     type = path_type(out, info);
     if (error) *error = type == SDL_PATHTYPE_NONE ? W32_ERROR_FILE_NOT_FOUND : 0;
@@ -268,9 +514,11 @@ void imp_CreateFileA(void) {  /* (name, access, share, sa, disposition, flags, t
     uint32_t access = ARG(1), disp = ARG(4), error = 0;
     int write = (access & W32_GENERIC_WRITE) || disp == W32_CREATE_ALWAYS || disp == W32_CREATE_NEW ||
                 disp == W32_TRUNCATE_EXISTING || disp == W32_OPEN_ALWAYS;
+    DiscHit hit = { 0 };
+    if (g_disc[1]) disc_note_open(write ? 0 : marker_of(rel));
     SDL_PathType type = write
         ? resolve_write(rel, host, disp == W32_OPEN_EXISTING || disp == W32_OPEN_ALWAYS, NULL, &error)
-        : resolve_read(rel, host, NULL, &error);
+        : resolve_read(rel, host, NULL, &error, &hit);
     int exists = type != SDL_PATHTYPE_NONE;
     const char* mode = NULL;
     if (type == SDL_PATHTYPE_DIRECTORY) error = W32_ERROR_ACCESS_DENIED;
@@ -295,7 +543,7 @@ void imp_CreateFileA(void) {  /* (name, access, share, sa, disposition, flags, t
     }
     uint32_t gh = W32_INVALID_HANDLE_VALUE;
     if (mode) {
-        SDL_IOStream* io = SDL_IOFromFile(host, mode);
+        SDL_IOStream* io = hit.disc ? disc_io(&hit) : SDL_IOFromFile(host, mode);
         if (io) {
             File* f = (File*)SDL_calloc(1, sizeof *f);
             SDL_SetAtomicInt(&f->object.refs, 1);
@@ -307,7 +555,7 @@ void imp_CreateFileA(void) {  /* (name, access, share, sa, disposition, flags, t
             SDL_UnlockSpinlock(&g_open_lock);
             gh = handle_new(f, HK_FILE);
             if (!gh) { files_release(HK_FILE, f); gh = W32_INVALID_HANDLE_VALUE; error = W32_ERROR_TOO_MANY_OPEN_FILES; }
-        } else if (file_is_open(host)) {
+        } else if (!hit.disc && file_is_open(host)) {
             /* Not limited by the open-log budget: this is the evidence that
              * the guest relies on a share mode SDL does not give it. */
             fprintf(stderr, "[files] open \"%s\" refused: the guest already has it open (share modes are SDL's)\n", rel);
@@ -327,9 +575,17 @@ void imp_CreateFileA(void) {  /* (name, access, share, sa, disposition, flags, t
     }
     // Save/reload acceptance must remain observable after asset loads exhaust
     // the general 200-open log budget. Emit exactly one successful save event.
-    if (save && gh != W32_INVALID_HANDLE_VALUE)
+    /* In disc mode the marker opens (the disc questions) and what the install
+     * root lacks stay visible after that budget too, within their own. */
+    int failed = gh == W32_INVALID_HANDLE_VALUE;
+    int disc_event = g_disc[1] && !write && (marker_of(rel) || (failed && below_install(rel)));
+    if (save && !failed)
         fprintf(stderr, "[save] open %s \"%s\" -> %s\n", write ? "W" : "R", rel, host);
-    else if (g_log > 0) { g_log--; fprintf(stderr, "[files] open %s \"%s\" -> %s%s\n", write ? "W" : "R", rel, host, gh == W32_INVALID_HANDLE_VALUE ? " (FAILED)" : ""); }
+    else if (g_log > 0 || (disc_event && g_log_disc > 0)) {
+        if (g_log > 0) g_log--; else g_log_disc--;
+        fprintf(stderr, "[files] open %s \"%s\" -> %s%s\n", write ? "W" : "R", rel, host, failed ? " (FAILED)" : "");
+    }
+    wd_devtools_file_open(rel, host, write, !failed);
     RET(gh); STDRET(7);
 }
 void imp_ReadFile(void) {  /* (h, buf, n, *read, overlapped) */
@@ -430,7 +686,7 @@ void imp_GetFileAttributesA(void) {
     uint32_t error = 0;
     GUEST_REL(ARG(0), rel, W32_INVALID_FILE_ATTRIBUTES, 1)
     if (!rel[0]) { RET(W32_FILE_ATTRIBUTE_DIRECTORY); STDRET(1); return; }
-    SDL_PathType type = resolve_read(rel, host, NULL, &error);
+    SDL_PathType type = resolve_read(rel, host, NULL, &error, NULL);
     if (type == SDL_PATHTYPE_NONE) g_last_error = error;
     RET(type == SDL_PATHTYPE_NONE ? W32_INVALID_FILE_ATTRIBUTES : attributes_of(type)); STDRET(1);
 }
@@ -514,17 +770,30 @@ static int dos_match(const char* p, const char* n) {
 }
 
 typedef struct { Find* find; const char* expression; int capacity; } FindSearch;
-static void find_add(FindSearch* search, const char* name, const char* path) {
+/* The next entry to fill, or NULL for a name the guest's buffer cannot hold. */
+static FindEntry* find_slot(FindSearch* search, const char* name) {
     Find* find = search->find;
-    if (strlen(name) >= W32_MAX_PATH) return;
+    if (strlen(name) >= W32_MAX_PATH) return NULL;
     if (find->count == search->capacity) {
         search->capacity = search->capacity ? search->capacity * 2 : 16;
         find->entries = (FindEntry*)SDL_realloc(find->entries, (size_t)search->capacity * sizeof(FindEntry));
     }
-    FindEntry* entry = &find->entries[find->count];
-    if (path_type(path, &entry->info) == SDL_PATHTYPE_NONE) return;
+    return &find->entries[find->count];
+}
+static void find_add(FindSearch* search, const char* name, const char* path) {
+    FindEntry* entry = find_slot(search, name);
+    if (!entry || path_type(path, &entry->info) == SDL_PATHTYPE_NONE) return;
     strcpy(entry->name, name);
-    find->count++;
+    search->find->count++;
+}
+static void find_add_disc(FindSearch* search, const char* name, const DiscEntry* from) {
+    FindEntry* entry = find_slot(search, name);
+    if (!entry) return;
+    SDL_zero(entry->info);
+    entry->info.type = from->is_dir ? SDL_PATHTYPE_DIRECTORY : SDL_PATHTYPE_FILE;
+    entry->info.size = from->size;
+    strcpy(entry->name, name);
+    search->find->count++;
 }
 static SDL_EnumerationResult SDLCALL find_seen(void* userdata, const char* dirname, const char* fname) {
     FindSearch* search = (FindSearch*)userdata;
@@ -544,19 +813,18 @@ static int find_order(const void* a, const void* b) {   /* by upper-cased name, 
         if (d || !*x) return d;
     }
 }
-/* The entries of one root's directory that match, or NULL with the Win32 error. */
-static Find* find_in(const char* root, const char* dir, const char* expression, uint32_t* error) {
-    char host[HOST_PATH];
-    if (locate(root, dir, host, NULL, NULL) != SDL_PATHTYPE_DIRECTORY) { *error = W32_ERROR_PATH_NOT_FOUND; return NULL; }
-    Find* find = (Find*)SDL_calloc(1, sizeof *find);
-    SDL_SetAtomicInt(&find->object.refs, 1);
-    FindSearch search = { find, expression, 0 };
-    SDL_EnumerateDirectory(host, find_seen, &search);
+/* Order what a directory gave and put its "." and ".." ahead of the names (the
+ * directory is a host path or a disc entry). NULL with the Win32 error when
+ * nothing matched. */
+static Find* find_finish(FindSearch* search, const char* host, const DiscEntry* on_disc, uint32_t* error) {
+    Find* find = search->find;
     SDL_qsort(find->entries, (size_t)find->count, sizeof(FindEntry), find_order);
-    if (dos_match(expression, "")) {               /* "." and "..", ahead of the names */
+    if (dos_match(search->expression, "")) {
         int names = find->count;
-        find_add(&search, ".", host);
-        find_add(&search, "..", host);
+        for (int k = 0; k < 2; k++) {
+            if (host) find_add(search, k ? ".." : ".", host);
+            else find_add_disc(search, k ? ".." : ".", on_disc);
+        }
         int dots = find->count - names;
         if (dots) {
             FindEntry* moved = (FindEntry*)SDL_malloc((size_t)find->count * sizeof(FindEntry));
@@ -570,6 +838,28 @@ static Find* find_in(const char* root, const char* dir, const char* expression, 
     files_release(HK_FIND, find);
     *error = W32_ERROR_FILE_NOT_FOUND;
     return NULL;
+}
+/* The entries of one root's directory that match, or NULL with the Win32 error. */
+static Find* find_in(const char* root, const char* dir, const char* expression, uint32_t* error) {
+    char host[HOST_PATH];
+    if (locate(root, dir, host, NULL, NULL) != SDL_PATHTYPE_DIRECTORY) { *error = W32_ERROR_PATH_NOT_FOUND; return NULL; }
+    Find* find = (Find*)SDL_calloc(1, sizeof *find);
+    SDL_SetAtomicInt(&find->object.refs, 1);
+    FindSearch search = { find, expression, 0 };
+    SDL_EnumerateDirectory(host, find_seen, &search);
+    return find_finish(&search, host, NULL, error);
+}
+/* The same for a directory of a disc. */
+static Find* find_on_disc(int disc, const char* dir, const char* expression, uint32_t* error) {
+    DiscEntry in, entry;
+    if (!disc_find(g_disc[disc], dir, &in) || !in.is_dir) { *error = W32_ERROR_PATH_NOT_FOUND; return NULL; }
+    Find* find = (Find*)SDL_calloc(1, sizeof *find);
+    SDL_SetAtomicInt(&find->object.refs, 1);
+    FindSearch search = { find, expression, 0 };
+    for (int i = 0, n = disc_dir_count(g_disc[disc], &in); i < n; i++)
+        if (disc_dir_entry(g_disc[disc], &in, i, &entry) && dos_match(expression, entry.name))
+            find_add_disc(&search, entry.name, &entry);
+    return find_finish(&search, NULL, &in, error);
 }
 /* WIN32_FIND_DATAA holds no pointers: 320 bytes, same layout on every host. */
 static void find_write(uint32_t va, const FindEntry* entry) {
@@ -598,6 +888,15 @@ void imp_FindFirstFileA(void) {
     uint32_t error = 0;
     Find* find = find_in(g_sandbox, dir, expression, &error);
     for (int i = 0; !find && i < g_nroots; i++) find = find_in(g_roots[i], dir, expression, &error);
+    if (g_disc[1]) {
+        /* Disc mode: the active disc, then for a directory of the install
+         * root the same directory at the root of the active and the other disc. */
+        int active = SDL_GetAtomicInt(&g_active);
+        const char* sub = below_install(dir);
+        if (sub && in_saves(sub)) sub = NULL;
+        if (!find) find = find_on_disc(active, dir, expression, &error);
+        for (int k = 0; sub && !find && k < 2; k++) find = find_on_disc(k ? 3 - active : active, sub, expression, &error);
+    }
     if (g_log > 0) { g_log--; fprintf(stderr, "[files] find \"%s\"%s\n", rel, find ? "" : " (none)"); }
     if (!find) { g_last_error = error; RET(W32_INVALID_HANDLE_VALUE); STDRET(2); return; }
     uint32_t gh = handle_new(find, HK_FIND);

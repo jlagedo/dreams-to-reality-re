@@ -30,6 +30,10 @@ LIFT = WINDREAM / "lift"
 # (GPU renderer adapters) and hooks (diagnostics).
 HOST = WINDREAM / "host"
 HOST_DIRS = [HOST / name for name in ("core", "sdl", "vm", "render", "hooks")]
+# The disc library the host's file and CD bridges read the game through
+# (host/sdl/files.c and winmm.c include disc.h): whatever compiles those needs
+# its include directory and links its sources.
+DISC = RECOMP / "disc"
 VM_CHOICES = ("win32", "ledger", "shadow")
 VM_DEFAULT = "ledger"  # the implementation plain build.py / run.py use (CMakeLists.txt WD_VM)
 
@@ -76,8 +80,14 @@ def vm_sources(host: Path, vm: str) -> list[tuple[Path, list[str]]]:
 def host_includes() -> list[str]:
     """One /I option per host source directory, in the clang-cl and cl
     spelling: only the Windows-only verify scripts use it (CMake has its own
-    list)."""
-    return [f"/I{d}" for d in HOST_DIRS]
+    list). The disc library's directory is included: files.c needs disc.h."""
+    return [f"/I{d}" for d in [*HOST_DIRS, DISC]]
+
+
+def disc_sources() -> list[Path]:
+    """The disc library's sources, for a build that compiles host/sdl/files.c
+    without CMake (the verify hosts; CMake links the dreams_disc target)."""
+    return [DISC / name for name in ("cue.c", "image.c", "plat.c", "sha256.c")]
 
 
 def out_dir(*parts: str) -> Path:
@@ -135,7 +145,7 @@ def _compilers(*, cxx: bool = False) -> list[str]:
     return ["-DCMAKE_C_COMPILER=clang-cl"] + (["-DCMAKE_CXX_COMPILER=clang-cl"] if cxx else [])
 
 
-def ensure_sdl3() -> Path:
+def ensure_sdl3(*, static_crt: bool = False) -> Path:
     """Install prefix of a static SDL3 release build, built on first use.
 
     The pinned source (the SDL3 URL in
@@ -145,6 +155,10 @@ def ensure_sdl3() -> Path:
     and install are <commit>/build and <commit>/install on Windows and
     <commit>/<sys.platform>/build and .../install elsewhere, so that Windows
     and WSL can use one DREAMS_OUT.
+
+    static_crt (Windows; release.py): a second build with the C runtime linked
+    statically (/MT), in build-mt and install-mt, for an executable that needs
+    no Visual C++ redistributable. Everything linked with it must be /MT too.
     """
     deps = RECOMP / "render" / "cmake" / "Dependencies.cmake"
     m = re.search(r"FetchContent_Declare\(SDL3\s+URL\s+(\S+)", deps.read_text())
@@ -153,7 +167,8 @@ def ensure_sdl3() -> Path:
     url = m.group(1)
     root = out_dir("sdl3", url.rstrip("/").rsplit("/", 1)[-1][:12])
     host = root if sys.platform == "win32" else root / sys.platform
-    build, install = host / "build", host / "install"
+    mt = "-mt" if static_crt and sys.platform == "win32" else ""
+    build, install = host / f"build{mt}", host / f"install{mt}"
     stamp = install / "built-from.txt"
     if stamp.is_file() and stamp.read_text().strip() == url:
         return install
@@ -183,6 +198,7 @@ def ensure_sdl3() -> Path:
     subprocess.run(
         [cmake, "--fresh", "-S", str(top), "-B", str(build), "-G", "Ninja",
          "-DCMAKE_BUILD_TYPE=Release", *_compilers(cxx=True), f"-DCMAKE_INSTALL_PREFIX={install}",
+         *(["-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded"] if mt else []),
          "-DSDL_STATIC=ON", "-DSDL_SHARED=OFF", "-DSDL_TESTS=OFF", "-DSDL_EXAMPLES=OFF"],
         env=env, check=True, stdout=subprocess.DEVNULL,
     )  # fmt: skip
@@ -201,22 +217,34 @@ def configure_and_build(
     quiet: bool = False,
     render_audit: bool = False,
     vm: str = VM_DEFAULT,
+    release: bool = False,
+    optimize: bool = False,
 ) -> int:
     """Configure (from scratch when the build dir belongs to another source
     tree) and build windream_recomp with Ninja: clang-cl on Windows, the
-    default compiler (cc, c++) elsewhere. Returns the exit code of the build."""
+    default compiler (cc, c++) elsewhere. Returns the exit code of the build.
+
+    release (release.py) is the executable a user gets: WD_RELEASE in
+    CMakeLists.txt (named DreamsToReality; on Windows no console and a log
+    file) and, on Windows, the C runtime linked statically. It has the
+    development build's compiler flags unless optimize asks for CMake's
+    Release build type, which this project has never verified."""
     if vm != "ledger" and sys.platform != "win32":
         sys.exit(f"--vm {vm} is Windows only (host/vm/vm_win32.c); use ledger")
-    sdl3 = ensure_sdl3()
+    sdl3 = ensure_sdl3(static_crt=release)
     env = build_env()
     cmake = _cmake(env)
+    static_crt = release and sys.platform == "win32"
     cache = build / "CMakeCache.txt"
     home = f"CMAKE_HOME_DIRECTORY:INTERNAL={WINDREAM.as_posix()}"
     same = cache.is_file() and home in cache.read_text(errors="replace")
     fresh = [] if same and (build / "build.ninja").is_file() else ["--fresh"]
     subprocess.run(
         [cmake, *fresh, "-S", str(WINDREAM), "-B", str(build), "-G", "Ninja",
-         "-DCMAKE_BUILD_TYPE=", *_compilers(cxx=True), f"-DCMAKE_PREFIX_PATH={sdl3}",
+         f"-DCMAKE_BUILD_TYPE={'Release' if optimize else ''}",
+         *_compilers(cxx=True), f"-DCMAKE_PREFIX_PATH={sdl3}",
+         *(["-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded"] if static_crt else []),
+         f"-DWD_RELEASE={'ON' if release else 'OFF'}",
          f"-DWD_GEN_DIR={gen}",
          f"-DWD_TRACE={'ON' if trace else 'OFF'}",
          f"-DWD_RENDER_AUDIT={'ON' if render_audit else 'OFF'}",
@@ -232,13 +260,20 @@ def configure_and_build(
 
 
 def build_dir(
-    out: Path, *, trace: bool = False, render_audit: bool = False, vm: str = VM_DEFAULT
+    out: Path,
+    *,
+    trace: bool = False,
+    render_audit: bool = False,
+    vm: str = VM_DEFAULT,
+    release: bool = False,
 ) -> Path:
     """The windream build directory of one configuration: build, build-trace,
     build-audit, and -vm-<impl> appended for an implementation other than the
-    default (build.py writes it, run.py picks the executable from it). Off
-    Windows the host comes last (build-linux, build-trace-darwin)."""
+    default (build.py writes it, run.py picks the executable from it), and
+    build-release for release.py. Off Windows the host comes last (build-linux,
+    build-trace-darwin)."""
     name = "build" + ("-trace" if trace else "") + ("-audit" if render_audit else "")
+    name += "-release" if release else ""
     if vm != VM_DEFAULT:
         name += f"-vm-{vm}"
     return out / (name + platform_suffix())
