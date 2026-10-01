@@ -54,9 +54,9 @@ updates, source-buffer swaps, audio and presentation timing remain lifted.
 ## Verification and remaining acceptance
 
 ```powershell
-uv run --with unicorn python recomp/windream/debug/render_movie_smoke.py
+uv run --with unicorn python recomp/windream/verify/render_movie_smoke.py
 # When the Windows GPU validation slot is free:
-uv run --with unicorn python recomp/windream/debug/render_movie_smoke.py --gpu
+uv run --with unicorn python recomp/windream/verify/render_movie_smoke.py --gpu
 ```
 
 The oracle executes original x86 from two independent retail dumps with

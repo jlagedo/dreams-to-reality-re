@@ -118,7 +118,7 @@ class Objet:
 @dataclass
 class Box:
     name: str
-    kind: int  #: BOX +0xF0; traced kinds 0..9 are listed in docs/file-formats.md.
+    kind: int  #: BOX +0xF0; traced kinds 0..9 are listed in docs/research/file-formats.md.
     points: list[Vec]
 
 

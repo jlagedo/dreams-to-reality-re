@@ -236,8 +236,8 @@ conversion during the integer blend would also change the result.
 ## Smoke tests and results
 
 Sources:
-[`render_2d_smoke.py`](../../../recomp/windream/debug/render_2d_smoke.py) and
-[`render_2d_gpu_smoke.cpp`](../../../recomp/windream/debug/render_2d_gpu_smoke.cpp).
+[`render_2d_smoke.py`](../../../recomp/windream/verify/render_2d_smoke.py) and
+[`render_2d_gpu_smoke.cpp`](../../../recomp/windream/verify/native/render_2d_gpu_smoke.cpp).
 Original x86 runs in Unicorn, using retail-process memory for code, palettes
 and descriptors plus controlled scratch destinations. Original lock/unlock
 are replaced by no-ops (no pixel work in the tested GDI path). Original
@@ -302,8 +302,8 @@ captures, demonstrating why interleaved checkpoints are necessary.
 Run from the repository root:
 
 ```powershell
-uv run --with unicorn python recomp/windream/debug/render_2d_smoke.py --gpu
-uv run --with unicorn python recomp/windream/debug/render_2d_smoke.py --gpu --tag long-capture --dump out/scratch/retail-gdidream-223423.dmp
+uv run --with unicorn python recomp/windream/verify/render_2d_smoke.py --gpu
+uv run --with unicorn python recomp/windream/verify/render_2d_smoke.py --gpu --tag long-capture --dump out/scratch/retail-gdidream-223423.dmp
 ```
 
 The native GPU portion requires Windows clang-cl and the existing pinned

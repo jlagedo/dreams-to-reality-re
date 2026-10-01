@@ -5,8 +5,10 @@ usage: python replay_full.py <dump> <arena-hex> <collider-hex> <axis> [realmallo
 
 import struct
 import sys
+from pathlib import Path
 
-from mdmp import Dump
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "verify"))
+from mdmp import Dump  # noqa: E402
 from unicorn import UC_ARCH_X86, UC_HOOK_CODE, UC_MODE_32, Uc, UcError
 from unicorn.x86_const import (
     UC_X86_REG_EAX,

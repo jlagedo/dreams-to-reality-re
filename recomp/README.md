@@ -1,9 +1,10 @@
-# Static recompilation experiment
+# The recomp
 
-The hand-written half of spec 000 (`docs/specs/000-the-recomp/spec.md`): lift
-`GDIDREAM.EXE` to C with [pcrecomp](https://github.com/sp00nznet/pcrecomp)'s
-`lift32`, build it against hand-written Win32 shims and run it; and test the
-lifter on small Watcom programs run natively and recompiled.
+Lift `GDIDREAM.EXE` to C with [pcrecomp](https://github.com/sp00nznet/pcrecomp)'s
+`lift32`, build it against a hand-written host runtime and GPU renderer, and
+run it; and test the lifter on small Watcom programs run natively and
+recompiled. Background and results: `docs/specs/000-the-recomp/spec.md`;
+rendering: `docs/specs/006-recomp-glide-renderer/spec.md`.
 
 Only hand-written sources live here. Everything they produce is game-derived or
 bulky and goes under `DREAMS_OUT\recomp` (by default the repository's
@@ -16,11 +17,11 @@ sandboxes, crash dumps and the difftest work directories.
   scripts were last run against commit `1f49cea`.
 - `DREAMS_DISC1` (the exe), `DREAMS_INSTALL_ROOT` (the retail `CRYO\DREAMS`
   tree the game reads), `DREAMS_GHIDRA_ROOT` and the Watcom settings, as in
-  `dev/paths.example.env`.
+  `.dreams.example.env`.
 - Visual Studio with clang-cl, CMake and Ninja (found through `vswhere` and
   `vcvarsall.bat`; elsewhere, from `PATH`).
 - SDL3 for the window, input and sound. The first build downloads the source
-  pinned in `opendreams/cmake/Dependencies.cmake` and builds a static release
+  pinned in `recomp/render/cmake/Dependencies.cmake` and builds a static release
   library once into `out\recomp\sdl3\<commit>`, which every recomp and
   difftest build then shares.
 - The USER32, GDI32, WinMM and DirectSound bridges run on SDL3 and build
@@ -33,8 +34,8 @@ sandboxes, crash dumps and the difftest work directories.
 From the repository root:
 
 ```sh
-uv run --with capstone --with pefile python recomp/windream/lift.py          # gen/ + lift-report.json
-uv run --with capstone --with pefile python recomp/windream/gen_imports.py   # gen/imports_gen.c
+uv run --with capstone --with pefile python recomp/windream/lift/lift.py          # gen/ + lift-report.json
+uv run --with capstone --with pefile python recomp/windream/lift/gen_imports.py   # gen/imports_gen.c
 uv run python recomp/windream/build.py        # out/recomp/windream/build (unoptimized)
 uv run python recomp/windream/run.py          # play; logs and dumps in out/recomp/windream/run
 uv run python recomp/windream/run.py --mute --renderer direct --seconds 30 # silent unattended run
@@ -49,7 +50,7 @@ uv run --with capstone --with pefile python recomp/difftest/difftest.py t_core -
 
 ## Playing
 
-The game polls the keyboard as it did on Windows (`docs/engine.md`, "Input"):
+The game polls the keyboard as it did on Windows (`docs/research/engine.md`, "Input"):
 the arrows move, Ctrl jumps or kicks, Alt punches, Space switches to combat,
 1 to 3 pre-select magic, Esc opens the menu, and holding F10 shows the
 controls. The window pauses the game when it loses focus, as the original
@@ -62,13 +63,13 @@ does. F11 toggles fullscreen; the game sees F11 too.
 | `--filter` | `WD_FILTER` | `pixelart` | Scaling: `pixelart` (sharp, even pixels), `nearest` or `linear` |
 | `--pad` | `WD_PAD` | `winmm` | Gamepads: `winmm` shows them as WinMM joysticks (press J in game), `keys` makes them press keys, `off` ignores them |
 | `--deadzone IN,OUT` | `WD_DEADZONE` | `10,95` | Scaled radial deadzone for sticks and triggers, percent of full deflection: below IN reads centred, past OUT reads full |
-| `--fps N` | `WD_FPS` | 25 | Present cap; above 30 the original physics breaks (`docs/running.md`) |
+| `--fps N` | `WD_FPS` | 25 | Present cap; above 30 the original physics breaks (`docs/research/running.md`) |
 | `--mute` | `WD_MUTE` | off | Open no audio device; keep mixing on a timer so sound/CD cursors and completion polling still advance |
 | `--headless` | `WD_HEADLESS` | off | Keep the SDL window hidden, run muted, and enable scripted input while reporting focus |
 
 With `--pad keys`, the stick and d-pad are the arrows, A is Ctrl, X is Alt,
 Y is Space, B is Down, LB, RB and LT are 1, 2 and 3, and Start is Esc: the
-layout in `docs/running.md`. Back is Return, for the menus. In `winmm` mode a
+layout in `docs/research/running.md`. Back is Return, for the menus. In `winmm` mode a
 pad looks like an XInput pad does to WinMM on Windows (X/Y the left stick,
 POV the d-pad, buttons A B X Y LB RB Back Start LS RS as 1 to 10). The game
 reads only X, Y and the buttons, and it takes the stick position at start as
@@ -78,25 +79,32 @@ the centre, so leave the stick alone while the game starts.
 
 | Path | What |
 |---|---|
-| `recomp_env.py` | Shared paths (output root, pcrecomp), the build environment (Visual Studio via vcvarsall on Windows), the shared SDL3 build, configure + build |
-| `windream/lift.py` | `bounds.csv` → `gen/`: lift32 plus the lifter fixes this game needed (flags at block starts, patched immediates, `push label; ret`, x87 and narrow mul/div), diagnostic `HOOKS` and `PROBES`, and `CALLS` (runtime calls inserted before an instruction, such as the editor draw of spec 005) |
-| `windream/bounds.csv` | Function bounds exported from Ghidra with pcrecomp's `DumpBounds.java` |
-| `windream/gen_imports.py` | One bridge per import; stubs for those no `runtime/*.c` implements |
-| `windream/runtime/` | Host runtime. `user.c`, `gdi.c`, `winmm.c` and `dsound.c` emulate USER32, GDI32, WinMM and DirectSound on SDL3 (`host.h`); `guest_win32.h` holds the guest's Win32 constants and 32-bit layouts, which `win32_abi_check.c` checks against the SDK. `kernel.c`, `files.c`, `threads.c` and `vm.c` are KERNEL32 on Win32; `phys_hook.c` collision hooks; `crash_report.c` crash report and minidumps |
-| `windream/debug/` | Full-dump readers, the collision invariant, Unicorn replay of one `PHYS_SweepAxis` call, `x86dis.py`, `flag_hunt.py` (unwritten debug flags, address-copy scan) |
+| `recomp_env.py` | Shared paths (output root, pcrecomp, `LIFT`, `HOST`, `HOST_DIRS`), the build environment (Visual Studio via vcvarsall on Windows), the shared SDL3 build, configure + build |
+| `windream/lift/lift.py` | `bounds.csv` → `gen/`: lift32 plus the lifter fixes this game needed (flags at block starts, patched immediates, `push label; ret`, x87 and narrow mul/div), diagnostic `HOOKS` and `PROBES`, and `CALLS` (runtime calls inserted before an instruction, such as the editor draw of spec 005) |
+| `windream/lift/bounds.csv` | Function bounds exported from Ghidra with pcrecomp's `DumpBounds.java` |
+| `windream/lift/gen_imports.py` | One bridge per import; stubs for those no `host/*/*.c` implements |
+| `windream/lift/replacements.py`, `render_audit.py`, `render_bulk.py` | Generated entry wrappers for the renderer boundary, guest-memory probes and GPU-aware bulk transfers |
+| `windream/host/core/` | Guest runtime (`runtime.c`), function-entry trace, crash report and minidumps, `recomp_types.h`, `imports.h` |
+| `windream/host/sdl/` | `user.c`, `gdi.c`, `winmm.c` and `dsound.c` emulate USER32, GDI32, WinMM and DirectSound on SDL3 (`host.h`); `guest_win32.h` holds the guest's Win32 constants and 32-bit layouts, which `win32_abi_check.c` checks against the SDK |
+| `windream/host/win32/` | `kernel.c`, `files.c`, `threads.c` and `vm.c`: KERNEL32 on Win32, the part to replace for other systems |
+| `windream/host/render/` | Adapters between the lifted game and the GPU renderer: boundary and surface ownership, scene capture and draw, UI, movies, live frame, metrics, hooks |
+| `windream/host/hooks/` | `phys_hook.c` collision hooks |
+| `windream/verify/` | Renderer verification: retail-x86 oracles (`render_*_smoke.py`), live isolated runs (`render_*_live_smoke.py`, project and thumbnail smokes), `render_acceptance.py`, `render_content_inventory.py`, `direct_render_validate.py`, `test_render_codegen.py`, and the dump reader `mdmp.py`. The scripts import each other by name, so they share one directory; their C/C++ sources are in `native/` |
+| `windream/debug/` | Collision and dump tools: the collision invariant, Unicorn replay of one `PHYS_SweepAxis` call, `x86dis.py`, `flag_hunt.py` (unwritten debug flags, address-copy scan) |
 | `windream/CMakeLists.txt`, `build.py`, `run.py` | Build (clang-cl + Ninja) and sandboxed run (scripted keys, snapshots, fps cap, window, pad and dump modes) |
+| `render/` | GPU renderer: `ODRender` (sokol_gfx core: `direct.*`, shadows, fog) and `ODGraphics` (SDL3 backends for D3D11, Metal, OpenGL); pinned dependencies and shader generation in `cmake/`; tests in `tests/` |
 | `difftest/` | `difftest.py` (compile with Watcom, bounds with Ghidra cached per source/flags/compiler, lift, build, run, diff), `wat.py`, the test programs `t_core.c` and `t_switch.c`, `gen_insn.py` (generates `t_insn.c` into the work root), `coverage.py`, `flagdiff.py`, `consumers.py`, `map2bounds.py` |
 
 ## Renderer-boundary smokes
 
-`windream/debug/render_smoke.py` replays original x86 on full retail-process
+`windream/verify/render_smoke.py` replays original x86 on full retail-process
 dumps, checking the proposed modern renderer cut against the original front
 end. `--lifted` also compiles an isolated replacement-wrapper experiment from
 the current generated functions; `--gpu` tests offscreen sokol/D3D11 depth,
 orientation and RGB565 readback. Neither changes the production recomp.
 
 ```sh
-uv run --with unicorn python recomp/windream/debug/render_smoke.py --lifted --gpu out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
+uv run --with unicorn python recomp/windream/verify/render_smoke.py --lifted --gpu out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
 ```
 
 The input dumps are local game-derived artifacts, not repository fixtures.
@@ -109,7 +117,7 @@ state. See [the design and measured limits](../docs/specs/006-recomp-glide-rende
 The second boundary has its own pixel oracle and integer GPU compositor:
 
 ```sh
-uv run --with unicorn python recomp/windream/debug/render_2d_smoke.py --gpu
+uv run --with unicorn python recomp/windream/verify/render_2d_smoke.py --gpu
 ```
 
 It uses a local retail dump (`--dump`) and an existing decoded movie frame
@@ -129,10 +137,10 @@ game defaults to software rendering. `run.py --renderer direct` runs the tested
 first-scene GPU path, including HUD and introductory dialogue. Full R0–R4 gates
 remain open. See [implementation status](../docs/specs/006-recomp-glide-renderer/implementation.md).
 
-Build and check the shared core without the viewer, loaders or ImGui:
+Build and check the renderer core on its own:
 
 ```powershell
-uv run python recomp/windream/debug/direct_render_validate.py --gpu `
+uv run python recomp/windream/verify/direct_render_validate.py --gpu `
   --fixtures out/recomp/render-2d-smoke `
   --fixtures out/recomp/render-2d-smoke/long-capture
 ```
@@ -151,14 +159,14 @@ notes, not evidence that every framebuffer access has been intercepted.
 `run.py --capture-scene` captures original scene inputs on the first full-sized
 3D frame to `DREAMS_OUT/recomp/windream/run/direct-scene.wds`. It is a diagnostic
 observer: the original frame still renders in software. The native adapter can
-also run against independent retail dumps with `debug/render_scene_smoke.py`;
+also run against independent retail dumps with `verify/render_scene_smoke.py`;
 `WDSceneGpuTests` renders those packets at native and widescreen sizes with
 diagnostic primitive colours. Commands and limitations are in the implementation
 record above.
 
 ## pcrecomp
 
-pcrecomp is MIT-licensed (`LICENSE-pcrecomp`). `runtime/crash_report.c`,
+pcrecomp is MIT-licensed (`LICENSE-pcrecomp`). `host/core/crash_report.c`,
 `crash_report.h`, `recomp_trace.c`, `recomp_trace.h` and `recomp_types.h` are
 adapted from its `runtime/recomp32`; `lift.py` and `gen_imports.py` import its
 `tools/lift` and `tools/pe` modules from the clone.

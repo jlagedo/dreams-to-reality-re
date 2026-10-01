@@ -8,7 +8,7 @@ architectural choices in this archive are not current requirements.
 
 Status: **Exploration; modernized GPU 3D + GPU 2D is the target, no production integration.**
 `DREAMS.EXE` imported into Ghidra;
-the three builds compared with `tools/find_cut.py`; the cut tabulated; how 2D
+the three builds compared with `re/tools/find_cut.py`; the cut tabulated; how 2D
 is drawn over 3D traced in the retail code and the Glide 2 source; options for
 2D composition, look, platforms and where the renderer lives surveyed, with
 external practice. No game renderer implemented. Isolated CPU/GPU smoke tests
@@ -16,10 +16,10 @@ now exercise the earlier 3D boundary and a second GPU 2D boundary (linked below)
 Remaining choices are listed under "Open questions".
 Date: 2026-09-29
 Depends on: [000 the recomp](../000-the-recomp/spec.md),
-[glide-renderer.md](../../glide-renderer.md),
-[glide-call-inventory.md](../../glide-call-inventory.md),
-[engine.md](../../engine.md) ("Renderer backends", "Presentation and 2D"),
-[north-star.md](../../north-star.md)
+[glide-renderer.md](../../research/glide-renderer.md),
+[glide-call-inventory.md](../../research/glide-call-inventory.md),
+[engine.md](../../research/engine.md) ("Renderer backends", "Presentation and 2D"),
+north-star.md
 
 Follow-up: [modern renderer boundary](modern-cut.md) traces the earlier
 function cluster needed for smooth projection and widescreen. It identifies
@@ -64,7 +64,7 @@ unoptimized `-d2` code allows.
 
 Like the rest of the recomp (spec 000), this is a research instrument. A
 running implementation of the Glide contract inside the original game would
-give OpenDreams a behavioural reference. [north-star.md](../../north-star.md)
+give OpenDreams a behavioural reference. north-star.md
 rejects the Glide cut **for OpenDreams** because it keeps 4:3, the original FOV
 and 640×480 culling. That limit also applies to a recomp using only the late
 Glide hook. The modern 3D boundary moves before culling/projection, and the 2D
@@ -72,12 +72,12 @@ boundary makes GPU composition possible without a routine scene download.
 
 ## Method **[verified]**
 
-1. `DREAMS.EXE` imported with the LE loader (`tools/ghidra_import.py
+1. `DREAMS.EXE` imported with the LE loader (`re/tools/ghidra_import.py
    --binaries …\DREAMS.EXE`, 57 s of auto-analysis). `ApplyWatcomSigs.java
    …\sigs\dreams.csv` named 284 runtime functions and labelled 2, with none
    unmapped. `ExportFunctionFeatures.java` exported 1,536 functions.
    `DREAMSFX.EXE` was re-exported (1,566 functions).
-2. `tools/match_functions.py` on the three pairs:
+2. `re/tools/match_functions.py` on the three pairs:
 
    | Pair | Functions | Matched | Identical masked code |
    |---|---|---:|---:|
@@ -85,7 +85,7 @@ boundary makes GPU composition possible without a routine scene download.
    | `DREAMS` ↔ `WINDREAM` | 1,536 / 1,944 | 692 | 262 |
    | `DREAMSFX` ↔ `WINDREAM` | 1,566 / 1,944 | 636 | 95 |
 
-3. `tools/find_cut.py DREAMS.EXE DREAMSFX.EXE --third WINDREAM.EXE`:
+3. `re/tools/find_cut.py DREAMS.EXE DREAMSFX.EXE --third WINDREAM.EXE`:
    - **Link slots.** Watcom links each file's functions in source order. The
      longest run of matched pairs that are in the same order in both builds
      (1,322 of 1,341) therefore anchors the link order. Unmatched code between
@@ -230,7 +230,7 @@ From the Glide 2 source (`E:/tools/src/glide`, `glide2x/sst1`):
 - A lock idles the chip unless `GR_LFB_NOIDLE` is passed (`glfb.c:151`).
 - Dreams takes no read lock. `grLfbLock` is called only from
   `GLIDE_LockBackBuffer`, write-only, back buffer
-  ([glide-call-inventory.md](../../glide-call-inventory.md)).
+  ([glide-call-inventory.md](../../research/glide-call-inventory.md)).
 
 So on a Voodoo 1 the Glide build's blends would read the **front** buffer,
 which holds the previous finished frame. Translucent 2D would blend against
@@ -386,7 +386,7 @@ The web target's larger problems are in the recomp runtime, not the renderer
    675,000 lines of generated C would be costly; running the game in a worker
    (`-sPROXY_TO_PTHREAD`) with an OffscreenCanvas would let it block, which
    also makes synchronous `readPixels` usable.
-2. The game uses threads (`runtime/threads.c`); wasm threads need
+2. The game uses threads (`host/win32/threads.c`); wasm threads need
    `SharedArrayBuffer`, hence COOP/COEP headers.
 3. Guest memory is one arena at `g_mem_base` (16 MB plus a 768 MB heap,
    `runtime/imports.h:30-35`). Portable and within wasm32, but committed up
@@ -442,7 +442,7 @@ None is scheduled. Which apply depends on the open questions.
   original return/register contract and shared scratch state used by retained
   neighbours; pixel parity alone is insufficient.
 - **R1 — present through sokol.** Replace the SDL texture present in
-  `runtime/gdi.c` with a sokol pass that draws the RAM frame.
+  `host/sdl/gdi.c` with a sokol pass that draws the RAM frame.
 - **R2 — renderer.** Placement A: Glide on sokol (the 35 calls). Placement B:
   the factored ODShared renderer with a C API.
 - **R3 — scene.** Replace `REND_DrawFrame`/`…Ex` (slot 6) at the Windows
@@ -519,7 +519,7 @@ None is scheduled. Which apply depends on the open questions.
 
 | Path | Content |
 |---|---|
-| `tools/find_cut.py` | Link-slot alignment, modified-caller and edge report for two builds, with an optional third |
+| `re/tools/find_cut.py` | Link-slot alignment, modified-caller and edge report for two builds, with an optional third |
 | `out/ghidra/features/DREAMS.EXE.json` | Feature dump of the DOS software build |
 | `out/ghidra/match/DREAMS.EXE--{DREAMSFX,WINDREAM}.EXE.tsv` | Pairwise matches |
 | `out/ghidra/cut/` | `find_cut.py` output; `decomp/` holds the decompilations read (`dreams-video.txt`, `dreamsfx-video.txt`, `dreamsfx-2d.txt`) |

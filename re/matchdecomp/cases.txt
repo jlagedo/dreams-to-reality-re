@@ -1,0 +1,7 @@
+copyvec3 MATH_CopyVec3_ 45bb84
+negvec3 MATH_NegateVec3_ 45b9b0
+addvec3 MATH_AddVec3_ 45b968
+subvec3 MATH_SubVec3_ 45b98c
+dotvec3 MATH_DotVec3_ 45ba10
+identmat3 MATH_SetIdentityMat3_ 45b154
+mulmat3vec3 MATH_MulMat3Vec3_ 45b928

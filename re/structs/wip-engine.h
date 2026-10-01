@@ -1,5 +1,5 @@
 /* Original July 1997 DREAMSFX.EXE Watcom type layouts.
- * Extracted with tools/watcom_types.py; docs/wip-editor-discovery.md.
+ * Extracted with re/tools/watcom_types.py; docs/research/wip-editor-discovery.md.
  * Original member names and offsets; external pointees remain opaque void *.
  * These are demo types, not replacements for retail layouts. */
 #pragma pack(push, 1)

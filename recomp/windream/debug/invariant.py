@@ -5,8 +5,10 @@ usage: python invariant.py <dump> <arena-hex>
 
 import struct
 import sys
+from pathlib import Path
 
-from mdmp import Dump
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "verify"))
+from mdmp import Dump  # noqa: E402
 
 d = Dump(sys.argv[1], int(sys.argv[2], 16))
 

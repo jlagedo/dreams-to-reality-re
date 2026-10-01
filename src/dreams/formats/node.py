@@ -82,7 +82,7 @@ UV_SCALE = 65536 * ATLAS
 def glide_wrap(primitive_type: int) -> bool | None:
     """Glide block sampling: True repeats, False clamps, None is unspecified.
 
-    DREAMSFX 0x67568/0x68128; see docs/glide-renderer.md. This is the hardware
+    DREAMSFX 0x67568/0x68128; see docs/research/glide-renderer.md. This is the hardware
     contract, not a claim about each software rasterizer's address arithmetic.
     """
     if primitive_type in (-7, -6, -5, -4, -3, 9):

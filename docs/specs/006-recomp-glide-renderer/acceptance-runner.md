@@ -5,8 +5,8 @@
 Run inventory and bounded checks from the repository root:
 
 ```powershell
-uv run python recomp/windream/debug/render_acceptance.py --inventory
-uv run python recomp/windream/debug/render_acceptance.py --run first-scene-native --run first-scene-wide --run resize
+uv run python recomp/windream/verify/render_acceptance.py --inventory
+uv run python recomp/windream/verify/render_acceptance.py --run first-scene-native --run first-scene-wide --run resize
 ```
 
 Build the audit executable once before running. The runner performs no builds and runs scenarios serially. Reports live in a unique `DREAMS_OUT/recomp/acceptance/<session>` directory; each child has a unique run/save sandbox. Inventory lists configured original-disc assets and the documented project/scene mapping. It does not claim every asset is loaded or exercised.
@@ -27,9 +27,9 @@ run is a measurement sample, not whole-game performance acceptance.
 Focused closure checks:
 
 ```powershell
-uv run --with unicorn python recomp/windream/debug/render_line_smoke.py --hook --gpu
-uv run --with unicorn python recomp/windream/debug/render_light_live_smoke.py --oriented --gouraud --callback
-uv run python recomp/windream/debug/render_thumbnail_smoke.py --reload-count 10 --snap-ms 0
+uv run --with unicorn python recomp/windream/verify/render_line_smoke.py --hook --gpu
+uv run --with unicorn python recomp/windream/verify/render_light_live_smoke.py --oriented --gouraud --callback
+uv run python recomp/windream/verify/render_thumbnail_smoke.py --reload-count 10 --snap-ms 0
 ```
 
 The callback check uses controlled lighting and the existing editor callback.

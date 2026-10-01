@@ -26,8 +26,8 @@ Local reproducibility artifacts are under `out/re-gap-pass-20260926/`:
   of their checked-in symbol exports.
 
 These ignored files contain binary-derived working evidence; the current
-conclusions are maintained in `docs/glide-renderer.md`, `docs/lighting.md` and
-`docs/scene-placement.md`. No authored game asset is included in this record.
+conclusions are maintained in `docs/research/glide-renderer.md`, `docs/research/lighting.md` and
+`docs/research/scene-placement.md`. No authored game asset is included in this record.
 
 ## Accepted naming evidence
 

@@ -305,9 +305,9 @@ of a naturally occurring Gouraud asset. Its report is
 `DREAMS_OUT/recomp/windream/run-direct-oriented-gouraud-light/results.json`.
 
 ```powershell
-uv run python recomp/windream/debug/direct_render_validate.py --gpu
-uv run --with unicorn python recomp/windream/debug/render_gouraud_light_smoke.py
-uv run --with unicorn python recomp/windream/debug/render_light_live_smoke.py --oriented --gouraud
+uv run python recomp/windream/verify/direct_render_validate.py --gpu
+uv run --with unicorn python recomp/windream/verify/render_gouraud_light_smoke.py
+uv run --with unicorn python recomp/windream/verify/render_light_live_smoke.py --oriented --gouraud
 ```
 
 ### Environment mapping and UV-version checkpoint
@@ -354,9 +354,9 @@ frame-callback sequencing, clip-generated metadata and broader allocation/alias
 closure. Shaded callbacks still fail explicitly pending their timing proof.
 
 ```powershell
-uv run python recomp/windream/debug/direct_render_validate.py --gpu
-uv run --with unicorn python recomp/windream/debug/render_environment_smoke.py
-uv run --with unicorn python recomp/windream/debug/render_environment_live_smoke.py
+uv run python recomp/windream/verify/direct_render_validate.py --gpu
+uv run --with unicorn python recomp/windream/verify/render_environment_smoke.py
+uv run --with unicorn python recomp/windream/verify/render_environment_live_smoke.py
 uv run python recomp/windream/run.py --headless --renderer direct --render-audit --seconds 30 --keys 2000:ESC,5000:RETURN,8000:ESC,20000:ESC
 ```
 
@@ -419,7 +419,7 @@ differences can be accepted with comparison evidence. Other backend execution
 is later work. This fixture alone does not establish the full Windows R2 gate.
 
 ```powershell
-uv run --with unicorn python recomp/windream/debug/render_shadow_smoke.py --require-parity
+uv run --with unicorn python recomp/windream/verify/render_shadow_smoke.py --require-parity
 uv run python recomp/windream/run.py --renderer direct --render-audit `
   --headless --tag shadow-quantized --seconds 45 --poke 0x4a3168=1 `
   --keys 2000:ESC,5000:RETURN,8000:ESC,20000:ESC --snap-ms 10000
@@ -451,11 +451,11 @@ pixels including other UI operations); full ABI and edge footprints remain open.
 
 ```powershell
 uv run python recomp/windream/build.py --render-audit
-uv run python recomp/windream/debug/render_thumbnail_smoke.py
+uv run python recomp/windream/verify/render_thumbnail_smoke.py
 # Also load the just-created save, then resume the first scene.
-uv run python recomp/windream/debug/render_thumbnail_smoke.py --load
-uv run python recomp/windream/debug/direct_render_validate.py --gpu
-uv run --with unicorn python recomp/windream/debug/render_ui_smoke.py
+uv run python recomp/windream/verify/render_thumbnail_smoke.py --load
+uv run python recomp/windream/verify/direct_render_validate.py --gpu
+uv run --with unicorn python recomp/windream/verify/render_ui_smoke.py
 ```
 
 The live thumbnail smoke deliberately changes the child process's project
@@ -503,8 +503,8 @@ flags and all other helper-side-effect closure remain unproven. Malformed
 descriptors and stores outside a registered allocation remain explicit failures.
 
 ```powershell
-uv run python recomp/windream/debug/direct_render_validate.py --gpu
-uv run --with unicorn python recomp/windream/debug/render_ui_smoke.py
+uv run python recomp/windream/verify/direct_render_validate.py --gpu
+uv run --with unicorn python recomp/windream/verify/render_ui_smoke.py
 ```
 
 The new command kind `OD_DRAW_LOOKUP` takes a generation-checked immutable R32UI
@@ -545,8 +545,8 @@ diagnostics, and geometry becoming visible only in the Hor+ frustum. Math tests
 also cover near/side-plane crossings and invalid inputs.
 
 ```powershell
-uv run --with unicorn python recomp/windream/debug/render_scene_mode_smoke.py
-uv run python recomp/windream/debug/direct_render_validate.py --gpu
+uv run --with unicorn python recomp/windream/verify/render_scene_mode_smoke.py
+uv run python recomp/windream/verify/direct_render_validate.py --gpu
 ```
 
 **Still partial:** retail near-plane clipping can expand its temporary face list;
@@ -592,10 +592,10 @@ state; WDS1/2 remain readable with fog disabled. New tests check WDS3 round-trip
 64 depth knots, 63 interpolants, disabled fog, alpha order and unfogged UI.
 
 ```powershell
-uv run --with unicorn python recomp/windream/debug/render_fog_smoke.py
-uv run python recomp/windream/debug/render_fog_live_smoke.py
-uv run python recomp/windream/debug/direct_render_validate.py --gpu
-uv run --with capstone --with pefile python recomp/windream/lift.py
+uv run --with unicorn python recomp/windream/verify/render_fog_smoke.py
+uv run python recomp/windream/verify/render_fog_live_smoke.py
+uv run python recomp/windream/verify/direct_render_validate.py --gpu
+uv run --with capstone --with pefile python recomp/windream/lift/lift.py
 uv run python recomp/windream/build.py --render-audit
 ```
 
@@ -712,11 +712,11 @@ An 18-second strict-audit first-scene run also produces a live WDS4 capture unde
 not evidence of live per-object lighting support.
 
 ```powershell
-uv run python recomp/windream/debug/direct_render_validate.py --gpu
-uv run --with unicorn python recomp/windream/debug/render_light_smoke.py
-uv run --with unicorn python recomp/windream/debug/render_light_live_smoke.py
-uv run --with unicorn python recomp/windream/debug/render_scene_mode_smoke.py
-uv run --with unicorn python recomp/windream/debug/render_scene_smoke.py out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
+uv run python recomp/windream/verify/direct_render_validate.py --gpu
+uv run --with unicorn python recomp/windream/verify/render_light_smoke.py
+uv run --with unicorn python recomp/windream/verify/render_light_live_smoke.py
+uv run --with unicorn python recomp/windream/verify/render_scene_mode_smoke.py
+uv run --with unicorn python recomp/windream/verify/render_scene_smoke.py out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
 ```
 
 `prepare_scene_lighting` (originally `prepare_radial_lighting`) runs for supported textured nodes. It composes
@@ -838,7 +838,7 @@ classification. Required development/debug modes remain genuine coverage work.
 Reproducible standalone build, without ODShared or ImGui:
 
 ```powershell
-uv run python recomp/windream/debug/direct_render_validate.py --gpu `
+uv run python recomp/windream/verify/direct_render_validate.py --gpu `
   --fixtures out/recomp/render-2d-smoke `
   --fixtures out/recomp/render-2d-smoke/long-capture
 ```
@@ -881,12 +881,12 @@ Other backend shader generation is not evidence of backend execution.
 Rebuild/replay and audit commands:
 
 ```powershell
-uv run --with capstone --with pefile python recomp/windream/lift.py
+uv run --with capstone --with pefile python recomp/windream/lift/lift.py
 uv run python recomp/windream/build.py
 uv run python recomp/windream/build.py --render-audit
 uv run python recomp/windream/run.py --render-audit --seconds 30 `
   --keys 2000:ESC,5000:RETURN,8000:ESC --snap-ms 10000
-uv run --with unicorn python recomp/windream/debug/render_smoke.py --lifted `
+uv run --with unicorn python recomp/windream/verify/render_smoke.py --lifted `
   out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
 uv run python tools/check_port_map.py
 ```
@@ -933,8 +933,8 @@ The source adapter retains material slots, face normals and signed UVs for the
 next integration work; it never uses old visible lists as geometry input.
 
 ```powershell
-uv run python recomp/windream/debug/direct_render_validate.py
-uv run --with unicorn python recomp/windream/debug/render_scene_smoke.py `
+uv run python recomp/windream/verify/direct_render_validate.py
+uv run --with unicorn python recomp/windream/verify/render_scene_smoke.py `
   out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
 uv run python recomp/windream/run.py --capture-scene --seconds 30 `
   --keys 2000:ESC,5000:RETURN,8000:ESC

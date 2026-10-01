@@ -4,7 +4,7 @@
 address	prototype	flags	evidence
 004044fa	void f(unsigned int track)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 004045a5	void f(void)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-0040464f	void f(void)	-5r -d2	blind 24-function test, docs/toolchain.md step 6; exact only under -d2
+0040464f	void f(void)	-5r -d2	blind 24-function test, docs/research/toolchain.md step 6; exact only under -d2
 00408816	void f(void)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0040887b	void f(void)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 004088fd	char f(void)	-5r -od	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
@@ -13,7 +13,7 @@ address	prototype	flags	evidence
 004093f0	int f(int handle, void *buf, unsigned int size)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0040985e	int f(int handle)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00409d27	void f(void *actor)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-0040ebee	void f(void)	-5r -od	blind 24-function test, docs/toolchain.md step 6
+0040ebee	void f(void)	-5r -od	blind 24-function test, docs/research/toolchain.md step 6
 0040f3aa	int f(void)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0040fc1f	int f(char *name)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0040ffb2	void f(void)	-5r -od	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
@@ -46,9 +46,9 @@ address	prototype	flags	evidence
 004178fe	int f(char *name, void *dest)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00417a07	int f(char *name, char *buf)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00417d78	void f(unsigned char *src, int page, int tile)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-00419141	void f(int a)	-5r -od	blind 24-function test, docs/toolchain.md step 6
+00419141	void f(int a)	-5r -od	blind 24-function test, docs/research/toolchain.md step 6
 0041ae72	void f(void)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-0041be45	void f(void)	-5r -od	blind 24-function test, docs/toolchain.md step 6
+0041be45	void f(void)	-5r -od	blind 24-function test, docs/research/toolchain.md step 6
 0041d581	void f(void *ent)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0041ec38	void f(void *ent)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00424f7e	void f(void)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
@@ -60,14 +60,14 @@ address	prototype	flags	evidence
 00426340	void f(void)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0042639d	int f(signed char id)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 004263d9	void f(int arg)	-5r -od	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-00426751	void f(void)	-5r -od	blind 24-function test, docs/toolchain.md step 6
+00426751	void f(void)	-5r -od	blind 24-function test, docs/research/toolchain.md step 6
 00426ee8	void f(int bank)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00426f6f	void f(void)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00427217	int f(char *name, int *bank, int *index)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 004285be	char * f(void)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-004285e9	char * f(void)	-5r -od -d2	blind 24-function test, docs/toolchain.md step 6; port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
+004285e9	char * f(void)	-5r -od -d2	blind 24-function test, docs/research/toolchain.md step 6; port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0042a448	void f(void)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-0042b770	void f(void)	-5r -od	blind 24-function test, docs/toolchain.md step 6
+0042b770	void f(void)	-5r -od	blind 24-function test, docs/research/toolchain.md step 6
 0042c414	void f(void)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0042d824	void f(void)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0042d96d	int f(char *name)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
@@ -81,8 +81,8 @@ address	prototype	flags	evidence
 0042f024	void f(void)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0042f166	void f(void)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00430cd3	void f(int *done)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-0043123a	void f(void)	-5r -od	blind 24-function test, docs/toolchain.md step 6
-0043141c	void f(void)	-5r -od	blind 24-function test, docs/toolchain.md step 6
+0043123a	void f(void)	-5r -od	blind 24-function test, docs/research/toolchain.md step 6
+0043141c	void f(void)	-5r -od	blind 24-function test, docs/research/toolchain.md step 6
 00435ea0	void f(void)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00437aa2	int f(int save)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0043a9ef	void f(unsigned int tracks)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
@@ -93,22 +93,22 @@ address	prototype	flags	evidence
 0043ad40	void f(char *name)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0043aefc	void f(void)	-5r -od	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0043af27	int f(char *name)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-00442028	void f(void * obj)	-5r -od	blind 24-function test, docs/toolchain.md step 6
-00443279	int f(void * a, void * b)	-5r -od	blind 24-function test, docs/toolchain.md step 6
-00445bf2	void f(void)	-5r -d2	blind 24-function test, docs/toolchain.md step 6; exact only under -d2
+00442028	void f(void * obj)	-5r -od	blind 24-function test, docs/research/toolchain.md step 6
+00443279	int f(void * a, void * b)	-5r -od	blind 24-function test, docs/research/toolchain.md step 6
+00445bf2	void f(void)	-5r -d2	blind 24-function test, docs/research/toolchain.md step 6; exact only under -d2
 004465e1	void f(int volume)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00446654	int f(void *sound)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00446e01	void f(void *wav)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00447457	int f(void *pbuf, char *wav)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-0044768f	int f(int vol)	-5r -d2	blind 24-function test, docs/toolchain.md step 6; port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
+0044768f	int f(int vol)	-5r -d2	blind 24-function test, docs/research/toolchain.md step 6; port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00448c6d	void f(void)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00448e25	void f(unsigned char *dst, unsigned char *src, int n)	-5r -od -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00448f5f	void f(void)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00449bf9	char * f(char *name)	-5r -d2	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-00449e44	void f(void * dst)	-5r -od	blind 24-function test, docs/toolchain.md step 6
-00449f80	void f(void)	-5r -od	blind 24-function test, docs/toolchain.md step 6
-0044a4a9	void * f(char * name)	-5r -od	blind 24-function test, docs/toolchain.md step 6
-0044ac3a	void f(void)	-5r -od	blind 24-function test, docs/toolchain.md step 6
+00449e44	void f(void * dst)	-5r -od	blind 24-function test, docs/research/toolchain.md step 6
+00449f80	void f(void)	-5r -od	blind 24-function test, docs/research/toolchain.md step 6
+0044a4a9	void * f(char * name)	-5r -od	blind 24-function test, docs/research/toolchain.md step 6
+0044ac3a	void f(void)	-5r -od	blind 24-function test, docs/research/toolchain.md step 6
 00455e48	int f(void *node, void *base)	-5r -otexan -s	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00455eb4	void f(int *table, int bias)	-5r -otexan -s	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00455ed8	int f(void *mdl, void *root)	-5r -otexan -s	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
@@ -116,20 +116,20 @@ address	prototype	flags	evidence
 00457328	int f(int child, int parent)	-5r -otexan -s	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00457a38	int f(int node, int *mat)	-5r -otexan -s	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 00457aa0	int f(int node, int *pos)	-5r -otexan -s	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-004593a4	void f(int handle, int arg)	-5r -otexan -s	blind 24-function test, docs/toolchain.md step 6
+004593a4	void f(int handle, int arg)	-5r -otexan -s	blind 24-function test, docs/research/toolchain.md step 6
 00459ec0	float f(float t, float b, float a)	-5r -otexan -s	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0045b040	void f(void)	-5r -otexan -s	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-0045b154	void f(int * m)	-5r -otexan -s	7-function MATH_ pilot, docs/toolchain.md step 6
+0045b154	void f(int * m)	-5r -otexan -s	7-function MATH_ pilot, docs/research/toolchain.md step 6
 0045b194	void f(int x, int y, int z, int *m)	-5r -otexan -s	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0045b86c	void f(int *a, int *b, int *out)	-5r -otexan -s	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-0045b928	void f(int *m, int *v, int *r)	-5r -otexan -s	7-function MATH_ pilot, docs/toolchain.md step 6; port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-0045b968	void f(int * a, int * b, int * r)	-5r -otexan -s	7-function MATH_ pilot, docs/toolchain.md step 6
-0045b98c	void f(int * a, int * b, int * r)	-5r -otexan -s	7-function MATH_ pilot, docs/toolchain.md step 6
-0045b9b0	void f(int * a, int * r)	-5r -otexan -s	7-function MATH_ pilot, docs/toolchain.md step 6
-0045ba10	int f(int * a, int * b)	-5r -otexan -s	7-function MATH_ pilot, docs/toolchain.md step 6
-0045bb84	void f(int * d, int * s)	-5r -otexan -s	7-function MATH_ pilot, docs/toolchain.md step 6
+0045b928	void f(int *m, int *v, int *r)	-5r -otexan -s	7-function MATH_ pilot, docs/research/toolchain.md step 6; port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
+0045b968	void f(int * a, int * b, int * r)	-5r -otexan -s	7-function MATH_ pilot, docs/research/toolchain.md step 6
+0045b98c	void f(int * a, int * b, int * r)	-5r -otexan -s	7-function MATH_ pilot, docs/research/toolchain.md step 6
+0045b9b0	void f(int * a, int * r)	-5r -otexan -s	7-function MATH_ pilot, docs/research/toolchain.md step 6
+0045ba10	int f(int * a, int * b)	-5r -otexan -s	7-function MATH_ pilot, docs/research/toolchain.md step 6
+0045bb84	void f(int * d, int * s)	-5r -otexan -s	7-function MATH_ pilot, docs/research/toolchain.md step 6
 0045bc28	void f(int *q, int *m)	-5r -otexan -s	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
-0045cd60	void f(void * world)	-5r -otexan -s	blind 24-function test, docs/toolchain.md step 6
-0045dd80	void f(void * collider)	-5r -otexan -s	blind 24-function test, docs/toolchain.md step 6
+0045cd60	void f(void * world)	-5r -otexan -s	blind 24-function test, docs/research/toolchain.md step 6
+0045dd80	void f(void * collider)	-5r -otexan -s	blind 24-function test, docs/research/toolchain.md step 6
 00466040	int f(char *name)	-5r -otexan -s	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)
 0047b0bc	void f(void *obj)	-5r -otexan -s	port-map function, matched 2026-09-28 (out/recomp/matchdecomp/proto)

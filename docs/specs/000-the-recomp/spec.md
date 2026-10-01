@@ -1,12 +1,19 @@
 # 000 — The recomp: using the Watcom toolchain and the recompiled game as research instruments
 
+> **Note, 2026-09-30.** The recomp is now the project itself, not only a research
+> instrument: the hand-written OpenDreams port, its port map and specs 001–004
+> were removed (tag `opendreams-final`). Where this spec says a shipping
+> recompiled game is not a goal, or refers to OpenDreams, `port-map.tsv` or
+> `north-star.md`, read it as history. The matching-decompilation scripts moved
+> from `out/recomp/matchdecomp/` to `re/matchdecomp/`.
+
 Status: **W1–W3 done 2026-09-28** (results under each item); the recomp's
 collision bug found and fixed the same day (lifter defects section); the
 USER32/GDI32/WinMM/DirectSound host moved to SDL3 on 2026-09-29 ("Host layer
 on SDL3"); W4–W7 not started
 Date: 2026-09-28
-Depends on: [toolchain.md](../../toolchain.md) (Watcom 11.0 verdict),
-[re-setup.md](../../re-setup.md) (Ghidra passes). Numbered 000 because it
+Depends on: [toolchain.md](../../research/toolchain.md) (Watcom 11.0 verdict),
+[re-setup.md](../../research/re-setup.md) (Ghidra passes). Numbered 000 because it
 serves the reverse engineering that every OpenDreams spec (001 onward) ports
 from, rather than an OpenDreams deliverable.
 
@@ -36,13 +43,13 @@ Rules, from `AGENTS.md`, that apply throughout:
 - A recompiled run, a trace or a byte match is **evidence**, not owner review.
   It never sets `reviewed` in `opendreams/port-map.tsv`.
 - Names still need two independent sources and go through
-  `re/names/<program>.tsv` and `tools/check_names.py`. Nothing here renames
+  `re/names/<program>.tsv` and `re/tools/check_names.py`. Nothing here renames
   functions in Ghidra directly.
 
 ## Why the toolchain matters
 
 `WINDREAM.EXE` and `GDIDREAM.EXE` were compiled, linked and given their runtime
-by **Watcom 11.0**, not 10.6 ([toolchain.md](../../toolchain.md)). **[verified]**
+by **Watcom 11.0**, not 10.6 ([toolchain.md](../../research/toolchain.md)). **[verified]**
 Most game code is unoptimized, stack-checked and built with debug info
 (`-5r -d2`: every function starts `push N; call __CHK`); the optimized
 modules match `-5r -otexan -s`. With the right compiler and flags, ordinary C
@@ -113,7 +120,7 @@ were built before 11.0 was pinned down; W1 moved them to it.
 
 - **`match.py <c> <func_> <va> --cc <compiler> --flags "<flags>"`:**
   compiles with `WCC386`, takes the named public's bytes from the OMF object,
-  and compares them with the retail extent from `windream/bounds.csv`,
+  and compares them with the retail extent from `windream/lift/bounds.csv`,
   treating relocated bytes as wildcards. It prints `MATCH`, or a masked
   disassembly diff.
 - **Results:** the pilot's 7 functions are byte-exact under 11.0. In the
@@ -137,7 +144,7 @@ support. The parts that serve decompilation:
 | `tools/lift/recover.py` | Finds functions reached only by tail jumps or stored pointers, and alternate entries into another function's body. Its tests cover Watcom's shared epilogues reached by `je`/`jmp`. |
 | `tools/disasm/score_recovery.py` | Scores one function list against another and sorts the errors: split or invented starts, short or long ends, embedded jump tables. |
 | `tools/disasm/seed_from_log.py` | Turns the running build's `ICALL`/`ITAIL unresolved VA` lines into checked function entries, each with the call site that reached it. |
-| `runtime/recomp32/recomp_trace.c` (already in `windream/runtime/`) | Debug switches: `--calltrace` logs every function entry, `--firsthit LO HI` the first entry to each function in a range, `--watch VA` registers. `--argtrace` reads stack arguments only, which is wrong for `__watcall`. |
+| `runtime/recomp32/recomp_trace.c` (already in `windream/host/`) | Debug switches: `--calltrace` logs every function entry, `--firsthit LO HI` the first entry to each function in a range, `--watch VA` registers. `--argtrace` reads stack arguments only, which is wrong for `__watcall`. |
 | pod-recomp `POD_ARGS_AT` (`src/runtime/recomp_runtime.c:149-160`) | On entry to a chosen function, prints EAX/EDX/EBX/ECX and then the stack, showing pointers to printable text as strings. Watcom-aware, since POD is also a Watcom register-convention build. |
 | nocturne and pod-recomp shared-tail notes (`nocturne/docs/PHASE7.md`, `pod-recomp/docs/PHASE3.md`) | IDA split Watcom shared tails into separate functions that end without a `ret`: 272 in Nocturne, 565 in POD. |
 
@@ -146,7 +153,7 @@ from assert strings (Nocturne) and IDA FLIRT (POD).
 
 ### Ghidra decompilation after W1–W3 **[verified 2026-09-28]**
 
-`ghidra_scripts/DecompileAll.java` regenerated the whole decompilation of both
+`re/ghidra_scripts/DecompileAll.java` regenerated the whole decompilation of both
 Windows programs into `out/decomp/` (`<program>.c`, `<program>.tsv`). The
 same script ran on `out/ghidra-backup-20260928-pre-watcall110/` (the project
 before the 11.0 move) for comparison (`out/decomp/compare.py`). WINDREAM.EXE
@@ -175,7 +182,7 @@ figures follow; GDIDREAM.EXE has the same bounds and near-identical numbers.
     in five blitters (`FUN_004024b8` …). The blitters patch their own code.
     This is a retail trait, not an analysis error.
 - **The recomp needs no re-lift.** The fresh `DumpBounds` export is
-  byte-identical to the `windream/bounds.csv` behind the current `gen/`.
+  byte-identical to the `windream/lift/bounds.csv` behind the current `gen/`.
 
 ### Lifter defects found by play-testing **[verified 2026-09-28]**
 
@@ -201,13 +208,13 @@ builds.
 1. **Full-memory dumps of the recomp.** The crashing "triangle" was a live
    overlap record or a freed one; the camera collider's wall list held 274
    nodes for 143 qualifying records, 131 of them orphans.
-2. **Read-only hooks** (`lift.py` `HOOKS`, `runtime/phys_hook.c`): 27% of
+2. **Read-only hooks** (`lift.py` `HOOKS`, `host/hooks/phys_hook.c`): 27% of
    `PHYS_AddCandidate` calls set an axis bit that was already set, from all
    three add sites, on every moving collider. Retail never checks the bit,
    so each such call with all bits set leaks a node, which dangles once its
    record is freed.
 3. **Retail as the reference.** Two full dumps of the running retail
-   `GDIDREAM.EXE` (launched through `tools/fps_limit_launcher.py`, which
+   `GDIDREAM.EXE` (launched through `re/tools/fps_limit_launcher.py`, which
    changes only the call at `0x4170B7`; the rest of the code section is
    byte-identical to the EXE) after 40 seconds and after 8 minutes of play:
    on all 8 colliders, one node per qualifying record and no orphans. A
@@ -274,9 +281,9 @@ computes wrongly (no game code reads one; `difftest/consumers.py`).
 **Sound effects played as loud white noise;** dialogue (`DSOUND_PlayVoice`,
 the 11 kHz 8-bit channel), menu sounds and CD music were fine. Positional
 sound effects go through `0x4477d9`, whose pan step `0x44776b` calls
-`SetVolume` (`+0x3c`) with +10…+10000 or below −10000 (`docs/engine.md`,
+`SetVolume` (`+0x3c`) with +10…+10000 or below −10000 (`docs/research/engine.md`,
 "Positional sound has no pan"). DirectSound rejects both with
-`DSERR_INVALIDPARAM`; `runtime/dsound.c` stored them, and a +10000 volume
+`DSERR_INVALIDPARAM`; `host/sdl/dsound.c` stored them, and a +10000 volume
 is a 100 dB gain that clipped every sample. Menu sounds skip the positional
 path, so they were unaffected.
 
@@ -291,7 +298,7 @@ failing.
 The USER32, GDI32, WinMM and DirectSound bridges (`user.c`, `gdi.c`,
 `winmm.c`, `dsound.c`) run on SDL3 3.4 and no longer include
 `<windows.h>`. The guest still sees Win32. The Win32 constants and 32-bit
-layouts it relies on are in `runtime/guest_win32.h`, and on Windows
+layouts it relies on are in `host/sdl/guest_win32.h`, and on Windows
 `win32_abi_check.c` asserts each flat one against the SDK at compile time.
 What the bridges must reproduce comes from the decompilation:
 
@@ -313,7 +320,7 @@ results as before the change.
 Host-only choices, not retail behaviour:
 - F11 toggles fullscreen (the game also sees the key).
 - `timeGetTime` is SDL's tick plus 60 s.
-- `WD_PAD=keys` maps a pad to the `docs/running.md` keys.
+- `WD_PAD=keys` maps a pad to the `docs/research/running.md` keys.
 - Sticks and triggers pass through a scaled radial deadzone (`WD_DEADZONE`,
   default 10% inner, 95% outer). WinMM itself applied none; players then
   calibrated their sticks in the Windows control panel.
@@ -335,11 +342,11 @@ work, but they are tank controls. Free roam (left stick moves relative to the
 camera, right stick orbits the camera) needs more than an input remap:
 
 - The follow camera takes its yaw from the player's heading,
-  `(0x1000 − heading)` (`CAM_ComputeChasePos` `0x409de2`, `docs/engine.md`,
+  `(0x1000 − heading)` (`CAM_ComputeChasePos` `0x409de2`, `docs/research/engine.md`,
   "Follow mode"). With camera-relative steering and that camera, pushing left
   turns Duncan, the camera swings behind him, and he circles. The camera needs
   its own yaw.
-- Movement is tank-style (`docs/ai-animation-runtime.md`, "Player controls").
+- Movement is tank-style (`docs/research/ai-animation-runtime.md`, "Player controls").
   ←/→ add to the yaw rate `+0x60` (capped at `100·Δt`, halved every frame), ↑
   walks along the heading `+0x5c` and ↓ steps back. A 180° turn through the
   game's own turn logic takes about 2–3 s.
@@ -393,7 +400,7 @@ involved).
   - `match.py` and `flagsweep.py`: default to `--cc wc110` with `-5r -od`.
     Take the compiler from `DREAMS_WATCOM_COMPILER` in `.dreams.local.env`
     (already set to `wc110\11.0`) and the EXE from `DREAMS_DISC1`.
-  - Add both variables to `dev/paths.example.env`.
+  - Add both variables to `.dreams.example.env`.
   - `difftest/wat.py` (then `wat.ps1`): build with 11.0 and the game's two flag profiles.
   - Re-run `t_core` and `t_switch` against the 11.0 runtime. The math
     failures so far are in 10.6's library routines, not the ones the game
@@ -442,14 +449,14 @@ involved).
   - **Tools:** instead of pcrecomp's `recover.py` and `score_recovery.py`,
     whose inputs are a bounds CSV and raw bytes, the check runs inside
     Ghidra.
-    - `ghidra_scripts/ReportBoundaries.java` reports every flow edge that
+    - `re/ghidra_scripts/ReportBoundaries.java` reports every flow edge that
       leaves a body off an entry, code in no function, and undefined
       non-filler bytes.
-    - `ghidra_scripts/ApplyBoundaries.java` applies the reviewed list in
+    - `re/ghidra_scripts/ApplyBoundaries.java` applies the reviewed list in
       `re/boundaries/<program>.tsv`, followed by
       `CreateWatcomFunctions.java apply`.
     - Details and numbers are in
-      [re-setup.md](../../re-setup.md#function-boundaries-reportboundariesjava-applyboundariesjava).
+      [re-setup.md](../../research/re-setup.md#function-boundaries-reportboundariesjava-applyboundariesjava).
   - **Result:** both Windows builds go from 1,907 to 2,174 functions, and
     instructions in no function from 17,880 bytes to 1. Every one of the 51
     cross-function jumps lands on one of 40 recorded shared tails, so the
@@ -515,14 +522,14 @@ involved).
   - **Flags:** all 92 unoptimized matches are exact under `-5r -d2`, and 56
     only under it. `-d2` keeps the `je +2; jmp` branch and the
     `mov eax,[i]; inc [i]` increment that `-od` folds, so it is now
-    `match.py`'s default ([toolchain.md](../../toolchain.md) step 6). It
+    `match.py`'s default ([toolchain.md](../../research/toolchain.md) step 6). It
     also turned the blind test's two misses exact.
   - **10.6 cross-check:** the same 107 sources under Watcom 10.6 give 15
     exact matches.
   - **Tracked result:**
     - `re/prototypes/<program>.tsv` holds 131 proven prototypes: the 107,
       the pilot, and the blind matches.
-    - `ghidra_scripts/ApplyPrototypes.java` applied them to both Windows
+    - `re/ghidra_scripts/ApplyPrototypes.java` applied them to both Windows
       programs as `USER_DEFINED` `__watcall` (`__cdecl` for the variadic
       `TEXT_Print`), with a `[PROTO]` plate paragraph. 130 were applied; the
       float-returning `ANIM_ApplyEase` is skipped.
@@ -536,7 +543,7 @@ involved).
       register except `EAX` and the ones carrying parameters:
       `CTRL_Shutdown` (0 parameters) saves `EBX ECX EDX`, `DAN_Load3DM` (2)
       saves `EBX ECX`, and `TEXT_LoadFont` (3) saves `ECX`.
-    - `tools/watcall-cspec.patch` has one `__watcall` model that marks all
+    - `re/tools/watcall-cspec.patch` has one `__watcall` model that marks all
       four argument registers as killed, so a caller that keeps a value in
       `EDX` across a one-parameter call reads `extraout_EDX`. See W7.
 
@@ -547,7 +554,7 @@ involved).
     - `--firsthit` over the game's code range during fixed scripted runs
       (intro, menu, New Game, first level);
     - the ordered first-entry list, kept under `out/`.
-  - Port `POD_ARGS_AT` into `windream/runtime/recomp_trace.c`, so a named
+  - Port `POD_ARGS_AT` into `windream/host/core/recomp_trace.c`, so a named
     function prints its `__watcall` register arguments (strings shown as
     text).
   - Run `seed_from_log.py` on unresolved `ICALL`/`ITAIL` lines to find
@@ -591,7 +598,7 @@ involved).
   carry a parameter. Ghidra's single `__watcall` model kills `EDX`, `EBX` and
   `ECX` on every call, which produces the remaining `extraout_` reads.
 - **Changes:**
-  - Add `__watcall0` … `__watcall4` models to `tools/watcall-cspec.patch`,
+  - Add `__watcall0` … `__watcall4` models to `re/tools/watcall-cspec.patch`,
     each killing only `EAX` and its own argument registers.
   - Have `ApplyPrototypes.java`, and `ApplyWatcall.java` where the parameter
     count is proven, choose the model by register-parameter count.
@@ -607,7 +614,7 @@ involved).
   **[verified]**
   - The recovered error-string names are already in the registry.
   - The Dutch and Spanish builds carry a fragment of OMF object records
-    ([localized-build-symbols.md](../../localized-build-symbols.md)).
+    ([localized-build-symbols.md](../../research/localized-build-symbols.md)).
 - **pcrecomp's RTTI, vtable and mangler tools:** the game is C, not C++.
 - **`lift32`'s call model and pcrecomp's Ghidra export scripts:** they carry
   no calling-convention or type information.
@@ -623,7 +630,7 @@ involved).
    The two differ by one byte (`0x446036`). DirectDraw would need a new shim
    layer.
 3. Should the scripted-run traces (W4) become a committed tool with a fixed
-   script, like `tools/check_names.py`, so they can be re-checked on another
+   script, like `re/tools/check_names.py`, so they can be re-checked on another
    machine with the discs?
 4. The flag-state defect is in upstream pcrecomp (`tools/lift/generate.py`).
    Report it there? Not done: it is outward-facing.
@@ -637,7 +644,7 @@ involved).
 | `recomp/windream/` | `lift.py` (`HOOKS`, `PROBES`, `CALLS` (spec 005), `PATCH_SITES`), `bounds.csv`, `runtime/` (SDL3 host: `host.h`, `user.c`, `gdi.c`, `winmm.c`, `dsound.c`, `guest_win32.h`, `win32_abi_check.c`; `phys_hook.c`: collision hooks, `WD_PHYS_INVARIANT`, `WD_PHYS_CAPTURE`), `build.py`, `run.py`, `recomp_env.py` (one level up; also builds the shared SDL3 into `out/recomp/sdl3/`) |
 | `out/recomp/windream/` | Outputs: `gen/` (lifted C), `build-*/`, `run/` (logs, sandbox, crash dumps) |
 | `recomp/windream/debug/` | Dump analysis: `mdmp.py` (guest memory from a full dump; arena base 0 for a retail dump), `colliders.py` (candidate lists per collider), `invariant.py` (axis bits against brute-force overlap), `sortcheck.py`, `replay_sweep.py` and `replay_full.py` (one `PHYS_SweepAxis` call in Unicorn), `x86dis.py`, `flag_hunt.py` (spec 005) |
-| `tools/fps_limit_launcher.py` | Starts the retail Windows build with a frame limiter patched in memory; used for the retail dumps |
+| `re/tools/fps_limit_launcher.py` | Starts the retail Windows build with a frame limiter patched in memory; used for the retail dumps |
 | `recomp/difftest/` | `difftest.py`, `wat.py`, `t_core.c`, `t_switch.c`, `gen_insn.py`, `coverage.py`, `flagdiff.py`, `consumers.py` |
 | `out/recomp/difftest/` | Work directories (`<name>-<tag>/`), the generated `t_insn.c`, `cov.txt`, `flagdiff.txt` |
 | `out/recomp/matchdecomp/` | `match.py`, `flagsweep.py`, `cases.txt`, `src/`, `blind/`, the toolchain evidence scripts |

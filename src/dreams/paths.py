@@ -91,7 +91,7 @@ def get(key: str) -> Path:
     path = configured(key)
     if path is None:
         raise RuntimeError(
-            f"{VARIABLES[key]} is not configured; copy dev/paths.example.env "
+            f"{VARIABLES[key]} is not configured; copy .dreams.example.env "
             "to .dreams.local.env and set the local path"
         )
     return path

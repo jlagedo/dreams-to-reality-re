@@ -1,165 +1,69 @@
 # dreams
 
-Reverse-engineering toolkit and research notes for **Dreams to Reality**
-(Cryo Interactive Entertainment, 1997 — DOS / Windows).
+A static recompilation of **Dreams to Reality** (Cryo Interactive
+Entertainment, 1997), built with
+[pcrecomp](https://github.com/sp00nznet/pcrecomp).
 
-The goal is **OpenDreams**, a portable C++17 engine that runs the original game
-data with the game's recovered logic, a 30 Hz simulation and GPU rendering.
-This repository contains the native OpenDreams project, Python reference
-decoders, and reverse-engineering evidence.
-See [the north star](docs/north-star.md) for decisions and
-[current RE status](docs/re-status.md) for coverage and priorities.
+The retail Windows executable (`GDIDREAM.EXE`) is lifted instruction by
+instruction to C, compiled with clang and linked against a hand-written host
+runtime: SDL3 for the window, input and sound, and a GPU renderer on sokol_gfx
+in place of the original software rasterizer. The game's own code runs
+unchanged; only the plumbing under it is new.
 
-**No game data lives in this repo.** The discs are copyrighted; `.gitignore`
-blocks every asset extension, extraction directory and derived media type. Keep
-the images on local disk and point the toolkit at them.
+**No game data or game code lives in this repository.** The discs are
+copyrighted. The lifted C, the builds and everything else derived from the
+game are generated locally under `out/` and never committed. Supply your own
+copy of the game.
 
-## Setup
+## Status
 
-Copy the local path template and edit it for this machine:
+- The recompiled game builds and plays on Windows with the original software
+  rendering.
+- The direct GPU renderer (`run.py --renderer direct`) runs the tested first
+  scene, HUD and dialogue; full Windows acceptance is open
+  ([spec 006](docs/specs/006-recomp-glide-renderer/spec.md)).
+- The USER32, GDI32, WinMM and DirectSound layers run on SDL3. The KERNEL32
+  layer still calls Win32, so macOS and Linux are later work.
+
+## Quick start
 
 ```powershell
-if (-not (Test-Path .dreams.local.env)) { Copy-Item dev/paths.example.env .dreams.local.env }
+Copy-Item .dreams.example.env .dreams.local.env   # then set this machine's paths
 uv sync
-uv run dreams config
-uv run dreams --help
+git clone https://github.com/sp00nznet/pcrecomp out/recomp/pcrecomp
+uv run --with capstone --with pefile python recomp/windream/lift/lift.py
+uv run --with capstone --with pefile python recomp/windream/lift/gen_imports.py
+uv run python recomp/windream/build.py
+uv run python recomp/windream/run.py
 ```
 
-Set `DREAMS_DISC1` and `DREAMS_DISC2` to the extracted disc directories,
-`DREAMS_WORK_ROOT` to an external work directory, and `DREAMS_WATCOM` and
-`DREAMS_GHIDRA_ROOT` if using the reverse-engineering tools. Process environment
-variables override the ignored `.dreams.local.env` file. The Python toolkit
-and PowerShell Ghidra scripts read the same settings.
+Requirements, options, controls and the verification scripts are in
+[recomp/README.md](recomp/README.md).
 
-`DREAMS_EXTRACT` optionally overrides `$DREAMS_WORK_ROOT/extract`;
-`DREAMS_OUT` optionally overrides the repository's `out/` directory.
-Set `DREAMS_NA_GAME_TOOL` to the patched video decoder, or put it on `PATH`.
+## Layout
 
-## Getting the files off a disc image
-
-The dumps are MODE1/2352 — 16-byte sector header, 2048 bytes of payload,
-288 bytes of ECC. Strip it, then unpack the ISO9660 filesystem:
-
-```bash
-uv run dreams disc cue "Dreams to Reality (Europe) (Disc 1).cue"
-uv run dreams disc iso "...(Track 01).bin" disc1.iso
-7z x disc1.iso -oextracted
-```
-
-Tracks 2+ are redbook audio and hold the game's music. They never appear as
-files — **mount the `.cue`, never the `.iso`**, or the game runs silent and
-throws MCI errors.
-
-## Extracting everything
-
-One command decodes every asset whose format is solved, losslessly:
-
-```bash
-uv run dreams extract              # -> $DREAMS_WORK_ROOT/extract
-uv run dreams extract --list       # show the groups
-uv run dreams extract --only music,sprites --force
-```
-
-| Output | Format | Contents |
-|---|---|---|
-| `audio/music/` | FLAC | 21 redbook CD tracks, de-duplicated across discs |
-| `audio/sfx/` | FLAC | 24 effects from `FSB.DAT` |
-| `audio/voice/` | FLAC | 178 clips from `DIALOG.DRD` |
-| `video/` | FFV1 in MKV | 113 HNM4/5/6 files, mathematically lossless |
-| `images/level-textures/` | PNG | **level textures** — 64 tiles of 32x32 per object, 95 scenes |
-| `images/` | PNG | sprites, icon-bundle members, TGA gallery |
-| `metadata/` | JSON | decoded headers for the formats whose bodies stay packed |
-| `text/` | UTF-8 | `DREAMS.INI`, manifests, transcoded from CP1252 |
-
-Scene geometry has its own command, since only some scenes decode cleanly:
-
-```bash
-uv run dreams mesh                            # list all 95 with their state
-uv run dreams mesh E01GROTT --gltf out/       # export one, with textures
-uv run dreams mesh --preview out/             # three-view PNG of each
-```
-
-It writes a `manifest.json` recording every output with its provenance, and a
-`README.md` listing the caveats. Needs `ffmpeg` on PATH, plus `na_game_tool` for
-video (see [docs/hnm-video.md](docs/hnm-video.md)) — groups whose tool is missing
-are skipped, not failed.
-
-Output goes **outside the repo** by design: it is derived game content.
-
-## What works
-
-| Command | Status |
+| Path | What |
 |---|---|
-| `dreams extract` | **solved** — every decodable asset, lossless |
-| `dreams audio info/unpack` | **solved** — extracts all 202 clips as WAV |
-| `dreams video` | **solved** — HNM4/5/6 headers |
-| `dreams res` | **solved** — 30 items, 150 levels from `DREAMS.INI` |
-| `dreams disc iso/cue` | **solved** |
-| `dreams pe` | **solved** — sections, imports, exports, toolchain |
-| `dreams bundle` | **solved** — `UBIK` table and members |
-| `dreams mesh` | **working** — all 95 scenes use the render graph, with names, signed UVs and face types; collision placement stays diagnostic |
-| `dreams scene` / `anim` | **solved** — headers, record chain, LZ; payload meanings partly open |
-| `dreams model` | inspection — `F3DC` headers, materials, `PAK0` bounds; model/prop node decoders are in `dreams.formats.node` |
+| `recomp/` | **The project.** `windream/` lifts, builds and runs the game (`lift/`, `host/`, `verify/`, `debug/`); `render/` is the GPU renderer; `difftest/` tests the lifter on small Watcom programs |
+| `re/` | Reverse engineering that feeds the recomp: Ghidra scripts, tools, the function-name registry, symbols, boundaries, prototypes, struct layouts, and the matching-decompilation scripts |
+| `src/dreams/` | Small Python support package: local path settings and the format readers the verification scripts use |
+| `tests/` | Python tests, by area: `recomp/`, `re/`, `toolkit/` |
+| `docs/` | `specs/` for the recomp's plans and status; `research/` for what is known about the game and its binaries |
+| `out/` | Everything generated (gitignored) |
 
-Exploration helpers: `census`, `identify`, `stats`, `regions`, `tags`,
-`strings`, `dump`, `render`, `stride`.
+[`AGENTS.md`](AGENTS.md) is the path and command reference for coding agents.
 
-## Examples
+## History
 
-```bash
-# Every clip in the voice bank, as .wav
-uv run dreams audio unpack "$DREAMS_DISC1/DATA/3DC/DIALOG.DRD"
-
-# What is this file?
-uv run dreams identify "$DREAMS_DISC1/DATA/3DC" --pattern "*.DSN"
-
-# Raw or packed? (raw controls here sit at 18-31%, compressed video at 69%)
-uv run dreams stats "$DREAMS_DISC1/DATA/3DC/E01GROTT.DSN"
-
-# Room construction: walls by compass direction, floor, ceiling
-uv run dreams scene "$DREAMS_DISC1/DATA/3DC/E01GROTT.DSN"
-
-# CryoLib's 165 exports, including the HNM6 decoder
-uv run dreams pe "$DREAMS_DISC2/DEMOS2/CRYO.DLL" --exports --grep HNM
-
-# Test a pixel-layout hypothesis
-uv run dreams stride "$DREAMS_DISC1/DATA/ICONE/ICONES.BF"
-uv run dreams render "$DREAMS_DISC1/DATA/ICONE/ICONES.BF" --offset 16 --width 64 --fmt rgb555
-```
-
-## What we know
-
-Full write-ups in [`docs/`](docs/README.md); [`AGENTS.md`](AGENTS.md) is the
-guide for coding agents. Headlines:
-
-- The engine is **Cryo's own C/C++ code, built with Watcom** for all three
-  targets (DOS, DOS+3dfx, Windows). Software rasterizer, 16-bit RGB555. Glide is
-  the only hardware path and exists only in DOS. Windows uses **DirectDraw only**
-  — no Direct3D anywhere.
-- `CRYO.DLL` on disc 2 is **CryoLib**, a *debug build* with 165 named exports
-  including `_GL_HNM6_Decompression_Warp@8`. A working HNM6 decoder shipped on
-  the retail disc. It is a separate codebase from the game.
-- **All audio is plain PCM WAV** inside two custom banks: `FSB.DAT` (24 effects,
-  16-bit) and `DIALOG.DRD` (178 voice clips, 8-bit). Music is CD audio.
-- **`.DSN` records decompress.** Tags 1 and 2 use **Cryo's own LZ codec**,
-  recovered from the binary. Tag 1 is the renderable scene graph; tag 2 is the
-  collision mesh. Record decoding does not settle every runtime placement.
-- **The level textures are decoded.** Each object owns one **256x256** 8-bit
-  surface, interleaved from 64 subsampled 32x32 planes, indexing a 256-entry
-  **RGB565** palette. There is no separate texture file anywhere on the discs.
-- **Scene geometry exports to glTF.** Vertices, faces, UVs and materials, for
-  **all 95 scenes**. The old collision-placement gate is removed; no guessed
-  transforms are applied. The native runtime still needs to reproduce movers.
-  `E01GROTT` is a closed cave chamber with a single doorway.
-  See [docs/scene-geometry.md](docs/scene-geometry.md).
-
-Claims in the docs are tagged **[verified]** (measured here), **[sourced]**
-(external, linked) or **[unverified]** (inference). Please keep that up.
+Before the recomp became the project, this repository held a hand-written C++
+port (OpenDreams, with ODRuntime and ODViewer) and a larger Python asset
+toolkit. Both were removed; the last commit that has them is tagged
+`opendreams-final`. Some research documents still mention them.
 
 ## Development
 
 ```bash
-uv run pytest          # disc-dependent tests skip if paths aren't configured
+uv run pytest
 uv run ruff check .
 uv run ruff format .
 ```
@@ -178,20 +82,21 @@ standing in law.
 
 What this repo therefore does and does not do:
 
-- **Does**: document file formats, and provide tools that operate on a copy you
-  already own. In the EU, the Software Directive (2009/24/EC) Art. 5(3) permits
-  studying a program you are licensed to use and Art. 6 permits decompilation
-  for interoperability. France implements both.
-- **Does not**: include, redistribute or reproduce any Cryo code, asset, binary
-  or disc image. `.gitignore` enforces this — see the asset block at the top.
+- **Does**: document the game's formats and behaviour, and provide tools that
+  operate on a copy you already own. In the EU, the Software Directive
+  (2009/24/EC) Art. 5(3) permits studying a program you are licensed to use
+  and Art. 6 permits decompilation for interoperability. France implements
+  both.
+- **Does not**: include, redistribute or reproduce any Cryo code, asset,
+  binary or disc image. `.gitignore` enforces this.
 
-Do not commit extracted audio, textures, models, executables or disc images,
-and do not publish a playable build. Supply your own copy of the game.
+Do not commit lifted or matched C, extracted audio, textures, models,
+executables or disc images, and do not publish a playable build.
 
 Not legal advice.
 
 ## License
 
-[MIT](LICENSE) for everything in this repository — the notes, the Python
-toolkit and the Ghidra scripts. Third-party material (the mirrored MultimediaWiki
+[MIT](LICENSE) for everything in this repository. pcrecomp is MIT-licensed
+(`recomp/LICENSE-pcrecomp`); third-party material (the mirrored MultimediaWiki
 HNM6 description) is acknowledged in `LICENSE`.

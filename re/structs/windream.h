@@ -1,11 +1,11 @@
 /* Verified, partial layouts for Dreams to Reality's 32-bit Windows build.
  *
  * This header is parsed into WINDREAM.EXE's Ghidra Data Type Manager by
- * ghidra_scripts/ImportStructs.java. Unknown spans stay byte arrays on purpose.
+ * re/ghidra_scripts/ImportStructs.java. Unknown spans stay byte arrays on purpose.
  * Field comments note evidence and unresolved semantics; do not promote a
  * candidate field name to a confirmed meaning without a new code/data trace.
- * Consolidated 2026-09-26 from docs/engine.md, ai-animation-runtime.md and
- * file-formats.md; docs/re-status.md indexes the evidence and remaining gaps.
+ * Consolidated 2026-09-26 from docs/research/engine.md, ai-animation-runtime.md and
+ * file-formats.md; docs/research/re-status.md indexes the evidence and remaining gaps.
  */
 #ifndef DREAMS_WINDREAM_STRUCTS_H
 #define DREAMS_WINDREAM_STRUCTS_H
@@ -89,7 +89,7 @@ typedef struct DREAMS_BoxRecord {
     dreams_i32 points_xyz[16][3];            /* +0x24 */
     dreams_i32 point_count;                  /* +0xe4 */
     dreams_u8 unknown_0e8[8];                /* +0xe8 */
-    dreams_i32 path_kind;                    /* +0xf0: 0 patrol, 1 flight; 2..9 pickup/prop/spawn/re-entry/air/trigger/hazard uses, see docs/file-formats.md */
+    dreams_i32 path_kind;                    /* +0xf0: 0 patrol, 1 flight; 2..9 pickup/prop/spawn/re-entry/air/trigger/hazard uses, see docs/research/file-formats.md */
     dreams_u8 unknown_0f4[12];               /* +0xf4 */
 } DREAMS_BoxRecord;
 
@@ -135,7 +135,7 @@ typedef struct CryoSceneNodeHeader {
     dreams_u8 unknown_0d8[0x18];               /* +0xd8 */
 } CryoSceneNodeHeader;
 
-/* ---- Scene-graph node at run time (docs/scene-geometry.md, "The engine's view").
+/* ---- Scene-graph node at run time (docs/research/scene-geometry.md, "The engine's view").
  * The runtime node starts 0x14 bytes into CryoSceneNodeHeader: runtime +X is
  * file +X+0x14. Every pointer is relocated by MDL_RelocNode (0x455d6c). */
 
@@ -281,7 +281,7 @@ typedef struct PHYS_ForceField {
     dreams_u8 unknown_59[7];
 } PHYS_ForceField;
 
-/* Lighting records; see docs/lighting.md. The original type-2 name is unknown. */
+/* Lighting records; see docs/research/lighting.md. The original type-2 name is unknown. */
 typedef struct REND_Light {
     dreams_i32 type;                       /* +0x00 0 unused, 1 position/radial, 2 additionally oriented */
     dreams_i32 position[3];                /* +0x04 */

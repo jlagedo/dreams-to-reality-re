@@ -1,0 +1,775 @@
+# Reverse-engineering setup
+
+> **Function names verified (2026-09-26).** Every `WINDREAM.EXE` function this page names is in [`re/names/WINDREAM.EXE.tsv`](../../re/names/WINDREAM.EXE.tsv) with two independent sources (these docs and a blind review of the decompilation) and facts checked against the binary by `re/tools/check_names.py`.
+
+Ghidra, and how this repo is organised so the analysis survives in git without
+any game data going near it.
+
+## The organising principle
+
+> **The Ghidra project is a build artefact. `re/` is the source of truth.**
+
+A `.rep` directory is an opaque binary blob. Git cannot merge it, it bloats
+history, and — the part that actually matters here — **it embeds copies of the
+game executables**. Committing one would put Cryo's code in the repo.
+
+So the split is:
+
+| Path | Committed? | What it is |
+|---|---|---|
+| `ghidra/` | **no** | the Ghidra project — regenerate with `re/tools/ghidra_import.py` |
+| `re/ghidra_scripts/` | yes | our Ghidra scripts |
+| `re/symbols/*.tsv` | yes | function names and comments we assigned |
+| `re/structs/*.h` | yes | C struct definitions for the formats |
+| `src/dreams/` | yes | the Python decoding toolkit |
+| `docs/` | yes | findings |
+
+Round trip: annotate in Ghidra → `ExportSymbols.java` → commit the TSV; C layouts
+live in `re/structs/*.h`. A fresh project runs `ghidra_import.py --import-symbols
+--import-structs` to restore both kinds of analysis from the discs and text sources.
+
+## Installed on this machine
+
+| Component | Version | Location |
+|---|---|---|
+| Ghidra | 12.1.3 (2026-08-18) | `DREAMS_GHIDRA_ROOT` |
+| JDK | Temurin 25.0.3 LTS | already on PATH; Ghidra needs 21+ |
+
+The GUI is `ghidraRun.bat` under `DREAMS_GHIDRA_ROOT`. Use it to look at a
+program and to run scripts from the Script Manager; everything reproducible goes
+through headless.
+
+## Headless workflow
+
+For anything reproducible, prefer headless over the GUI:
+
+```sh
+uv run python re/tools/ghidra_import.py                   # create project, import, analyse
+uv run python re/tools/ghidra_import.py --import-symbols  # …and re-apply saved names
+uv run python re/tools/ghidra_import.py --import-symbols --import-structs # restore symbols and C layouts
+uv run python re/tools/ghidra_import.py --no-analyze      # skip auto-analysis
+```
+
+Defaults to importing `WINDREAM.EXE`, `GDIDREAM.EXE`, `SETUP.EXE` and
+`CRYO.DLL`. Paths come from `DREAMS_DISC1` / `DREAMS_DISC2`, same as the Python
+toolkit.
+
+## Which binary to attack
+
+**`WINDREAM.EXE` is the primary target.** It is PE32, so Ghidra loads it with no
+extra loader, and since Cryo compiled one portable Watcom core three ways, what
+you learn transfers to the DOS builds. See [engine.md](engine.md).
+
+`DREAMS.EXE` and `DREAMSFX.EXE` are LE (DOS/4GW) and need a loader extension
+Ghidra does not ship; see [LE loader for the DOS builds](#le-loader-for-the-dos-builds).
+`DREAMSFX.EXE` and `DREAMS.EXE` are imported and analysed in the local
+project (`DREAMS.EXE` since 2026-09-29, runtime named with
+`ApplyWatcomSigs.java …\sigs\dreams.csv`). Use the DOS
+builds to answer DOS-specific questions (hardware access, the 3dfx path) and
+as a cross-check; `WINDREAM.EXE` stays the main target.
+
+**For rendering, read `DREAMSFX.EXE`.** Its Glide calls are typed
+(`ApplyGlideImports.java`), so render state reads as named Glide API calls,
+where the Windows build does the same work in anonymous software-rasterizer
+code. Carry names between the builds with the matcher
+([Matching functions across builds](#matching-functions-across-builds)); the
+Glide-to-DirectDraw/GDI map is in [engine.md](engine.md), *Presentation and
+2D*.
+
+`CRYO.DLL` is a **debug build with 165 named exports**. It is a different
+codebase from the game (see [cryolib.md](cryolib.md)), but it is the best
+available guide to Cryo's naming and structure conventions.
+
+## The scripts
+
+### `FindFormatParsers.java` — start here
+
+Containers first. Every Cryo format opens with a four-character tag and the
+loader must validate it. A compiler emits that check one of two ways:
+
+1. **immediate compare** — `cmp dword ptr [x], 0x464E5344` ("DSNF" as an int)
+2. **memcmp/strncmp** against a string literal in `.data`
+
+**Measured on `WINDREAM.EXE`: zero immediates, exactly one ASCII literal per
+tag.** Watcom emitted form 2 here, so the literals are the anchors — find the
+references to them and you land in the parser. The script checks both and
+reports whichever applies.
+
+Scripts are **Java, not Python**, deliberately. Ghidra compiles Java scripts with
+no external dependency; PyGhidra needs a matching jpype wheel and tops out at
+Python 3.13, which would break on this machine's 3.14.
+
+#### First results — the parsers are located
+
+Run against `WINDREAM.EXE` (image base `0x400000`): **[verified]**
+
+| Tag | Literal | Referencing function | What it is |
+|---|---|---|---|
+| `DSNF` | `0x004c421e` | **`DSN_LoadHeader` (`0x4175bc`)** (2 xrefs) | **scene loader — top target** |
+| `DANF` | `0x004c39f1` | `DAN_OpenArchive` (`0x40fff7`) | animation loader |
+| `DRDF` | `0x004c3a48` | `DRD_Open` (`0x41072c`) | dialogue bank |
+| `UBIK` | `0x004c5511` | `BF_Mount` (`0x43ad40`) | named-file archive (`.BF`) |
+| `F3DC` | `0x00456e0d` | none | inside a data blob, reached indirectly |
+| `HNM4`/`HNM6`/`HNS6`/`UBB2`/`UBS2` | `0x004086e0`–`0x004087a3` | none | **clustered in 0xc3 bytes — a signature table, not five compares** |
+
+`PAK0` has no literal at all, consistent with `.PAK` being parsed by whatever
+reads the embedded `F3DC` chunk rather than by its own loader.
+
+String anchors additionally implicate `RES_ReadFile` (`0x41c666`) (4 xrefs), `MDL_LoadMaterials` (`0x456038`),
+`CD_FindDrive` (`0x427f11`), `DAN_Read3DC` (`0x41020f`) and `FSB_Load` (`0x426143`): the
+resource-file reader, the `.3DM` material loader, the CD drive search, the DAN
+chunk reader and the FSB bank loader.
+
+### LE loader for the DOS builds
+
+[yetmorecode/ghidra-lx-loader](https://github.com/yetmorecode/ghidra-lx-loader)
+loads DOS/4GW LE executables and ships a Watcom language
+(`watcom:LE:32:default`). Its newest release targets Ghidra 12.0.1, so build it
+from source; at commit `60bae51` it compiles against 12.1.3 unchanged.
+
+```powershell
+git clone https://github.com/yetmorecode/ghidra-lx-loader E:\tools\src\ghidra-lx-loader
+Copy-Item re\tools\lx-loader-watcom.cspec E:\tools\src\ghidra-lx-loader\data\languages\watcom.cspec
+$g = uv run python -c "from dreams import paths; print(paths.get('ghidra'))"
+Push-Location E:\tools\src\ghidra-lx-loader
+& "$g\support\gradle\gradlew.bat" "-PGHIDRA_INSTALL_DIR=$g" buildExtension
+Pop-Location
+Expand-Archive E:\tools\src\ghidra-lx-loader\dist\*.zip "$g\Ghidra\Extensions" -Force
+uv run python re/tools/ghidra_import.py --binaries $(uv run python -c "from dreams import paths; print(paths.disc(1) / 'DREAMSFX.EXE')")
+```
+
+`--binaries` imports only the listed files, so the existing programs are left
+alone. Restart Ghidra afterwards.
+
+**Replace the loader's `watcom.cspec`** with `re/tools/lx-loader-watcom.cspec`, as
+above. Upstream's `__watcall` has a fixed `extrapop`, no `ST0` float return and
+no `EBX` clobber. The replacement uses the prototype from
+`re/tools/watcall-cspec.patch`, so the DOS and Windows builds decompile under the
+same contract. It is the loader's default prototype, so `ApplyWatcall.java` is
+not needed for the calling convention. The file also adds a `__stdcall` model
+for the Glide stubs.
+
+The Watcom runtime is named and typed by `ApplyWatcomSigs.java` and
+`ApplyWatcomHeaders.java` (below); the LE rows of `sigs/dreamsfx.csv` are
+mapped through the LE page table.
+
+LE addresses are the loader's object bases (code at `0x20000` in
+`DREAMSFX.EXE`), not file offsets.
+
+### `ApplyGlideImports.java` — Glide 2 on `DREAMSFX.EXE`
+
+Run after importing `DREAMSFX.EXE`, against a checkout of the released Glide
+source. The headers are 3dfx-licensed and stay outside the repo; the parsed
+archive goes to `out/ghidra/glide2x.gdt`.
+
+```sh
+git clone --depth 1 https://github.com/sezero/glide E:/tools/src/glide
+uv run python re/tools/ghidra_headless.py -process DREAMSFX.EXE -noanalysis \
+  -postScript ApplyGlideImports.java E:/tools/src/glide
+```
+
+It parses `glide2x/sst1` (Voodoo Graphics) with `__WATCOMC__`/`__DOS__`
+defined so `FX_CALL` becomes `__stdcall`, then finds the `glimport.asm` tables
+and applies a name, prototype and `@N` stack purge to each of the 130 stubs.
+Three auto-analysis artefacts had to be undone, and the script does so every
+run:
+
+- **No-return.** `__loadme` leaves by jumping into `glide2x.ovl`, so analysis
+  marks it and every stub no-return and cuts each caller at its first Glide
+  call. The script clears the flags and `CALL_RETURN` overrides, disassembles
+  the lost code, regrows the truncated callers and creates functions for
+  routines reached only by pointer.
+- **Thunks.** Each 5-byte stub becomes a thunk of `__loadme`, and a thunk
+  shares its target's signature, so every prototype landed on `__loadme`. The
+  script unlinks them first.
+- **Name table.** The list ends with `_CONVERTANDDOWNLOADRLE@64`, not a
+  `_GR`/`_GU` name; stopping early shifted every name by one stub. Check a
+  known call's argument count (`grBufferClear` pushes 3) after any change.
+
+121 of 130 get prototypes; the other 9 (`grSstConfigPipeline`, `grSstVidMode`,
+`guMovie*`, `guMp*`) are not declared in the final `sst1` headers and keep their
+decorated names. `ImportSymbols.java` restores names only, so re-run this
+script on a fresh project.
+
+### Matching functions across builds
+
+The executables are one Watcom engine compiled for different targets, so most
+functions have a twin in each build at another address. Identical code is rare
+(the Windows build adds a `__CHK` stack probe, `0x454feb`, to nearly every
+function, and register allocation differs), but constants, strings, instruction
+shape and the call graph survive.
+
+```sh
+for p in DREAMSFX.EXE WINDREAM.EXE; do
+  uv run python re/tools/ghidra_headless.py -process $p -noanalysis -readOnly \
+    -postScript ExportFunctionFeatures.java
+done
+uv run python re/tools/match_functions.py DREAMSFX.EXE WINDREAM.EXE --renames
+uv run python re/tools/ghidra_headless.py -process DREAMSFX.EXE -noanalysis \
+  -postScript Rename.java @out/ghidra/match/renames-DREAMSFX.EXE.tsv
+```
+
+- `ExportFunctionFeatures.java` writes `out/ghidra/features/<program>.json`:
+  masked instructions, constants below `0x10000`, string literals and call
+  order per function.
+- `match_functions.py` seeds on unique identical code, identical string sets
+  and single-owner strings, then propagates through callers, callees and
+  **call-slot alignment**: an unmatched call between the same matched
+  neighbours in both call sequences. It writes
+  `out/ghidra/match/<a>--<b>.tsv` with a score and a callee agreement ratio
+  per pair.
+- `--renames` proposes names only for confident pairs (score ≥ 0.60, or at
+  least two agreeing callees at ≥ 75 %), never overwrites a name, reports
+  conflicts, and never carries platform-layer names (`GLIDE_`, `DDRAW_`,
+  `DSOUND_`, `GDI_`, `VID_`, `KBD_`, `TIMER_`, `DPMI_`, `AIL_`, `JOY_`,
+  `INPUT_`, `SYS_`, `WinMain`).
+  `Rename.java @file` applies them and adds the match evidence to each plate
+  comment.
+
+First run, `DREAMSFX.EXE` against `WINDREAM.EXE`: 599 pairs of 1,450/1,272
+functions; 5 of the 6 hand-matched renderer pairs recovered without names;
+10 names carried to the 3dfx build. Calibration: on known pairs, constant
+multisets agree at Jaccard 1.00 where exact code never matches, and mnemonic
+bigrams at 0.4–0.87. Treat low-score `slot` pairs as leads, not facts.
+
+### Proving shared library code: `match_identical.py`
+
+`match_functions.py` pairs *recompiled* functions by likeness. Where the same
+code was linked into two binaries — hand-written assembly survives any
+compiler — a much stricter test applies, and it is the only one a name
+transfer between *different* products should rest on.
+
+```sh
+uv run python re/tools/ghidra_headless.py -process CRYO.DLL -noanalysis -readOnly \
+  -postScript ExportFunctionFeatures.java
+uv run --with capstone python re/tools/match_identical.py CRYO.DLL WINDREAM.EXE --insn
+```
+
+Tiers, written to `out/ghidra/match/<a>--<b>.identical.tsv`:
+
+- **`VERIFIED`** — same length on Ghidra's boundaries, every byte equal except
+  absolute addresses that *both* relocation tables list at the same offsets, and
+  rel32 operands whose targets map consistently across all accepted pairs.
+  Bodies that are identical in several places (16-byte stubs) are resolved by
+  their calls to already-paired functions, or reported as ambiguous.
+- **`INSN-IDENTICAL`** (`--insn`, needs capstone) — same instruction sequence
+  with addresses masked; the bytes differ only in encoding choices.
+- **`MODIFIED`** — at most a quarter of the instructions differ. The same
+  source with changed constants; a lead for comments, never for names.
+
+It resolves MSVC's incremental-link `jmp` thunks, so CryoLib exports name their
+real bodies. Results for CryoLib are in [cryolib.md](cryolib.md).
+
+### Source-file blocks: `find_modules.py`
+
+The `.c` file names are lost, but each file's code, constants, initialised
+data and `.bss` stay contiguous, in link order (rules in
+[toolchain.md](toolchain.md)). The tool groups the game's functions into blocks
+that must share a file:
+
+```powershell
+uv run python re/tools/find_modules.py WINDREAM.EXE --cross DREAMSFX.EXE
+```
+
+**Evidence that two functions share a file**, listed in the `evidence`
+column:
+- **`C`**: a literal or constant they share, or one out of order between them.
+  Constants are never shared across files.
+- **`shared`**: a data or `.bss` item used only within the window (10
+  functions), on both sides of the cut.
+- **`calls`**: a helper called only by at most two nearby functions.
+
+**Proven boundaries** come from `--cross`. The two builds link their files in
+different orders, and a file keeps its own function order in every build. So
+two confidently matched functions (score ≥ 0.60, with callees agreeing) that
+appear in reversed order must be in different files.
+
+**Calibration** on `WINDREAM.EXE`, against 17 proven boundaries:
+
+| Evidence | Blocks | Proven boundaries joined wrongly |
+|---|---|---|
+| `C` | 642 | 0 |
+| `C` + `shared` | 337 | 0 |
+| `C` + `shared` + `calls` | 170 | 1 |
+
+Only the last row's single wrong join is a known error. With `--cross`, the
+proof overrides it.
+
+**Results** in `out/ghidra/modules/<program>.tsv`: 170 blocks, 99 of them
+single functions with no evidence either way, and 18 proven boundaries.
+- A block is one file or part of one. Adjacent blocks marked `candidate` may
+  still be the same file.
+- Blocks agree with names given independently. For example, the `DDRAW_*` and
+  `VID_Present` functions form one block, `MGM_SendMessage` sits with
+  `INPUT_Init`, and `MENJ_Dispatcher` with `MENU_*`.
+
+The PE relocation table supplies the data references, so the tool handles
+only the Windows builds for now.
+
+### Backend cut: `find_cut.py`
+
+Where two builds link different code into the same place, that is a backend.
+`find_cut.py` takes two feature dumps and their `match_functions.py` table:
+
+```powershell
+uv run python re/tools/find_cut.py DREAMS.EXE DREAMSFX.EXE --third WINDREAM.EXE
+```
+
+- **Slots.** The longest run of matched pairs in the same order in both
+  builds anchors the link order. The unmatched functions between two anchors
+  fill the same slot in both builds.
+- **Modified.** Matched pairs whose masked code differs, with the unmatched
+  functions each side calls.
+- **Edges.** Calls and function-pointer references from matched code into
+  unmatched code.
+
+The report goes to `out/ghidra/cut/`. It works best between the two DOS
+builds (same compilers and flags). Results are in
+[spec 006](../specs/006-recomp-glide-renderer/spec.md).
+
+### Naming functions: `re/names/`, `check_names.py`
+
+Names follow the convention in `AGENTS.md`. Each one is recorded in a registry,
+`re/names/<program>.tsv`, with the facts it rests on, and a script checks those
+facts against the binary before anything reaches Ghidra.
+
+A registry row holds the address, the name and its kind (`recovered`,
+`descriptive`, `runtime`, `cryolib`). It also names its sources and gives a
+one-line note. The facts are assertions on the feature dump, and each one
+would be false if the identification were wrong:
+
+| Fact | True when the function… |
+|---|---|
+| `str:<text>` | references a string containing `<text>` |
+| `imp:<Name>` | calls the import `<Name>` |
+| `call:<x>` / `caller:<x>` | calls, or is called by, `<x>` (an address or a name) |
+| `const:<hex>` | uses the scalar (any size) |
+| `ref:<hex>` | reads or writes the data address |
+| `size:<n>` | is `n` bytes long |
+
+```sh
+# refresh the dump first (it now also records imports, large constants and data refs)
+uv run python re/tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis -readOnly \
+  -postScript ExportFunctionFeatures.java
+uv run python re/tools/check_names.py WINDREAM.EXE --renames --twin GDIDREAM.EXE
+uv run python re/tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis \
+  -postScript Rename.java "@out/ghidra/match/names-WINDREAM.EXE.tsv"
+uv run python re/tools/ghidra_headless.py -process GDIDREAM.EXE -noanalysis \
+  -postScript Rename.java "@out/ghidra/match/names-GDIDREAM.EXE.tsv"
+```
+
+- **Failed rows** are reported and left out of the rename file.
+- **Plate comments.** Each name gets a `[NAME]` paragraph: kind, note, sources
+  and facts. `Rename.java` replaces the previous `[NAME]` paragraph instead of
+  stacking copies.
+- **`--twin`** copies names only where the bytes are identical at the same
+  address.
+
+**Two sources per name.** The facts are the check, not the source. The
+sources come from these procedures:
+
+- **Doc claims.** The claims the docs make about each address are compared with
+  a *blind review*. The reviewer sees only the decompilation, with the
+  `[DOCS_SYNC]` comments stripped, and names the function in the standard,
+  with facts.
+- **Existing names.** Before re-review, the function's own name and those of
+  its neighbours under review are replaced by `FUN_<address>`.
+- **Adjudication.** A separate pass compares the review with the docs. The
+  outcome is AGREE, PARTIAL (one side more specific), CONFLICT (settled from
+  the code or data, or left unnamed) or DOCSILENT (the review alone; medium
+  confidence or better).
+- **Doc fixes.** Corrections go back into the docs.
+
+`re/ghidra_scripts/MergeFragments.java parent:fragment` folds a function that
+auto-analysis split off at a jump target back into its parent. Signs of a
+fragment: no callers, `unaff_EBP` locals, and a parent whose body already
+covers it.
+
+### Doc text in Ghidra: `sync_doc_comments.py`
+
+Every current docs sentence, list item or table row that mentions an address or a
+registered name is copied to that address as a `[DOCS_SYNC]` plate comment.
+`ApplyDocComments.java` first removes every old block, so the comments follow
+the docs. The historical `research-log.md` is excluded. In a current guide,
+wrap rejected or historical material in `<!-- docs-sync: off -->` and
+`<!-- docs-sync: on -->` (or leave it off through EOF) to keep it out of live
+comments while retaining it for research history:
+
+```sh
+uv run python re/tools/sync_doc_comments.py WINDREAM.EXE
+uv run python re/tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis \
+  -postScript ApplyDocComments.java "@out/ghidra/match/docsync-WINDREAM.EXE.tsv"
+```
+
+### `FixWatcomBss.java` — the Windows `.bss` is truncated
+
+The Watcom linker writes `VirtualSize = 0` for every PE section. Ghidra then
+maps `WINDREAM.EXE`/`GDIDREAM.EXE` `.bss` as `0x4c7000`–`0x59a1ff`, but the
+section runs to `.reloc` at `0x6b2000`, and the game keeps globals up to
+`~0x6726f8` (window handle, DirectSound buffers, frame pointer). Those
+1.1 MB were unmapped memory in every earlier analysis: references survived,
+but nothing there could be typed. The script extends an uninitialized `.bss`
+to the next block; it is a no-op otherwise. `ghidra_import.py` now runs it as
+`-preScript` on every import. On an existing project:
+
+```sh
+uv run python re/tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis -postScript FixWatcomBss.java
+```
+
+### Watcom runtime: `ApplyWatcomSigs.java`, then `ApplyWatcomHeaders.java`
+
+`ApplyWatcomSigs.java <DREAMS_WATCOM>\sigs\<program>.csv` names the runtime
+from the library match ([toolchain.md](toolchain.md)): `__CHK`, `memcpy_`,
+`vsprintf_`, `int386x_`, ... PE rows carry virtual addresses. LE rows carry
+file offsets only, and **`Memory.locateAddressesForFileOffset` is a trap
+here**: it resolves into the loader's `.image` overlay (a raw copy of the
+file), not the loaded objects. The script reads the LE object/page tables from
+`.image`, maps each offset itself, and verifies the bytes, skipping 32-bit
+relocation sites, before naming anything. Result: 279 + 2 labels in
+`DREAMSFX.EXE` (10.6 runtime), 267 + 4 in each Windows build (11.0 runtime;
+102 + 17 with the 10.6 libraries). User-assigned names are never overwritten,
+and a current name that is one of a match's aliases is kept (the registry's
+`sprintf_` out of `fprintf_|…|sscanf_`). Re-running with another release
+replaces the earlier `Watcom <version> runtime:` paragraph and removes names
+it applied at addresses the new CSV no longer matches.
+
+`ApplyWatcomHeaders.java <H dir>` parses the Watcom C headers of the linked
+release — `<DREAMS_WATCOM>\wc110\11.0\H` for the Windows builds,
+`<DREAMS_WATCOM>\10.6-cd\H` for DOS — (`stdio.h` … `signal.h`, plus `graph.h`
+for DOS; `__DOS__` for LE, `__NT__` for PE) and gives each `name_` runtime
+function the prototype of
+`name`: `__watcall`, or `__cdecl` when variadic (Watcom passes varargs on the
+stack, caller pops; `re/tools/lx-loader-watcom.cspec` gained a `__cdecl` model
+for this). Functions with `float`/`double` are skipped. Ghidra's parser needs
+cleaned copies, written to `out/ghidra/watcom-h`: `#pragma aux`/`intrinsic`
+lines dropped, `pack(__push,1)` normalised, `__far`/`__near`/`__huge`/...
+removed, `__segment` → `unsigned short`. Typed: 98 functions in `DREAMSFX.EXE`,
+92 per Windows build (35 with 10.6); types include `REGS`/`SREGS` (28/12 bytes),
+`videoconfig`, `find_t`, `FILE`. DPMI calls now read as
+`r.x.eax = 1; r.x.ebx = sel; int386_(0x31, &r, &r)`.
+
+### `ApplyTypes.java` — DirectX interfaces and named globals
+
+`ApplyTypes.java re/structs/directx.h re/structs/windream-globals.tsv` parses
+the headers given and types the globals listed in the `.tsv`
+(`address type name comment`). `directx.h` declares the seven COM interfaces
+the Windows build uses; method order was generated from Wine's headers and
+checked identical to Microsoft's (Windows SDK 10.0.26100 `ddraw.h`/`dsound.h`),
+which themselves need `windows.h`/`objbase.h`/SAL and do not parse cleanly.
+Ghidra's bundled `windows_vs12_32.gdt` has no DirectX interfaces. After it,
+`DDRAW_Present` reads `g_ddsBack->lpVtbl->Lock(g_ddsBack, NULL, &desc, 0,
+NULL)` with a typed `DDSURFACEDESC`. Labels are not exported by
+`ExportSymbols.java`; the `.tsv` is the record, so re-run it on a fresh
+project (after `FixWatcomBss.java`).
+
+### `ApplyWatcall.java` — run this on any fresh project
+
+Ghidra ships **no Watcom compiler spec**, and all four game executables are
+Watcom C/C++ (10.6 and 11.0; see [toolchain.md](toolchain.md)), which passes
+arguments in `EAX, EDX, EBX, ECX`. Without it
+every decompilation is lossy: arguments surface as `extraout_*` and `unaff_*`
+and cannot be read at all.
+
+1. Apply `re/tools/watcall-cspec.patch` to
+   `<ghidra>/Ghidra/Processors/x86/data/languages/x86win.cspec`. It adds a
+   `__watcall` prototype model. Re-apply after any Ghidra upgrade, then restart.
+2. Run the script, pointing it at the Watcom library match:
+
+```sh
+uv run python re/tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis \
+  -postScript ApplyWatcall.java \
+  "$(uv run python -c "from dreams import paths; print(paths.get('watcom') / 'sigs' / 'windream.csv')")"
+```
+
+It sets `__watcall` on every function except:
+
+- **runtime helpers with bespoke register contracts**, which the CSV
+  identifies for free — Watcom decorates register-convention symbols with a
+  **trailing underscore** (`memcpy_`, `strlen_`), and the ones without
+  (`__CHK`, `IF@DSIN`, `__FDD`, `__U8M`) are hand-written assembly. 42 in the
+  Windows builds' 11.0 match (31 with 10.6). A helper still carrying
+  `__watcall` from an earlier run is reset to `unknown`;
+- **typed functions**: an `IMPORTED` or `USER_DEFINED` signature (the header
+  prototypes from `ApplyWatcomHeaders.java`, hand typing) is kept, so the
+  script is safe to re-run;
+- **Win32 callbacks**, which get `__stdcall`: a function whose address is
+  loaded just before (12 instructions) a call that does not land on one of
+  the program's own functions — an import or a COM method. Each one is
+  printed. In both Windows builds: the WndProc `0x44627b` (stored into the
+  window class in `VID_CreateWindow`, next call `LoadIconA`), the `EnumDisplayModes` callback `0x445e20`, and the
+  runtime's `SetUnhandledExceptionFilter` and `SetConsoleCtrlHandler`
+  handlers (`0x489941`, `0x497dd0`). Every other address-taken function sits
+  in the game's own dispatch tables and is called as `__watcall`.
+
+The first run (10.6 match, `WINDREAM.EXE` only): 1,251 converted, 26 skipped.
+The 11.0 re-run on 2026-09-28, both builds: 1,651 `__watcall`, 4 `__stdcall`,
+91 typed kept, 52 skipped (thunks and helpers; 7 helpers reset in
+`WINDREAM.EXE`). `GDIDREAM.EXE` had never been converted before; the two
+builds now export identical signatures. The WndProc decompiles as
+`LRESULT (HWND, uint, uint, LPARAM)`.
+
+It also resets each converted signature to `SourceType.DEFAULT`. That step is essential
+and easy to miss — while a signature inferred under the wrong convention
+stands, the decompiler will not promote `EBX` to a parameter however right the
+prototype model is.
+
+Ground truth: `FUN_0045c278` is `memcpy_` per the library match, and under
+`__watcall` it decompiles as a textbook `memcpy(dst, src, len)`.
+
+After the boundary pass below added 267 functions (2026-09-28), the re-run
+set 1,808 `__watcall` on both builds, kept the same 4 callbacks and 91 typed
+signatures, and skipped 162 (the new import thunks among them).
+
+### Function boundaries: `ReportBoundaries.java`, `ApplyBoundaries.java`
+
+`ReportBoundaries.java <out.tsv> [re\boundaries\<program>.tsv]` (read-only)
+lists every place control flow leaves a function body other than by a
+return, a jump to a function entry or a call to one:
+
+- **Leaving a body:** a fall-through out of it, a branch into another body
+  off its entry, a branch or call to code in no function.
+- **Code nobody owns:** runs of instructions in no function, and runs of
+  undefined non-filler bytes in the code section.
+
+With the fix list as second argument, rows whose target is a recorded shared
+tail are marked `recorded`.
+
+`ApplyBoundaries.java re\boundaries\<program>.tsv` applies the reviewed fixes:
+
+| Action | What it does |
+|---|---|
+| `function` | Create a missing entry. |
+| `body` | Rebuild a body from its flow. |
+| `data`, `guid` | Clear code decoded from data. `guid` also types the bytes as GUIDs, so later passes stop taking COM interface-ID pointers for code pointers. |
+| `table` | Resolve a hand-written jump table `CreateWatcomFunctions` does not recognise. |
+| `tail` | Record a Watcom shared epilogue. |
+
+Chain `CreateWatcomFunctions.java apply` after it: new functions contain
+switch dispatches whose tables nothing had defined.
+
+```sh
+uv run python re/tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis \
+  -postScript ApplyBoundaries.java re/boundaries/WINDREAM.EXE.tsv \
+  -postScript CreateWatcomFunctions.java apply \
+  -postScript ReportBoundaries.java out/ghidra/boundaries/WINDREAM.EXE.tsv re/boundaries/WINDREAM.EXE.tsv
+```
+
+Found and applied on 2026-09-28, both Windows builds (same list):
+
+| Measure | Before | After |
+|---|---:|---:|
+| Functions | 1,907 | 2,174 |
+| Instructions in no function | 17,880 bytes | 1 byte (the `int3` pad at `0x401000`) |
+| Undefined non-filler bytes in the code section | 33,966 | 9,095 |
+
+What was wrong:
+
+- **Missing entries after a Watcom switch table** (`0x473360`, 11,471 bytes;
+  `0x47e384`, `Build_Obj_Miror_` in the localized OMF records;
+  `0x463ec4`; `0x4564e4`; `0x458734`; `0x4588d4`). Their case code had been
+  disassembled from the tables' relocated pointers but belonged to no
+  function.
+- **Uncalled runtime helpers:** three reached from `freopen_`, `tmpfile_`
+  and `signal_`.
+- **HNM6 refills outside the decoders:** the seven HNM6 inter-block decoders'
+  out-of-line bit-reader refills (27-byte stubs that jump back) were outside
+  their bodies (`HNM6_DecodeInterBlock8x8` grows from 1,190 to 1,649 bytes).
+- **An unresolved blitter table:** the hand-written blitter `FUN_00401090`
+  dispatches 16 variants through `jmp [eax+0x40148a]`, a table
+  `CreateWatcomFunctions` cannot see; its body grows from 182 to 1,017
+  bytes.
+- **GUIDs decoded as code:** ten DirectDraw interface IDs at `0x4452f8` were
+  decoded as instructions.
+- **Dead functions:** 249 were never called, jumped to or pointed at. These
+  are 107 import thunks, 105 functions with ordinary prologues (among them
+  `Update_Obj_` `0x47e634` and `Update_Hierarchie_` `0x47e7ac`), and small
+  runtime helpers. They were proposed with Ghidra's `isValidSubroutine`
+  test, and nine fragments were rejected by hand.
+- **Shared tails:** 40 targets of cross-function jumps are recorded as
+  tails. They are Watcom runtime epilogues, the HNM6 inter decoders jumping
+  into the intra decoders, `MDL_BindTreeMaterials` into `MDL_RelocNodeTree`,
+  and the `pop fs; popad; ret` exit of the `0x402xxx` assembly.
+
+What is left undefined is mostly **dead blocks inside functions**: code a
+prologue jumps over and nothing reaches, such as 1,206 bytes in
+`TEXT_LoadLanguageIni` and 3,409 in `FUN_00431db5`. They are not boundary
+errors and are left alone.
+
+### Proven prototypes: `ApplyPrototypes.java`
+
+`re/prototypes/<program>.tsv` lists functions whose C, compiled with Watcom
+11.0 under the game's flags, is byte-identical to retail
+(`out/recomp/matchdecomp/match.py`; see
+[spec 000](../specs/000-the-recomp/spec.md), W3). Such a match fixes the
+parameter count, each parameter's width and signedness, and the return type.
+`ApplyPrototypes.java re\prototypes\<program>.tsv` applies them as
+`USER_DEFINED` `__watcall` signatures without touching names, skips
+float/double prototypes as `ApplyWatcomHeaders.java` does, and writes a
+`[PROTO]` plate paragraph with the flags and evidence. `ApplyWatcall.java`
+keeps `USER_DEFINED` signatures, so the order of the two does not matter.
+Variadic prototypes are applied as `__cdecl`: Watcom passes variadic
+arguments on the stack, and the caller cleans up.
+
+On 2026-09-28 the list held 131 prototypes. They came from the `MATH_`
+pilot, the blind test and 107 port-map functions. 130 are applied to both
+Windows programs; `ANIM_ApplyEase` returns `float` and is skipped. None of
+the 131 decompiles with an `unaff_` register. Some still read `extraout_`
+registers after calls, because the single `__watcall` model kills all four
+argument registers while Watcom only clobbers the ones carrying parameters
+([spec 000](../specs/000-the-recomp/spec.md), W7).
+
+### Whole-program decompilation: `DecompileAll.java`
+
+Read-only. It decompiles every non-external function with the program's own
+decompiler options, in parallel. The output goes to `<out-dir>/<program>.c`
+(address order) and `<out-dir>/<program>.tsv`. The TSV has one row per
+function: entry, name, size, convention, signature source, and the number of
+distinct `unaff_`, `extraout_` and `in_` variables and `WARNING` comments. The C
+is game-derived, so keep it under `out/`.
+
+```sh
+uv run python re/tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis -readOnly -postScript DecompileAll.java out/decomp
+```
+
+Both Windows programs take about 20 seconds each. Point it at a backup project
+to get a before-and-after comparison; spec 000 records the Watcom 11.0 one.
+
+### `SetWatcall.java`
+
+Same convention on one function at a time, printing before and after. Useful
+for checking the model is doing what you expect.
+
+### `ExportSymbols.java` / `ImportSymbols.java`
+
+Round-trip named functions and comments through `re/symbols/<program>.tsv`.
+
+TSV rather than JSON: no dependency, and one line per symbol gives clean git
+diffs when someone renames a single function. Addresses are stored as **RVAs**,
+so a rebased project still matches. The export records the binary's SHA-256 and
+the import warns on mismatch. Ghidra's auto-generated `FUN_xxxxxxxx` names are
+skipped so re-analysis does not churn the diff.
+
+### `ImportStructs.java`
+
+`re/structs/windream.h` is the source for verified format records and the
+partial runtime actor layout. The script parses it into the WINDREAM/GDI DREAM
+program's Data Type Manager. Unknown spans stay byte arrays. The `DREAMS.DAT`
+records are external decoded buffers, so their types are not applied to arbitrary
+executable addresses. The active actor pointer at `DAT_004fbb48` is typed when
+that BSS location is present in the loaded program.
+
+## Not losing work
+
+### How Ghidra saves
+
+- **Headless saves automatically** — the import run logged
+  `Save succeeded for processed file: /WINDREAM.EXE`. Pass `-readOnly` to
+  suppress it.
+- **The GUI saves on Ctrl+S** and prompts on close.
+- Auto-recovery snapshots (Edit → Tool Options → Recovery, every 5 min) exist as
+  well, but those are *crash* recovery — they will not save you from closing a
+  program without saving.
+
+### Durable research and port records
+
+| Layer | What | Durability |
+|---|---|---|
+| `ghidra/dreams.rep` | the saved project | durable on disk, but **gitignored** — binary, unmergeable, embeds the game executables |
+| `re/symbols/*.tsv` | exported names + comments | **durable and in git** — the record that outlives everything |
+| `re/structs/*.h` | parsed C layouts | **durable and in git** — imported by `ImportStructs.java` |
+| `opendreams/port-map.tsv` | retail implementation status, behavior coverage, owner review and C++ locations | **durable and in git** — applied by `ApplyPortMap.java` |
+
+`re/` is the source of truth for recovered symbols and types. The Ghidra
+project is disposable and rebuildable from the discs with
+`ghidra_import.py --import-symbols --import-structs`.
+For port status, `opendreams/port-map.tsv` is the separate source of truth;
+`--import-symbols` runs `ApplyPortMap.java` after restoring names, so Function
+Tags and `[PORT_MAP]` comments are rebuilt from it too.
+
+### The project lock
+
+Ghidra locks a project while it is open — a `dreams.lock` appears beside
+`dreams.gpr`, and **headless cannot touch a project the GUI holds**. That gives
+two checkpoint routes.
+
+**GUI closed** — the normal one:
+
+```sh
+uv run python re/tools/re_checkpoint.py -m "batch rename stream helpers"
+```
+
+Exports every program headless, then commits. It detects the lock and redirects
+you to the GUI route rather than failing obscurely.
+
+**GUI open:**
+
+1. Ctrl+S.
+2. **Window → Script Manager → Dreams → `ExportSymbols.java`** — writes the TSV
+   from the live program, no lock conflict.
+3. `uv run python re/tools/re_checkpoint.py --skip-export -m "name the DSN header reader"`
+
+Flags: `--no-commit` to inspect first, `--skip-export` to commit an existing export.
+
+### What a checkpoint captures
+
+From the first real run:
+
+| Program | Named functions | Comments |
+|---|---|---|
+| `CRYO.DLL` | **574** | 1125 |
+| `SETUP.EXE` | 258 | 905 |
+| `WINDREAM.EXE` | 1 | 350 |
+
+CryoLib's 574 come free — it is a debug build, so Ghidra resolves exports and
+signatures:
+
+```
+FUNC  1000  GL_InitHnmScreen   undefined GL_InitHnmScreen(void)
+FUNC  1019  GL_AddProgramItems undefined4 GL_AddProgramItems(undefined4, uint *, uint *)
+FUNC  101e  GL_ShellExec       BOOL GL_ShellExec(LPCSTR, LPCSTR, LPCSTR)
+```
+
+`WINDREAM.EXE` shows 1 because nothing has been named in it yet. Watching that
+number climb is the measure of progress.
+
+### If you want real version history
+
+Everything above gives you git history of the *annotations*. If you want Ghidra's
+native check-in/check-out with per-revision comments and program-level diffing,
+run a local **Ghidra Server** (`server/ghidraSvr.bat`) and convert the project to
+a shared one. Heavier to operate, and largely redundant for a solo project given
+the TSV round-trip — but it is the native answer and it exists.
+
+### Guardrails
+
+- Exports are **RVA-keyed** and stamped with the binary's SHA-256, so rebasing or
+  re-importing still matches and a wrong binary warns on import.
+- Auto-generated `FUN_xxxxxxxx` names are skipped, so re-analysis does not churn
+  the diff.
+- `re_checkpoint.py` **refuses to commit** if anything matching a game-asset
+  extension appears in the working tree.
+
+### Discipline
+
+Checkpoint at every natural pause. It costs seconds, and the TSV diff doubles as
+a readable log of what was learned.
+
+## Suggested order of attack
+
+1. ~~Run `FindFormatParsers.java` on `WINDREAM.EXE`.~~ **Done** — see the table
+   above.
+2. ~~**Decompile `DSN_LoadHeader` (`0x4175bc`).**~~ **Done** — it is the `.DSN` header reader,
+   and the body is now fully decoded. See
+   [scene-geometry.md](scene-geometry.md). Kept for context: 157 MB of packed
+   level geometry and textures sits behind it, and it is the top open question in
+   [research-log.md](research-log.md).
+3. Read outward from the magic check: the code immediately after it parses the
+   header we already decoded (`u8 flag`, `u32 size @5`, counts, 11-byte name
+   table), which gives you a known anchor to orient against.
+4. Whatever consumes the bytes past `0x12e` **is the unpacker**. That is the
+   answer we cannot get from the outside.
+5. Name it, export symbols, commit.
+
+Cross-check anything you find against the measurements in
+[assets.md](assets.md) — the decoded headers there are verified byte-exact, so
+they make good ground truth for a decompilation you are unsure of.

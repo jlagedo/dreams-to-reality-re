@@ -3,7 +3,7 @@
 Both share a 9-byte preamble with the file size stored **unaligned at offset 5**,
 then a u32 span field and a u16 count. Verified against every file on the discs -
 95 unique scenes and 191 animations. Packed records use :mod:`dreams.formats.lz`;
-scene tag 1 is render geometry and tag 2 is collision (see docs/scene-geometry.md).
+scene tag 1 is render geometry and tag 2 is collision (see docs/research/scene-geometry.md).
 
 ``.DSN``::
 
@@ -26,7 +26,7 @@ The body offset comes from the loader itself, not from arithmetic:
 ``name_count * 0xb`` for the name table and ``name_count * 0x14`` for the
 records - 16 + 31*name_count, with no gap between the two tables. An earlier
 reading put the body 8 bytes later and invented an 8-byte "scene block" to
-explain the difference. See docs/dsn-loader.md.
+explain the difference. See docs/research/dsn-loader.md.
 
 ``.DAN``::
 
@@ -43,7 +43,7 @@ keyframes selected from a longer authored sequence.
 
 Object names decode as French room construction: ``M`` + compass letter for
 walls (ME/MN/MO/MS = Mur Est/Nord/Ouest/Sud), ``SOL`` for floor, ``P`` for
-plafond. See docs/assets.md.
+plafond. See docs/research/assets.md.
 
 Both bodies are PACKED and remain the project's top unsolved target: ``.DSN``
 entropy 4.5-7.8 (median 6.9), ``.DAN`` 7.3-7.8.
@@ -210,7 +210,7 @@ def classify_name(name: str) -> str:
     """Interpret a ``.DSN`` object name.
 
     Most of this is inference from French mnemonics and stays **UNVERIFIED** -
-    see docs/assets.md. The entries marked below were settled by rendering the
+    see docs/research/assets.md. The entries marked below were settled by rendering the
     object's own texture or the object itself, which is now possible because
     the node decode carries names through to the export.
 
@@ -314,7 +314,7 @@ def read_records(path: str | Path, kind: str = "dsn") -> list[Record]:
 
     The grammar came from ``FUN_00417afd`` in ``WINDREAM.EXE``, which reads the
     tag, takes the ``u32`` length, then hands each object ``0x400`` bytes of the
-    payload. See docs/dsn-loader.md.
+    payload. See docs/research/dsn-loader.md.
     """
     p = Path(path)
     header = read_dsn(p) if kind == "dsn" else read_dan(p)
@@ -391,7 +391,7 @@ def rgb565_to_rgb(word: int) -> tuple[int, int, int]:
     **RGB565, not RGB555.** Decoding these palettes as 555 puts impossible cyan
     and magenta speckles through every texture; 565 renders clean rock, ice and
     lava that match the scenes' own French names. Verified visually across six
-    scenes. Material colours in ``.3DC`` still read as 555 - see docs/assets.md.
+    scenes. Material colours in ``.3DC`` still read as 555 - see docs/research/assets.md.
     """
     return (
         ((word >> 11) & 0x1F) * 255 // 31,

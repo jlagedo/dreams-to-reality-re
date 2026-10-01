@@ -7,7 +7,7 @@
                             function with no caller and no copy is unreachable
                             (a global's copies are its operand references)
 
-Function bounds come from recomp/windream/bounds.csv and names from
+Function bounds come from recomp/windream/lift/bounds.csv and names from
 re/names/WINDREAM.EXE.tsv (same addresses in both Windows programs). Arrays
 written through a pointer (the key table at 0x6308d8, structure fields) show
 up as false candidates: check each hit's code before poking it.
@@ -64,7 +64,7 @@ def main() -> None:
     img = pe.get_memory_mapped_image()
     md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
     md.detail = True
-    with open(ROOT / "recomp/windream/bounds.csv") as f:
+    with open(ROOT / "recomp/windream/lift/bounds.csv") as f:
         bounds = [tuple(int(x, 16) for x in r) for r in csv.reader(f)]
     names = {}
     for r in csv.reader(open(ROOT / "re/names/WINDREAM.EXE.tsv", encoding="utf-8"), delimiter="\t"):

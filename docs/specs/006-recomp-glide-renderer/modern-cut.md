@@ -52,7 +52,7 @@ There is also independent source-organization evidence: the Dutch and Spanish
 executables retain a partial OMF renderer object containing Cryo's original
 `Process_Obj_`, `Process_Hierarchie_`, `Update_Obj_`, `Update_Hierarchie_`,
 `Build_Obj_Lights_`, `Build_Obj_Env_Mapping_` and mirror functions. See
-[localized-build-symbols.md](../../localized-build-symbols.md). Its source
+[localized-build-symbols.md](../../research/localized-build-symbols.md). Its source
 filename is unknown; the following `3DC_MATH.C` object is a separate object.
 The 17-entry address range above is a functional grouping, not a claim that
 all 17 belonged to that same source file.
@@ -154,7 +154,7 @@ Sound and line-of-sight code read the previous render's value. Preserve its
 arithmetic, hierarchy visitation and timing, including leaving hidden
 subtrees stale. Do not feed enhanced-camera values or interpolated display
 poses back into these fields. The previous static consumer audit is in
-[engine.md](../../engine.md#what-the-game-reads-from-the-renderer-verified).
+[engine.md](../../research/engine.md#what-the-game-reads-from-the-renderer-verified).
 
 Keep resource loading, attachment, animation, collision, camera gameplay and
 palette-state updates on the game side. Palette effects use the shared RNG;
@@ -208,9 +208,9 @@ discussed in spec 006. Finding the 3D cut does not resolve that separate issue.
 ## Smoke results, 2026-09-29
 
 The reusable harness is
-[`render_smoke.py`](../../../recomp/windream/debug/render_smoke.py), with
-[`render_smoke_host.c`](../../../recomp/windream/debug/render_smoke_host.c)
-and [`render_gpu_smoke.cpp`](../../../recomp/windream/debug/render_gpu_smoke.cpp).
+[`render_smoke.py`](../../../recomp/windream/verify/render_smoke.py), with
+[`render_smoke_host.c`](../../../recomp/windream/verify/native/render_smoke_host.c)
+and [`render_gpu_smoke.cpp`](../../../recomp/windream/verify/native/render_gpu_smoke.cpp).
 Generated lifted C, inputs and reports stay under
 `out/recomp/render-smoke/`.
 
@@ -264,7 +264,7 @@ not Voodoo dithering, fog, palette filtering or final gamma accuracy.
 Run from the repository root (the dumps are local, game-derived artifacts):
 
 ```powershell
-uv run --with unicorn python recomp/windream/debug/render_smoke.py --lifted --gpu out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
+uv run --with unicorn python recomp/windream/verify/render_smoke.py --lifted --gpu out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
 ```
 
 `--gpu` defaults to the existing debug build's pinned sokol checkout; use
@@ -341,6 +341,6 @@ All generated/disassembly output remains under `out/ghidra/cut/`:
 - `modern-cut-audit.json`: function inventory, incoming feature-export edges,
   byte counts and Windows twin comparisons.
 
-The Ghidra reads used `tools/ghidra_headless.py -process WINDREAM.EXE
+The Ghidra reads used `re/tools/ghidra_headless.py -process WINDREAM.EXE
 -noanalysis -readOnly` with `Inspect.java` and `Decompile.java`. No function
 was renamed, ported, marked complete or marked owner-reviewed in this audit.

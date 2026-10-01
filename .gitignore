@@ -109,9 +109,6 @@ venv/
 .mypy_cache/
 dist/
 build/
-node_modules/
-.vite/
-.animation-tests/
 
 # uv writes the lockfile - DO commit uv.lock for reproducible builds.
 # (listed here only as a reminder; not ignored)
@@ -119,9 +116,7 @@ node_modules/
 # ---------------------------------------------------------------------------
 # Local config and editors
 # ---------------------------------------------------------------------------
-dreams.local.toml
 .dreams.local.env
-opendreams/runtime.local.ini
 .env
 .idea/
 .vscode/
@@ -134,12 +129,6 @@ Thumbs.db
 # Add narrowly, and only for things that are ours, not Cryo's.
 # ---------------------------------------------------------------------------
 !docs/**/*.md
-!tests/data/*.hex
-
-# Original OpenDreams application icons (not extracted game media).
-!opendreams/assets/
-!opendreams/assets/icons/
-!opendreams/assets/icons/*
 
 # ---------------------------------------------------------------------------
 # Ghidra / reverse engineering

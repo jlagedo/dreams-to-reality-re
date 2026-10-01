@@ -141,16 +141,16 @@ isolated local-vector oracle is not proof of every composed-camera case.
 ## Reproduction
 
 ```powershell
-uv run python recomp/windream/debug/direct_render_validate.py --gpu
-uv run --with unicorn python recomp/windream/debug/render_oriented_light_smoke.py
-uv run --with unicorn python recomp/windream/debug/render_light_smoke.py
-uv run --with unicorn python recomp/windream/debug/render_environment_smoke.py
-uv run --with unicorn python recomp/windream/debug/render_environment_live_smoke.py
-uv run --with unicorn python recomp/windream/debug/render_layout_smoke.py out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
-uv run --with unicorn python recomp/windream/debug/render_smoke.py --lifted out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
-uv run --with unicorn python recomp/windream/debug/render_scene_smoke.py out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
+uv run python recomp/windream/verify/direct_render_validate.py --gpu
+uv run --with unicorn python recomp/windream/verify/render_oriented_light_smoke.py
+uv run --with unicorn python recomp/windream/verify/render_light_smoke.py
+uv run --with unicorn python recomp/windream/verify/render_environment_smoke.py
+uv run --with unicorn python recomp/windream/verify/render_environment_live_smoke.py
+uv run --with unicorn python recomp/windream/verify/render_layout_smoke.py out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
+uv run --with unicorn python recomp/windream/verify/render_smoke.py --lifted out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
+uv run --with unicorn python recomp/windream/verify/render_scene_smoke.py out/scratch/retail-gdidream-222659.dmp out/scratch/retail-gdidream-223423.dmp
 uv run python recomp/windream/build.py --render-audit
-uv run --with unicorn python recomp/windream/debug/render_light_live_smoke.py --oriented
+uv run --with unicorn python recomp/windream/verify/render_light_live_smoke.py --oriented
 ```
 
 Reports remain under `DREAMS_OUT/recomp/{debug-layout,oriented-lighting,lighting,

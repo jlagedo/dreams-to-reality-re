@@ -22,6 +22,18 @@ from dreams import paths
 
 RECOMP = Path(__file__).resolve().parent
 WINDREAM = RECOMP / "windream"
+LIFT = WINDREAM / "lift"
+# Host runtime, by the API each part stands on: core (guest runtime, trace,
+# crash report), sdl (USER32/GDI32/WinMM/DirectSound on SDL3), win32
+# (KERNEL32 on Win32: the part to replace on other systems), render (GPU
+# renderer adapters) and hooks (diagnostics).
+HOST = WINDREAM / "host"
+HOST_DIRS = [HOST / name for name in ("core", "sdl", "win32", "render", "hooks")]
+
+
+def host_includes() -> list[str]:
+    """One /I option per host source directory (clang-cl and cl)."""
+    return [f"/I{d}" for d in HOST_DIRS]
 
 
 def out_dir(*parts: str) -> Path:
@@ -82,12 +94,12 @@ def _compilers(*, cxx: bool = False) -> list[str]:
 def ensure_sdl3() -> Path:
     """Install prefix of a static SDL3 release build, built on first use.
 
-    Same pinned source as OpenDreams (the SDL3 URL in
-    opendreams/cmake/Dependencies.cmake), built once under
+    The pinned source (the SDL3 URL in
+    recomp/render/cmake/Dependencies.cmake), built once under
     DREAMS_OUT/recomp/sdl3/<commit> and shared by every recomp and difftest
     build.
     """
-    deps = RECOMP.parent / "opendreams" / "cmake" / "Dependencies.cmake"
+    deps = RECOMP / "render" / "cmake" / "Dependencies.cmake"
     m = re.search(r"FetchContent_Declare\(SDL3\s+URL\s+(\S+)", deps.read_text())
     if not m:
         sys.exit(f"no SDL3 URL in {deps}")

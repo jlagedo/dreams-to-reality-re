@@ -1,6 +1,6 @@
 /* DirectDraw and DirectSound COM interfaces used by WINDREAM.EXE / GDIDREAM.EXE.
  *
- * Minimal declarations for Ghidra's C parser (ghidra_scripts/ApplyTypes.java),
+ * Minimal declarations for Ghidra's C parser (re/ghidra_scripts/ApplyTypes.java),
  * so vtable calls decompile as lpVtbl->Lock(...) instead of *(code **)(+0x64).
  * The game links DirectX 3 era interfaces: IDirectDraw (DirectDrawCreate),
  * IDirectDraw2 (QueryInterface), IDirectDrawSurface, IDirectSound and

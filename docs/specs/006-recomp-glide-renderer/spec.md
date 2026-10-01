@@ -1,5 +1,12 @@
 # 006 — Finish Dreams rendering on Windows
 
+> **Note, 2026-09-30.** The hand-written OpenDreams port, ODViewer and the port
+> map were removed (tag `opendreams-final`). The renderer now lives in
+> `recomp/render/` and the recomp is its only consumer, so requirements here
+> about keeping other shared consumers building, the Viewer adapter or port-map
+> updates no longer apply. The supporting documents in this directory were
+> written before the move and may still mention them.
+
 Status: **Buildable/playable Windows checkpoint; full Windows acceptance remains
 open. Software stays the default; direct rendering is explicitly selectable.**
 Date: 2026-09-30. Owner direction: close Windows rendering quickly, reproduce
@@ -201,7 +208,7 @@ R0–R4 remain progress labels, not separate architectures:
 | R4 — Windows acceptance | The complete game and development/debug matrix passes with strict auditing, bounded resources and acceptable pacing; remaining nonblocking/deferred items are explicit |
 
 Function port coverage and owner review remain governed by
-[PORT_MAP.md](../../../opendreams/PORT_MAP.md). Windows delivery acceptance is not
+PORT_MAP.md. Windows delivery acceptance is not
 proof that every historical branch of every mapped function is complete, nor
 personal owner review. Keep partial/unverified rows honest and apply changed
 maps to both Windows programs in Ghidra.
@@ -280,11 +287,11 @@ commands are in [implementation.md](implementation.md#stage-status).
 
 Supporting research:
 
-- [000: recomp](../000-the-recomp/spec.md), [north star](../../north-star.md).
+- [000: recomp](../000-the-recomp/spec.md), north star.
 - [3D boundary](modern-cut.md), [2D map/contracts](2d-cut.md).
 - [Retail layouts and lighting](debug-renderer-contracts.md).
-- [Glide appearance rules](../../glide-renderer.md),
-  [call inventory](../../glide-call-inventory.md), [engine](../../engine.md).
+- [Glide appearance rules](../../research/glide-renderer.md),
+  [call inventory](../../research/glide-call-inventory.md), [engine](../../research/engine.md).
 - [Archived backend investigation](backend-exploration.md).
 
 The recorded shadow now matches all 65,536 oracle bytes, and existing 2D

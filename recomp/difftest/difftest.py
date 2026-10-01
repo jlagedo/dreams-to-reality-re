@@ -91,13 +91,13 @@ def main() -> int:
     # pointers found in data.
     env = dict(os.environ, WD_SCAN_DATA_PTRS="1")
     p = subprocess.run(
-        [sys.executable, str(recomp_env.WINDREAM / "lift.py"), str(exe), str(bounds),
+        [sys.executable, str(recomp_env.LIFT / "lift.py"), str(exe), str(bounds),
          str(work / "gen")],
         env=env, capture_output=True, text=True, check=True,
     )  # fmt: skip
     print("\n".join(p.stdout.splitlines()[-2:]))
     subprocess.run(
-        [sys.executable, str(recomp_env.WINDREAM / "gen_imports.py"), str(exe),
+        [sys.executable, str(recomp_env.LIFT / "gen_imports.py"), str(exe),
          str(work / "gen" / "imports_gen.c")],
         check=True,
     )  # fmt: skip

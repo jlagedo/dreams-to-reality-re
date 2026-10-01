@@ -1,5 +1,9 @@
 # 005 — Retail debug tools recovery
 
+> **Note, 2026-09-30.** The hand-written OpenDreams port was removed (tag
+> `opendreams-final`); the recomp is the project. Steps that carry these tools
+> into OpenDreams or ODRuntime no longer apply.
+
 Status: **Three debug views, a step override and the Dreams Editor (noclip,
 menu tree, mouse cursor, record pages) run in the recomp through data pokes,
 keypad toggles and two restored links; the editor's file pickers are broken in
@@ -56,7 +60,7 @@ tags follow [the docs index](../../README.md#evidence-tags).
   in the executable. The developers disabled features by removing calls and
   setters, not code. The discs show the same habit elsewhere: French error
   strings, 3D Studio leftovers, a Multi-Edit session file in `DATA\OBJET`
-  ([engine.md](../../engine.md)).
+  ([engine.md](../../research/engine.md)).
 
 ## Live features
 
@@ -86,7 +90,7 @@ shows the actor at `0x4fbb48` when that is set, otherwise the player
 flag words, angles, `Object 3D Col`, both animation channels (current and
 requested action, frame, time), `Nombre d'objet` and `dernier objet`
 (inventory count and last item). Field meanings are in
-[file-formats.md](../../file-formats.md) and [models.md](../../models.md).
+[file-formats.md](../../research/file-formats.md) and [models.md](../../research/models.md).
 
 ### Collision view **[verified in code and in the recomp]**
 
@@ -122,13 +126,13 @@ triangles from the current camera each frame, and because nothing clears the
 view they accumulate. The lines trace the ground and the stepped platform of
 Project 0 coarsely. The handle `0x4fbdc8` is offset `+0x350` of the player
 actor `0x4fba78`; that it is the level's `.3DI` collision mesh
-([scene-geometry.md](../../scene-geometry.md)) rather than a local subset is
+([scene-geometry.md](../../research/scene-geometry.md)) rather than a local subset is
 **[unverified]**, as is whether the tree roots in Project 0 are solid.
 
 ### Step pinned at 2.0 **[verified]**
 
 `GAME_TickFrame` computes Δt for the next frame (`0x5e5388`, a double;
-[engine.md](../../engine.md#the-fixed-step-verified)). At `0x417268`, if
+[engine.md](../../research/engine.md#the-fixed-step-verified)). At `0x417268`, if
 `0x4a4758 == 1` it stores 2.0, and at `0x417285`, if demo mode `0x49d34a == 0`
 (recording) it stores 1.0. Demo mode starts at 2 and no reachable code changes
 it, so in normal play the 2.0 pin takes effect. Animation, forces and timers
@@ -171,7 +175,7 @@ and the last key event code `0x626fd8` (message `0x33`):
 **Girl Power.** `SCENE_InitLevel` loads the player as `mhe.3dc` with its
 animation set instead of `xh_.3dc` when the flag is set and the project's
 player-model field `+0x8c` is empty, so the swap applies from the next level
-load. `MHE` is the red-haired woman in [models.md](../../models.md). When the
+load. `MHE` is the red-haired woman in [models.md](../../research/models.md). When the
 sword (`epee.3dc`) is attached, `0x440f15` hides node `NATE02` for her.
 `SCENE_CheckExits` reads the flag four times; those branches are not traced.
 The string and `mhe.3dc` are also in `DREAMSFX.EXE` and `DREAMS.EXE`; their
@@ -182,7 +186,7 @@ key handling is not checked.
 ### Dreams Editor **[verified in code]**
 
 An in-game editor for the `DREAMS.DAT` project graph
-([file-formats.md](../../file-formats.md)), in `0x4479c7`–`0x44d658`.
+([file-formats.md](../../research/file-formats.md)), in `0x4479c7`–`0x44d658`.
 
 - **Flag.** `0x4a477c`. Its only write is 0, in `VID_SetResolution`. It is
   read 25 times: `CAM_ComputeChasePos` (2), `CAM_CollideEye`, `CAM_TickFree`,
@@ -373,13 +377,13 @@ them; the condition is not traced.
 Host glue in `recomp/windream/`. The lifted code is unchanged except for one
 inserted runtime call.
 
-- `WD_POKE="va=value,..."` (`runtime/runtime.c`, `apply_pokes`): dword writes
+- `WD_POKE="va=value,..."` (`host/core/runtime.c`, `apply_pokes`): dword writes
   into the loaded image after loading and before the entry point; addresses
   outside the image are rejected; each write is logged to `stderr.txt`.
 - `run.py --poke VA=VALUE` (repeatable) fills `WD_POKE`; `run.py --overlays`
   pokes `0x49d5c0`, `0x49d5d0` and `0x4ac8c8` to 1. The byte flag is poked as
   a dword; its next three bytes start at 0.
-- Keypad toggles (`runtime/user.c`, `g_debug_keys`), by scancode so Num Lock
+- Keypad toggles (`host/sdl/user.c`, `g_debug_keys`), by scancode so Num Lock
   does not matter; the keys are not passed to the game (with Num Lock off,
   keypad 2 is no longer an alternative Down arrow):
 
@@ -391,7 +395,7 @@ inserted runtime call.
 | keypad 4 | `0x4a4758` step 2.0 | off | off |
 | keypad 5 | `0x4a477c` editor flag, which also enables the editor draw (F1–F6 clear it) | off | off |
 
-- Mouse (`runtime/user.c`, `mouse_post`): the runtime supplies the missing
+- Mouse (`host/sdl/user.c`, `mouse_post`): the runtime supplies the missing
   producer. SDL motion and left/right buttons, mapped to game-frame
   coordinates, are posted as `0x34`–`0x38` into the standing handler's queue
   `0x626f70` with the game's `MGM_PostMessage`, from the `PeekMessageA`
@@ -401,13 +405,13 @@ inserted runtime call.
   also reach the joystick globals `0x4a3154`/`0x4a3158`, which the free
   camera and joystick input mode read: in play the mouse steers like a
   joystick (owner-observed).
-- Editor call (`lift.py` `CALLS`, `runtime/user.c` `wd_editor_frame`):
+- Editor call (`lift.py` `CALLS`, `host/sdl/user.c` `wd_editor_frame`):
   `lift.py` inserts `wd_editor_frame()` before the `GAME_HandleHotkeys` call
   at `0x41743a`, in `GAME_TickFrame` and in the two fragments the lifter makes
   from its jump targets; each call follows the `L_0041743A` label, so the
   jump that skips the readout also reaches it. `wd_editor_frame` calls
   `0x44d46d` while `0x4a477c` is set, through `guest_call_regs`
-  (`runtime/runtime.c`), which restores every guest register. `CALLS` inserts
+  (`host/core/runtime.c`), which restores every guest register. `CALLS` inserts
   before an instruction like `PROBES`, but may run guest code.
 - Editor keys also reach the game's own hotkeys (`L`, `J`, `K`, `P`, digits).
   Picker pages and record creation hit the retail picker defect above; `Q`
@@ -422,7 +426,7 @@ compiled into the lifted C, except the self-modifying sites `lift.py` lists.
 uv run --with capstone --with pefile python recomp/windream/debug/flag_hunt.py
 uv run --with capstone --with pefile python recomp/windream/debug/flag_hunt.py --ptr 44d46d 458434 40db80
 uv run --with capstone --with pefile python recomp/windream/debug/x86dis.py 40bff8-40c050 459320-4593a4 417268-4172c0
-uv run python tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis -readOnly -postScript Inspect.java refs:004a477c refs:0049d34a
+uv run python re/tools/ghidra_headless.py -process WINDREAM.EXE -noanalysis -readOnly -postScript Inspect.java refs:004a477c refs:0049d34a
 uv run python recomp/windream/run.py --overlays
 uv run python recomp/windream/run.py --overlays --seconds 50 --snap-ms 4000 --keys 2000:ESC,9000:RETURN,36000:BACK,36400:BACK
 ```
@@ -434,7 +438,7 @@ The last run reaches Project 0 and taps Backspace; snapshots land in
 
 1. **Names.** Register the functions above (`DBG_`, `DEMO_`, the editor) in
    `re/names/WINDREAM.EXE.tsv` with two sources each and run
-   `tools/check_names.py`; nothing here is renamed in Ghidra yet.
+   `re/tools/check_names.py`; nothing here is renamed in Ghidra yet.
 2. **Editor.** Running in the recomp. Still open: which pages are safe
    without a file list, each page's fields, the text writers
    `0x447b72`/`0x447e7c` and the `D:\CD1`/`D:\CD2` copy commands' user,
@@ -457,7 +461,7 @@ The last run reaches Project 0 and taps Backspace; snapshots land in
 7. **DOS profiler.** Trace its gate in `DREAMSFX.EXE` and try it under DOSBox
    Staging.
 8. **OpenDreams.** Carry the readout, object HUD and collision view into the
-   runtime's debug overlay as retail-derived views ([north-star.md](../../north-star.md)).
+   runtime's debug overlay as retail-derived views (north-star.md).
 
 ## Open questions
 
@@ -480,9 +484,9 @@ The last run reaches Project 0 and taps Backspace; snapshots land in
 
 | Path | Content |
 |---|---|
-| `recomp/windream/runtime/runtime.c` | `apply_pokes` (`WD_POKE`), `guest_call_regs` (register call into lifted code) |
-| `recomp/windream/runtime/user.c` | `g_debug_keys`, `debug_toggle` (keypad 1–5), `mouse_post` (events `0x34`–`0x38`), `wd_editor_frame` |
-| `recomp/windream/lift.py` | `CALLS`: runtime calls inserted before an instruction (`0x41743a` → `wd_editor_frame`) |
+| `recomp/windream/host/core/runtime.c` | `apply_pokes` (`WD_POKE`), `guest_call_regs` (register call into lifted code) |
+| `recomp/windream/host/sdl/user.c` | `g_debug_keys`, `debug_toggle` (keypad 1–5), `mouse_post` (events `0x34`–`0x38`), `wd_editor_frame` |
+| `recomp/windream/lift/lift.py` | `CALLS`: runtime calls inserted before an instruction (`0x41743a` → `wd_editor_frame`) |
 | `recomp/windream/run.py` | `--overlays`, `--poke` |
 | `recomp/windream/debug/flag_hunt.py` | tested-but-unwritten flag scan; `--ptr` address-copy scan |
 | `recomp/windream/debug/x86dis.py` | disassembly of `GDIDREAM.EXE` ranges |
