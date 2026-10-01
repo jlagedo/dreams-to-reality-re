@@ -83,6 +83,16 @@ uv run ruff format .
 | `out/recomp/matchdecomp/` | Matched C (`src/`, `proto/`) and blind-test work data for `re/matchdecomp/` |
 | `out/recomp/nocturne/`, `out/recomp/pod-recomp/` | Reference recomp projects from the same author |
 
+Found by running (Windows, Git Bash tool):
+
+- Host source changed and you run `render_acceptance.py` or `render_thumbnail_smoke.py` → rebuild the audit build first: `uv run python recomp/windream/build.py --render-audit`. Both run `out/recomp/windream/build-audit/windream_recomp.exe`, not `build/`; a stale one passes silently with the old code.
+- Checking which executable a run used → `grep -m1 "read root" <run>/stderr.txt`: forward slashes mean the SDL `files.c`, backslashes the old Win32 one.
+- Counting lifted call sites of an import → `cat out/recomp/windream/gen/recomp_0*.c | grep -ic "MEM32(0x49C304)"` (slot VA without leading zeros or `u`; `0x0049C304u` finds nothing).
+- Bash heredoc holding backslashes (`\\`, `\x56`, `\n` in Python or C text) → do not use it, even with `<<'EOF'`: each `\\` arrives as `\`. Write the script with the Write tool, or use Edit.
+- `grep -P` → fails with "supports only unibyte and UTF-8 locales"; use `grep -E`.
+- Unicorn 2.1.4, 32-bit guest needing `fs:` (TIB) → writing `UC_X86_REG_FS_BASE` is a no-op with a deprecation warning; load a GDT entry instead (`Cpu.set_fs` in `recomp/windream/verify/kernel_bridge_smoke.py`).
+- pcrecomp `analyze_pe()` → returns a `PEInfo` object, not a dict: `analyze_pe(exe).entry_point_rva`.
+
 Toolchains (evidence: `re/matchdecomp/fpscan.py`, `fpruns.py`, `libversion.py`, `linkver.ps1`): WINDREAM/GDIDREAM are **Watcom 11.0** throughout (compiler, linker, runtime; not 11.0a); DREAMS.EXE and DREAMSFX.EXE link the 10.6 runtime and mix 10.6- and 11.0-compiled object files by address range (DREAMSFX's 10.6 code uses `-d1+`). Match flags: most Windows game code is unoptimized, stack-checked and built with debug info, `-5r -d2` (retail starts `push N; call __CHK`; plain `-od` misses the `je +2; jmp` branches); optimized modules use `-5r -otexan -s`. Blind 24-function test and its scripts: `re/matchdecomp/blind/` (`tally.py`). Compilers under `DREAMS_WATCOM`: `wc106`, `wc110\11.0`, `wc110\11.0a`. Evidence and flags: `docs/research/toolchain.md`.
 
 ## Local paths
