@@ -1,9 +1,8 @@
 /* Explicit one-frame diagnostic. Software remains the reference renderer;
  * this hook snapshots the future direct adapter's input before visual work. */
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <stdbool.h>
 #include "imports.h"
+#include "guest_win32.h"
 #include "render_live.h"
 
 extern int wd_capture_scene_file(bool (*reader)(void *, uint32_t, void *, size_t), void *context,
@@ -11,7 +10,8 @@ extern int wd_capture_scene_file(bool (*reader)(void *, uint32_t, void *, size_t
 static const char *output_path;
 static int captured;
 static recomp_func_t original_frame;
-static RECOMP_TLS uintptr_t read_begin, read_end;
+// Guest range of the last committed run read inside a read scope.
+static RECOMP_TLS uint32_t read_begin, read_end;
 static RECOMP_TLS int read_scope;
 void wd_render_read_scope_begin(void) {
     read_begin = read_end = 0;
@@ -25,32 +25,27 @@ bool wd_render_read_arena(void *context, uint32_t address, void *destination, si
     if ((uint64_t)address + size > WD_ARENA_SIZE)
         return false;
     wd_surface_check(context ? (uint32_t)(uintptr_t)context : 0x459320, address, (uint32_t)size, 0);
-    const unsigned char *source = PTR(address);
+    uint32_t va = address;
     unsigned char *target = destination;
     while (size) {
-        if (read_scope && (uintptr_t)source >= read_begin && (uintptr_t)source < read_end) {
-            size_t available = read_end - (uintptr_t)source;
-            size_t count = size < available ? size : available;
-            memcpy(target, source, count);
-            source += count;
-            target += count;
-            size -= count;
-            continue;
+        uint64_t available;
+        if (read_scope && va >= read_begin && va < read_end) {
+            available = (uint64_t)read_end - va;
+        } else {
+            uint32_t base, bytes;
+            if (vm_state(va, &base, &bytes) != W32_MEM_COMMIT)
+                return false;
+            if (read_scope) {
+                read_begin = base;
+                read_end = base + bytes;
+            }
+            available = (uint64_t)base + bytes - va;
         }
-        MEMORY_BASIC_INFORMATION info;
-        if (!VirtualQuery(source, &info, sizeof info) || info.State != MEM_COMMIT ||
-            (info.Protect & (PAGE_GUARD | PAGE_NOACCESS)))
-            return false;
-        if (read_scope) {
-            read_begin = (uintptr_t)info.BaseAddress;
-            read_end = read_begin + info.RegionSize;
-        }
-        size_t available = (const unsigned char *)info.BaseAddress + info.RegionSize - source;
-        size_t count = size < available ? size : available;
+        size_t count = size < available ? size : (size_t)available;
         if (!count)
             return false;
-        memcpy(target, source, count);
-        source += count;
+        memcpy(target, PTR(va), count);
+        va += (uint32_t)count;
         target += count;
         size -= count;
     }

@@ -13,6 +13,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include "imports.h"
+#include "guest_win32.h"
 
 #define KB_EXPORT __declspec(dllexport)
 /* Guest thread procedures the script assembles live at KB_CODE + n * KB_STEP,
@@ -124,11 +125,12 @@ KB_EXPORT uint32_t kb_committed(uint32_t* out, uint32_t capacity) {
     uint32_t n = 0;
     uint64_t va = 0;
     while (va < WD_ARENA_SIZE) {
-        MEMORY_BASIC_INFORMATION info;
-        if (!VirtualQuery(PTR((uint32_t)va), &info, sizeof info)) break;
-        uint64_t end = (uint64_t)((uintptr_t)info.BaseAddress - (uintptr_t)g_mem_base) + info.RegionSize;
+        uint32_t base, bytes;
+        uint32_t state = vm_state((uint32_t)va, &base, &bytes);
+        if (!bytes) break;
+        uint64_t end = (uint64_t)base + bytes;
         if (end > WD_ARENA_SIZE) end = WD_ARENA_SIZE;
-        if (info.State == MEM_COMMIT) {
+        if (state == W32_MEM_COMMIT) {
             if (n < capacity) { out[n * 2] = (uint32_t)va; out[n * 2 + 1] = (uint32_t)(end - va); }
             n++;
         }

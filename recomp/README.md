@@ -26,10 +26,13 @@ sandboxes, crash dumps and the difftest work directories.
   difftest build then shares.
 - The KERNEL32 file, process, thread and synchronisation bridges and the
   USER32, GDI32, WinMM and DirectSound bridges run on SDL3 and build without
-  `<windows.h>`. Three parts still call Win32, so the recompiled game builds
-  and runs on Windows only for now: the arena's virtual memory
-  (`host/win32/vm.c`), the crash report (`host/core/crash_report.c`) and the
-  committed-page check in `host/render/render_scene_probe.c`.
+  `<windows.h>`. The guest's virtual memory is the portable ledger
+  (`host/vm/vm_ledger.c`); only its three-call OS layer is per system
+  (`vm_os_win32.c`, `vm_os_posix.c`, `vm_os_wasm.c`; the POSIX and wasm ones
+  compile but have not run the game). The crash report
+  (`host/core/crash_report.c`) still calls Win32, so the recompiled game builds
+  and runs on Windows only for now. Nothing asks Win32 what is at a guest
+  address: that is `vm_state`.
 
 ## Commands
 
@@ -88,7 +91,7 @@ the centre, so leave the stick alone while the game starts.
 | `windream/lift/replacements.py`, `render_audit.py`, `render_bulk.py` | Generated entry wrappers for the renderer boundary, guest-memory probes and GPU-aware bulk transfers |
 | `windream/host/core/` | Guest runtime (`runtime.c`), function-entry trace, crash report and minidumps, `recomp_types.h`, `imports.h` |
 | `windream/host/sdl/` | The Win32 the guest sees, on SDL3 (`host.h`): `files.c` (read roots, write sandbox, case-insensitive names, `FindFirstFile` wildcards, file times), `kernel.c` (process, console, code pages 1252 and 437, last error), `threads.c` (handles, threads, events, critical sections, TLS), and `user.c`, `gdi.c`, `winmm.c`, `dsound.c` for USER32, GDI32, WinMM and DirectSound; `guest_win32.h` holds the guest's Win32 constants and 32-bit layouts, which `win32_abi_check.c` checks against the SDK |
-| `windream/host/win32/` | `vm.c`: the arena's host virtual memory (reserve, commit, decommit, page state) and `VirtualAlloc`/`VirtualFree`/`VirtualQuery`, on Win32; the part to replace for other systems |
+| `windream/host/vm/` | The guest's virtual memory: `vm_front.c` (`VirtualAlloc`/`VirtualFree`/`VirtualQuery` bridges and `vm_state`, the one way host code asks what is at a guest address), `vm_win32.c` (the original, on Windows page state), `vm_ledger.c` (the portable one, over the `vm_os_*.c` layer), `vm_shadow.c` (both, compared); chosen with `build.py --vm` |
 | `windream/host/render/` | Adapters between the lifted game and the GPU renderer: boundary and surface ownership, scene capture and draw, UI, movies, live frame, metrics, hooks |
 | `windream/host/hooks/` | `phys_hook.c` collision hooks |
 | `windream/verify/` | Renderer verification: retail-x86 oracles (`render_*_smoke.py`), live isolated runs (`render_*_live_smoke.py`, project and thumbnail smokes), `render_acceptance.py`, `render_content_inventory.py`, `direct_render_validate.py`, `test_render_codegen.py`, and the dump reader `mdmp.py`; and `kernel_bridge_smoke.py`, the retail-x86 oracle for the KERNEL32 bridges. The scripts import each other by name, so they share one directory; their C/C++ sources are in `native/` |
@@ -101,7 +104,7 @@ the centre, so leave the stick alone while the game starts.
 
 `windream/verify/kernel_bridge_smoke.py` runs original `GDIDREAM.EXE` code in
 Unicorn against the production bridges (`host/sdl/files.c`, `kernel.c`,
-`threads.c` and `host/win32/vm.c`), built into a DLL with the production
+`threads.c` and `host/vm/`), built into a DLL with the production
 runtime setup. The guest arena is mapped into Unicorn, so both sides see the
 same memory.
 
@@ -148,8 +151,12 @@ uv run --with unicorn --with capstone --with pefile python recomp/windream/verif
 - Not covered: `ExitProcess` and `ExitThread` (they would end the test
   process), `CREATE_SUSPENDED`, two threads using and closing one handle at
   the same time, non-ASCII file names, a real case-sensitive file system.
-- Windows only: the host DLL walks the arena with `VirtualQuery`. Outputs go
-  to `DREAMS_OUT/recomp/kernel-bridge`.
+- `--vm win32|ledger|shadow` builds the DLL with another virtual memory
+  implementation; the baseline came from the Win32 one, so the others must
+  give the same observations.
+- Windows only, because of the DLL and the clang-cl build: the host DLL asks
+  `vm_state` for the committed ranges Unicorn maps. Outputs go to
+  `DREAMS_OUT/recomp/kernel-bridge`.
 
 Result (2026-10-01): 287 observations, none different between the Win32 and
 the SDL3 bridges, with and without `--case-walk`. Intended differences from
@@ -257,6 +264,26 @@ game handlers are installed by default. `build.py --render-audit` produces
 `build-audit`; `run.py --render-audit` selects it. Surface probes are diagnostic
 infrastructure with the coverage limitations recorded in the implementation
 notes, not evidence that every framebuffer access has been intercepted.
+
+`build.py --vm win32|ledger|shadow` picks the guest's virtual memory
+implementation (`host/vm`); the default `ledger` (the portable one) builds in
+`build`, the others in `build-vm-<impl>`. `win32` is the original, Windows'
+page state as the truth, kept as the reference. `shadow` runs
+both and prints a `[vm-shadow]` line for every disagreement
+(`WD_VM_SHADOW=abort` stops at the first). `WD_VM_LOG=<file>` writes one line
+per call plus the state at exit, for comparing two builds.
+
+`run.py --vm win32|ledger|shadow` runs the matching build; `--vm-log` writes
+the call log to `<run>/vm.log` and `--vm-shadow log|abort` sets
+`WD_VM_SHADOW`. `windream/verify/vm_compare.py A.log B.log` compares the logs
+of two builds driven by the same `--keys` script: the virtual-memory
+decisions (addresses, results, `VirtualQuery` answers) must be identical even
+though the game's own memory differs with timing. A run stopped by
+`--seconds` has no exit state in its log; only a game that exits writes one.
+What the game itself exercises is startup allocations, commits and two
+`VirtualQuery` calls: it never frees. Decommit and release are proven by the
+host audit test (`test_render_codegen.py`, both implementations) and the
+oracle's `free` case, not by play.
 
 `run.py --capture-scene` captures original scene inputs on the first full-sized
 3D frame to `DREAMS_OUT/recomp/windream/run/direct-scene.wds`. It is a diagnostic

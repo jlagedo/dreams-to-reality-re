@@ -212,30 +212,34 @@ uint32_t load(uint32_t address) {
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="uses the Windows host bridges")
-def test_host_bridge_access_footprints():
+@pytest.mark.parametrize("vm", ["win32", "ledger"])
+def test_host_bridge_access_footprints(vm):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     import recomp_env
 
-    out = recomp_env.out_dir("boundary-agent", "host-tests")
+    out = recomp_env.out_dir("boundary-agent", f"host-tests-{vm}")
     env = recomp_env.build_env()
     compiler = shutil.which("cl.exe", path=env["PATH"])
     assert compiler, "Windows CPU test compiler is required"
     sdl = recomp_env.ensure_sdl3()
+    # Each source with its compile definitions; the vm sources are those of the
+    # implementation under test.
     sources = [
-        recomp_env.HOST / name
+        (recomp_env.HOST / name, [])
         for name in (
             "core/runtime.c",
             "sdl/files.c",
             "sdl/kernel.c",
             "sdl/threads.c",
-            "win32/vm.c",
-            "render/render_boundary.cpp",
         )
     ]
-    sources.append(Path(__file__).parent / "native" / "render_host_audit_tests.c")
-    for source in sources:
+    sources += recomp_env.vm_sources(recomp_env.HOST, vm)
+    sources.append((recomp_env.HOST / "render/render_boundary.cpp", []))
+    sources.append((Path(__file__).parent / "native" / "render_host_audit_tests.c", []))
+    for source, defines in sources:
         command = [compiler, "/nologo", "/c", "/Gy", "/MD", "/DWD_RENDER_AUDIT"]
         command += [*recomp_env.host_includes(), f"/I{sdl / 'include'}"]
+        command += [f"/D{define}" for define in defines]
         if source.suffix == ".cpp":
             command += ["/std:c++17", "/EHsc"]
         if source.name == "runtime.c":
@@ -248,7 +252,7 @@ def test_host_bridge_access_footprints():
         [
             compiler,
             "/nologo",
-            *(str(out / source.with_suffix(".obj").name) for source in sources),
+            *(str(out / source.with_suffix(".obj").name) for source, _ in sources),
             "/Fe:" + str(executable),
             "/link",
             "/OPT:REF",

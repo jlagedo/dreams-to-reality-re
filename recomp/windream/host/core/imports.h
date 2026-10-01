@@ -65,14 +65,26 @@ void     files_release(int kind, void* host);         /* drop a reference to an 
 extern RECOMP_TLS uint32_t g_last_error;              /* the guest's GetLastError value */
 void     mapping_release(void* host);                 /* a closed HK_MAP object */
 
-/* vm.c: the host memory behind the arena, and VirtualAlloc/VirtualFree/
- * VirtualQuery over the guest heap region */
+/* vm/vm_front.c: the host memory behind the arena, and VirtualAlloc/VirtualFree/
+ * VirtualQuery over the guest heap region. The implementation behind it is
+ * chosen at build time (vm/vm_impl.h: win32, ledger or shadow). States and
+ * flags are the guest's W32_MEM_* values. Everything in the host that needs to
+ * know what is at a guest address asks here, never the host OS: the answer is
+ * the same on every host, and a VA past the arena is MEM_FREE instead of
+ * whatever the host happens to map there. */
 void*    vm_reserve(size_t bytes);                    /* address space only; NULL on failure */
 void     vm_commit(uint32_t va, uint32_t bytes);      /* zeroed, readable and writable */
 uint32_t vm_alloc(uint32_t addr, uint32_t size, uint32_t type, uint32_t prot);
 int      vm_free(uint32_t addr, uint32_t size, uint32_t type);
-uint32_t vm_query(uint32_t addr, uint32_t mbi_va);
-const char* vm_describe(uint32_t va);
+uint32_t vm_query(uint32_t addr, uint32_t mbi_va);    /* writes the guest's 28-byte MBI; returns 28 or 0 */
+const char* vm_describe(uint32_t va);                 /* for crash reports */
+/* W32_MEM_COMMIT, W32_MEM_RESERVE or W32_MEM_FREE for the page holding va, and
+ * (when the pointers are given) the run of pages in that state starting at
+ * va's page and going forward, clipped to the arena: base is va's page, as
+ * VirtualQuery's BaseAddress is, so base + bytes is where the state changes.
+ * A snapshot: another thread may change it afterwards. */
+uint32_t vm_state(uint32_t va, uint32_t* run_base, uint32_t* run_bytes);
+void     vm_dump(FILE* out);                          /* reservations and page runs, as text */
 
 /* threads.c: the main thread's stack and TIB, and guest handles (small
  * numbers; each owns a host object of one kind) */

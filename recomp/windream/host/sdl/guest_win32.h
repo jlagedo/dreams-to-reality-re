@@ -147,11 +147,26 @@
 #define W32_RECT_RIGHT       8
 #define W32_RECT_BOTTOM      12
 
-/* ---- KERNEL32 VirtualAlloc flags (vm.c takes the guest's values) ---- */
+/* ---- KERNEL32 VirtualAlloc/VirtualFree/VirtualQuery (host/vm takes and
+ * returns the guest's values) ---- */
 #define W32_MEM_COMMIT       0x00001000u
 #define W32_MEM_RESERVE      0x00002000u
+#define W32_MEM_DECOMMIT     0x00004000u
 #define W32_MEM_RELEASE      0x00008000u
+#define W32_MEM_FREE         0x00010000u
+#define W32_MEM_PRIVATE      0x00020000u
+#define W32_MEM_IMAGE        0x01000000u
+#define W32_PAGE_NOACCESS    0x01u
 #define W32_PAGE_READWRITE   0x04u
+/* MEMORY_BASIC_INFORMATION, 32-bit layout (28 bytes) */
+#define W32_MBI_BASE         0
+#define W32_MBI_ALLOCBASE    4
+#define W32_MBI_ALLOCPROTECT 8
+#define W32_MBI_REGIONSIZE   12
+#define W32_MBI_STATE        16
+#define W32_MBI_PROTECT      20
+#define W32_MBI_TYPE         24
+#define W32_MBI_SIZE         28
 
 /* ---- KERNEL32: files, handles, waits (files.c, kernel.c, threads.c) ---- */
 #define W32_MAX_PATH                260

@@ -22,6 +22,7 @@
 #include "recomp_types.h"
 #include "crash_report.h"
 #include "imports.h"
+#include "guest_win32.h"
 
 static recomp_region_fn g_region = NULL;
 static recomp_extra_fn  g_extra  = NULL;
@@ -156,9 +157,9 @@ static const char* guest_name(uint32_t va) {
 }
 
 static int guest_readable(uint32_t va, uint32_t n) {
-    MEMORY_BASIC_INFORMATION h;
-    if (!VirtualQuery(PTR(va), &h, sizeof h) || h.State != MEM_COMMIT) return 0;
-    return (uintptr_t)PTR(va) + n <= (uintptr_t)h.BaseAddress + h.RegionSize;
+    uint32_t base, bytes;
+    if (vm_state(va, &base, &bytes) != W32_MEM_COMMIT) return 0;
+    return (uint64_t)va + n <= (uint64_t)base + bytes;
 }
 
 static int in_image(uint32_t va) { return va >= WD_IMAGE_BASE && va < WD_IMAGE_BASE + wd_image_span(); }
@@ -343,9 +344,9 @@ static BOOL CALLBACK dump_cb(PVOID param, const PMINIDUMP_CALLBACK_INPUT in, PMI
         int k = r->i++;
         uint32_t lo = r->lo[k] & ~0xFFFu, hi = r->hi[k];
         /* only committed pages, or the whole dump fails */
-        MEMORY_BASIC_INFORMATION h;
-        if (!VirtualQuery(PTR(lo), &h, sizeof h) || h.State != MEM_COMMIT) continue;
-        uintptr_t end = (uintptr_t)h.BaseAddress + h.RegionSize;
+        uint32_t base, bytes;
+        if (vm_state(lo, &base, &bytes) != W32_MEM_COMMIT) continue;
+        uintptr_t end = (uintptr_t)PTR(base) + bytes;
         uintptr_t want = (uintptr_t)PTR(hi);
         out->MemoryBase = (ULONG64)(uintptr_t)PTR(lo);
         out->MemorySize = (ULONG)((want < end ? want : end) - (uintptr_t)PTR(lo));

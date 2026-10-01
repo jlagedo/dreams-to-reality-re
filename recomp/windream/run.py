@@ -8,9 +8,21 @@ snapshots and crash dumps land there).
                                            snapshot every 4 s, stopped after 60 s
   run.py --overlays                        play with the retail debug flags on
                                            (keypad 1-4 toggle them)
+  run.py --vm ledger --vm-log              run the build-vm-ledger executable and
+                                           write every virtual-memory call to
+                                           <run dir>/vm.log (compare two with
+                                           verify/vm_compare.py)
+  run.py --vm shadow --vm-shadow abort     run the shadow build (both virtual
+                                           memory implementations side by side),
+                                           stopping at the first disagreement
 
 Afterwards it prints the crash block from stderr.txt (host stack, registers,
-guest stack, minidump path), or otherwise the lines worth a look.
+guest stack, minidump path), or otherwise the lines worth a look. With --vm-log
+it also reports the size of vm.log; with --vm shadow it prints the [vm-shadow]
+lines.
+
+--vm picks the build directory (see build.py --vm); --vm-log sets WD_VM_LOG and
+--vm-shadow sets WD_VM_SHADOW (log or abort).
 
 --exe defaults to DREAMS_DISC1/GDIDREAM.EXE. --read-roots is where the guest's
 C:\\CRYO\\DREAMS\\... resolves: by default the directory holding CRYO/DREAMS in
@@ -62,6 +74,19 @@ def read_roots() -> str:
         sys.exit("set DREAMS_INSTALL_ROOT (the retail CRYO/DREAMS tree) or pass --read-roots")
     parts = [p.upper() for p in install.parts[-2:]]
     return str(install.parent.parent if parts == ["CRYO", "DREAMS"] else install)
+
+
+def vm_log_summary(path: Path) -> str:
+    """One line about a WD_VM_LOG file: call lines and whether the exit state is there."""
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    end = next((i for i, line in enumerate(lines) if line.startswith("--- ")), len(lines))
+    trailer = any(line.startswith("--- state at exit") for line in lines)
+    note = (
+        "with exit state"
+        if trailer
+        else "no exit state: the run was stopped, let the game exit for one"
+    )
+    return f"vm log: {end} calls, {note} ({path})"
 
 
 def main() -> int:
@@ -128,6 +153,18 @@ def main() -> int:
         "--poke", action="append", default=[], metavar="VA=VALUE",
         help="write a dword into the loaded image before the entry point (repeatable)",
     )  # fmt: skip
+    ap.add_argument(
+        "--vm", choices=recomp_env.VM_CHOICES, default=recomp_env.VM_DEFAULT,
+        help="virtual memory implementation; runs the matching build directory",
+    )  # fmt: skip
+    ap.add_argument(
+        "--vm-log", action="store_true",
+        help="write every virtual-memory call and the state at exit to <run dir>/vm.log",
+    )  # fmt: skip
+    ap.add_argument(
+        "--vm-shadow", choices=("log", "abort"),
+        help="shadow build: log disagreements or stop at the first one",
+    )  # fmt: skip
     args = ap.parse_args()
     if (args.width is None) != (args.height is None):
         ap.error("--width and --height must be supplied together")
@@ -152,6 +189,7 @@ def main() -> int:
         (run / "direct-scene.wds").unlink(missing_ok=True)
     for snap in run.glob("snap_*.bmp"):
         snap.unlink()
+    (run / "vm.log").unlink(missing_ok=True)
     unattended = args.seconds > 0
     env = dict(
         os.environ,
@@ -175,14 +213,24 @@ def main() -> int:
         WD_MUTE="1" if args.mute or args.headless else os.environ.get("WD_MUTE", ""),
         WD_HEADLESS="1" if args.headless else os.environ.get("WD_HEADLESS", ""),
         WD_SCENE_CAPTURE=str(run / "direct-scene.wds") if args.capture_scene else "",
+        WD_VM_LOG=str(run / "vm.log") if args.vm_log else "",
+        WD_VM_SHADOW=args.vm_shadow or "",
         WD_QUIET="1" if unattended or args.headless else "",
         WD_FOCUS="1" if unattended or args.headless else "",
     )
-    binary = (
-        out
-        / ("build-audit" if args.render_audit else "build")
-        / recomp_env.exe_name("windream_recomp")
-    )
+    binary = recomp_env.build_dir(
+        out, render_audit=args.render_audit, vm=args.vm
+    ) / recomp_env.exe_name("windream_recomp")
+    if not binary.exists():
+        flags = (" --render-audit" if args.render_audit else "") + (
+            f" --vm {args.vm}" if args.vm != recomp_env.VM_DEFAULT else ""
+        )
+        print(
+            f"{binary} does not exist; build it first: "
+            f"uv run python recomp/windream/build.py{flags}",
+            file=sys.stderr,
+        )
+        return 1
     with open(run / "stderr.txt", "wb") as err, open(run / "stdout.txt", "wb") as so:
         p = subprocess.Popen([str(binary), exe, "--run"], cwd=run, env=env, stdout=so, stderr=err)
         stopped = False
@@ -202,6 +250,14 @@ def main() -> int:
     else:
         worth = [line for line in log if re.search(r"MessageBox|unresolved|ExitProcess", line)]
         print("\n".join(worth[:10]))
+    if args.vm_log:
+        vm_log = run / "vm.log"
+        print(vm_log_summary(vm_log) if vm_log.exists() else f"no vm log was written ({vm_log})")
+    if args.vm == "shadow":
+        shadow = [line for line in log if line.startswith("[vm-shadow]")]
+        summary = [line for line in shadow if re.search(r"(\d+|no) mismatches", line)]
+        shown = [line for line in shadow[:20] if line not in summary]
+        print("\n".join(shown + summary[-1:]))
     if args.capture_scene:
         captured = [line for line in log if "[render-capture] captured" in line]
         print("\n".join(captured))

@@ -25,11 +25,36 @@ WINDREAM = RECOMP / "windream"
 LIFT = WINDREAM / "lift"
 # Host runtime, by the API each part stands on: core (guest runtime, trace,
 # crash report), sdl (KERNEL32 files, process and threads, USER32, GDI32, WinMM
-# and DirectSound on SDL3), win32 (the arena's virtual memory on Win32: the
-# part to replace on other systems), render (GPU renderer adapters) and hooks
-# (diagnostics).
+# and DirectSound on SDL3), vm (the guest's virtual memory: the win32, ledger
+# and shadow implementations and the vm_os_* layer under the ledger), render
+# (GPU renderer adapters) and hooks (diagnostics).
 HOST = WINDREAM / "host"
-HOST_DIRS = [HOST / name for name in ("core", "sdl", "win32", "render", "hooks")]
+HOST_DIRS = [HOST / name for name in ("core", "sdl", "vm", "render", "hooks")]
+VM_CHOICES = ("win32", "ledger", "shadow")
+VM_DEFAULT = "ledger"  # the implementation plain build.py / run.py use (CMakeLists.txt WD_VM)
+
+
+def vm_sources(host: Path, vm: str) -> list[tuple[Path, list[str]]]:
+    """The host/vm sources of one implementation, each with its compile
+    definitions (the shadow build compiles the two it compares under their own
+    prefixes). A tree from before host/vm has its single win32/vm.c."""
+    legacy = host / "win32" / "vm.c"
+    if legacy.is_file():
+        return [(legacy, [])]
+    d = host / "vm"
+    front = [(d / "vm_front.c", [])]
+    if vm == "win32":
+        return front + [(d / "vm_win32.c", [])]
+    if vm == "ledger":
+        return front + [(d / "vm_ledger.c", []), (d / "vm_os_win32.c", [])]
+    if vm == "shadow":
+        return front + [
+            (d / "vm_shadow.c", []),
+            (d / "vm_win32.c", ["VM_PREFIX=vm_win32_"]),
+            (d / "vm_ledger.c", ["VM_PREFIX=vm_ledger_", "VM_SECONDARY"]),
+            (d / "vm_os_null.c", []),
+        ]
+    raise ValueError(f"unknown vm implementation {vm!r}")
 
 
 def host_includes() -> list[str]:
@@ -136,7 +161,13 @@ def ensure_sdl3() -> Path:
 
 
 def configure_and_build(
-    build: Path, gen: Path, *, trace: bool = False, quiet: bool = False, render_audit: bool = False
+    build: Path,
+    gen: Path,
+    *,
+    trace: bool = False,
+    quiet: bool = False,
+    render_audit: bool = False,
+    vm: str = VM_DEFAULT,
 ) -> int:
     """Configure (from scratch when the build dir belongs to another source
     tree) and build windream_recomp with clang-cl and Ninja. Returns the exit
@@ -153,7 +184,8 @@ def configure_and_build(
          "-DCMAKE_BUILD_TYPE=", *_compilers(cxx=True), f"-DCMAKE_PREFIX_PATH={sdl3}",
          f"-DWD_GEN_DIR={gen}",
          f"-DWD_TRACE={'ON' if trace else 'OFF'}",
-         f"-DWD_RENDER_AUDIT={'ON' if render_audit else 'OFF'}"],
+         f"-DWD_RENDER_AUDIT={'ON' if render_audit else 'OFF'}",
+         f"-DWD_VM={vm}"],
         env=env, check=True, stdout=subprocess.DEVNULL,
     )  # fmt: skip
     p = subprocess.run([cmake, "--build", str(build)], env=env, capture_output=quiet, text=True)
@@ -162,6 +194,18 @@ def configure_and_build(
             if " error" in line or "FAILED" in line:
                 print(line)
     return p.returncode
+
+
+def build_dir(
+    out: Path, *, trace: bool = False, render_audit: bool = False, vm: str = VM_DEFAULT
+) -> Path:
+    """The windream build directory of one configuration: build, build-trace,
+    build-audit, and -vm-<impl> appended for an implementation other than the
+    default (build.py writes it, run.py picks the executable from it)."""
+    name = "build" + ("-trace" if trace else "") + ("-audit" if render_audit else "")
+    if vm != VM_DEFAULT:
+        name += f"-vm-{vm}"
+    return out / name
 
 
 def exe_name(stem: str) -> str:

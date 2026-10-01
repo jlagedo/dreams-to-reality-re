@@ -1,7 +1,8 @@
 """Retail-x86 oracle for the KERNEL32 host bridges (files, kernel, threads).
 
 uv run --with unicorn --with capstone --with pefile python \
-    recomp/windream/verify/kernel_bridge_smoke.py [--capture] [--case-walk] [--host TREE]
+    recomp/windream/verify/kernel_bridge_smoke.py [--capture] [--case-walk] [--host TREE] \
+    [--vm win32|ledger|shadow]
 
 Unicorn runs original GDIDREAM.EXE code (the Watcom startup up to WinMain, then
 runtime and game file functions) and small call stubs for the imports no
@@ -30,9 +31,13 @@ closed standard handle.
 --case-walk makes files.c look every path segment up without regard to case,
 the path a case-sensitive host takes; the observations must not change.
 --host builds the bridges of another source tree (win32/ or sdl/ layout).
+--vm picks the virtual memory implementation under the bridges (host/vm). The
+baseline was captured from the Win32 one, so `--vm ledger` (or shadow) must
+give the same observations.
 
 Outputs: DREAMS_OUT/recomp/kernel-bridge (fixture tree, DLL, results.json).
-Windows only: the host DLL walks the arena with VirtualQuery.
+Windows only, because of the DLL and the clang-cl build: the host DLL asks
+vm_state for the committed ranges Unicorn maps.
 """
 
 from __future__ import annotations
@@ -453,9 +458,11 @@ class Guest:
         return CODE + index * CODE_STEP
 
 
-def build(output: Path, host: Path, exe: Path):
-    """The bridge DLL: runtime.c, vm.c and the three bridge files of `host`."""
-    sources = [host / "win32" / "vm.c"]
+def build(output: Path, host: Path, exe: Path, vm: str = recomp_env.VM_DEFAULT):
+    """The bridge DLL: runtime.c, the vm sources of one implementation and the
+    three bridge files of `host`."""
+    vm_files = recomp_env.vm_sources(host, vm)
+    sources = [path for path, _defines in vm_files]
     for name in BRIDGES:
         found = [host / directory / f"{name}.c" for directory in ("win32", "sdl")]
         found = [path for path in found if path.is_file()]
@@ -482,18 +489,31 @@ def build(output: Path, host: Path, exe: Path):
     compiler = shutil.which("clang-cl", path=environment.get("PATH"))
     if not compiler:
         raise RuntimeError("clang-cl unavailable")
-    includes = [f"/I{host / d}" for d in ("core", "sdl", "win32", "render", "hooks")]
+    # "win32" stays for a --host tree from before the vm directory.
+    includes = [f"/I{host / d}" for d in ("core", "sdl", "win32", "vm", "render", "hooks")]
     includes += [f"/I{output}", f"/I{sdl / 'include'}"]
     common = [compiler, "/nologo", "/Od", "/MD", "/w", "/D_CRT_SECURE_NO_WARNINGS", *includes]
     library = output / "kernel_bridge.dll"
     steps = [
         # runtime.c's main becomes the setup call (arena, image, main thread).
         [*common, "/c", "/Dmain=wd_unused_main", f"/Fo{output}/", str(host / "core" / "runtime.c")],
-        [*common, "/LD", f"/Fe{library}", f"/Fo{output}/",
-         str(Path(__file__).parent / "native" / "kernel_bridge_host.c"), *map(str, sources),
-         str(output / "runtime.obj"), "/link", f"/LIBPATH:{sdl / 'lib'}", "SDL3-static.lib",
-         *(lib + ".lib" for lib in SDL_SYSTEM_LIBRARIES)],
     ]  # fmt: skip
+    # A vm source with compile definitions is its own step; its object is linked.
+    objects = []
+    plain = []
+    for path, defines in vm_files:
+        if defines:
+            steps.append([*common, "/c", *(f"/D{d}" for d in defines), f"/Fo{output}/", str(path)])
+            objects.append(str(output / path.with_suffix(".obj").name))
+        else:
+            plain.append(str(path))
+    others = [str(path) for path in sources[len(vm_files) :]]
+    steps.append(
+        [*common, "/LD", f"/Fe{library}", f"/Fo{output}/",
+         str(Path(__file__).parent / "native" / "kernel_bridge_host.c"), *plain, *others,
+         str(output / "runtime.obj"), *objects, "/link", f"/LIBPATH:{sdl / 'lib'}",
+         "SDL3-static.lib", *(lib + ".lib" for lib in SDL_SYSTEM_LIBRARIES)],
+    )  # fmt: skip
     log = ""
     for step in steps:
         result = subprocess.run(step, cwd=output, env=environment, capture_output=True, text=True)
@@ -1480,6 +1500,12 @@ def main():
         "--case-walk", action="store_true", help="force the case-insensitive path lookup"
     )
     parser.add_argument("--exe", type=Path, help="guest exe (default DREAMS_DISC1/GDIDREAM.EXE)")
+    parser.add_argument(
+        "--vm",
+        choices=recomp_env.VM_CHOICES,
+        default=recomp_env.VM_DEFAULT,
+        help="virtual memory implementation of the bridge DLL (host/vm)",
+    )
     args = parser.parse_args()
     exe = args.exe or paths.disc(1) / "GDIDREAM.EXE"
     output = recomp_env.out_dir("kernel-bridge", *([args.tag] if args.tag else []))
@@ -1493,7 +1519,7 @@ def main():
         T_BETA="two",
         T_ALPHA="1",
     )
-    dll, sources, missing = build(output, args.host.resolve(), exe)
+    dll, sources, missing = build(output, args.host.resolve(), exe, args.vm)
     os.chdir(output)
     if not dll.kb_init(str(exe).encode(), str(fixture["root"] / "GDIDREAM.EXE").encode()):
         raise RuntimeError("bridge host setup failed")

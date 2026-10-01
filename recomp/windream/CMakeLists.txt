@@ -19,12 +19,40 @@ include(../render/cmake/RenderCore.cmake)
 set(WD_GEN_DIR ${CMAKE_SOURCE_DIR}/../../out/recomp/windream/gen CACHE PATH "generated sources")
 file(GLOB GEN_SRC CONFIGURE_DEPENDS ${WD_GEN_DIR}/recomp_*.c)
 # host/: core (guest runtime), sdl (KERNEL32 files, process and threads,
-# USER32, GDI32, WinMM and DirectSound on SDL3), win32 (the arena's virtual
-# memory on Win32), render (GPU renderer adapters), hooks (diagnostics).
+# USER32, GDI32, WinMM and DirectSound on SDL3), vm (the guest's virtual
+# memory), render (GPU renderer adapters), hooks (diagnostics).
+#
+# WD_VM picks the virtual-memory implementation (host/vm/vm_impl.h):
+#   ledger  the default, portable: its own page bitmap over vm_os_*.c
+#   win32   the original: Windows' page state is the truth (Windows only);
+#           kept as the reference the ledger is compared with
+#   shadow  both; win32 owns the memory, ledger answers the same questions and
+#           every disagreement is reported (WD_VM_SHADOW=abort stops at the first)
+set(WD_VM "ledger" CACHE STRING "virtual memory implementation: win32, ledger or shadow")
+set_property(CACHE WD_VM PROPERTY STRINGS win32 ledger shadow)
+if(WIN32)
+    set(VM_OS_SRC host/vm/vm_os_win32.c)
+elseif(EMSCRIPTEN)
+    set(VM_OS_SRC host/vm/vm_os_wasm.c)
+else()
+    set(VM_OS_SRC host/vm/vm_os_posix.c)
+endif()
+set(VM_SRC host/vm/vm_front.c)
+if(WD_VM STREQUAL "win32")
+    list(APPEND VM_SRC host/vm/vm_win32.c)
+elseif(WD_VM STREQUAL "ledger")
+    list(APPEND VM_SRC host/vm/vm_ledger.c ${VM_OS_SRC})
+elseif(WD_VM STREQUAL "shadow")
+    list(APPEND VM_SRC host/vm/vm_shadow.c host/vm/vm_win32.c host/vm/vm_ledger.c host/vm/vm_os_null.c)
+    set_source_files_properties(host/vm/vm_win32.c PROPERTIES COMPILE_DEFINITIONS "VM_PREFIX=vm_win32_")
+    set_source_files_properties(host/vm/vm_ledger.c PROPERTIES COMPILE_DEFINITIONS "VM_PREFIX=vm_ledger_;VM_SECONDARY")
+else()
+    message(FATAL_ERROR "WD_VM must be win32, ledger or shadow (got '${WD_VM}')")
+endif()
 set(RUNTIME_SRC
     host/core/runtime.c host/core/crash_report.c host/core/recomp_trace.c
     ${WD_GEN_DIR}/imports_gen.c
-    host/win32/vm.c
+    ${VM_SRC}
     host/sdl/threads.c host/sdl/kernel.c host/sdl/files.c
     host/sdl/user.c host/sdl/gdi.c host/sdl/winmm.c host/sdl/dsound.c
     host/hooks/phys_hook.c
@@ -38,7 +66,7 @@ endif()
 
 add_executable(windream_recomp ${RUNTIME_SRC} ${GEN_SRC} ${WD_GEN_DIR}/recomp_dispatch.c)
 target_include_directories(windream_recomp PRIVATE
-    host/core host/sdl host/win32 host/render host/hooks ${WD_GEN_DIR})
+    host/core host/sdl host/vm host/render host/hooks ${WD_GEN_DIR})
 target_compile_definitions(windream_recomp PRIVATE _CRT_SECURE_NO_WARNINGS WIN32_LEAN_AND_MEAN)
 option(WD_TRACE "function-entry trace ring (RECOMP_TRACE)" OFF)
 option(WD_RENDER_AUDIT "guest memory checks against registered GPU-owned surfaces" OFF)
