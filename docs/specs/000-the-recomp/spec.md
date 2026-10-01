@@ -76,10 +76,10 @@ were built before 11.0 was pinned down; W1 moved them to it.
     list until no new ones appear.
   - Output: 2,181 functions, 674,747 lines of C in `gen/`, and
     `lift-report.json`.
-- **Runtime:** `runtime/` has hand-written replacements for kernel, threads,
-  files (write sandbox) and virtual memory, on Win32, and for USER32, GDI32,
-  WinMM and DirectSound, on SDL3 (2026-09-29; see "Host layer on SDL3"
-  below). `gen_imports.py` generates the 109 import bridges.
+- **Runtime:** `runtime/` has hand-written replacements for virtual memory,
+  on Win32, and for kernel, threads, files (write sandbox), USER32, GDI32,
+  WinMM and DirectSound, on SDL3 (2026-09-29 and 2026-10-01; see "Host layer
+  on SDL3" below). `gen_imports.py` generates the 109 import bridges.
   - Build: `build.py` (clang-cl, Ninja; one unoptimized build).
   - Run: `run.py` (scripted keys, BMP snapshots). Presents are capped at
     25 fps (`--fps`, `WD_FPS`; 0 = uncapped) and a crash writes a full-memory
@@ -333,9 +333,15 @@ Unverified:
 - A diagonal on the 4-way POV reads as its horizontal direction.
 - The virtual-key codes of OEM punctuation keys follow the US layout.
 
-KERNEL32 (files, threads, events, TLS, virtual memory) and the crash report
-still call Win32. They are the remaining step before the recomp can build on
-another OS.
+The KERNEL32 file, process, thread, event, critical-section and TLS bridges
+(`host/sdl/files.c`, `kernel.c`, `threads.c`) run on SDL3 as well
+(2026-10-01), checked against the Win32 implementation they replaced with
+`verify/kernel_bridge_smoke.py`: original code run in Unicorn over the
+bridges, 287 observations, none different (`recomp/README.md`, "KERNEL32
+bridge oracle", lists the intended differences). What still calls Win32, and
+is the remaining step before the recomp can build on another OS: the arena's
+virtual memory (`host/win32/vm.c`), the crash report and the committed-page
+check in `render_scene_probe.c`.
 
 **Idea, not started: modern twin-stick controls.** The retail pad controls
 work, but they are tank controls. Free roam (left stick moves relative to the

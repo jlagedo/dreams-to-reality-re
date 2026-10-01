@@ -386,7 +386,7 @@ The web target's larger problems are in the recomp runtime, not the renderer
    675,000 lines of generated C would be costly; running the game in a worker
    (`-sPROXY_TO_PTHREAD`) with an OffscreenCanvas would let it block, which
    also makes synchronous `readPixels` usable.
-2. The game uses threads (`host/win32/threads.c`); wasm threads need
+2. The game uses threads (`host/sdl/threads.c`); wasm threads need
    `SharedArrayBuffer`, hence COOP/COEP headers.
 3. Guest memory is one arena at `g_mem_base` (16 MB plus a 768 MB heap,
    `runtime/imports.h:30-35`). Portable and within wasm32, but committed up

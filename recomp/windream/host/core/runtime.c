@@ -7,10 +7,9 @@
  * faults instead of reading zeros. The original WINDREAM.EXE is mapped at its
  * real VAs from the file at startup; the lifted C is the code.
  */
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <stdio.h>
 #include <string.h>
+#include <SDL3/SDL_atomic.h>
 #include "imports.h"
 #include "crash_report.h"
 #include "recomp_trace.h"
@@ -41,16 +40,16 @@ const char* g_wd_exe;
 uint32_t wd_image_span(void) { return g_image_span; }
 
 /* ---- small guest-memory helpers ---- */
-static CRITICAL_SECTION g_alloc_cs;
+static SDL_SpinLock g_alloc_lock;
 static uint32_t g_shim_next;   /* shim allocations: top of the heap region, growing down */
 
 uint32_t shim_alloc(uint32_t n, uint32_t align) {
-    EnterCriticalSection(&g_alloc_cs);
+    SDL_LockSpinlock(&g_alloc_lock);
     if (align < 16) align = 16;
     uint32_t va = (g_shim_next - n) & ~(align - 1u);
     g_shim_next = va;
-    LeaveCriticalSection(&g_alloc_cs);
-    VirtualAlloc(PTR(va), n ? n : 1, MEM_COMMIT, PAGE_READWRITE);
+    SDL_UnlockSpinlock(&g_alloc_lock);
+    vm_commit(va, n);
     memset(wd_host_range(va, n, 1), 0, n);
     return va;
 }
@@ -100,10 +99,10 @@ recomp_func_t recomp_lookup_import(uint32_t va) {
 static recomp_func_t g_com_fn[1024];
 static uint32_t g_com_n;
 uint32_t wd_com_vtable(const recomp_func_t* fns, int n) {
-    EnterCriticalSection(&g_alloc_cs);
+    SDL_LockSpinlock(&g_alloc_lock);
     uint32_t base = g_com_n;
     for (int i = 0; i < n; i++) g_com_fn[g_com_n++] = fns[i];
-    LeaveCriticalSection(&g_alloc_cs);
+    SDL_UnlockSpinlock(&g_alloc_lock);
     uint32_t vt = shim_alloc((uint32_t)n * 4u, 16);
     for (int i = 0; i < n; i++) WD_HOST_WRITE32(vt + 4u * (uint32_t)i) = WD_COM_BASE + base + (uint32_t)i;
     return vt;
@@ -169,7 +168,7 @@ static int load_image(const char* path) {
         if (e > end) end = e;
     }
     g_image_span = (end + 0xFFFu) & ~0xFFFu;
-    VirtualAlloc(PTR(WD_IMAGE_BASE), g_image_span, MEM_COMMIT, PAGE_READWRITE);
+    vm_commit(WD_IMAGE_BASE, g_image_span);
     memcpy(PTR(WD_IMAGE_BASE), buf, hdrsz < (uint32_t)sz ? hdrsz : (uint32_t)sz);
     for (int i = 0; i < nsec; i++) {
         /* Watcom .bss: PointerToRawData 0 with the memory size in SizeOfRawData. */
@@ -192,8 +191,7 @@ static const char* region(uint32_t va) {
 }
 
 static int setup(const char* exe) {
-    InitializeCriticalSection(&g_alloc_cs);
-    void* arena = VirtualAlloc(NULL, WD_ARENA_SIZE, MEM_RESERVE, PAGE_READWRITE);
+    void* arena = vm_reserve(WD_ARENA_SIZE);
     if (!arena) { fprintf(stderr, "FATAL: cannot reserve %u MB arena\n", WD_ARENA_SIZE >> 20); return 0; }
     g_mem_base = (ptrdiff_t)(uintptr_t)arena;
     g_shim_next = WD_HEAP_BASE + WD_HEAP_SIZE;

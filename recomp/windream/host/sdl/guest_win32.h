@@ -153,6 +153,57 @@
 #define W32_MEM_RELEASE      0x00008000u
 #define W32_PAGE_READWRITE   0x04u
 
+/* ---- KERNEL32: files, handles, waits (files.c, kernel.c, threads.c) ---- */
+#define W32_MAX_PATH                260
+#define W32_INVALID_HANDLE_VALUE    0xFFFFFFFFu
+#define W32_INVALID_FILE_ATTRIBUTES 0xFFFFFFFFu
+#define W32_INVALID_SET_FILE_POINTER 0xFFFFFFFFu
+#define W32_GENERIC_READ            0x80000000u
+#define W32_GENERIC_WRITE           0x40000000u
+#define W32_CREATE_NEW              1u
+#define W32_CREATE_ALWAYS           2u
+#define W32_OPEN_EXISTING           3u
+#define W32_OPEN_ALWAYS             4u
+#define W32_TRUNCATE_EXISTING       5u
+#define W32_FILE_ATTRIBUTE_DIRECTORY 0x10u
+#define W32_FILE_ATTRIBUTE_ARCHIVE  0x20u
+#define W32_FILE_TYPE_UNKNOWN       0u
+#define W32_FILE_TYPE_DISK          1u
+#define W32_FILE_TYPE_CHAR          2u
+#define W32_STD_INPUT_HANDLE        0xFFFFFFF6u   /* (DWORD)-10 */
+#define W32_STD_OUTPUT_HANDLE       0xFFFFFFF5u   /* (DWORD)-11 */
+#define W32_CURRENT_PROCESS         0xFFFFFFFFu   /* GetCurrentProcess's pseudo-handle */
+#define W32_CURRENT_THREAD          0xFFFFFFFEu   /* GetCurrentThread's */
+#define W32_CREATE_SUSPENDED        0x00000004u
+#define W32_INFINITE                0xFFFFFFFFu
+#define W32_WAIT_OBJECT_0           0u
+#define W32_WAIT_TIMEOUT            258u
+#define W32_WAIT_FAILED             0xFFFFFFFFu
+#define W32_TLS_OUT_OF_INDEXES      0xFFFFFFFFu
+#define W32_CP_ACP                  0u
+#define W32_CP_OEMCP                1u
+#define W32_CP_THREAD_ACP           3u
+/* WIN32_FIND_DATAA, 320 bytes: attributes, three FILETIMEs, size high and low,
+ * two reserved dwords, then the name (260) and the 8.3 alternate name (14) */
+#define W32_FIND_DATA_SIZE          320u
+#define W32_FIND_DATA_NAME          44
+/* GetLastError values the bridges report */
+#define W32_ERROR_FILE_NOT_FOUND    2u
+#define W32_ERROR_PATH_NOT_FOUND    3u
+#define W32_ERROR_TOO_MANY_OPEN_FILES 4u
+#define W32_ERROR_ACCESS_DENIED     5u
+#define W32_ERROR_INVALID_HANDLE    6u
+#define W32_ERROR_NOT_ENOUGH_MEMORY 8u
+#define W32_ERROR_NO_MORE_FILES     18u
+#define W32_ERROR_SHARING_VIOLATION 32u
+#define W32_ERROR_FILE_EXISTS       80u
+#define W32_ERROR_INVALID_PARAMETER 87u
+#define W32_ERROR_INSUFFICIENT_BUFFER 122u
+#define W32_ERROR_NEGATIVE_SEEK     131u
+#define W32_ERROR_ALREADY_EXISTS    183u
+#define W32_ERROR_FILENAME_EXCED_RANGE 206u
+#define W32_ERROR_INVALID_ADDRESS   487u
+
 /* ---- WINMM: joystick ---- */
 #define W32_JOYERR_NOERROR   0u
 #define W32_JOYERR_PARMS     165u

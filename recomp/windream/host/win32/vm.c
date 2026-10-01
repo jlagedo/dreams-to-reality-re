@@ -1,5 +1,10 @@
 /*
- * WINDREAM recompilation - VirtualAlloc/VirtualFree/VirtualQuery.
+ * WINDREAM recompilation - host virtual memory, and VirtualAlloc/VirtualFree/
+ * VirtualQuery.
+ *
+ * The one part of the KERNEL32 side that still stands on Win32: reserving the
+ * arena's address space, committing and decommitting pages in it and asking
+ * which pages are committed. SDL has no virtual memory interface.
  *
  * The Watcom CRT gets its heap from VirtualAlloc (WINDREAM imports no HeapAlloc
  * or GlobalAlloc). Reservations are handed out 64 KB-aligned from the bottom of
@@ -16,6 +21,11 @@ static struct { uint32_t base, size, protect, freed; } g_vm[VM_MAX];  /* freed: 
 static int g_vm_n;
 static uint32_t g_vm_next = WD_HEAP_BASE;
 static SRWLOCK g_vm_lock = SRWLOCK_INIT;
+
+void* vm_reserve(size_t bytes) { return VirtualAlloc(NULL, bytes, MEM_RESERVE, PAGE_READWRITE); }
+void vm_commit(uint32_t va, uint32_t bytes) {
+    VirtualAlloc(PTR(va), bytes ? bytes : 1, MEM_COMMIT, PAGE_READWRITE);
+}
 
 static int vm_find(uint32_t va) {
     for (int i = 0; i < g_vm_n; i++)
@@ -86,7 +96,7 @@ int vm_free(uint32_t addr, uint32_t size, uint32_t type) {
         }
     }
     ReleaseSRWLockExclusive(&g_vm_lock);
-    if (!ok) SetLastError(error);
+    if (!ok) g_last_error = error;
     return ok;
 }
 

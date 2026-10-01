@@ -7,16 +7,11 @@
 static unsigned char arena[8192];
 static unsigned violations;
 static wd_surface_access last;
-static HANDLE file;
-void* handle_get(uint32_t handle, int kind) { (void)kind; return handle == 1 ? file : NULL; }
 /* The linked runtime's startup/dispatch paths are not part of this test. */
 const recomp_dispatch_entry_t recomp_dispatch_table[] = {{0, NULL}};
 const uint32_t recomp_dispatch_count = 0;
 const recomp_dispatch_entry_t wd_import_bridges[] = {{0, NULL}};
 const uint32_t wd_import_bridge_count = 0;
-uint32_t handle_new(void* host, int kind) { (void)host; (void)kind; abort(); }
-void handle_close(uint32_t handle) { (void)handle; abort(); }
-void wd_thread_init_main(void) { abort(); }
 void host_init(void) { abort(); }
 void recomp_install_crash_handler(void) { abort(); }
 void recomp_set_region_describer(const char* (*fn)(uint32_t)) { (void)fn; abort(); }
@@ -26,6 +21,10 @@ void recomp_trace_help(void) { abort(); }
 void wd_scene_probe_init(void) { abort(); }
 void wd_render_install(void) { abort(); }
 void wd_render_close(void) { abort(); }
+void imp_CreateFileA(void);
+void imp_CloseHandle(void);
+void imp_DeleteFileA(void);
+void imp_SetFilePointer(void);
 void imp_ReadFile(void);
 void imp_WriteFile(void);
 void imp_MultiByteToWideChar(void);
@@ -109,31 +108,43 @@ int main(void) {
             memcpy(arena + 1024, before, sizeof before);
             uint32_t alias[] = {1252, 0, 1024, UINT32_MAX, 1024, (uint32_t)capacities[c], 0, 0};
             arguments(alias, wide ? 8 : 6);
-            SetLastError(12345);
+            g_last_error = 12345;
             if (wide) imp_WideCharToMultiByte(); else imp_MultiByteToWideChar();
-            assert(g_eax == (uint32_t)expected && GetLastError() == error);
+            assert(g_eax == (uint32_t)expected && g_last_error == error);
             assert(!memcmp(arena + 1024, before, sizeof before));
         }
     }
 
-    file = CreateFileA("host-audit.tmp", GENERIC_READ | GENERIC_WRITE, 0, NULL,
-                       CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, NULL);
-    assert(file != INVALID_HANDLE_VALUE);
-    DWORD written;
-    assert(WriteFile(file, "AB", 2, &written, NULL));
-    SetFilePointer(file, 0, NULL, FILE_BEGIN);
+    /* A sandbox file through the bridges themselves (./sandbox, next to the test). */
+    files_init("host-audit-root/GDIDREAM.EXE");
+    memcpy(arena + 3200, "HOST-AUDIT.TMP", 15);
+    memcpy(arena + 3300, "AB", 2);
+    const uint32_t create[] = {3200, GENERIC_READ | GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0x80, 0};
+    arguments(create, 7); imp_CreateFileA();
+    uint32_t file = g_eax;
+    assert(file != (uint32_t)-1);
+    const uint32_t seed[] = {file, 3300, 2, 3000, 0};
+    arguments(seed, 5); imp_WriteFile();
+    assert(g_eax && MEM32(3000) == 2);
+    const uint32_t rewind[] = {file, 0, 0, FILE_BEGIN};
+    arguments(rewind, 4); imp_SetFilePointer();
+    assert(g_eax == 0);
     surface(2050);
-    const uint32_t read[] = {1, 2048, 32, 3000, 0};
+    const uint32_t read[] = {file, 2048, 32, 3000, 0};
     arguments(read, 5); imp_ReadFile();
     assert(g_eax && !violations && MEM32(3000) == 2 && !memcmp(arena + 2048, "AB", 2));
-    const uint32_t eof[] = {1, 2050, 32, 3000, 0};
+    const uint32_t eof[] = {file, 2050, 32, 3000, 0};
     arguments(eof, 5); imp_ReadFile();
     assert(g_eax && !violations && MEM32(3000) == 0);
-    const uint32_t write[] = {1, 2050, 2, 3000, 0};
+    const uint32_t write[] = {file, 2050, 2, 3000, 0};
     arguments(write, 5); imp_WriteFile();
     assert(violations == 1 && !last.write && last.bytes == 2);
-    CloseHandle(file);
     wd_surface_reset();
+    arguments(&file, 1); imp_CloseHandle();
+    assert(g_eax);
+    const uint32_t name[] = {3200};
+    arguments(name, 1); imp_DeleteFileA();
+    assert(g_eax);
     /* Exercise production vm_free against real Windows page state. */
     void* host_arena = VirtualAlloc(NULL, 32u * 1024 * 1024, MEM_RESERVE, PAGE_READWRITE);
     assert(host_arena);

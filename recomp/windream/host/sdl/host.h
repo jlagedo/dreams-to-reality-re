@@ -14,6 +14,11 @@
 #include "imports.h"
 #include "guest_win32.h"
 
+/* A file or find object behind a guest handle. Another thread may close the
+ * handle while this one uses the object, so users hold a reference
+ * (handle_acquire, files_release) and the last one frees it. */
+typedef struct { SDL_AtomicInt refs; } WdObject;
+
 /* Fake USER handles. GDI's fake handles (gdi.c) use tag 0x7E000000. */
 #define WD_HWND_MAIN    0x7D000100u
 #define WD_HICON        0x7D000200u

@@ -24,9 +24,10 @@ RECOMP = Path(__file__).resolve().parent
 WINDREAM = RECOMP / "windream"
 LIFT = WINDREAM / "lift"
 # Host runtime, by the API each part stands on: core (guest runtime, trace,
-# crash report), sdl (USER32/GDI32/WinMM/DirectSound on SDL3), win32
-# (KERNEL32 on Win32: the part to replace on other systems), render (GPU
-# renderer adapters) and hooks (diagnostics).
+# crash report), sdl (KERNEL32 files, process and threads, USER32, GDI32, WinMM
+# and DirectSound on SDL3), win32 (the arena's virtual memory on Win32: the
+# part to replace on other systems), render (GPU renderer adapters) and hooks
+# (diagnostics).
 HOST = WINDREAM / "host"
 HOST_DIRS = [HOST / name for name in ("core", "sdl", "win32", "render", "hooks")]
 

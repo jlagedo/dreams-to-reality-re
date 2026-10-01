@@ -24,10 +24,12 @@ sandboxes, crash dumps and the difftest work directories.
   pinned in `recomp/render/cmake/Dependencies.cmake` and builds a static release
   library once into `out\recomp\sdl3\<commit>`, which every recomp and
   difftest build then shares.
-- The USER32, GDI32, WinMM and DirectSound bridges run on SDL3 and build
-  without `<windows.h>`. The KERNEL32 side (files, threads, virtual memory,
-  crash report) still calls Win32, so the recompiled game builds and runs on
-  Windows only for now.
+- The KERNEL32 file, process, thread and synchronisation bridges and the
+  USER32, GDI32, WinMM and DirectSound bridges run on SDL3 and build without
+  `<windows.h>`. Three parts still call Win32, so the recompiled game builds
+  and runs on Windows only for now: the arena's virtual memory
+  (`host/win32/vm.c`), the crash report (`host/core/crash_report.c`) and the
+  committed-page check in `host/render/render_scene_probe.c`.
 
 ## Commands
 
@@ -85,15 +87,115 @@ the centre, so leave the stick alone while the game starts.
 | `windream/lift/gen_imports.py` | One bridge per import; stubs for those no `host/*/*.c` implements |
 | `windream/lift/replacements.py`, `render_audit.py`, `render_bulk.py` | Generated entry wrappers for the renderer boundary, guest-memory probes and GPU-aware bulk transfers |
 | `windream/host/core/` | Guest runtime (`runtime.c`), function-entry trace, crash report and minidumps, `recomp_types.h`, `imports.h` |
-| `windream/host/sdl/` | `user.c`, `gdi.c`, `winmm.c` and `dsound.c` emulate USER32, GDI32, WinMM and DirectSound on SDL3 (`host.h`); `guest_win32.h` holds the guest's Win32 constants and 32-bit layouts, which `win32_abi_check.c` checks against the SDK |
-| `windream/host/win32/` | `kernel.c`, `files.c`, `threads.c` and `vm.c`: KERNEL32 on Win32, the part to replace for other systems |
+| `windream/host/sdl/` | The Win32 the guest sees, on SDL3 (`host.h`): `files.c` (read roots, write sandbox, case-insensitive names, `FindFirstFile` wildcards, file times), `kernel.c` (process, console, code pages 1252 and 437, last error), `threads.c` (handles, threads, events, critical sections, TLS), and `user.c`, `gdi.c`, `winmm.c`, `dsound.c` for USER32, GDI32, WinMM and DirectSound; `guest_win32.h` holds the guest's Win32 constants and 32-bit layouts, which `win32_abi_check.c` checks against the SDK |
+| `windream/host/win32/` | `vm.c`: the arena's host virtual memory (reserve, commit, decommit, page state) and `VirtualAlloc`/`VirtualFree`/`VirtualQuery`, on Win32; the part to replace for other systems |
 | `windream/host/render/` | Adapters between the lifted game and the GPU renderer: boundary and surface ownership, scene capture and draw, UI, movies, live frame, metrics, hooks |
 | `windream/host/hooks/` | `phys_hook.c` collision hooks |
-| `windream/verify/` | Renderer verification: retail-x86 oracles (`render_*_smoke.py`), live isolated runs (`render_*_live_smoke.py`, project and thumbnail smokes), `render_acceptance.py`, `render_content_inventory.py`, `direct_render_validate.py`, `test_render_codegen.py`, and the dump reader `mdmp.py`. The scripts import each other by name, so they share one directory; their C/C++ sources are in `native/` |
+| `windream/verify/` | Renderer verification: retail-x86 oracles (`render_*_smoke.py`), live isolated runs (`render_*_live_smoke.py`, project and thumbnail smokes), `render_acceptance.py`, `render_content_inventory.py`, `direct_render_validate.py`, `test_render_codegen.py`, and the dump reader `mdmp.py`; and `kernel_bridge_smoke.py`, the retail-x86 oracle for the KERNEL32 bridges. The scripts import each other by name, so they share one directory; their C/C++ sources are in `native/` |
 | `windream/debug/` | Collision and dump tools: the collision invariant, Unicorn replay of one `PHYS_SweepAxis` call, `x86dis.py`, `flag_hunt.py` (unwritten debug flags, address-copy scan) |
 | `windream/CMakeLists.txt`, `build.py`, `run.py` | Build (clang-cl + Ninja) and sandboxed run (scripted keys, snapshots, fps cap, window, pad and dump modes) |
 | `render/` | GPU renderer: `ODRender` (sokol_gfx core: `direct.*`, shadows, fog) and `ODGraphics` (SDL3 backends for D3D11, Metal, OpenGL); pinned dependencies and shader generation in `cmake/`; tests in `tests/` |
 | `difftest/` | `difftest.py` (compile with Watcom, bounds with Ghidra cached per source/flags/compiler, lift, build, run, diff), `wat.py`, the test programs `t_core.c` and `t_switch.c`, `gen_insn.py` (generates `t_insn.c` into the work root), `coverage.py`, `flagdiff.py`, `consumers.py`, `map2bounds.py` |
+
+## KERNEL32 bridge oracle
+
+`windream/verify/kernel_bridge_smoke.py` runs original `GDIDREAM.EXE` code in
+Unicorn against the production bridges (`host/sdl/files.c`, `kernel.c`,
+`threads.c` and `host/win32/vm.c`), built into a DLL with the production
+runtime setup. The guest arena is mapped into Unicorn, so both sides see the
+same memory.
+
+```sh
+uv run --with unicorn --with capstone --with pefile python recomp/windream/verify/kernel_bridge_smoke.py
+uv run --with unicorn --with capstone --with pefile python recomp/windream/verify/kernel_bridge_smoke.py --case-walk
+```
+
+- What runs: the Watcom startup from the entry point to the call of `WinMain`;
+  the runtime's `open_`, `read_`, `write_`, `lseek_`, `fopen_`, `fread_`,
+  `_dos_findfirst_`, `rename_`, `getcwd_`, `getenv_`, `malloc_` and others; the
+  game's `CD_InitPaths`, `VFS_Open`/`Read`/`Seek`/`Close`, `FILE_Exists` and
+  `SYS_CreateInstanceMapping`; and `push ...; call [slot]` stubs for the
+  imports no convenient retail caller reaches (events, waits, TLS, code-page
+  conversion, file times, each `CreateFileA` disposition).
+- Guest threads run on the host thread the bridge creates, each in its own
+  Unicorn instance; three of them increment one counter under a critical
+  section.
+- A plain run compares its observations with
+  `verify/kernel_bridge_baseline.json`. That baseline was captured from the
+  Win32 implementation of the three bridge files: the commit before they moved
+  to `host/sdl`, checked out in a worktree and built with `--host TREE`. A
+  pass therefore says the SDL3 bridges give original code the answers Win32
+  gave. `--capture` replaces the baseline with the current run: only for a
+  deliberate change of behaviour.
+- `--case-walk` forces the per-segment case-insensitive path lookup that a
+  case-sensitive host file system takes.
+- Checked in place on every run, independent of the baseline:
+  - the number of argument slots a bridge pops, against the Windows SDK
+    import libraries;
+  - file times against the fixture's own, and local times against the
+    machine's zone;
+  - 1,489 generated wildcard patterns, the bridge's listing against
+    `FindFirstFileW` on the same directory;
+  - paths longer than `MAX_PATH`, a conversion with a size but no
+    destination, a second open of a file being written, calls on a closed
+    handle, a closed standard handle, a timeout above 2^31 ms.
+- What the comparison cannot see: the last-error value is compared only where
+  Win32 documents it (the failures of the file, find, conversion and
+  file-time calls, and always after `CreateFileA` and `CreateFileMappingA`).
+  Elsewhere the script restores the value from before the call, so a bridge
+  that leaves a different error after `CloseHandle`, a wait or a TLS call is
+  not noticed.
+- Not covered: `ExitProcess` and `ExitThread` (they would end the test
+  process), `CREATE_SUSPENDED`, two threads using and closing one handle at
+  the same time, non-ASCII file names, a real case-sensitive file system.
+- Windows only: the host DLL walks the arena with `VirtualQuery`. Outputs go
+  to `DREAMS_OUT/recomp/kernel-bridge`.
+
+Result (2026-10-01): 287 observations, none different between the Win32 and
+the SDL3 bridges, with and without `--case-walk`. Intended differences from
+the Win32 implementation, which the comparison leaves out or cannot see:
+
+- `CP_ACP` and `CP_OEMCP` convert as code pages 1252 and 437, the ones
+  `GetACP` and `GetOEMCP` report to the guest. Under Win32 they followed the
+  machine's code page.
+- `GetLastError` is the guest's own per-thread value. Under Win32 it was the
+  host thread's, which the host's own calls could change. `CloseHandle`,
+  `ReadFile`, `WriteFile`, `SetFilePointer`, `FindNextFileA`, `SetEvent` and
+  `WaitForSingleObject` now set `ERROR_INVALID_HANDLE` for a handle that is
+  not one; under Win32 the bridges failed and left the last error as it was.
+- The single-instance mapping (`CreateFileMappingA`) is counted inside the
+  process: two running copies of the game no longer see each other.
+- Share modes are SDL's, not the guest's. On Windows a file open for writing
+  cannot be opened again, and a file open for reading cannot be opened for
+  writing. Such an open fails with `ERROR_SHARING_VIOLATION` and logs
+  `[files] open "..." refused`; no run so far has logged one.
+- Files report `FILE_ATTRIBUTE_ARCHIVE` only (no read-only bit) and no 8.3
+  alternate name, so a wildcard never matches through a short name. Windows'
+  best-fit character substitutions are not reproduced.
+- `OPEN_ALWAYS` without write access resolves in the sandbox. Under Win32 it
+  could create the file in a read root.
+- A path that, with the current directory, is longer than `MAX_PATH` fails
+  with `ERROR_FILENAME_EXCED_RANGE`. Under Win32 it overran a stack buffer in
+  the bridge.
+- A closed standard handle keeps its number. Under Win32 the number could be
+  given to the next file opened, which then received the guest's console
+  output.
+
+Known gaps, unchanged from the Win32 bridges:
+
+- The sandbox and the read roots are not merged. `FindFirstFileA` answers
+  from the first of them with a match, and a directory that exists in the
+  sandbox always has one for `*.*` (its `.` entry), which hides the read
+  roots' files in that directory. After no match the error is the last read
+  root's.
+- `CREATE_NEW`, `CREATE_ALWAYS`, `DeleteFileA` and `MoveFileA` look for an
+  existing file in the sandbox only, so a file in a read root does not count
+  as existing for them.
+- `SetCurrentDirectoryA` accepts a directory that does not exist;
+  `GetCurrentDirectoryA` and `GetModuleFileNameA` return the full length
+  whatever the buffer size; `FindClose` returns 1 for any handle.
+- `ExitThread` on a thread the bridge did not start ends the process. That
+  is the main thread; nothing is known to run guest code on any other.
 
 ## Renderer-boundary smokes
 

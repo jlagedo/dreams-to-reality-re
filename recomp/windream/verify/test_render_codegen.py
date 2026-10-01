@@ -220,20 +220,22 @@ def test_host_bridge_access_footprints():
     env = recomp_env.build_env()
     compiler = shutil.which("cl.exe", path=env["PATH"])
     assert compiler, "Windows CPU test compiler is required"
+    sdl = recomp_env.ensure_sdl3()
     sources = [
         recomp_env.HOST / name
         for name in (
             "core/runtime.c",
-            "win32/files.c",
-            "win32/kernel.c",
+            "sdl/files.c",
+            "sdl/kernel.c",
+            "sdl/threads.c",
             "win32/vm.c",
             "render/render_boundary.cpp",
         )
     ]
     sources.append(Path(__file__).parent / "native" / "render_host_audit_tests.c")
     for source in sources:
-        command = [compiler, "/nologo", "/c", "/Gy", "/DWD_RENDER_AUDIT"]
-        command += recomp_env.host_includes()
+        command = [compiler, "/nologo", "/c", "/Gy", "/MD", "/DWD_RENDER_AUDIT"]
+        command += [*recomp_env.host_includes(), f"/I{sdl / 'include'}"]
         if source.suffix == ".cpp":
             command += ["/std:c++17", "/EHsc"]
         if source.name == "runtime.c":
@@ -250,13 +252,23 @@ def test_host_bridge_access_footprints():
             "/Fe:" + str(executable),
             "/link",
             "/OPT:REF",
+            f"/LIBPATH:{sdl / 'lib'}",
+            "SDL3-static.lib",
+            # what the static SDL3 needs on Windows (its sdl3.pc)
+            *(
+                name + ".lib"
+                for name in (
+                    "user32", "gdi32", "winmm", "imm32", "ole32", "oleaut32", "version",
+                    "uuid", "advapi32", "setupapi", "shell32", "dinput8", "cfgmgr32",
+                )
+            ),  # fmt: skip
         ],
         cwd=out,
         env=env,
         check=True,
         capture_output=True,
         text=True,
-    )
+    )  # fmt: skip
     subprocess.run([str(executable)], cwd=out, check=True, capture_output=True, text=True)
 
 

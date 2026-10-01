@@ -59,19 +59,28 @@ uint32_t wd_image_span(void);
 
 /* files.c */
 void     files_init(const char* exe);
+void     files_release(int kind, void* host);         /* drop a reference to an HK_FILE or HK_FIND object */
 
-/* vm.c: VirtualAlloc/VirtualFree/VirtualQuery over the guest heap region */
+/* kernel.c */
+extern RECOMP_TLS uint32_t g_last_error;              /* the guest's GetLastError value */
+void     mapping_release(void* host);                 /* a closed HK_MAP object */
+
+/* vm.c: the host memory behind the arena, and VirtualAlloc/VirtualFree/
+ * VirtualQuery over the guest heap region */
+void*    vm_reserve(size_t bytes);                    /* address space only; NULL on failure */
+void     vm_commit(uint32_t va, uint32_t bytes);      /* zeroed, readable and writable */
 uint32_t vm_alloc(uint32_t addr, uint32_t size, uint32_t type, uint32_t prot);
 int      vm_free(uint32_t addr, uint32_t size, uint32_t type);
 uint32_t vm_query(uint32_t addr, uint32_t mbi_va);
 const char* vm_describe(uint32_t va);
 
-/* threads.c */
+/* threads.c: the main thread's stack and TIB, and guest handles (small
+ * numbers; each owns a host object of one kind) */
 void     wd_thread_init_main(void);
-
-/* handles.c: guest handle <-> host HANDLE for files and find handles */
 uint32_t handle_new(void* host, int kind);
-void*    handle_get(uint32_t gh, int kind);
+void*    handle_get(uint32_t gh, int kind);            /* kind 0: any */
+void*    handle_acquire(uint32_t gh, int kind);        /* HK_FILE, HK_FIND: referenced, files_release it */
+int      handle_kind(uint32_t gh);                     /* 0: not a handle */
 void     handle_close(uint32_t gh);
 enum { HK_FILE = 1, HK_FIND = 2, HK_STD = 3, HK_MAP = 6 };
 

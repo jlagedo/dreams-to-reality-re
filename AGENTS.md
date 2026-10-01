@@ -12,8 +12,8 @@ either builds that or supplies the reverse engineering it depends on.
 | `recomp/README.md` | Recomp setup, commands, run options, verification scripts |
 | `recomp/recomp_env.py` | Shared paths (`LIFT`, `HOST`, `HOST_DIRS`), build environment, the shared SDL3 build |
 | `recomp/windream/lift/` | `lift.py` (`bounds.csv` → `out/recomp/windream/gen/`), `gen_imports.py` (import bridges), `replacements.py`, `render_audit.py`, `render_bulk.py`, `bounds.csv` (from Ghidra, pcrecomp `DumpBounds.java`) |
-| `recomp/windream/host/` | Host runtime by API: `core/` (guest runtime, trace, crash report), `sdl/` (USER32/GDI32/WinMM/DirectSound on SDL3), `win32/` (KERNEL32 on Win32: the part to replace for other systems), `render/` (GPU renderer adapters, `render_*`), `hooks/` (`phys_hook.c` collision hooks) |
-| `recomp/windream/verify/` | Renderer verification: retail-x86 Unicorn oracles (`render_*_smoke.py`), live isolated runs (`render_*_live_smoke.py`), the acceptance runner (`render_acceptance.py`), `direct_render_validate.py`, `test_render_codegen.py`, the dump reader `mdmp.py`; C/C++ tests, oracles and hook hosts in `native/` |
+| `recomp/windream/host/` | Host runtime by API: `core/` (guest runtime, trace, crash report), `sdl/` (KERNEL32 files, process and threads, USER32, GDI32, WinMM and DirectSound on SDL3), `win32/` (`vm.c`, the arena's virtual memory on Win32: the part to replace for other systems), `render/` (GPU renderer adapters, `render_*`), `hooks/` (`phys_hook.c` collision hooks) |
+| `recomp/windream/verify/` | Renderer verification: retail-x86 Unicorn oracles (`render_*_smoke.py`), live isolated runs (`render_*_live_smoke.py`), the acceptance runner (`render_acceptance.py`), `direct_render_validate.py`, `test_render_codegen.py`, the dump reader `mdmp.py`; `kernel_bridge_smoke.py`, the retail-x86 Unicorn oracle for the KERNEL32 bridges; C/C++ tests, oracles and hook hosts in `native/` |
 | `recomp/windream/debug/` | Collision and dump tools: `colliders.py`, `invariant.py`, `replay_sweep.py`, `replay_full.py`, `sortcheck.py`, `x86dis.py`, `flag_hunt.py` |
 | `recomp/windream/build.py`, `run.py`, `CMakeLists.txt` | Build (clang-cl + Ninja, unoptimized) and sandboxed run (scripted keys, snapshots, window and pad options) |
 | `recomp/render/` | GPU renderer: `ODRender` (sokol_gfx core, `direct.*`, shadows, fog) and `ODGraphics` (SDL3 backends), pinned dependencies in `cmake/`, tests in `tests/` |
@@ -65,6 +65,7 @@ uv run python recomp/windream/build.py
 uv run python recomp/windream/run.py
 uv run python recomp/windream/run.py --headless --renderer direct --seconds 30
 uv run python recomp/windream/verify/direct_render_validate.py --gpu
+uv run --with unicorn --with capstone --with pefile python recomp/windream/verify/kernel_bridge_smoke.py
 uv run --with capstone --with pefile python recomp/difftest/difftest.py t_core --tag od110
 uv run pytest
 uv run --with capstone --with pefile pytest recomp/windream/verify/test_render_codegen.py

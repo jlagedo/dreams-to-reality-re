@@ -5,14 +5,16 @@
  * which question each was written to answer -- the shape of the answer is what
  * makes a diagnostic worth keeping.
  */
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <SDL3/SDL_thread.h>
 
 #include "recomp_types.h"
 #include "recomp_trace.h"
+
+/* The id the thread-tagged lines print (the Win32 thread id on Windows). */
+#define TRACE_THREAD() ((unsigned long)SDL_GetCurrentThreadID())
 
 void (*recomp_trace_extra)(uint32_t va) = NULL;
 const char* g_cur_import = "(none)";
@@ -153,18 +155,18 @@ void recomp_trace_enter(uint32_t va) {
         uint32_t i = (va - g_fh_lo) >> 2;
         if (!(g_fh_seen[i >> 3] & (1u << (i & 7)))) {
             g_fh_seen[i >> 3] |= (uint8_t)(1u << (i & 7));
-            fprintf(stderr, "[first] t%lu 0x%08X\n", GetCurrentThreadId(), va);
+            fprintf(stderr, "[first] t%lu 0x%08X\n", TRACE_THREAD(), va);
         }
     }
     for (unsigned t = 0; t < g_at_n; t++)
         if (g_at[t] == va)
             fprintf(stderr, "[args] t%lu %08X %08X %08X %08X\n",
-                    GetCurrentThreadId(), va,
+                    TRACE_THREAD(), va,
                     MEM32(g_esp + 4), MEM32(g_esp + 8), MEM32(g_esp + 12));
     /* Thread-tagged, because the trace interleaves the target's own worker
      * threads with the main one and a flat sequence cannot be read. */
     if (g_calltrace)
-        fprintf(g_calltrace, "%lu %08X\n", GetCurrentThreadId(), va);
+        fprintf(g_calltrace, "%lu %08X\n", TRACE_THREAD(), va);
 
     if (g_poison) {
         uint32_t v = MEM32(g_poison);

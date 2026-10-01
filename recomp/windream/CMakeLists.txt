@@ -18,12 +18,14 @@ include(../render/cmake/RenderCore.cmake)
 # difftest program's own directory otherwise).
 set(WD_GEN_DIR ${CMAKE_SOURCE_DIR}/../../out/recomp/windream/gen CACHE PATH "generated sources")
 file(GLOB GEN_SRC CONFIGURE_DEPENDS ${WD_GEN_DIR}/recomp_*.c)
-# host/: core (guest runtime), sdl (USER32/GDI32/WinMM/DirectSound on SDL3),
-# win32 (KERNEL32 on Win32), render (GPU renderer adapters), hooks (diagnostics).
+# host/: core (guest runtime), sdl (KERNEL32 files, process and threads,
+# USER32, GDI32, WinMM and DirectSound on SDL3), win32 (the arena's virtual
+# memory on Win32), render (GPU renderer adapters), hooks (diagnostics).
 set(RUNTIME_SRC
     host/core/runtime.c host/core/crash_report.c host/core/recomp_trace.c
     ${WD_GEN_DIR}/imports_gen.c
-    host/win32/vm.c host/win32/threads.c host/win32/kernel.c host/win32/files.c
+    host/win32/vm.c
+    host/sdl/threads.c host/sdl/kernel.c host/sdl/files.c
     host/sdl/user.c host/sdl/gdi.c host/sdl/winmm.c host/sdl/dsound.c
     host/hooks/phys_hook.c
     host/render/render_boundary.cpp host/render/render_scene.cpp host/render/render_scene_io.cpp

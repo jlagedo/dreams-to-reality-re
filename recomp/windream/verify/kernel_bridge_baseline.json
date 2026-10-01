@@ -1,0 +1,2111 @@
+{
+ "sources": [
+  "win32/vm.c",
+  "win32/files.c",
+  "win32/kernel.c",
+  "win32/threads.c"
+ ],
+ "unbridged KERNEL32 imports": [],
+ "results": {
+  "startup": {
+   "imports": [
+    "GetModuleHandleA=0x400000",
+    "VirtualQuery=0x1c",
+    "GetCurrentThreadId=*",
+    "GetStdHandle=0x1004",
+    "VirtualAlloc=0x1000000",
+    "GetStdHandle=0x1008",
+    "GetStdHandle=0x100c",
+    "GetEnvironmentStrings=0x30ffffe0",
+    "GetVersion=0x5650004",
+    "GetModuleFileNameA=0xf",
+    "GetVersion=0x5650004",
+    "GetModuleFileNameW=0xf",
+    "GetCommandLineA=0x30ffffd0",
+    "GetCommandLineW=0x30ffffb0",
+    "VirtualQuery=0x1c",
+    "SetUnhandledExceptionFilter=0x0",
+    "GetCPInfo=0x1",
+    "GetOEMCP=0x1b5",
+    "GetModuleHandleA=0x400000"
+   ]
+  },
+  "process": {
+   "GetVersion": 90505220,
+   "GetACP": 1252,
+   "GetOEMCP": 437,
+   "GetCPInfo": [
+    1,
+    "010000003f000000000000000000000000000000cccccccc"
+   ],
+   "GetCommandLineA": "C:\\WINDREAM.EXE",
+   "GetCommandLineW": "C:\\WINDREAM.EXE",
+   "GetEnvironmentStrings": [
+    "WD=1",
+    "T_ALPHA=1",
+    "T_BETA=two"
+   ],
+   "GetEnvironmentStrings again": true,
+   "SetEnvironmentVariableA": 1,
+   "GetModuleHandleA(NULL)": 4194304,
+   "GetModuleHandleA(name)": 0,
+   "GetModuleFileNameA": [
+    15,
+    "433a5c57494e445245414d2e45584500cccccccccccccccc"
+   ],
+   "GetModuleFileNameA small": [
+    15,
+    "433a5c574900cccccccccccccccccccccccccccccccccccc"
+   ],
+   "GetModuleFileNameW": [
+    15,
+    "C:\\WINDREAM.EXE"
+   ],
+   "LoadLibraryA": 0,
+   "GetProcAddress": 0,
+   "SetLastError/GetLastError": 1234,
+   "GetLastError survives a call": 1234,
+   "SetUnhandledExceptionFilter": 0,
+   "UnhandledExceptionFilter": 0,
+   "QueryPerformanceCounter": [
+    1,
+    1,
+    true
+   ],
+   "GetStdHandle": [
+    4100,
+    4104,
+    4108
+   ],
+   "GetStdHandle again": true,
+   "SetStdHandle": 1,
+   "GetConsoleMode": 0,
+   "SetConsoleMode": 0,
+   "SetConsoleCtrlHandler": 1,
+   "PeekConsoleInputA": [
+    0,
+    0
+   ],
+   "ReadConsoleInputA": [
+    0,
+    0
+   ],
+   "WriteConsoleA": [
+    1,
+    36
+   ],
+   "GetCurrentThread": 4294967294,
+   "GetCurrentProcessId is ours": true,
+   "GetCurrentThreadId is ours": true,
+   "Sleep(40) took at least 35 ms": true
+  },
+  "text": {
+   "mb 1252 nul": [
+    9,
+    0,
+    "4800e9006c006c006f002000ac207e010000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "mb 1252 counted": [
+    5,
+    0,
+    "4800e9006c006c006f00cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "mb 1252 sizing": [
+    9,
+    0,
+    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "mb 1252 too small": [
+    0,
+    122,
+    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "host: mb CP_ACP": [
+    9,
+    0,
+    "4800fdff6c006c006f002000fdfffdff0000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "host: mb CP_OEMCP": [
+    6,
+    0,
+    "fdfffdfffdfffdff41000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "mb 437": [
+    25,
+    0,
+    "c700fc00e900e200e400e000e500e700ea00eb00e800ef00ee00ec00c400c500c900e600c600f400f600f200fb00f900"
+   ],
+   "mb 1252 undefined bytes": [
+    6,
+    0,
+    "81008d008f0090009d000000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "mb precomposed flag": [
+    9,
+    0,
+    "4800e9006c006c006f002000ac207e010000cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "mb empty": [
+    0,
+    87,
+    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "mb unknown page": [
+    0,
+    87,
+    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "wc 1252 nul": [
+    9,
+    0,
+    "48e96c6c6f20809e00cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    0
+   ],
+   "wc 1252 counted": [
+    5,
+    0,
+    "48e96c6c6fcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "wc 1252 sizing": [
+    9,
+    0,
+    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "wc 1252 too small": [
+    0,
+    122,
+    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "host: wc CP_ACP": [
+    13,
+    0,
+    "48c3a96c6c6f20e282acc5be00cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "wc 437": [
+    9,
+    0,
+    "8081828320e1fe4100cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "wc default char": [
+    4,
+    0,
+    "413f4200cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    1
+   ],
+   "wc custom default": [
+    4,
+    0,
+    "41234200cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "wc empty": [
+    0,
+    87,
+    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   "wc unknown page": [
+    0,
+    87,
+    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ]
+  },
+  "time": {
+   "dos->file 1997-06-15 13:45:58": [
+    1,
+    "006f20749279bc01"
+   ],
+   "dos->file 1980-01-01 00:00:00": [
+    1,
+    "0080d5e19fe7a801"
+   ],
+   "dos->file 2000-02-29 23:59:58": [
+    1,
+    "001305151183bf01"
+   ],
+   "dos->file 2107-12-31 23:59:58": [
+    1,
+    "0093d266b8683802"
+   ],
+   "dos->file month 13": [
+    0,
+    "cccccccccccccccc"
+   ],
+   "dos->file day 0": [
+    0,
+    "cccccccccccccccc"
+   ],
+   "dos->file hour 24": [
+    0,
+    "cccccccccccccccc"
+   ],
+   "dos->file february 30": [
+    0,
+    "cccccccccccccccc"
+   ],
+   "file->dos 1997-06-15 12:30:44": [
+    1,
+    "cf22",
+    "d663"
+   ],
+   "file->dos odd second": [
+    1,
+    "432a",
+    "a420"
+   ],
+   "file->dos odd second + 100 ns": [
+    1,
+    "432a",
+    "a420"
+   ],
+   "file->dos even second + 1 s - 100 ns": [
+    1,
+    "432a",
+    "a520"
+   ],
+   "file->dos 1980-01-01": [
+    1,
+    "2100",
+    "0000"
+   ],
+   "file->dos 1979-12-31 23:59:59": [
+    1,
+    "2100",
+    "0000"
+   ],
+   "file->dos 2107-12-31 23:59:58": [
+    1,
+    "9fff",
+    "7dbf"
+   ],
+   "file->dos 2108-01-01": [
+    0,
+    "cccc",
+    "cccc"
+   ],
+   "file->dos zero": [
+    0,
+    "cccc",
+    "cccc"
+   ],
+   "file->local summer 1997": [
+    1,
+    1
+   ],
+   "file->local winter 2001": [
+    1,
+    1
+   ]
+  },
+  "files": {
+   "open read": [
+    true,
+    0
+   ],
+   "GetFileType": 1,
+   "read 100": [
+    1,
+    100,
+    "1e6634bfaebc0348298105923d0f26e47aa33ff5"
+   ],
+   "read 0": [
+    1,
+    0,
+    "f5495757d6a21541cc04f0d81360c82f99e7f751"
+   ],
+   "seek end": [
+    1024,
+    null
+   ],
+   "read at end": [
+    1,
+    0,
+    "f5495757d6a21541cc04f0d81360c82f99e7f751"
+   ],
+   "seek back 24": [
+    1000,
+    null
+   ],
+   "read short": [
+    1,
+    24,
+    "9f7dbd115e9c129b78f06d985176a1aafcca60af"
+   ],
+   "seek current": [
+    24,
+    null
+   ],
+   "seek set 500": [
+    500,
+    null
+   ],
+   "seek current 0": [
+    500,
+    null
+   ],
+   "seek before start": [
+    4294967295,
+    null,
+    131
+   ],
+   "seek high": [
+    16,
+    0
+   ],
+   "seek past end": [
+    5000,
+    null
+   ],
+   "read past end": [
+    1,
+    0,
+    "f5495757d6a21541cc04f0d81360c82f99e7f751"
+   ],
+   "write to a read handle": [
+    0,
+    5
+   ],
+   "FlushFileBuffers": 0,
+   "close": 1,
+   "close twice": 0,
+   "read closed": 0,
+   "open lower case": [
+    true,
+    0,
+    [
+     1,
+     8,
+     "f1008f8199c5678409b8ce5c414303fab510fd5c"
+    ]
+   ],
+   "open forward slashes": [
+    true,
+    0,
+    [
+     1,
+     8,
+     "f1008f8199c5678409b8ce5c414303fab510fd5c"
+    ]
+   ],
+   "open drive letter": [
+    true,
+    0,
+    [
+     1,
+     8,
+     "f1008f8199c5678409b8ce5c414303fab510fd5c"
+    ]
+   ],
+   "open dot segments": [
+    true,
+    0,
+    [
+     1,
+     8,
+     "f1008f8199c5678409b8ce5c414303fab510fd5c"
+    ]
+   ],
+   "open second root": [
+    true,
+    0,
+    [
+     1,
+     8,
+     "6a6a8269e632cd4f1b71c42bc1e0cadf629e83d0"
+    ]
+   ],
+   "open sandbox first": [
+    true,
+    0,
+    [
+     1,
+     8,
+     "9b3e15202c11f737036f6aee65377e0c5eb524e7"
+    ]
+   ],
+   "open missing file": [
+    4294967295,
+    2
+   ],
+   "open missing directory": [
+    4294967295,
+    3
+   ],
+   "open a directory": [
+    4294967295,
+    5
+   ],
+   "create always, new": [
+    true,
+    0
+   ],
+   "write": [
+    1,
+    10
+   ],
+   "read from a write handle": [
+    0,
+    5
+   ],
+   "seek 4": [
+    4,
+    null
+   ],
+   "overwrite": [
+    1,
+    2
+   ],
+   "seek past the written end": [
+    20,
+    null
+   ],
+   "write past end": [
+    1,
+    1
+   ],
+   "flush": 1,
+   "reopen read/write": [
+    true,
+    0,
+    [
+     1,
+     21,
+     "a328c2c152f43c1ed4e26a2ebd53ffdbcfaed68f"
+    ]
+   ],
+   "append": [
+    [
+     21,
+     null
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "create new, exists": [
+    4294967295,
+    80
+   ],
+   "create new": [
+    true,
+    0,
+    [
+     1,
+     4
+    ]
+   ],
+   "create always, exists": [
+    true,
+    183
+   ],
+   "open always, exists": [
+    true,
+    183,
+    [
+     1,
+     4,
+     "61f062ff8964434680288d254de73859d53b4f32"
+    ]
+   ],
+   "open always, new": [
+    true,
+    0,
+    [
+     1,
+     0,
+     "f5495757d6a21541cc04f0d81360c82f99e7f751"
+    ]
+   ],
+   "truncate missing": [
+    4294967295,
+    2
+   ],
+   "truncate": [
+    true,
+    0
+   ],
+   "write a root file": [
+    true,
+    0,
+    [
+     1,
+     7,
+     "2fc5c009dcbf2148e9c6d41d3cb3b1466eaf9b41"
+    ],
+    [
+     0,
+     null
+    ],
+    [
+     1,
+     5
+    ]
+   ],
+   "read it back": [
+    1,
+    7,
+    "6a65bdc5ef7553f4778df0a32ca6725e95134f59"
+   ],
+   "save file": [
+    true,
+    0,
+    [
+     1,
+     4
+    ]
+   ],
+   "attributes file": [
+    32,
+    0
+   ],
+   "attributes directory": [
+    16,
+    0
+   ],
+   "attributes root": [
+    16,
+    0
+   ],
+   "attributes sandbox file": [
+    32,
+    0
+   ],
+   "attributes missing file": [
+    4294967295,
+    2
+   ],
+   "attributes missing directory": [
+    4294967295,
+    3
+   ],
+   "delete": [
+    1,
+    0
+   ],
+   "delete missing": [
+    0,
+    2
+   ],
+   "delete root file": [
+    0,
+    2
+   ],
+   "delete directory": [
+    0,
+    5
+   ],
+   "move": [
+    1,
+    0
+   ],
+   "move onto existing": [
+    0,
+    183
+   ],
+   "move missing": [
+    0,
+    2
+   ],
+   "move a root file": [
+    1,
+    0
+   ],
+   "move to a new directory": [
+    1,
+    0
+   ],
+   "current directory": [
+    3,
+    "C:\\"
+   ],
+   "full path": [
+    13,
+    "433a5c444f43535c412e54585400cccccccccccccccccccccccccccccccccccc",
+    8
+   ],
+   "full path small": [
+    18,
+    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    null
+   ],
+   "full path exact": [
+    17,
+    "433a5c444154415c414c5048412e44415400cccccccccccccccccccccccccccc",
+    8
+   ],
+   "full path of root": [
+    3,
+    "433a5c00cccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    3
+   ],
+   "chdir": 1,
+   "current directory after chdir": [
+    7,
+    "C:\\DATA"
+   ],
+   "open relative": [
+    true,
+    0
+   ],
+   "open parent relative": [
+    true,
+    0
+   ],
+   "full path relative": [
+    21,
+    "433a5c444154415c5355425c44454c54412e44415400cccccccccccccccccccc",
+    12
+   ],
+   "full path rooted": [
+    13,
+    "433a5c444f43535c412e54585400cccccccccccccccccccccccccccccccccccc",
+    8
+   ],
+   "attributes relative": 16,
+   "chdir relative": [
+    1,
+    [
+     11,
+     "C:\\DATA\\SUB"
+    ]
+   ],
+   "chdir up": [
+    1,
+    [
+     3,
+     "C:\\"
+    ]
+   ],
+   "chdir missing": [
+    1,
+    [
+     10,
+     "C:\\NOWHERE"
+    ]
+   ],
+   "chdir root": [
+    1,
+    [
+     3,
+     "C:\\"
+    ]
+   ],
+   "find root only, *.*": {
+    "entries": [
+     {
+      "name": ".",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "..",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     },
+     {
+      "name": "b.txt",
+      "attributes": 32,
+      "size": 2,
+      "short": "",
+      "written": 125596224000000000
+     },
+     {
+      "name": "c.TXT",
+      "attributes": 32,
+      "size": 3,
+      "short": "",
+      "written": 125596224040000000
+     },
+     {
+      "name": "NOEXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224060000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find root only, *": {
+    "entries": [
+     {
+      "name": ".",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "..",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     },
+     {
+      "name": "b.txt",
+      "attributes": 32,
+      "size": 2,
+      "short": "",
+      "written": 125596224000000000
+     },
+     {
+      "name": "c.TXT",
+      "attributes": 32,
+      "size": 3,
+      "short": "",
+      "written": 125596224040000000
+     },
+     {
+      "name": "NOEXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224060000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find extension": {
+    "entries": [
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     },
+     {
+      "name": "b.txt",
+      "attributes": 32,
+      "size": 2,
+      "short": "",
+      "written": 125596224000000000
+     },
+     {
+      "name": "c.TXT",
+      "attributes": 32,
+      "size": 3,
+      "short": "",
+      "written": 125596224040000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find lower-case pattern": {
+    "entries": [
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     },
+     {
+      "name": "b.txt",
+      "attributes": 32,
+      "size": 2,
+      "short": "",
+      "written": 125596224000000000
+     },
+     {
+      "name": "c.TXT",
+      "attributes": 32,
+      "size": 3,
+      "short": "",
+      "written": 125596224040000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find question mark": {
+    "entries": [
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     },
+     {
+      "name": "b.txt",
+      "attributes": 32,
+      "size": 2,
+      "short": "",
+      "written": 125596224000000000
+     },
+     {
+      "name": "c.TXT",
+      "attributes": 32,
+      "size": 3,
+      "short": "",
+      "written": 125596224040000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find exact name": {
+    "entries": [
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find exact name, other case": {
+    "entries": [
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find a directory by name": {
+    "entries": [
+     {
+      "name": "SUB",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find subdirectory": {
+    "entries": [
+     {
+      "name": ".",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "..",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "DELTA.DAT",
+      "attributes": 32,
+      "size": 5,
+      "short": "",
+      "written": 126444736000000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find sandbox wins": {
+    "entries": [
+     {
+      "name": "GAME7.DAT",
+      "attributes": 32,
+      "size": 4,
+      "short": ""
+     },
+     {
+      "name": "OMEGA.DAT",
+      "attributes": 32,
+      "size": 20,
+      "short": "",
+      "written": 125944736000000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find sandbox and roots": {
+    "entries": [
+     {
+      "name": ".",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "..",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "GAME7.DAT",
+      "attributes": 32,
+      "size": 4,
+      "short": ""
+     },
+     {
+      "name": "GAMMA.TXT",
+      "attributes": 32,
+      "size": 7,
+      "short": ""
+     },
+     {
+      "name": "OMEGA.DAT",
+      "attributes": 32,
+      "size": 20,
+      "short": "",
+      "written": 125944736000000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find second root": {
+    "entries": [
+     {
+      "name": "SECOND.DAT",
+      "attributes": 32,
+      "size": 11,
+      "short": "",
+      "written": 125444736000000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find root directory": {
+    "entries": [
+     {
+      "name": ".",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "..",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "DATA",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "DEEP",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "SAVE",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find no match": {
+    "handle": 4294967295,
+    "error": 3
+   },
+   "find missing directory": {
+    "handle": 4294967295,
+    "error": 3
+   },
+   "find no extension": {
+    "entries": [
+     {
+      "name": "NOEXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224060000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find star dot": {
+    "entries": [
+     {
+      "name": ".",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "..",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "NOEXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224060000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find prefix": {
+    "entries": [
+     {
+      "name": "NOEXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224060000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find question mark at the end of the name": {
+    "entries": [
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find two question marks": {
+    "entries": [
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     },
+     {
+      "name": "b.txt",
+      "attributes": 32,
+      "size": 2,
+      "short": "",
+      "written": 125596224000000000
+     },
+     {
+      "name": "c.TXT",
+      "attributes": 32,
+      "size": 3,
+      "short": "",
+      "written": 125596224040000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find question mark in the extension": {
+    "entries": [
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     },
+     {
+      "name": "b.txt",
+      "attributes": 32,
+      "size": 2,
+      "short": "",
+      "written": 125596224000000000
+     },
+     {
+      "name": "c.TXT",
+      "attributes": 32,
+      "size": 3,
+      "short": "",
+      "written": 125596224040000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find shorter extension": {
+    "handle": 4294967295,
+    "error": 3
+   },
+   "find longer extension pattern": {
+    "entries": [
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     },
+     {
+      "name": "b.txt",
+      "attributes": 32,
+      "size": 2,
+      "short": "",
+      "written": 125596224000000000
+     },
+     {
+      "name": "c.TXT",
+      "attributes": 32,
+      "size": 3,
+      "short": "",
+      "written": 125596224040000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find star inside": {
+    "entries": [
+     {
+      "name": "NOEXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224060000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find trailing dot": {
+    "entries": [
+     {
+      "name": "NOEXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224060000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find no extension, any extension": {
+    "entries": [
+     {
+      "name": "NOEXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224060000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find star suffix": {
+    "entries": [
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     },
+     {
+      "name": "b.txt",
+      "attributes": 32,
+      "size": 2,
+      "short": "",
+      "written": 125596224000000000
+     },
+     {
+      "name": "c.TXT",
+      "attributes": 32,
+      "size": 3,
+      "short": "",
+      "written": 125596224040000000
+     },
+     {
+      "name": "NOEXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224060000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find star then literal extension": {
+    "entries": [
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     },
+     {
+      "name": "b.txt",
+      "attributes": 32,
+      "size": 2,
+      "short": "",
+      "written": 125596224000000000
+     },
+     {
+      "name": "c.TXT",
+      "attributes": 32,
+      "size": 3,
+      "short": "",
+      "written": 125596224040000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find question marks only": {
+    "entries": [
+     {
+      "name": ".",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "..",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "NOEXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224060000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "find many question marks": {
+    "entries": [
+     {
+      "name": ".",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "..",
+      "attributes": 16,
+      "size": 0,
+      "short": ""
+     },
+     {
+      "name": "A.TXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224020000000
+     },
+     {
+      "name": "b.txt",
+      "attributes": 32,
+      "size": 2,
+      "short": "",
+      "written": 125596224000000000
+     },
+     {
+      "name": "c.TXT",
+      "attributes": 32,
+      "size": 3,
+      "short": "",
+      "written": 125596224040000000
+     },
+     {
+      "name": "NOEXT",
+      "attributes": 32,
+      "size": 1,
+      "short": "",
+      "written": 125596224060000000
+     }
+    ],
+    "end error": 18,
+    "close": 1
+   },
+   "FindNextFileA invalid": 0,
+   "FindClose invalid": 1,
+   "mapping": [
+    true,
+    0
+   ],
+   "mapping again": [
+    true,
+    183
+   ],
+   "mapping close": [
+    1,
+    1
+   ],
+   "mapping after close": [
+    true,
+    0
+   ],
+   "mapping unnamed": [
+    true,
+    0
+   ],
+   "trees": {
+    "root": {
+     "CRYO/DREAMS/DATA/FULL.ID": "52e6d8ab88471af82da12a0eae7aab01357e3881",
+     "CRYO/DREAMS/DATA/HD.ID": "b03592806efabfeeb709f5a70a7c172669b00538",
+     "DATA/1CD.ID": "2d66d24b3b7ab25e74eac42fe6f751014f0cf625",
+     "DATA/ALPHA.DAT": "5b00669c480d5cffbdfa8bdba99561160f2d1b77",
+     "DATA/BETA.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "DATA/GAMMA.TXT": "cc54e8352a74e1e62468479ba139d8cf986cc4d6",
+     "DATA/SUB/DELTA.DAT": "736fcab46d3c183000b547caa2f1f0abcdcd1c87",
+     "DOCS/A.TXT": "86f7e437faa5a7fce15d1ddcb9eaeaea377667b8",
+     "DOCS/b.txt": "9a900f538965a426994e1e90600920aff0b4e8d2",
+     "DOCS/c.TXT": "f36b4825e5db2cf7dd2d2593b3f5c24c0311d8b2",
+     "DOCS/NOEXT": "d1854cae891ec7b29161ccaf79a24b00c274bdaa",
+     "FUZZ/A": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/A.TXT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/AB.C": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/B.TXT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/C.TXT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/GAME.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/GAME1.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/GAME12.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/LONGNAME.EXT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/NOEXT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/TXT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/X.Y": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/Z.T": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "README.TXT": "df5bfc183ebd834ee218f239d7f33d86c079e743"
+    },
+    "root2": {
+     "EXTRA/SECOND.DAT": "c401db2775770e160fd18c8c0ce9b60618009c25"
+    },
+    "sandbox": {
+     "DATA/GAME7.DAT": "13a4a11319d31c1b323d5774f44240a9ffc984d0",
+     "DATA/GAMMA.TXT": "f5946356c42b46fe35cb0b84b9e84091e2f719e4",
+     "DATA/OMEGA.DAT": "025317fbd67a9c3141a358da4abc5f714b506744",
+     "DEEP/ER/B.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "SAVE/MOVED.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "SAVE/NEW.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    }
+   }
+  },
+  "runtime": {
+   "malloc 3 MB": [
+    true,
+    [
+     "VirtualAlloc=0x1210000"
+    ]
+   ],
+   "free": [],
+   "malloc 64": [
+    true,
+    []
+   ],
+   "open_": [
+    3,
+    [
+     "CreateFileA=0x1010",
+     "GetFileType=*"
+    ]
+   ],
+   "read_": [
+    300,
+    "bf77ecf143ceb21f1676c34b8d89c8bb3c43cc4e",
+    [
+     "ReadFile=0x1"
+    ]
+   ],
+   "lseek_": [
+    1020,
+    [
+     "SetFilePointer=0x3fc"
+    ]
+   ],
+   "tell_": [
+    1020,
+    [
+     "SetFilePointer=0x3fc"
+    ]
+   ],
+   "read_ short": [
+    4,
+    [
+     "ReadFile=0x1"
+    ]
+   ],
+   "read_ at end": [
+    0,
+    [
+     "ReadFile=0x1"
+    ]
+   ],
+   "filelength_": [
+    1024,
+    [
+     "SetFilePointer=0x400",
+     "SetFilePointer=0x400",
+     "SetFilePointer=0x400"
+    ]
+   ],
+   "close_": [
+    0,
+    [
+     "CloseHandle=0x1"
+    ]
+   ],
+   "open_ missing": [
+    4294967295,
+    [
+     "CreateFileA=0xffffffff",
+     "GetLastError=0x2"
+    ]
+   ],
+   "open_ missing directory": [
+    4294967295,
+    [
+     "CreateFileA=0xffffffff",
+     "GetLastError=0x3"
+    ]
+   ],
+   "open_ create": [
+    3,
+    [
+     "CreateFileA=0xffffffff",
+     "CreateFileA=0x1010",
+     "GetFileType=*"
+    ]
+   ],
+   "write_": [
+    14,
+    [
+     "WriteFile=0x1"
+    ]
+   ],
+   "close_ written": [
+    0,
+    [
+     "CloseHandle=0x1"
+    ]
+   ],
+   "open_ exclusive, exists": [
+    4294967295,
+    [
+     "CreateFileA=0xffffffff",
+     "CreateFileA=0xffffffff",
+     "GetLastError=0x50"
+    ]
+   ],
+   "open_ append": [
+    3,
+    [
+     "CreateFileA=0x1010",
+     "GetFileType=*"
+    ]
+   ],
+   "write_ append": [
+    4,
+    [
+     "SetFilePointer=0xe",
+     "WriteFile=0x1"
+    ]
+   ],
+   "lseek_ start": 0,
+   "read_ back": [
+    18,
+    "72756e74696d652077726974650a6d6f7265"
+   ],
+   "write_ text mode": [
+    4,
+    [
+     "WriteFile=0x1"
+    ]
+   ],
+   "fopen_": [
+    true,
+    [
+     "CreateFileA=0x1010",
+     "GetFileType=*",
+     "GetFileType=*"
+    ]
+   ],
+   "fread_": [
+    600,
+    "02b6fa18a7e008086454536b8951569f72766c40",
+    [
+     "GetFileType=*",
+     "ReadFile=0x1"
+    ]
+   ],
+   "fseek_": [
+    0,
+    [
+     "SetFilePointer=0x400"
+    ]
+   ],
+   "ftell_": [
+    1000,
+    [
+     "SetFilePointer=0x400"
+    ]
+   ],
+   "fread_ short": [
+    24,
+    [
+     "ReadFile=0x1"
+    ]
+   ],
+   "fclose_": [
+    0,
+    [
+     "SetFilePointer=0x400",
+     "SetFilePointer=0x400",
+     "CloseHandle=0x1"
+    ]
+   ],
+   "fopen_ missing": [
+    0,
+    [
+     "CreateFileA=0xffffffff",
+     "GetLastError=0x2"
+    ]
+   ],
+   "fopen_ write": [
+    true,
+    [
+     "CreateFileA=0xffffffff",
+     "CreateFileA=0x1010",
+     "GetFileType=*",
+     "GetFileType=*"
+    ]
+   ],
+   "fwrite_": [
+    50,
+    [
+     "GetFileType=*"
+    ]
+   ],
+   "ftell_ written": 200,
+   "fclose_ written": [
+    0,
+    [
+     "WriteFile=0x1",
+     "SetFilePointer=0xc8",
+     "SetFilePointer=0xc8",
+     "CloseHandle=0x1"
+    ]
+   ],
+   "_dos_find files": [
+    0,
+    [
+     {
+      "name": "A.TXT",
+      "attribute": 32,
+      "size": 1
+     },
+     {
+      "name": "b.txt",
+      "attribute": 32,
+      "size": 2
+     },
+     {
+      "name": "c.TXT",
+      "attribute": 32,
+      "size": 3
+     },
+     {
+      "name": "NOEXT",
+      "attribute": 32,
+      "size": 1
+     }
+    ],
+    4294967295,
+    0,
+    [
+     [
+      "FindFirstFileA=0x1010",
+      "FindNextFileA=0x1",
+      "FindNextFileA=0x1",
+      "FileTimeToLocalFileTime=0x1",
+      "FileTimeToDosDateTime=0x1"
+     ],
+     [
+      "FindNextFileA=0x1",
+      "FileTimeToLocalFileTime=0x1",
+      "FileTimeToDosDateTime=0x1"
+     ],
+     [
+      "FindNextFileA=0x1",
+      "FileTimeToLocalFileTime=0x1",
+      "FileTimeToDosDateTime=0x1"
+     ],
+     [
+      "FindNextFileA=0x1",
+      "FileTimeToLocalFileTime=0x1",
+      "FileTimeToDosDateTime=0x1"
+     ],
+     [
+      "FindNextFileA=0x0",
+      "GetLastError=0x12"
+     ]
+    ],
+    [
+     "FindClose=0x1"
+    ]
+   ],
+   "_dos_find with directories": [
+    0,
+    [
+     {
+      "name": ".",
+      "attribute": 16,
+      "size": 0
+     },
+     {
+      "name": "..",
+      "attribute": 16,
+      "size": 0
+     }
+    ],
+    4294967295,
+    0,
+    [
+     [
+      "FindFirstFileA=0x1010",
+      "FileTimeToLocalFileTime=0x1",
+      "FileTimeToDosDateTime=0x1"
+     ],
+     [
+      "FindNextFileA=0x1",
+      "FileTimeToLocalFileTime=0x1",
+      "FileTimeToDosDateTime=0x1"
+     ],
+     [
+      "FindNextFileA=0x1",
+      "FindNextFileA=0x1",
+      "FindNextFileA=0x1",
+      "FindNextFileA=0x1",
+      "FindNextFileA=0x0",
+      "GetLastError=0x12"
+     ]
+    ],
+    [
+     "FindClose=0x1"
+    ]
+   ],
+   "_dos_find extension": [
+    0,
+    [
+     {
+      "name": "A.TXT",
+      "attribute": 32,
+      "size": 1
+     },
+     {
+      "name": "b.txt",
+      "attribute": 32,
+      "size": 2
+     },
+     {
+      "name": "c.TXT",
+      "attribute": 32,
+      "size": 3
+     }
+    ],
+    4294967295,
+    0,
+    [
+     [
+      "FindFirstFileA=0x1010",
+      "FileTimeToLocalFileTime=0x1",
+      "FileTimeToDosDateTime=0x1"
+     ],
+     [
+      "FindNextFileA=0x1",
+      "FileTimeToLocalFileTime=0x1",
+      "FileTimeToDosDateTime=0x1"
+     ],
+     [
+      "FindNextFileA=0x1",
+      "FileTimeToLocalFileTime=0x1",
+      "FileTimeToDosDateTime=0x1"
+     ],
+     [
+      "FindNextFileA=0x0",
+      "GetLastError=0x12"
+     ]
+    ],
+    [
+     "FindClose=0x1"
+    ]
+   ],
+   "_dos_find none": [
+    4294967295,
+    [],
+    4294967295,
+    null,
+    [
+     [
+      "FindFirstFileA=0xffffffff",
+      "GetLastError=0x3"
+     ]
+    ],
+    [
+     "FindFirstFileA=0xffffffff",
+     "GetLastError=0x3"
+    ]
+   ],
+   "access_ file": [
+    0,
+    [
+     "GetFileAttributesA=0x20"
+    ]
+   ],
+   "access_ missing": [
+    4294967295,
+    [
+     "GetFileAttributesA=0xffffffff",
+     "GetLastError=0x2"
+    ]
+   ],
+   "access_ write": [
+    0,
+    [
+     "GetFileAttributesA=0x20"
+    ]
+   ],
+   "rename_": [
+    0,
+    [
+     "MoveFileA=0x1"
+    ]
+   ],
+   "rename_ missing": [
+    4294967295,
+    [
+     "MoveFileA=0x0",
+     "GetLastError=0x2"
+    ]
+   ],
+   "getcwd_": [
+    true,
+    "C:\\",
+    [
+     "GetCurrentDirectoryA=0x3"
+    ]
+   ],
+   "chdir_/unlink_ #0": [
+    0,
+    [
+     "SetCurrentDirectoryA=0x1"
+    ]
+   ],
+   "chdir_/unlink_ #1": [
+    4294967295,
+    [
+     "DeleteFileA=0x0",
+     "GetLastError=0x3"
+    ]
+   ],
+   "getcwd_ after": [
+    "C:\\DATA",
+    [
+     "GetCurrentDirectoryA=0x7"
+    ]
+   ],
+   "chdir_/unlink_ #0 again": [
+    0,
+    [
+     "SetCurrentDirectoryA=0x1"
+    ]
+   ],
+   "chdir_/unlink_ #1 again": [
+    4294967295,
+    [
+     "DeleteFileA=0x0",
+     "GetLastError=0x2"
+    ]
+   ],
+   "unlink_": [
+    0,
+    [
+     "DeleteFileA=0x1"
+    ]
+   ],
+   "getenv_ WD": "1",
+   "getenv_ T_ALPHA": "1",
+   "getenv_ T_BETA": "two",
+   "getenv_ PATH": null,
+   "FILE_Exists": [
+    1,
+    [
+     "CreateFileA=0x1010",
+     "GetFileType=*",
+     "CloseHandle=0x1"
+    ]
+   ],
+   "FILE_Exists missing": [
+    0,
+    [
+     "CreateFileA=0xffffffff",
+     "GetLastError=0x2"
+    ]
+   ],
+   "trees": {
+    "root": {
+     "CRYO/DREAMS/DATA/FULL.ID": "52e6d8ab88471af82da12a0eae7aab01357e3881",
+     "CRYO/DREAMS/DATA/HD.ID": "b03592806efabfeeb709f5a70a7c172669b00538",
+     "DATA/1CD.ID": "2d66d24b3b7ab25e74eac42fe6f751014f0cf625",
+     "DATA/ALPHA.DAT": "5b00669c480d5cffbdfa8bdba99561160f2d1b77",
+     "DATA/BETA.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "DATA/GAMMA.TXT": "cc54e8352a74e1e62468479ba139d8cf986cc4d6",
+     "DATA/SUB/DELTA.DAT": "736fcab46d3c183000b547caa2f1f0abcdcd1c87",
+     "DOCS/A.TXT": "86f7e437faa5a7fce15d1ddcb9eaeaea377667b8",
+     "DOCS/b.txt": "9a900f538965a426994e1e90600920aff0b4e8d2",
+     "DOCS/c.TXT": "f36b4825e5db2cf7dd2d2593b3f5c24c0311d8b2",
+     "DOCS/NOEXT": "d1854cae891ec7b29161ccaf79a24b00c274bdaa",
+     "FUZZ/A": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/A.TXT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/AB.C": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/B.TXT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/C.TXT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/GAME.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/GAME1.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/GAME12.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/LONGNAME.EXT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/NOEXT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/TXT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/X.Y": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "FUZZ/Z.T": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "README.TXT": "df5bfc183ebd834ee218f239d7f33d86c079e743"
+    },
+    "root2": {
+     "EXTRA/SECOND.DAT": "c401db2775770e160fd18c8c0ce9b60618009c25"
+    },
+    "sandbox": {
+     "DATA/GAME7.DAT": "13a4a11319d31c1b323d5774f44240a9ffc984d0",
+     "DATA/GAMMA.TXT": "f5946356c42b46fe35cb0b84b9e84091e2f719e4",
+     "DATA/OMEGA.DAT": "025317fbd67a9c3141a358da4abc5f714b506744",
+     "DEEP/ER/B.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "RT/OUT.BIN": "417353e1f1a1b55da7961126fd210e121bd1da99",
+     "RT/RENAMED.BIN": "54d11e99127d159799dbce10f51a75e697780478",
+     "SAVE/MOVED.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+     "SAVE/NEW.DAT": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    }
+   }
+  },
+  "sync": {
+   "auto-reset event": [
+    true,
+    258,
+    1,
+    0,
+    258
+   ],
+   "set twice, wait twice": [
+    1,
+    1,
+    0,
+    258
+   ],
+   "manual-reset event, initially set": [
+    true,
+    0,
+    0,
+    0
+   ],
+   "wait times out": [
+    258,
+    true
+   ],
+   "wait invalid": 4294967295,
+   "set invalid": 0,
+   "wait on the current thread": 258,
+   "close event": [
+    1,
+    0
+   ],
+   "close invalid": [
+    0,
+    0,
+    0
+   ],
+   "critical section re-entered": true,
+   "tls": [
+    true,
+    0,
+    1,
+    286331153
+   ],
+   "tls second slot": [
+    true,
+    0,
+    1,
+    286331153,
+    7
+   ],
+   "thread created": [
+    true,
+    true
+   ],
+   "thread waits at the gate": 258,
+   "open the gate": 1,
+   "thread signals done": 0,
+   "thread ends": [
+    0,
+    0
+   ],
+   "thread counter": 5,
+   "thread tls": [
+    3203334145,
+    286331153
+   ],
+   "thread id": [
+    true,
+    true
+   ],
+   "thread close": [
+    1,
+    0
+   ],
+   "workers end": [
+    0,
+    0,
+    0
+   ],
+   "workers counter": 120,
+   "workers close": [
+    1,
+    1,
+    1
+   ],
+   "tls free": [
+    1,
+    1
+   ],
+   "tls fresh slot is zero": 0
+  },
+  "game": {
+   "SYS_CreateInstanceMapping": [
+    4124,
+    [
+     "CreateFileMappingA=0x101c"
+    ]
+   ],
+   "VFS_Open": [
+    3,
+    [
+     "CreateFileA=0x1020",
+     "GetFileType=*"
+    ]
+   ],
+   "VFS_Read": [
+    200,
+    "54d11e99127d159799dbce10f51a75e697780478",
+    [
+     "ReadFile=0x1"
+    ]
+   ],
+   "VFS_Seek": [
+    1000,
+    [
+     "SetFilePointer=0x3e8"
+    ]
+   ],
+   "VFS_Read short": [
+    24,
+    [
+     "ReadFile=0x1"
+    ]
+   ],
+   "VFS_Close": [
+    0,
+    [
+     "CloseHandle=0x1"
+    ]
+   ],
+   "CD_InitPaths": [
+    1,
+    [
+     "CreateFileA=0x1020",
+     "GetFileType=*",
+     "GetFileType=*",
+     "SetFilePointer=0x0",
+     "SetFilePointer=0x0",
+     "CloseHandle=0x1",
+     "CreateFileA=0x1020",
+     "GetFileType=*",
+     "GetFileType=*",
+     "SetFilePointer=0x0",
+     "SetFilePointer=0x0",
+     "CloseHandle=0x1",
+     "CreateFileA=0x1020",
+     "GetFileType=*",
+     "GetFileType=*",
+     "SetFilePointer=0x0",
+     "SetFilePointer=0x0",
+     "CloseHandle=0x1",
+     "SetCurrentDirectoryA=0x1",
+     "SetCurrentDirectoryA=0x1",
+     "SetCurrentDirectoryA=0x1"
+    ]
+   ],
+   "CD_GetDiscNumber": [
+    1,
+    [
+     "CreateFileA=0x1020",
+     "GetFileType=*",
+     "GetFileType=*",
+     "SetFilePointer=0x0",
+     "SetFilePointer=0x0",
+     "CloseHandle=0x1"
+    ]
+   ],
+   "CD_CheckFullInstall": [
+    0,
+    [
+     "CreateFileA=0x1020",
+     "GetFileType=*",
+     "GetFileType=*",
+     "SetFilePointer=0x0",
+     "SetFilePointer=0x0",
+     "CloseHandle=0x1"
+    ]
+   ],
+   "CD_GetRootPath": "Z:\\",
+   "FILE_GetInstallRoot": "C:\\CRYO\\DREAMS\\",
+   "FILE_GetDataRoot": "C:\\CRYO\\DREAMS\\"
+  }
+ }
+}
