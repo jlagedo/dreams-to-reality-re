@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=OpenDreams Runtime
-Comment=Run the OpenDreams game runtime
-Exec=ODRuntime
-Icon=ODRuntime
-Categories=Game;
-Terminal=false

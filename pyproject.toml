@@ -1,16 +1,10 @@
 [project]
 name = "dreams"
 version = "0.1.0"
-description = "Reverse-engineering toolkit for Cryo Interactive's Dreams to Reality (1997)"
+description = "Static recompilation of Cryo Interactive's Dreams to Reality (1997): build tooling and reverse-engineering support"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
-    "typer>=0.12",
-    "rich>=13.7",
-]
-
-[project.scripts]
-dreams = "dreams.cli:app"
+dependencies = []
 
 [dependency-groups]
 dev = [
@@ -27,6 +21,8 @@ packages = ["src/dreams"]
 
 [tool.ruff]
 line-length = 100
+# Evidence scripts kept as they were run.
+extend-exclude = ["re/matchdecomp"]
 target-version = "py311"
 
 [tool.ruff.lint]
