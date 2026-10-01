@@ -25,7 +25,7 @@ from dreams import paths
 REPO = paths.REPO_ROOT
 PROJECT_DIR = REPO / "ghidra"
 PROJECT_NAME = "dreams"
-SCRIPTS = REPO / "re" / "re/ghidra_scripts"
+SCRIPTS = REPO / "re" / "ghidra_scripts"
 
 
 def headless() -> Path:
