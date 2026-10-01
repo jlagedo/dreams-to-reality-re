@@ -375,6 +375,46 @@ The game the server started is ended when the server exits (`wdctl.Game`'s
 tests/recomp/test_wd_mcp.py`) lists the tools and runs one short headless
 session; it is skipped without `mcp`, the development build or the discs.
 
+### Tools built on the channel
+
+```sh
+uv run python recomp/windream/debug/bank_patch.py list
+uv run python recomp/windream/debug/bank_patch.py show 26
+uv run python recomp/windream/debug/bank_patch.py write out/recomp/windream/run-play/sandbox --copy 116:0
+```
+
+- `debug/bank_patch.py` writes a modified `DREAMS.DAT` (as `dreams.dat`) into
+  a run's data directory, where it overrides the disc's. `--copy SRC:DST` puts
+  one project's record in another slot (slot 0 is where a new game starts),
+  `--spawn-in-link SLOT:DEST` moves the spawn into a link's box,
+  `--link SLOT:LINK:DEST` repoints a link, `--set32` writes a field. It
+  refuses to write outside `out/`.
+- `debug/cd_audio_check.py` aligns a mixer dump (`audio_dump`) with a track of
+  the disc image: `align()` needs only the standard library, `locate()` and
+  the CLI need numpy.
+- `debug/game_nav.py` gets through the game's menus by waiting on file opens
+  and guest variables, not on times: `boot_into`, `new_game`,
+  `open_game_menu`, `open_load_list_in_game`, `open_load_list_from_main_menu`,
+  `slot_names`, `load_slot`, and readers of the event log (`events_after`,
+  `disc_changes`, `opens`). Import `wdctl` through it (`nav.wdctl`).
+- `tests/recomp/test_disc_play.py` uses all of the above: disc 2 levels, the
+  disc-changing link, saves across discs, music.
+
+```python
+import sys
+
+sys.path.insert(0, "recomp/windream/debug")
+import game_nav as nav
+
+with nav.wdctl.start_game(tag="play", headless=True) as game:
+    nav.boot_into(game.ctl, "H18ANGKR.DSN")  # new game, first level loaded
+    nav.open_load_list_in_game(game.ctl)
+    print(nav.slot_names(game.ctl))
+```
+
+`AGENTS.md`, "Checking a change in the running game", maps each need to its
+tool and test file.
+
 ## Layout
 
 | Path | What |

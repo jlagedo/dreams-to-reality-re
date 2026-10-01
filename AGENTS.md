@@ -14,7 +14,7 @@ either builds that or supplies the reverse engineering it depends on.
 | `recomp/windream/lift/` | `lift.py` (`bounds.csv` → `out/recomp/windream/gen/`), `gen_imports.py` (import bridges), `replacements.py`, `render_audit.py`, `render_bulk.py`, `bounds.csv` (from Ghidra, pcrecomp `DumpBounds.java`) |
 | `recomp/windream/host/` | Host runtime by API: `core/` (guest runtime, trace, crash report: `crash_report.c` portable, `crash_win32.c`/`crash_posix.c`/`crash_none.c` per system), `sdl/` (KERNEL32 files, process and threads, USER32, GDI32, WinMM and DirectSound on SDL3), `vm/` (the guest's virtual memory: `vm_win32.c` the original on Windows page state, `vm_ledger.c` the portable one over the `vm_os_*.c` layer, `vm_shadow.c` both compared; chosen with `build.py --vm`), `render/` (GPU renderer adapters, `render_*`), `hooks/` (`phys_hook.c` collision hooks) |
 | `recomp/windream/verify/` | Renderer verification: retail-x86 Unicorn oracles (`render_*_smoke.py`), live isolated runs (`render_*_live_smoke.py`), the acceptance runner (`render_acceptance.py`), `direct_render_validate.py`, `test_render_codegen.py`, the dump reader `mdmp.py`; `kernel_bridge_smoke.py`, the retail-x86 Unicorn oracle for the KERNEL32 bridges; C/C++ tests, oracles and hook hosts in `native/` |
-| `recomp/windream/debug/` | Collision and dump tools: `colliders.py`, `invariant.py`, `replay_sweep.py`, `replay_full.py`, `sortcheck.py`, `x86dis.py`, `flag_hunt.py`; live control: `wdctl.py` (client and CLI of the control channel), `wd_mcp.py` (MCP server over it, registered in `.mcp.json`), `bank_patch.py` (a modified `DREAMS.DAT` under `out/` to start a new game in any project), `cd_audio_check.py` (aligns a mixer dump with a disc track) |
+| `recomp/windream/debug/` | Collision and dump tools: `colliders.py`, `invariant.py`, `replay_sweep.py`, `replay_full.py`, `sortcheck.py`, `x86dis.py`, `flag_hunt.py`; live control: `wdctl.py` (client and CLI of the control channel), `wd_mcp.py` (MCP server over it, registered in `.mcp.json`), `game_nav.py` (boot to a level, open the menus, load a save, read the event log), `bank_patch.py` (a modified `DREAMS.DAT` under `out/` to start a new game in any project), `cd_audio_check.py` (aligns a mixer dump with a disc track) |
 | `recomp/windream/devtools/` | Development-only control channel inside the host (`WD_DEVTOOLS`, off in release; inert unless `WD_CTL` is set): keys, wait-until conditions, guest memory, screenshots, pause and step, event log, audio dump. `devtools.h` is the only header the host includes and lists what to delete to remove it |
 | `recomp/windream/build.py`, `run.py`, `CMakeLists.txt` | Build (Ninja, unoptimized; clang-cl on Windows, gcc or clang on Linux) and sandboxed run (scripted keys, snapshots, window and pad options) |
 | `recomp/render/` | GPU renderer: `ODRender` (sokol_gfx core, `direct.*`, shadows, fog) and `ODGraphics` (SDL3 backends), pinned dependencies in `cmake/`, tests in `tests/` |
@@ -95,6 +95,31 @@ uv run ruff format .
 | `out/recomp/matchdecomp/` | Matched C (`src/`, `proto/`) and blind-test work data for `re/matchdecomp/` |
 | `out/recomp/nocturne/`, `out/recomp/pod-recomp/` | Reference recomp projects from the same author |
 
+## Checking a change in the running game
+
+Prefer these to fixed key schedules (`run.py --keys`), which are blind and
+depend on timing. All of it is development-only and absent from release
+builds. Reference: `recomp/README.md`, "Development control channel",
+"MCP server for the control channel" and "Launcher and release".
+
+| Need | Use | Where to look |
+|---|---|---|
+| Drive a live game: press keys, wait for a condition, read or write game memory, take a screenshot, pause and step, tail file opens, dump the mixer | Control channel: `run.py --ctl`, then `recomp/windream/debug/wdctl.py` (CLI, or `start_game()` and `Ctl` from Python) | `tests/recomp/test_devtools.py` is a minimal session; the command list is in `recomp/README.md` |
+| The same as tools in a Claude Code session | MCP server `dreams-game` (`.mcp.json`, `recomp/windream/debug/wd_mcp.py`), approved once per machine | `tests/recomp/test_wd_mcp.py` |
+| Get through the menus: boot to a level, open the in-game menu, open the Load list, load a save by title | `recomp/windream/debug/game_nav.py`: `boot_into`, `new_game`, `open_game_menu`, `open_system_page`, `open_load_list_in_game`, `open_load_list_from_main_menu`, `slot_names`, `load_slot`, `press_until`, `press_until_opened`. Each waits on a file open or a guest variable; the menu state addresses are constants there. Take `wdctl` from it (`nav.wdctl`) | `tests/recomp/test_disc_play.py` |
+| Start a new game in any project, or stand in a link's exit | `recomp/windream/debug/bank_patch.py`: writes a modified `DREAMS.DAT` into a run's data directory (`--copy SRC:0`, `--spawn-in-link`, `--link`, `--set32`); only under `out/` | `test_disc_play.py` fixtures `bank_patch`, `link` |
+| Fire a level's exit without playing it | Write a non-zero dword to `0x6155e4` (`SCENE_IsTriggerDone`) through the channel: `game_nav.complete_level_triggers` | `test_disc_play.py` |
+| Check which files, disc and CD track the game used | `Ctl.log()` events (`open`, `disc`, `cd`), or `game_nav.events_after`, `disc_changes`, `opens`, `assert_level_files_come_from` | `test_disc_play.py` |
+| Check the music without listening | `Ctl.audio_dump()` then `recomp/windream/debug/cd_audio_check.py` (`align`, `locate`) against a track from `disc_list` | `test_disc_play.py`, the music tests |
+| List or read a disc image | `out/recomp/disc/build/disc_list.exe <cue>` (`--find`, `--cat`, `--no-hash`) | `tests/recomp/test_disc.py` |
+| Disc-mode file rules without a game (marker rule, fallback, saves) | Native harness `recomp/windream/verify/native/disc_mode_tests.c` on two synthetic discs | `tests/recomp/test_disc_mode.py` |
+| Drive the launcher window: clicks by widget id, keys, drops, file-dialog results, virtual gamepad, `expect` on its state, screenshots | `DREAMS_LAUNCHER_SCRIPT=<file>` with `launcher_demo` (`recomp/launcher/build.py`); grammar, widget ids and facts are in `recomp/launcher/launcher.h` | `tests/recomp/test_launcher_ui.py` (`run_ui`); `--play` path in `test_launcher.py` |
+| Check a release | `recomp/windream/release.py`; it fails if development or test code is in the executable | `tests/recomp/test_release.py` |
+
+Tests that start the game skip when the build, the discs or `WD_DEVTOOLS` are
+missing, use their own `--tag` and remove their run directory. Two games can
+run at once; a rebuild cannot happen while one runs from that build directory.
+
 Found by running (Windows, Git Bash tool):
 
 - Host source changed and you run `render_acceptance.py` or `render_thumbnail_smoke.py` → rebuild the audit build first: `uv run python recomp/windream/build.py --render-audit`. Both run `out/recomp/windream/build-audit/windream_recomp.exe`, not `build/`; a stale one passes silently with the old code.
@@ -105,7 +130,7 @@ Found by running (Windows, Git Bash tool):
 - Unicorn 2.1.4, 32-bit guest needing `fs:` (TIB) → writing `UC_X86_REG_FS_BASE` is a no-op with a deprecation warning; load a GDT entry instead (`Cpu.set_fs` in `recomp/windream/verify/kernel_bridge_smoke.py`).
 - pcrecomp `analyze_pe()` → returns a `PEInfo` object, not a dict: `analyze_pe(exe).entry_point_rva`.
 - Loading a save in a `--tag` run crashes `GAME_LoadGame` at `memcpy_` (NULL from `DDAT_LoadRecord`), in every `--vm` build → the tag's sandbox starts empty, so the slot list comes from the install root, whose six `game<n>.dat` are foreign 10,364-byte files (retail is 11,388); run untagged, or copy `out/recomp/windream/run/sandbox/CRYO` into the tag's `sandbox/` first.
-- Replaying a save load headless with the thumbnail smoke's key schedule (`...,28000:ESC,30000:LEFT,32000:RETURN,34000:RETURN`) → never opens a save (no `[save] open` line): fixed timings miss the menu states. Drive it through the control channel instead; the working key sequences are helpers in `tests/recomp/test_disc_play.py`.
+- Replaying a save load headless with the thumbnail smoke's key schedule (`...,28000:ESC,30000:LEFT,32000:RETURN,34000:RETURN`) → never opens a save (no `[save] open` line): fixed timings miss the menu states. Drive it through the control channel instead; the working key sequences are in `recomp/windream/debug/game_nav.py`.
 - Looking for a Save command in the game → there is none in retail (the system page is Load / Options / Quit); the game autosaves on every level entry.
 - Setting a `WD_*` variable inside the process with `SDL_setenv_unsafe` only → C `getenv` (`host_env`) does not see it on Windows; `main` also calls `_putenv_s`.
 - Starting `windream_recomp.exe` with no arguments and no `WD_DISC1` → opens the launcher window instead of printing usage; pass the EXE path or use `run.py`.
