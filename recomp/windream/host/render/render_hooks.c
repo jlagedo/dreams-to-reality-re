@@ -1,15 +1,14 @@
 /* Guest ABI/control-flow half of the direct renderer. Gameplay traversal,
  * composition, callbacks and node-box maintenance remain lifted. */
 #include "imports.h"
+#include "render_fatal.h"
 #include "render_live.h"
 #include "render_movie.h"
 
 static recomp_func_t function(uint32_t address) {
     recomp_func_t fn = recomp_lookup(address);
-    if (!fn) {
-        fprintf(stderr, "[direct] missing guest function %08x\n", address);
-        abort();
-    }
+    if (!fn)
+        wd_render_fatalf("missing guest function %08x", address);
     return fn;
 }
 static void call(uint32_t address, uint32_t return_address) {
@@ -17,10 +16,8 @@ static void call(uint32_t address, uint32_t return_address) {
     PUSH32(g_esp, return_address);
     function(address)();
     g_cur_func = caller;
-    if (g_esp != stack) {
-        fprintf(stderr, "[direct] guest call %08x unbalanced stack\n", address);
-        abort();
-    }
+    if (g_esp != stack)
+        wd_render_fatalf("guest call %08x unbalanced stack", address);
 }
 static void ui(uint32_t entry) {
     const uint32_t registers[8] = {g_eax, g_edx, g_ebx, g_ecx, g_esi, g_edi, g_esp, g_ebp};
@@ -35,7 +32,8 @@ static void line(void) {
     const uint32_t destination = g_eax;
     if (!wd_render_surface_owned(destination)) {
         recomp_func_t original = recomp_lookup_reference(0x465c80);
-        if (!original) abort();
+        if (!original)
+            wd_render_fatalf("missing reference function %08x", 0x465c80u);
         original();
         return;
     }
@@ -151,7 +149,7 @@ static void fill_memory(void) {
     if (!wd_render_fill(0x45fd36, destination, byte, count, 1, 1)) {
         recomp_func_t original = recomp_lookup_reference(0x45fd36);
         if (!original)
-            abort();
+            wd_render_fatalf("missing reference function %08x", 0x45fd36u);
         original();
         return;
     }
@@ -171,14 +169,14 @@ static void free_background(void) {
     wd_render_forget_surface(WD_HOST_READ32(0x5e1094));
     recomp_func_t original = recomp_lookup_reference(0x417e7e);
     if (!original)
-        abort();
+        wd_render_fatalf("missing reference function %08x", 0x417e7eu);
     original();
 }
 static void reset_scene(void) {
     wd_render_reset_scene();
     recomp_func_t original = recomp_lookup_reference(0x41f9db);
     if (!original)
-        abort();
+        wd_render_fatalf("missing reference function %08x", 0x41f9dbu);
     original();
 }
 uint32_t wd_render_copy_caller(uint32_t instruction) {
@@ -189,7 +187,7 @@ static void captions(void) {
     wd_render_caption_scope_begin();
     recomp_func_t original = recomp_lookup_reference(0x436ab6);
     if (!original)
-        abort();
+        wd_render_fatalf("missing reference function %08x", 0x436ab6u);
     original();
     wd_render_caption_scope_end();
 }
@@ -197,8 +195,39 @@ static void fog_update(void) {
     wd_render_fog_update();
     recomp_func_t original = recomp_lookup_reference(0x41f9ba);
     if (!original)
-        abort();
+        wd_render_fatalf("missing reference function %08x", 0x41f9bau);
     original(); // retain the Windows stub's ABI and stack-check effects
+}
+static void find_sky_node(void) {
+    /* The DOS 3dfx build's SCENE_FindSkyNode first runs the level-load table
+     * that retypes 39 named scene nodes to -7 (translucent) or 9 (wrap).
+     * Windows links the identical routine at 0x41ce67 and never calls it.
+     * It takes the scene actor in EAX and preserves every other register. */
+    const uint32_t actor = g_eax;
+    call(0x41ce67, 0x41d2cf);
+    g_eax = actor;
+    recomp_func_t original = recomp_lookup_reference(0x41d2cf);
+    if (!original)
+        wd_render_fatalf("missing reference function %08x", 0x41d2cfu);
+    original();
+}
+static void palette_rows(void) {
+    /* REND_UpdatePaletteRows(EAX slot, EDX/EBX/ECX the R/G/B offsets) writes
+     * the Windows rows of one lighting-material slot. The DOS 3dfx twin
+     * (DREAMSFX 0x3fca4) writes different ones: the host keeps those, from the
+     * same arguments, and the guest's stay as Windows makes them. The page
+     * comes from the routine's own lookup, MDL_FindMaterial(slot + 8), which
+     * reads tables only and preserves every register but EAX. */
+    const uint32_t slot = g_eax;
+    g_eax = slot + 8;
+    call(0x466040, 0x42e8dd);
+    const uint32_t page = g_eax;
+    g_eax = slot;
+    wd_render_palette_rows(slot, page, (int32_t)g_edx, (int32_t)g_ebx, (int32_t)g_ecx);
+    recomp_func_t original = recomp_lookup_reference(0x42e8b1);
+    if (!original)
+        wd_render_fatalf("missing reference function %08x", 0x42e8b1u);
+    original();
 }
 void wd_render_install(void) {
     if (!wd_render_requested())
@@ -212,10 +241,10 @@ void wd_render_install(void) {
         {0x418060, dim_background},  {0x4018e4, text_band},   {0x4368a1, caption_band},
         {0x417e7e, free_background}, {0x41f9db, reset_scene}, {0x436ab6, captions},
         {0x45fd36, fill_memory},     {0x427b8c, masked64},    {0x41f9ba, fog_update},
-        {0x465c80, line},
+        {0x465c80, line},            {0x41d2cf, find_sky_node}, {0x42e8b1, palette_rows},
         {0x42665a, wd_render_hnm5},
     };
     for (size_t i = 0; i < sizeof entries / sizeof entries[0]; ++i)
         if (!wd_install_replacement(entries[i].address, entries[i].fn))
-            abort();
+            wd_render_fatalf("cannot install the replacement of %08x", entries[i].address);
 }

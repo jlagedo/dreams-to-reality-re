@@ -1,5 +1,6 @@
 /* Explicit one-frame diagnostic. Software remains the reference renderer;
  * this hook snapshots the future direct adapter's input before visual work. */
+#include "render_fatal.h"
 #include <stdbool.h>
 #include "imports.h"
 #include "guest_win32.h"
@@ -53,7 +54,7 @@ bool wd_render_read_arena(void *context, uint32_t address, void *destination, si
 }
 void wd_render_write_arena_at(uint32_t entry, uint32_t address, const void *source, size_t size) {
     if ((uint64_t)address + size > WD_ARENA_SIZE)
-        abort();
+        wd_render_fatalf("metadata write at %08x leaves the guest arena", address);
     wd_surface_check(entry, address, (uint32_t)size, 1);
     memcpy(PTR(address), source, size);
 }
@@ -67,8 +68,7 @@ static void capture_main_frame(void) {
         wd_render_read_scope_begin();
         if (!wd_capture_scene_file(wd_render_read_arena, NULL, root, output_path, error,
                                    sizeof error)) {
-            fprintf(stderr, "[render-capture] %s\n", error);
-            abort();
+            wd_render_fatalf("[render-capture] %s", error);
         }
         wd_render_read_scope_end();
         captured = 1;
@@ -86,7 +86,6 @@ void wd_scene_probe_init(void) {
         return;
     original_frame = recomp_lookup_reference(0x00459320);
     if (!original_frame || !wd_install_replacement(0x00459320, capture_main_frame)) {
-        fprintf(stderr, "[render-capture] cannot install frame observer\n");
-        abort();
+        wd_render_fatal("[render-capture] cannot install frame observer");
     }
 }

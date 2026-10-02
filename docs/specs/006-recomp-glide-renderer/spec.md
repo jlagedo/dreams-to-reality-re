@@ -69,6 +69,28 @@ Unrelated game/runtime defects belong to their own spec; record them as Windows
 release blockers if they prevent the acceptance routes. This rendering spec is
 not authorization to rewrite the rest of the game or change its rules.
 
+## Owner decisions — 2026-10-01
+
+These supersede conflicting statements elsewhere in this file and in the
+supporting documents.
+
+| Question | Decision | Consequence |
+|---|---|---|
+| RGB565 framebuffer and dithering | Not implemented | Scene colour stays full precision into RGBA8; Voodoo hardware emulation remains deferred |
+| Reference for the 3dfx appearance | The rules recovered from `DREAMSFX.EXE` | No emulator or hardware capture is an acceptance gate; behaviours that only an observation could settle (zero-density fog table, chroma-key edge under bilinear filtering) keep their stated policy and are listed as unverified |
+| Glide build versus Windows build | **Glide wins for 3D output.** The goal is the quality the DOS 3dfx build had and the Windows build never did | Where `DREAMSFX.EXE` defines a draw behaviour, implement that one, traced in Ghidra in `DREAMSFX.EXE`. A Windows flat or no-draw branch no longer justifies omitting or simplifying a mode Glide draws. Game-consumed state, callbacks, metadata, timing and RNG still follow the lifted Windows binary |
+| Modes not shown to be reachable | **Implement every 3dfx feature** | Mirror, the remaining Gouraud/specular modes, shaded shadow callbacks and the deferred-list limit are implementation work, not caller checks. A mode with no shipped content is tested with a controlled fixture and recorded as such |
+| Project39 seams | **Closed: known defect of the game data, accepted** | `DREAMSFX.EXE` under DOSBox Staging 0.83 and DOSBox-X 2026.05.02 (software Voodoo, five modes) shows black seams on the same Project39 edges. The source faces meet one world unit apart; no renderer of the original closes them. Not a release blocker. The source-edge correction stays disabled and is optional later work |
+| 2D blends where the 3dfx build differs | Keep ours: it overcomes a 3dfx limitation | The Voodoo frame buffer could not blend 2D over the 3D image, so the 3dfx build draws the empty quick-slot icons at full brightness and stipples the dialogue band. The direct renderer blends them (half-bright icons, smooth band). That is an improvement and stays; a 3dfx shortfall caused by a hardware limitation is not a difference to fix. "Glide wins" covers 3D output |
+| Attack and spell light flashes | Keep the Windows flashes | The 3dfx build lights no scene geometry from attack lights in most levels (palette downloads were too costly on the hardware). The direct renderer keeps the Windows flashes over the 3dfx-matching unlit base |
+| General rule | Improve where we can | Match the 3dfx build where it is the better picture; where it falls short only because of a hardware limitation, keep or build the better result and record it |
+| Unsupported cases in direct | **Abort, loudly, in every build** | No log-and-skip fallback when direct becomes the default: the game stops with the reason on stderr, in a message box for a windowed session and in the crash report, so manual testing finds every gap. `--renderer software` remains the way around one |
+
+One relationship is unverified and needs a decision when it is reached: face
+types the Windows dispatch draws and the Glide hook does not (its "other types:
+no draw" row). Record each one with its Windows behaviour and the DOS evidence
+before choosing.
+
 ## Fidelity: preserve the game and visible result
 
 The target is visually faithful Dreams on a modern GPU. Software rendering,
@@ -257,11 +279,12 @@ physical DSN/DAN files; the rebuilt native material corpus covers 150 projects
 and 560 placed actors without binding/load-order gaps. These are scoped results,
 not completion of the acceptance matrix.
 
-**Known release blocker:** Project39 exposes one-world-unit gaps between authored
-architecture faces more visibly than software rasterization. The experimental
-source-edge correction is **disabled in live rendering** and only available by
-explicit `WDSceneGpuTests --stitch` replay. Its visual review, bounded caching and
-isolated pacing validation remain unfinished; do not enable it by default.
+**Project39 seams, closed 2026-10-01:** the one-world-unit gaps between authored
+architecture faces are a defect of the game data, also visible in the 3dfx build
+under two DOSBox Voodoo emulations. They are an accepted variation, not a
+blocker. The experimental source-edge correction stays **disabled in live
+rendering** (explicit `WDSceneGpuTests --stitch` replay only) and is optional
+later work. Evidence: `DREAMS_OUT/recomp/dosbox/shots/project39-seams-all-modes.png`.
 
 **Reload acceptance remains open.** Two full reloads passed. Longer attempts
 uncovered caption/menu interleaving and then the existing 200-open diagnostic-log
@@ -269,13 +292,18 @@ limit, which hid subsequent save opens. Successful save opens now have an
 uncapped `[save]` event, and the harness uses that event. Ten completed reloads
 have not yet been established with this corrected observation path.
 
-Next work is to validate/finalize the seam correction, rerun the ten-reload gate,
+Next work is to rerun the ten-reload gate,
 close remaining dynamic gameplay/debug/obscure-mode routes, and complete visible
 fullscreen/input and isolated whole-game pacing acceptance. Keep all affected
 function coverage partial and owner-review state honest. Detailed evidence and
 commands are in [implementation.md](implementation.md),
 [the acceptance runner](acceptance-runner.md), and the finite
 [Windows coverage ledger](windows-coverage.tsv).
+
+The [2026-10-01 review and completion plan](implementation.md#review-and-completion-plan--2026-10-01)
+separates current implementation limits from unexercised routes and orders the
+work with concrete passing checks. Its fresh isolated validation does not close
+the integrated acceptance gates above.
 
 The live first-scene route, shared renderer/Viewer adapter, GPU UI arithmetic,
 thumbnail export, flat and supported Gouraud lighting, ordered environment UV

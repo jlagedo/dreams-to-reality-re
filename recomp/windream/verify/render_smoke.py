@@ -241,6 +241,7 @@ def lifted_build(out):
             f"/Fo{out}/",
             str(source),
             str(recomp_env.HOST / "render" / "render_boundary.cpp"),
+            str(recomp_env.HOST / "render" / "render_fatal.c"),
         ],
         env=env,
         check=True,

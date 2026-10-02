@@ -43,6 +43,12 @@ float float_word(const uint8_t *p) {
 bool flat(int32_t type) {
     return type == -2 || type == 1 || type == 4 || type == 0x11 || type == 0x1b;
 }
+// The types the Glide hook textures (textured_mode in render_scene_draw.cpp).
+// It draws nothing for the others, so their block +8 is never dereferenced.
+bool textured(int32_t type) {
+    return (type >= -7 && type <= -3) || type == 2 || type == 3 || type == 9 ||
+           (type >= 0x16 && type <= 0x18);
+}
 bool fail(std::string &error, const char *message) {
     error = message;
     return false;
@@ -59,8 +65,13 @@ bool SceneSnapshot::view_projection(int width, int height, bool hor_plus, float 
         fx *= (float(camera.screen_width) / float(camera.screen_height)) / (float(width) / height);
     if (!std::isfinite(fx) || fx <= 0)
         return false;
-    if (!od_projection_hor_plus(fy, 1, float(camera.near_plane), float(camera.far_plane),
-                                projection))
+    // Retail applies the far plane to whole nodes only (REND_CullObjectSphere;
+    // capture_scene drops those). The faces of a node that reaches across it
+    // are drawn to their full depth by the software rasterizer and by Glide,
+    // so the far plane must not clip them here. 0xfffff is the game's own
+    // default (SCENE_InitLevel); a project's +0xcc lowers it for the cull.
+    const float far_plane = float(std::max(camera.far_plane, 0xfffff));
+    if (!od_projection_hor_plus(fy, 1, float(camera.near_plane), far_plane, projection))
         return false;
     projection[0] = fx;
     projection[5] = -fy; // original camera-space Y increases down the screen
@@ -137,6 +148,8 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
     std::vector<Pending> pending{{root, 0, true}};
     std::unordered_map<uint32_t, uint32_t> node_indices;
     std::vector<uint32_t> face_blocks;
+    std::vector<uint8_t> beyond_far; // per node: REND_CullObjectSphere's far rejection
+    std::vector<uint8_t> vertex_far; // per vertex: REND_TransformClipVertices' outcode 0x20
     size_t normal_count = 0;
     auto capture_normal = [&](uint32_t address, SceneNormal &normal) {
         normal.address = address;
@@ -193,6 +206,27 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
                        uint32_t(result.vertices.size()), count,
                        entry.address != root && visible && !(flags & (4 | 0x1000))};
         info.visual_active = entry.address != root && visible && !(flags & 4);
+        // REND_CullObjectSphere (0x478980, DOS 0x91740: the same routine),
+        // the far test only: the bounding sphere (centre +0xb4, radius +0xb0)
+        // in camera space, from the composed transform Update_Obj_ left at
+        // +0x4c/+0x58. A node wholly at or beyond the far plane gets cull bit
+        // 8 unless flag 0x80 is set, and REND_DrawObject then returns before
+        // lighting and the hook, except for a flag-0x10 node whose parent is
+        // not culled. The side planes are left to the GPU clip (the display
+        // may be wider).
+        bool beyond = false;
+        if (entry.address != root) {
+            double depth = 0;
+            for (unsigned axis = 0; axis < 3; ++axis)
+                depth += double(signed_word(node + 0xb4 + axis * 4)) *
+                         double(signed_word(node + 0x70 + axis * 4));
+            const int64_t z = int64_t(depth / 32768.0 + double(signed_word(node + 0x54)));
+            const int64_t radius = signed_word(node + 0xb0);
+            beyond = z >= c.far_plane && z - radius >= c.far_plane && !(flags & 0x80);
+            if (beyond && !((flags & 0x10) && !beyond_far[size_t(pose.parent)]))
+                info.submitted = info.visual_active = false;
+        }
+        beyond_far.push_back(beyond);
         for (unsigned i = 0; i < 9; ++i)
             info.source_rotation[i] = signed_word(node + 0x28 + i * 4);
         for (unsigned i = 0; i < 3; ++i)
@@ -203,6 +237,9 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
         if (info.light_count > 8)
             return fail(error, "invalid node light count");
         std::copy_n(node + 0xc8, 8, info.light_indices.begin());
+        if (source.dos_lights && info.light_count)
+            info.light_count = source.dos_lights(source.context, entry.address,
+                                                 info.light_indices.data(), info.light_count);
         for (uint32_t i = 0; i < info.light_count; ++i)
             if (info.light_indices[i] >= 100)
                 return fail(error, "invalid node light index");
@@ -235,6 +272,16 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
             std::array<int32_t, 3> source_vertex{};
             for (int axis = 0; axis < 3; ++axis)
                 v.xyz[axis] = float(source_vertex[axis] = signed_word(vertex + 4 + axis * 4));
+            // REND_TransformClipVertices (0x478c2c, DOS 0x91984): a vertex at
+            // or beyond the far plane gets outcode 0x20 unless its node has
+            // flag 0x80. Deviation: the shared vertices of a culled parent
+            // (0x478dac, DOS 0x91b28) test z > far and ignore flag 0x80.
+            double depth = 0;
+            for (unsigned axis = 0; axis < 3; ++axis)
+                depth += double(source_vertex[axis]) * double(signed_word(node + 0x70 + axis * 4));
+            vertex_far.push_back(entry.address != root && !(flags & 0x80) &&
+                                 int64_t(depth / 32768.0 + double(signed_word(node + 0x54))) >=
+                                     c.far_plane);
             result.vertices.push_back(v);
             result.source_vertices.push_back(source_vertex);
             result.vertex_addresses.push_back(uint32_t(address));
@@ -281,6 +328,8 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
                 // REND_CullFaces resets surviving records with flags &= 8.
                 // Bits 1/2 are cull/near-clip output from the previous render,
                 // not source visibility. Only the dynamic-normal bit persists.
+                // Bit 1 is set again below for a face this render rejects at
+                // the far plane.
                 face.flags = word(f) & 8;
                 face.plane_distance = signed_word(f + 0x30);
                 if (flat(type))
@@ -297,6 +346,12 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
                     auto &c = face.corners[corner];
                     c.node = found->second.first;
                     c.vertex = found->second.second;
+                    // REND_CullFaces (0x47b0bc, DOS 0x93774): one corner with
+                    // outcode 0x20 rejects the whole face (flag bit 1); it is
+                    // neither lit nor passed to the draw hook. Nothing clips
+                    // at the far plane.
+                    if (vertex_far[c.vertex])
+                        face.flags |= 1;
                     if ((type == 0x16 || type == 0x17 || (result.nodes[n].flags & 0x800)) &&
                         !capture_normal(word(f + 0x0c + corner * 12), face.corner_normals[corner]))
                         return false;
@@ -330,8 +385,9 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
     // Snapshot CPU-mutated pages/palettes now, not by guest address at GPU
     // submission time. Only submitted textured faces require live bindings.
     std::unordered_map<uint32_t, uint32_t> material_slots;
+    std::vector<uint8_t> lit_pages; // per material: a face of a node with bound lights uses it
     for (auto &face : result.faces) {
-        if (!result.nodes[face.owner].submitted || flat(face.type))
+        if (!result.nodes[face.owner].submitted || flat(face.type) || !textured(face.type))
             continue;
         auto found = material_slots.find(face.material_slot);
         if (found != material_slots.end()) {
@@ -360,9 +416,27 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
             return false;
         for (size_t i = 0; i < material.palette.size(); ++i)
             material.palette[i] = uint16_t(word(palette.data() + i * 4) >> 16);
+        // A page no slot of the lighting table updates keeps its file rows,
+        // the same in both builds; the others come from the host's DOS rows.
+        if (source.dos_palette)
+            source.dos_palette(source.context, material.page, material.palette.data());
+        lit_pages.push_back(false);
         face.material = uint32_t(result.materials.size());
         material_slots.emplace(material.slot, face.material);
         result.materials.push_back(std::move(material));
+    }
+    if (source.lit_palette) {
+        for (const auto &face : result.faces)
+            if (face.material != UINT32_MAX && result.nodes[face.owner].light_count)
+                lit_pages[face.material] = true;
+        for (size_t i = 0; i < result.materials.size(); ++i) {
+            auto &material = result.materials[i];
+            if (!lit_pages[i])
+                continue;
+            material.lit_palette.resize(32 * 256);
+            if (!source.lit_palette(source.context, material.page, material.lit_palette.data()))
+                material.lit_palette.clear();
+        }
     }
     for (size_t i = 0; i < result.lights.size(); ++i) {
         if (!needed_lights[i])
@@ -376,10 +450,16 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
             light.position[a] = signed_word(record + 4 + a * 4);
         for (int a = 0; a < 9; ++a)
             light.orientation[a] = signed_word(record + 0x10 + a * 4);
+        for (int a = 0; a < 3; ++a)
+            light.view_position[a] = signed_word(record + 0x34 + a * 4);
+        for (int a = 0; a < 9; ++a)
+            light.view_orientation[a] = signed_word(record + 0x40 + a * 4);
         light.inner_radius = signed_word(record + 0x88);
         light.outer_radius = signed_word(record + 0x8c);
         light.intensity = signed_word(record + 0x90);
     }
+    result.light_views = true;
+    result.dos_palette = source.dos_palette != nullptr;
     output = std::move(result);
     return true;
 }

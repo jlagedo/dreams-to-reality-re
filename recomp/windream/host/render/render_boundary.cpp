@@ -1,3 +1,4 @@
+#include "render_fatal.h"
 #include "render_boundary.h"
 #include <algorithm>
 #include <cstdio>
@@ -53,14 +54,14 @@ int wd_try_replace(uint32_t address) {
 }
 void wd_call_reference(wd_guest_replacement original) {
     if (!original)
-        std::abort();
+        wd_render_fatal("reference call without an original function");
     ++reference_depth;
     original();
     --reference_depth;
 }
 void wd_clear_replacements() {
     if (reference_depth)
-        std::abort();
+        wd_render_fatal("replacements cleared inside a reference call");
     replacements.clear();
 }
 wd_surface_id wd_surface_register(const wd_surface_desc *d) {
@@ -159,10 +160,9 @@ int wd_surface_check(uint32_t instruction, uint32_t address, uint32_t bytes, int
     if (callback)
         callback(&access, data);
     else {
-        std::fprintf(stderr, "[render] unclassified CPU %s at %08x: %08x + %u, surface %llu\n",
-                     write ? "write" : "read", instruction, address, bytes,
-                     (unsigned long long)access.surface);
-        std::abort();
+        wd_render_fatalf("[render] unclassified CPU %s at %08x: %08x + %u, surface %llu",
+                         write ? "write" : "read", instruction, address, bytes,
+                         (unsigned long long)access.surface);
     }
     return 0;
 }
@@ -184,15 +184,15 @@ void wd_surface_check_string(uint32_t instruction, uint32_t source, uint32_t des
         return;
     const uint64_t bytes = uint64_t(count) * width;
     if (!width || bytes > UINT32_MAX)
-        std::abort();
+        wd_render_fatalf("string operation at %08x: invalid width or count", instruction);
     const auto probe = [&](uint32_t address, int is_write) {
         if (direction < 0) {
             if (bytes - width > address)
-                std::abort();
+                wd_render_fatalf("string operation at %08x runs below address 0", instruction);
             address -= uint32_t(bytes - width);
         }
         if (uint64_t(address) + bytes > 0x100000000ull)
-            std::abort();
+            wd_render_fatalf("string operation at %08x runs past the address space", instruction);
         wd_surface_check(instruction, address, uint32_t(bytes), is_write);
     };
     if (read)

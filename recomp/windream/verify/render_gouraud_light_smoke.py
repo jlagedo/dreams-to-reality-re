@@ -13,11 +13,26 @@ from pathlib import Path
 from mdmp import Dump
 from render_light_smoke import recomp_env
 from render_oriented_light_smoke import LocalLight
-from render_smoke import Replay
+from render_smoke import ESP, Replay
 from unicorn import UC_HOOK_MEM_WRITE
 
 
-def check_adapter(replay, dll, owner, block, face, normals, vertices):
+def check_adapter(
+    replay,
+    dll,
+    owner,
+    block,
+    face,
+    normals,
+    vertices,
+    kinds=(0x16, 0x17),
+    counts=(0, 1, 2, 8),
+    masks=(0,),
+):
+    # masks: bit i set makes bound slot i inactive (type 0, or 3 for odd i).
+    # Those runs use weak lights so the flat sum stays above the -31 clamp.
+    # The flat branches keep their contribution in [esp+0x1dc] (ESP-0x90 here)
+    # and never initialise it; the adapter declares 0, so the runs seed 0.
     fn = dll.wd_gouraud_packet
     fn.argtypes = [
         c.c_uint32,
@@ -49,82 +64,95 @@ def check_adapter(replay, dll, owner, block, face, normals, vertices):
     hook = replay.uc.hook_add(UC_HOOK_MEM_WRITE, observe)
     checks = 0
     try:
-        for kind in (0x16, 0x17):
-            for flat_first in (0, 1):
-                for culled in range(8):
-                    for count in (0, 1, 2, 8):
-                        replay.put(owner + 0x8C, 4)
-                        replay.put(owner + 0xC4, count)
-                        replay.write(owner + 0xC8, bytes(range(count)))
-                        replay.write(block, struct.pack("<2I", block + 0x40, kind))
-                        replay.put(block + 0x24, face)
-                        replay.write(block + 0x40, struct.pack("<2I", 0, 0x18))
-                        replay.put(block + 0x40 + 0x24, face + 0x100)
-                        replay.put(owner + 0xA4, block + 0x40 if flat_first else block)
-                        replay.put(block + 0x40, block if flat_first else 0)
-                        replay.put(block, 0 if flat_first else block + 0x40)
-                        native_shades = (c.c_uint8 * 12)(*([19, 23, 27, 29] * 3))
-                        native_dots = (c.c_int32 * 5)(91, 92, 93, 94, 100)
-                        for i in range(5):
-                            replay.write(
-                                normals + i * 16,
-                                struct.pack("<4i", 0, 0, -32768 + i * 1000, native_dots[i]),
-                            )
-                        for i in range(3):
-                            at = face + i * 0x80
-                            replay.write(at, bytes(68))
-                            replay.put(at, 1 if culled & (1 << i) else 0)
-                            replay.put(at + 4, face + 0x80 if i == 0 else 0)
-                            replay.put(at + 0x2C, normals)
-                            replay.put(at + 0x30, -10)
-                            replay.write(at + 0x40, bytes(native_shades[i * 4 : i * 4 + 4]))
-                            for corner, point in enumerate(((-1, -1, 10), (0, 1, 10), (1, -1, 10))):
-                                v = vertices + (i * 3 + corner) * 40
-                                replay.put(at + 8 + corner * 12, v)
-                                replay.put(
-                                    at + 12 + corner * 12,
-                                    normals + (4 if corner == 2 else corner) * 16,
-                                )
-                                p = (point[0] + (100 if culled & (1 << i) else 0), *point[1:])
-                                replay.write(v + 4, struct.pack("<3i", *p))
-                        lights = (LocalLight * count)()
-                        for i in range(count):
-                            light = lights[i]
-                            light.type = 1 + i % 2
-                            light.radial.position[:] = (0, 0, -10)
-                            light.radial.inner_radius, light.radial.outer_radius = 100, 200
-                            light.radial.intensity = 31 - i
-                            light.axis[:] = (0, 0, 32768)
-                            at = 0x672700 + i * 0x94
-                            replay.put(at, light.type)
-                            replay.write(at + 0x64, struct.pack("<3i", *light.radial.position))
-                            replay.write(at + 0x70, struct.pack("<3i", *light.axis))
-                            replay.write(at + 0x88, struct.pack("<3i", 100, 200, 31 - i))
-                        writes.clear()
-                        replay.run(0x47B7E0, eax=owner)
-                        native_writes = (c.c_uint32 * (512 * 3))()
-                        used = fn(
-                            kind,
-                            culled,
-                            flat_first,
-                            lights,
-                            count,
-                            native_shades,
-                            native_dots,
-                            native_writes,
-                            512,
-                        )
-                        assert used >= 0
-                        actual = [replay.read(face + i * 0x80 + 0x40, 4) for i in range(3)]
-                        assert b"".join(actual) == bytes(native_shades), (kind, culled, count)
-                        expected_dots = [
-                            struct.unpack("<i", replay.read(normals + i * 16 + 12, 4))[0]
-                            for i in range(5)
-                        ]
-                        assert expected_dots == list(native_dots), (kind, culled, count)
-                        events = [tuple(native_writes[i * 3 : i * 3 + 3]) for i in range(used)]
-                        assert events == writes, (kind, flat_first, culled, count, events, writes)
-                        checks += 1
+        for kind, flat_first, culled, count, mask in (
+            (kind, flat_first, culled, count, mask)
+            for kind in kinds
+            for flat_first in (0, 1)
+            for culled in range(8)
+            for count in counts
+            for mask in masks
+        ):
+            replay.put(owner + 0x8C, 4)
+            replay.put(owner + 0xC4, count)
+            replay.write(owner + 0xC8, bytes(range(count)))
+            replay.write(block, struct.pack("<2I", block + 0x40, kind))
+            replay.put(block + 0x24, face)
+            replay.write(block + 0x40, struct.pack("<2I", 0, 0x18))
+            replay.put(block + 0x40 + 0x24, face + 0x100)
+            replay.put(owner + 0xA4, block + 0x40 if flat_first else block)
+            replay.put(block + 0x40, block if flat_first else 0)
+            replay.put(block, 0 if flat_first else block + 0x40)
+            native_shades = (c.c_uint8 * 12)(*([19, 23, 27, 29] * 3))
+            native_dots = (c.c_int32 * 5)(91, 92, 93, 94, 100)
+            for i in range(5):
+                replay.write(
+                    normals + i * 16,
+                    struct.pack("<4i", 0, 0, -32768 + i * 1000, native_dots[i]),
+                )
+            for i in range(3):
+                at = face + i * 0x80
+                replay.write(at, bytes(68))
+                replay.put(at, 1 if culled & (1 << i) else 0)
+                replay.put(at + 4, face + 0x80 if i == 0 else 0)
+                replay.put(at + 0x2C, normals)
+                replay.put(at + 0x30, -10)
+                replay.write(at + 0x40, bytes(native_shades[i * 4 : i * 4 + 4]))
+                for corner, point in enumerate(((-1, -1, 10), (0, 1, 10), (1, -1, 10))):
+                    v = vertices + (i * 3 + corner) * 40
+                    replay.put(at + 8 + corner * 12, v)
+                    replay.put(
+                        at + 12 + corner * 12,
+                        normals + (4 if corner == 2 else corner) * 16,
+                    )
+                    p = (point[0] + (100 if culled & (1 << i) else 0), *point[1:])
+                    replay.write(v + 4, struct.pack("<3i", *p))
+            lights = (LocalLight * count)()
+            for i in range(count):
+                light = lights[i]
+                light.type = (3 if i % 2 else 0) if mask >> i & 1 else 1 + i % 2
+                light.radial.position[:] = (0, 0, -10)
+                light.radial.inner_radius, light.radial.outer_radius = 100, 200
+                light.radial.intensity = 1 + i % 3 if masks != (0,) else 31 - i
+                light.axis[:] = (0, 0, 32768)
+                at = 0x672700 + i * 0x94
+                replay.put(at, light.type)
+                replay.write(at + 0x64, struct.pack("<3i", *light.radial.position))
+                replay.write(at + 0x70, struct.pack("<3i", *light.axis))
+                replay.write(at + 0x88, struct.pack("<3i", 100, 200, light.radial.intensity))
+            if masks != (0,):
+                replay.uc.mem_write(ESP - 0x90, bytes(4))
+            writes.clear()
+            replay.run(0x47B7E0, eax=owner)
+            native_writes = (c.c_uint32 * (512 * 3))()
+            used = fn(
+                kind,
+                culled,
+                flat_first,
+                lights,
+                count,
+                native_shades,
+                native_dots,
+                native_writes,
+                512,
+            )
+            assert used >= 0
+            actual = [replay.read(face + i * 0x80 + 0x40, 4) for i in range(3)]
+            assert b"".join(actual) == bytes(native_shades), (
+                kind,
+                flat_first,
+                culled,
+                count,
+                mask,
+                b"".join(actual).hex(),
+                bytes(native_shades).hex(),
+            )
+            expected_dots = [
+                struct.unpack("<i", replay.read(normals + i * 16 + 12, 4))[0] for i in range(5)
+            ]
+            assert expected_dots == list(native_dots), (kind, culled, count)
+            events = [tuple(native_writes[i * 3 : i * 3 + 3]) for i in range(used)]
+            assert events == writes, (kind, flat_first, culled, count, events, writes)
+            checks += 1
     finally:
         replay.uc.hook_del(hook)
     return checks
@@ -282,6 +310,18 @@ def main():
     }
     report["adapter_order_and_alias_cases"] = check_adapter(
         replay, dll, owner, block, face, normals, vertices
+    )
+    report["inactive_slot_cases"] = check_adapter(
+        replay,
+        dll,
+        owner,
+        block,
+        face,
+        normals,
+        vertices,
+        kinds=(0x16, 0x17, 0x18),
+        counts=(8,),
+        masks=(0b10001000, 0b00001000, 0b10000000, 0b01111110, 0b10001001, 0b00000001, 0xFF),
     )
     out = recomp_env.out_dir("gouraud-lighting")
     (out / "results.json").write_text(json.dumps(report, indent=2) + "\n")

@@ -2,6 +2,123 @@
 
 Date: 2026-09-30. Authority: [spec 006](spec.md).
 
+## Review and completion plan — 2026-10-01
+
+The live architecture is already present: lifted gameplay and source geometry,
+GPU 3D, GPU 2D, final output correction, and one presentation owner. Complete
+that implementation rather than introduce another rendering path. Follow the
+recovered Glide appearance rules for 3D and Windows retail packed operations,
+metadata, and source lifetimes for 2D. Game-consumed transforms, callbacks,
+timing, and RNG retain the retail contract.
+
+This review examined `recomp/render/direct.*` and `direct_edges.h`, the live
+scene/UI/boundary/movie hooks, the acceptance manifest/runner, and reload tests.
+It rebuilt and ran `direct_render_validate.py --gpu` with both recorded 2D
+fixture directories. All six validator executables passed, including 256
+checkpoints / 14,769,600 packed pixels with zero mismatches, supported lighting,
+Gouraud, environment versions, fog, shadows, lines, and explicit exports.
+The acceptance/reload Python tests also passed: 25 tests. The separate codegen
+suite could not collect because this shell has no `uv` command and the project
+venv lacks `capstone`; its previous checkpoint result is not a fresh result.
+The current GPU report is `DREAMS_OUT/recomp/direct-render/results.json`.
+No full game, ten-reload, visual, or pacing acceptance was performed in this
+review. These isolated successes do not close R0–R4.
+
+### What exists and what still needs closure
+
+| Area | Current implementation | Remaining work |
+|---|---|---|
+| 3D source and appearance | Source vertices/corner owners, posed hierarchy, separate camera, Hor+, supported material dispatch, palette/key sampling, depth/order, flat and Gouraud lighting, fog, environment UV versions | Determine and implement any required dynamic/obscure/mirror modes; natural-effect visual and functional checks |
+| 2D | Sprite/faded-text/gauge/masked-image normalization; packed GPU blends/fills/copies/dimming/captions/movies/lines; immutable uploads and metadata writes | Broader pause/inventory/dialogue/gauge/fire/movie consumers, source mutation/free timing, and routes which bypass ordinary sprite calls |
+| Surface ownership | Registry generations, aliases, VM invalidation, deferred GPU resource retirement, generated/host auditing | Strict coverage across supported routes; partial GPU-to-GPU copies, odd-byte transfers, padded layouts, and alternating-word fills are explicit limitations |
+| Callbacks and offscreen work | Metadata preparation before normal callbacks; scene draw afterward; GPU shadows; explicit thumbnail export | Required callback mutation/metadata closure and shaded shadow callbacks, which currently fail explicitly; natural shadow and save consumers |
+| Display and operation | Exact dimensions, resize/mouse/key schedules, fullscreen controls, asynchronous telemetry | Visible fullscreen/resize/DPI/input/layout review, valid save/load, ten reloads, and representative capture-free pacing |
+
+An explicit limitation is not automatically a missing shipped feature. Reproduce
+its actual caller/content route and establish the retail contract before adding
+code. The static material corpus already covers all inventoried stored face
+types; it does not establish runtime setters, effects, or obscure debug modes.
+Partial CPU uploads and partial fills must not be confused with the unsupported
+partial GPU-to-GPU copy branch in `wd_render_copy`.
+
+### Ordered work packages
+
+The [owner decisions of 2026-10-01](spec.md#owner-decisions--2026-10-01) change
+two packages. Package 2 is closed without the correction: the DOSBox comparison
+showed the same seams in the 3dfx build, so they are an accepted defect of the
+game data and the seam correction stays disabled. Package 5 no longer stops at
+caller checks: Glide wins for 3D output and every 3dfx feature is implemented,
+so each remaining mode is traced in `DREAMSFX.EXE` and implemented, with a
+controlled fixture where no shipped content reaches it. The paragraph above
+about not adding code for an explicit limitation applies to 2D surface
+transfers only.
+
+1. **Establish current integrated evidence and a clean coverage list.** Rebuild
+   normal and audit executables after the ongoing host/runtime changes. Run
+   native, widescreen, and resize acceptance scenarios serially. Restore the
+   codegen test dependencies and rerun that suite. Retire obsolete Viewer,
+   ModelPreview, shared-consumer, and port-map obligations from the active ledger
+   and manifest: the 2026-09-30 spec note removed those consumers. Keep historical
+   evidence identified as historical. Add semantic checkpoints and reproducible
+   routes for the remaining manifest entries instead of accepting frame counts.
+   Pass: current binaries/reports are identified, no reached route crashes or
+   violates ownership, and every open item has a caller/route and passing check.
+
+2. **Resolve the demonstrated Project39 seam defect.** Use matching source
+   captures and normal-view software/direct stills and movement. Evaluate the
+   experimental plane-edge joins without changing guest geometry, placement,
+   collision, metadata, or clear colour. If retained, cache reusable source
+   relationships with bounded storage and explicit invalidation; do not repeat
+   the full search on every posed frame. Check model-root separation, intentional
+   parallel/alpha layers, motion, near clipping, and other representative levels.
+   Pass: gaps no longer produce the visible defect, unrelated geometry remains
+   correct, resource use is bounded, and isolated pacing supports live enabling.
+
+3. **Close 2D consumers and surface operations.** Exercise boot/menu, changing
+   gauges/fire, pause/inventory, portraits/dialogue, caption interruption,
+   background capture/dim/restore, HNM5/UBB and HNM6 movies, and UI-only presents.
+   Check placement/aspect, completion and palette timing, clipping/source steps,
+   RGB555 high-bit operations, and snapshot lifetime. Run strict auditing and
+   compare newly reached packed operations against original x86. Implement
+   partial/byte/padded/alternating transfers only where a required caller proves
+   their need. Pass: every required consumer works, no unclassified access or
+   routine scene readback occurs, and affected packed/ABI oracles pass.
+
+4. **Prove save/load and resource lifetime.** Run the corrected state-driven
+   thumbnail harness with `--reload-count 10 --snap-ms 0`. Require ten successful
+   sandbox save-read events, resumed scene progression, caption/controller
+   recovery, and settled resource counts. Compare valid generated/external saves
+   through retail/software/direct as needed; foreign save formats are not renderer
+   evidence. Include real transitions and thumbnail screen restoration.
+   Pass: ten complete reloads without stale surfaces, access violations, or
+   unbounded resource growth. This package can precede package 3 if its existing
+   routes already work; failures feed the 2D/boundary list.
+
+5. **Close dynamic 3D and Windows debug contracts.** Exercise natural combat,
+   spells, lighting, fog, environment/texture animation, transparency, and actual
+   shadow options. Trace runtime mode setters, mirror callers, callbacks, and
+   light bindings in Ghidra where usage/contracts remain unresolved. Preserve
+   intentional Windows no-draw branches. Cover keypad controls, collector,
+   diagnostic geometry, collision lines, and normal-render restoration.
+   Pass: required modes have useful faithful output, callback/ABI/game feedback
+   is preserved, and strict runs do not hit unsupported branches. Controlled
+   smokes supplement natural routes; they do not replace them.
+
+6. **Close display, pacing, and release.** Review 640x480 and 1920x1080, visible
+   fullscreen/F11, resize round trips, actual drawable dimensions/DPI, Hor+,
+   centered logical UI, movie proportions, and mouse hits. Profile representative
+   gameplay on the normal build without captures or concurrent GPU work; use the
+   audit build separately for access correctness. Record CPU/GPU pass costs,
+   frame pacing, resource counts, and explicit exports. Pass: the existing 25 FPS
+   cap is sustained without noticeable renderer stalls, Windows blockers and
+   required routes are closed, visual differences are reviewed/documented, and
+   regression checks pass. Only then select direct by default.
+
+Keep Linux/GL, Metal, WebGL execution, new visual features, and further historical
+precision research outside this Windows closure plan. Rendering-related runtime
+defects discovered in the acceptance routes should be identified separately;
+their fixes must preserve the game's behavior.
+
 **Current delivery scope: Windows/D3D11 game and development/debug rendering.**
 The owner accepts imperceptible CPU/GPU numerical and raster differences under
 [the spec's fidelity policy](spec.md#fidelity-preserve-the-game-and-visible-result).

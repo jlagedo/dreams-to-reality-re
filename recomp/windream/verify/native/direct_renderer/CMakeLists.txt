@@ -36,7 +36,8 @@ add_executable(ODDirectMathTests "${DREAMS_ROOT}/recomp/render/tests/direct_math
 target_link_libraries(ODDirectMathTests PRIVATE ODRender)
 add_executable(WDRenderBoundaryTests
     "${WD_NATIVE}/render_boundary_tests.cpp"
-    "${WD_HOST}/render/render_boundary.cpp")
+    "${WD_HOST}/render/render_boundary.cpp"
+    "${WD_HOST}/render/render_fatal.c")
 target_include_directories(WDRenderBoundaryTests PRIVATE ${WD_HOST_INCLUDES})
 if(WIN32)
     add_executable(WDRenderMetricsTests "${WD_NATIVE}/render_metrics_tests.cpp")

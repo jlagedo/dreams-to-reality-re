@@ -169,6 +169,36 @@ uint32_t od_expand_colour(uint16_t packed, od_pixel_format);
 int od_expand_material_page(const uint8_t *indices, size_t source_pitch, const uint16_t *palette,
                             uint32_t *rgba, int lod);
 int od_compose_pose(const od_pose_node *, size_t count, float *world_affines);
+/* The DOS 3dfx build's palette-row generation (DREAMSFX.EXE), which decides
+ * the colours Glide binds. Its Windows twin differs: it has no project +0xc8
+ * branch, refreshes row 16 instead of 15 and never has scale 0. */
+typedef struct od_dos_palette_update {
+    int32_t rgb[3];             /* caller's current global R, G, B offsets */
+    int32_t actor_rgb[3];       /* bound actor +0x98/+0x9c/+0xa0, read when actor_bound */
+    int32_t actor_scale, scale; /* 0x19f710, 0x19f718: project +0xc0, +0xc4, default 0 */
+    uint32_t cursor;            /* 0xf6354: rolling row cursor, 0..31 */
+    uint8_t actor_bound;        /* slot flag 0x10 */
+    uint8_t effect_light;       /* 0xfe790: an effect light exists */
+    uint8_t rebuild;            /* scene still loading, or the exit countdown runs */
+    uint8_t lit_project;        /* project +0xc8 non-zero */
+} od_dos_palette_update;
+/* REND_ApplyPaletteOffsets (0x2f933), RGB565 branch: one row from 256 BGR0
+ * source colours; channel = clamp(c + 2 * clamp(offset, -127, 127), 0, 255). */
+void od_dos_palette_apply(const uint8_t source[1024], int32_t r, int32_t g, int32_t b,
+                          uint16_t row[256]);
+/* REND_UpdatePaletteRows (0x3fca4) for one material slot. bank is the 32
+ * physical rows below the page (row 0 at page - 0x8000); Glide binds row =
+ * shade. Returns a bit mask of the rows written. */
+uint32_t od_dos_palette_rows(const od_dos_palette_update *, const uint8_t source[1024],
+                             uint16_t bank[32 * 256]);
+/* The rows a face lit by an attack light binds, indexed by its shade 0..31.
+ * Host rule, not a port: the offsets the DOS routine gives row 15 with no
+ * effect light (the unlit row) plus the Windows step, shade * scale >> 2, the
+ * one REND_UpdatePaletteRows (0x42e8b1) uses when it rebuilds all 32 rows.
+ * Row 0 equals that unlit row. scale is the Windows one (0x626300 scene,
+ * 0x6262e8 actor). The update's effect_light, rebuild and cursor are unused. */
+void od_lit_palette_rows(const od_dos_palette_update *, const uint8_t source[1024], int32_t scale,
+                         uint16_t bank[32 * 256]);
 /* Homogeneous clip-space triangle, depth [0,w], CCW front winding.
  * Returns -1 for invalid input, 0 for clipped/back-facing/degenerate, 1 otherwise.
  * This is geometric visibility, not occlusion or sample-coverage testing. */
@@ -179,11 +209,14 @@ typedef struct od_radial_light {
 } od_radial_light;
 typedef struct od_local_light {
     od_radial_light radial;
-    uint32_t type;   /* retail 1 radial, 2 oriented with radial range */
+    uint32_t type;   /* retail 1 radial, 2 oriented with radial range; other: inactive slot */
     int32_t axis[3]; /* owner-local Q15 direction, retail l_ldirection */
 } od_local_light;
+/* carry is retail's per-light contribution variable, which lives for the whole
+ * REND_LightObject call: an active light stores min(contribution, 0) in it, an
+ * inactive slot adds whatever it still holds. NULL starts a private one at 0. */
 int od_flat_light_shade(const int32_t vertices[9], const int32_t normal[3], int32_t plane,
-                        const od_local_light *, size_t count, uint8_t *shade);
+                        const od_local_light *, size_t count, int32_t *carry, uint8_t *shade);
 int32_t od_light_normal_dot(const int32_t normal[3], const od_local_light *light);
 /* One 0x16/0x17 corner contribution. normal_dot is the current normal +0xc
  * scratch (possibly stale for a normal outside the owner's refreshed pool).

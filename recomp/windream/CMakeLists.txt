@@ -84,7 +84,7 @@ set(RUNTIME_SRC
     host/render/render_boundary.cpp host/render/render_scene.cpp host/render/render_scene_io.cpp
     host/render/render_scene_draw.cpp host/render/render_scene_probe.c host/render/render_ui.cpp
     host/render/render_live.cpp host/render/render_hooks.c host/render/render_metrics.cpp
-    host/render/render_movie.c)
+    host/render/render_movie.c host/render/render_fatal.c)
 if(WIN32)
     list(APPEND RUNTIME_SRC host/sdl/win32_abi_check.c)   # guest_win32.h against the SDK
 endif()

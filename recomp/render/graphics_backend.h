@@ -25,9 +25,13 @@ public:
                     std::vector<uint32_t>& rgba, std::string& error);
     bool present(std::string& error);
     void shutdown();
+    // Every completed GPU-to-CPU download (capture and read_image), whatever the
+    // caller's reason. The host subtracts the ones it logged as explicit.
+    uint64_t downloads() const { return downloads_; }
 
 private:
     void* state_ = nullptr;
+    uint64_t downloads_ = 0;
 };
 
 } // namespace od

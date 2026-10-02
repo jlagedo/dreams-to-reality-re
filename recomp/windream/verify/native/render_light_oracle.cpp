@@ -148,7 +148,7 @@ extern "C" int wd_gouraud_packet(uint32_t kind, uint32_t culled, uint32_t flat_f
 extern "C" int wd_flat_lights(const int32_t *vertices, const int32_t *normal, int32_t plane,
                               const od_local_light *lights, size_t count, uint8_t *shade,
                               int32_t *dot) {
-    const int result = od_flat_light_shade(vertices, normal, plane, lights, count, shade);
+    const int result = od_flat_light_shade(vertices, normal, plane, lights, count, nullptr, shade);
     if (result && count && dot)
         *dot = od_light_normal_dot(normal, &lights[count - 1]);
     return result;
@@ -212,4 +212,8 @@ extern "C" int wd_lit_pair(const int32_t *points, const od_radial_light *light, 
             normal_dots[1] = int32_t(w.value);
     }
     return 1;
+}
+extern "C" uint32_t wd_dos_palette_rows(const od_dos_palette_update *update, const uint8_t *source,
+                                         uint16_t *bank) {
+    return od_dos_palette_rows(update, source, bank);
 }

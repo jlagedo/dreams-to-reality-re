@@ -1,3 +1,8 @@
+extern "C" {
+#include "crash_report.h"
+extern int g_wd_quiet;
+}
+#include "render_fatal.h"
 #include "render_live.h"
 #include "render_boundary.h"
 #include "render_scene_draw.h"
@@ -9,6 +14,7 @@
 #include "render/graphics_backend.h"
 #include "render/fog.h"
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -58,6 +64,18 @@ struct Live {
     std::map<uint32_t, Surface> surfaces;
     std::vector<std::vector<uint32_t>> caption_surfaces;
     std::vector<CallbackFrame> callback_frames;
+    // The DOS 3dfx build's palette rows, by page, for the pages a slot of the
+    // lighting-material table updates. Level lifetime.
+    std::map<uint32_t, std::array<uint16_t, 32 * 256>> dos_banks;
+    // Per page, the last REND_UpdatePaletteRows call: what the rows of faces
+    // lit by an attack light are generated from (od_lit_palette_rows).
+    struct LitSource {
+        od_dos_palette_update update{};
+        std::array<uint8_t, 1024> source{};
+        int32_t scale = 0;
+    };
+    std::map<uint32_t, LitSource> lit_sources;
+    uint64_t dos_palette_updates = 0;
     std::set<int32_t> observed_face_types;
     bool observed_lighting = false, observed_environment = false;
     unsigned surface_depth = 0; // renderer thread only, not a guest-worker lock
@@ -71,10 +89,31 @@ struct Live {
     int present_w = 0, present_h = 0;
     bool pending_present = false, captured_scene = false;
 } state;
-[[noreturn]] void fatal(const std::string &message) {
-    std::fprintf(stderr, "[direct] FATAL: %s\n", message.c_str());
-    std::abort();
+[[noreturn]] void fatal(const std::string &message) { wd_render_fatal(message.c_str()); }
+// wd_render_fatal's hooks, installed before main so that the earliest failure
+// (an unknown WD_RENDERER) is reported like any other.
+void fatal_report(const char *message) {
+    // abort() does not reach the crash handler, so the report is made here.
+    const std::string why = std::string("direct renderer FATAL: ") + message;
+    recomp_report_state(why.c_str());
 }
+bool set(const char *name) {
+    const char *value = std::getenv(name);
+    return value && *value;
+}
+void fatal_notify(const char *message) {
+    // Never block an unattended run: headless, quiet and control-channel
+    // (test) runs end with the stderr line alone.
+    if (g_wd_quiet || set("WD_HEADLESS") || set("WD_QUIET") || set("WD_CTL"))
+        return;
+    const std::string text =
+        std::string(message) +
+        "\n\nThe direct renderer stopped on a case it does not support. "
+        "Starting the game with --renderer software avoids it.\n\n"
+        "Details are in the log and in direct-fatal.txt.";
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Dreams to Reality", text.c_str(), nullptr);
+}
+const int fatal_hooks_installed = (wd_render_fatal_hooks(fatal_report, fatal_notify), 0);
 void require(bool ok, const char *message) {
     if (!ok)
         fatal(message);
@@ -127,6 +166,72 @@ od_render_id gpu_image(void *, uint32_t address, uint64_t *version) {
         return 0;
     *version = surface->version;
     return surface->target;
+}
+// What the DOS 3dfx build (DREAMSFX.EXE) would have instead of the Windows
+// state the lifted game holds; see docs/research/glide-direct-gaps.md,
+// "Palette rows and the +0xc8 levels". The guest is only read.
+bool guest(uint32_t address, void *destination, size_t bytes) {
+    return wd_render_read_arena(nullptr, address, destination, bytes);
+}
+struct DosLights {
+    // Lights held by an active effect-light slot (four at 0x6155f4, 0x18
+    // bytes: +0 light, +4 flags, +0x14 owner). ENT_AddEffectLight has two
+    // kinds of caller: SCENE_AddActorEffectLights with an actor of the list
+    // at 0x4fb728, which the DOS build lacks, and the attack code with a
+    // record of the 16-entry attack pool (0x630db8, 0x2d0 bytes each).
+    // Owner decision 2026-10-01: the attack lights light the scene as in
+    // Windows, in every project. The DOS binder (0x56164) leaves the scene
+    // out when its palette scale is 0 (111 projects) and the DOS rows of the
+    // other 39 run the other way; both follow from the cost of palette
+    // downloads on the 3dfx card, so neither is reproduced.
+    std::array<bool, 100> actor{}, attack{};
+    bool any_attack = false;
+};
+bool effect_lights(DosLights &result) {
+    bool any = false;
+    for (uint32_t slot = 0; slot < 4; ++slot) {
+        uint32_t record[6];
+        require(guest(0x6155f4 + slot * 0x18, record, sizeof record), "unmapped effect lights");
+        if (!(record[1] & 1) || record[0] >= 100)
+            continue;
+        const bool attack = record[5] >= 0x630db8 && record[5] < 0x630db8 + 16 * 0x2d0;
+        (attack ? result.attack : result.actor)[record[0]] = true;
+        result.any_attack |= attack;
+        any = true;
+    }
+    return any;
+}
+DosLights capture_lights; // of the capture in progress
+uint32_t filter_lights(void *, uint32_t, uint8_t *indices, uint32_t count) {
+    uint32_t kept = 0;
+    for (uint32_t i = 0; i < count; ++i)
+        if (!capture_lights.actor[indices[i]])
+            indices[kept++] = indices[i];
+    return kept;
+}
+bool lit_bank(void *, uint32_t page, uint16_t *bank) {
+    const auto found = state.lit_sources.find(page);
+    if (found == state.lit_sources.end())
+        return false; // a page no slot updates: the block binds its file rows as before
+    od_lit_palette_rows(&found->second.update, found->second.source.data(), found->second.scale,
+                        bank);
+    return true;
+}
+bool dos_bank(void *, uint32_t page, uint16_t *bank) {
+    const auto found = state.dos_banks.find(page);
+    if (found == state.dos_banks.end())
+        return false;
+    std::copy(found->second.begin(), found->second.end(), bank);
+    return true;
+}
+wd::SceneReader scene_reader() {
+    capture_lights = {};
+    effect_lights(capture_lights);
+    wd::SceneReader reader{nullptr, wd_render_read_arena, gpu_image};
+    reader.dos_palette = dos_bank;
+    reader.dos_lights = filter_lights;
+    reader.lit_palette = lit_bank;
+    return reader;
 }
 Surface &shadow_surface(uint32_t base) {
     if (auto *found = find(base, 65536)) {
@@ -372,12 +477,15 @@ void wd_render_begin_present(uint32_t base) {
         std::fprintf(
             stderr,
             "[direct] frames=%llu scenes=%llu ui=%llu uploads=%llu copies=%llu; "
-            "shadows=%llu resolves=%llu routine_readbacks=0 exports=%llu export_bytes=%llu "
+            "shadows=%llu resolves=%llu routine_readbacks=%llu exports=%llu export_bytes=%llu "
             "captures=%llu capture_bytes=%llu\n",
             (unsigned long long)state.frames, (unsigned long long)state.scenes,
             (unsigned long long)state.ui_draws, (unsigned long long)state.uploads,
             (unsigned long long)state.copies, (unsigned long long)state.shadows,
             (unsigned long long)od_renderer_stats(state.renderer).shadow_resolves,
+            // GPU downloads the backend performed that no explicit reason accounts for
+            (unsigned long long)(state.backend.downloads() - state.export_reads -
+                                 state.capture_reads),
             (unsigned long long)state.export_reads, (unsigned long long)state.export_bytes,
             (unsigned long long)state.capture_reads, (unsigned long long)state.capture_bytes);
 }
@@ -526,6 +634,64 @@ void wd_render_fog_update(void) {
                  (unsigned long long)state.fog_updates, state.fog.color, state.fog.density,
                  state.fog_water.phase, mode);
 }
+void wd_render_palette_rows(uint32_t slot, uint32_t page, int32_t r, int32_t g, int32_t b) {
+    // Called before the lifted REND_UpdatePaletteRows writes the Windows rows
+    // of this slot: run the DOS build's routine on a host copy of the bank.
+    // The first call for a page finds the rows as loaded from the file.
+    ReadScope scope;
+    uint8_t record[0x420];
+    if (page < 0x8000 || !guest(slot, record, sizeof record))
+        return;
+    auto found = state.dos_banks.find(page);
+    if (found == state.dos_banks.end()) {
+        std::vector<uint32_t> rows(32 * 256);
+        if (!guest(page - 0x8000, rows.data(), 0x8000))
+            return;
+        found = state.dos_banks.emplace(page, std::array<uint16_t, 32 * 256>{}).first;
+        for (size_t i = 0; i < rows.size(); ++i)
+            found->second[i] = uint16_t(rows[i] >> 16);
+    }
+    od_dos_palette_update update{};
+    update.rgb[0] = r;
+    update.rgb[1] = g;
+    update.rgb[2] = b;
+    uint32_t actor, project = 0, loading = 0;
+    float countdown = 0;
+    std::memcpy(&actor, record + 0x1c, 4);
+    update.actor_bound = (record[0x18] & 0x10) != 0;
+    require(!update.actor_bound || guest(actor + 0x98, update.actor_rgb, 12),
+            "unmapped palette actor");
+    require(guest(0x4a0fd4, &update.cursor, 4) && guest(0x661e04, &project, 4) &&
+                guest(0x5df49c, &loading, 4) && guest(0x5e5480, &countdown, 4),
+            "unmapped palette state");
+    if (project) {
+        // DOS SCENE_InitLevel: both scales 0 unless the project names one.
+        uint32_t lit = 0;
+        require(guest(project + 0xc0, &update.actor_scale, 4) &&
+                    guest(project + 0xc4, &update.scale, 4) && guest(project + 0xc8, &lit, 4),
+                "unmapped palette project");
+        update.lit_project = lit != 0;
+    }
+    // The DOS routine with its effect-light flag (0xfe790) clear: row 15, the
+    // unlit row, is refreshed on every call. With the flag set DOS stops
+    // refreshing it and rewrites the rows by its own ramp; the host generates
+    // the lit rows from the unlit one instead (od_lit_palette_rows), with the
+    // Windows scale of this slot.
+    update.effect_light = 0;
+    update.rebuild = loading != 0 || countdown > 0;
+    od_dos_palette_rows(&update, record + 0x20, found->second.data());
+    auto &lit = state.lit_sources[page];
+    lit.update = update;
+    std::copy_n(record + 0x20, lit.source.size(), lit.source.begin());
+    require(guest(update.actor_bound ? 0x6262e8 : 0x626300, &lit.scale, 4),
+            "unmapped palette scale");
+    if (++state.dos_palette_updates == 1 || state.dos_palette_updates % 5000 == 0)
+        std::fprintf(stderr,
+                     "[direct] dos_palette updates=%llu pages=%zu scale=%d actor_scale=%d "
+                     "lit_project=%d effect_light=%d\n",
+                     (unsigned long long)state.dos_palette_updates, state.dos_banks.size(),
+                     update.scale, update.actor_scale, update.lit_project, update.effect_light);
+}
 void wd_render_prepare_callback(uint32_t root, uint32_t destination, int main_frame,
                                  uint32_t caller) {
     SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
@@ -541,7 +707,7 @@ void wd_render_prepare_callback(uint32_t root, uint32_t destination, int main_fr
     if (!main_frame && destination == 0x5d6b98 && word(0x661ebc) == 64 &&
         word(0x661ec8) == 64 && caller == 0x40fe13)
         wd_render_bind_surface(destination, 8192, 64, 64, 128, int(word(0x49da1c)), 0);
-    require(wd::capture_scene({nullptr, wd_render_read_arena, gpu_image}, root, frame.scene, error),
+    require(wd::capture_scene(scene_reader(), root, frame.scene, error),
             error);
     frame.scene.fog.enabled = state.fog.table_mode;
     frame.scene.fog.colour = ((state.fog.color >> 16) & 255u) | (state.fog.color & 0xff00u) |
@@ -573,7 +739,7 @@ void wd_render_collect_scene(uint32_t root) {
     wd::SceneLighting lighting;
     wd::SceneCollector collector;
     std::string error;
-    require(wd::capture_scene({nullptr, wd_render_read_arena, gpu_image}, root, scene, error), error);
+    require(wd::capture_scene(scene_reader(), root, scene, error), error);
     const int width = int(word(0x661ebc)), height = int(word(0x661ec8));
     float vp[16];
     require(scene.view_projection(width, height, false, vp), "invalid collector camera");
@@ -630,7 +796,7 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
         scene = std::move(frame.scene);
         prepared_lighting = std::move(frame.lighting);
     } else {
-        require(wd::capture_scene({nullptr, wd_render_read_arena, gpu_image}, root, scene, error), error);
+        require(wd::capture_scene(scene_reader(), root, scene, error), error);
         scene.fog.enabled = state.fog.table_mode;
         scene.fog.colour = ((state.fog.color >> 16) & 255u) | (state.fog.color & 0xff00u) |
                            ((state.fog.color & 255u) << 16);
@@ -855,6 +1021,8 @@ void wd_render_caption_band(void) {
 }
 void wd_render_reset_scene(void) {
     SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
+    state.dos_banks.clear(); // SCENE_LoadLevel registers the level's materials again
+    state.lit_sources.clear();
     if (state.renderer) {
         state.scene.reset(state.renderer);
         std::vector<uint32_t> masks;

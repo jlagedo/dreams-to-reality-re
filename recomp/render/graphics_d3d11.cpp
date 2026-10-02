@@ -195,6 +195,7 @@ bool GraphicsBackend::capture(const std::string& png_path, std::string& error) {
         set_hr_error(error, "capture readback", hr);
         return false;
     }
+    ++downloads_;
     std::vector<uint8_t> rgba(static_cast<size_t>(desc.Width) * desc.Height * 4u);
     for (UINT y = 0; y < desc.Height; ++y) {
         const auto* src = static_cast<const uint8_t*>(mapped.pData) +
@@ -255,6 +256,7 @@ bool GraphicsBackend::read_image(sg_image image,int x,int y,int width,int height
     D3D11_MAPPED_SUBRESOURCE mapped{};
     hr=state->context->Map(staging,0,D3D11_MAP_READ,0,&mapped);
     if(FAILED(hr)){staging->Release();set_hr_error(error,"export readback",hr);return false;}
+    ++downloads_;
     rgba.resize(size_t(width)*height);
     for(int row=0;row<height;++row) {
         const auto* bytes=static_cast<const uint8_t*>(mapped.pData)+size_t(row)*mapped.RowPitch;

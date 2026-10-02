@@ -3,6 +3,7 @@
 #define RECOMP_GENERATED_CODE
 #include "imports.h"
 #include "guest_win32.h"
+#include "render_fatal.h"
 #include "render_live.h"
 #include "render_movie.h"
 
@@ -11,17 +12,15 @@ enum { MOVIE_BUFFER_BYTES = 800 * 600 * 2 };
 
 void wd_render_movie_shutdown(void) {
     if (movie_buffer) {
-        if (!vm_free(movie_buffer, 0, W32_MEM_RELEASE)) {
-            fprintf(stderr, "[direct] cannot release HNM5 codec buffer\n");
-            abort();
-        }
+        if (!vm_free(movie_buffer, 0, W32_MEM_RELEASE))
+            wd_render_fatal("cannot release HNM5 codec buffer");
         movie_buffer = 0;
     }
 }
 
 void wd_render_hnm5(void) {
     recomp_func_t original = recomp_lookup_reference(0x42665a);
-    if (!original) abort();
+    if (!original) wd_render_fatal("missing reference function 0042665a");
     uint32_t destination = WD_HOST_READ32(0x5e549c);
     uint32_t width = WD_HOST_READ32(0x49d9fc), height = WD_HOST_READ32(0x49da00);
     int x = 0, y = 0, draw_width = (int)width, draw_height = (int)height;
@@ -41,10 +40,8 @@ void wd_render_hnm5(void) {
     if (!movie_buffer) {
         movie_buffer = vm_alloc(0, MOVIE_BUFFER_BYTES, W32_MEM_COMMIT | W32_MEM_RESERVE,
                                W32_PAGE_READWRITE);
-        if (!movie_buffer) {
-            fprintf(stderr, "[direct] cannot allocate HNM5 codec buffer\n");
-            abort();
-        }
+        if (!movie_buffer)
+            wd_render_fatal("cannot allocate HNM5 codec buffer");
     }
     // No guest callback lies in this closure: wrapper -> __CHK + 454de3.
     // Preserve the actual wrapper's ABI, source versions and loop metadata.

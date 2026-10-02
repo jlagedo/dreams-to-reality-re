@@ -100,6 +100,82 @@ int od_expand_material_page(const uint8_t *indices, size_t pitch, const uint16_t
         }
     return 1;
 }
+void od_dos_palette_apply(const uint8_t *source, int32_t r, int32_t g, int32_t b,
+                          uint16_t *row) {
+    // The 64 KiB table of 0x2e952 holds clamp(channel + 2 * int8(offset), 0, 255).
+    const auto channel = [](uint8_t value, int32_t offset) {
+        return uint32_t(std::clamp(int32_t(value) + 2 * std::clamp(offset, -127, 127), 0, 255));
+    };
+    for (int i = 0; i < 256; ++i) {
+        const uint8_t *colour = source + i * 4;
+        row[i] = uint16_t((channel(colour[0], b) >> 3) | ((channel(colour[1], g) << 3) & 0x7e0u) |
+                          ((channel(colour[2], r) << 8) & 0xf800u));
+    }
+}
+uint32_t od_dos_palette_rows(const od_dos_palette_update *update, const uint8_t *source,
+                             uint16_t *bank) {
+    if (!update || !source || !bank)
+        return 0;
+    uint32_t written = 0;
+    // The destination is page - n * 0x400; n = 32 is the lowest row.
+    const auto apply = [&](const int32_t *rgb, int32_t step, uint32_t below, bool quarter) {
+        int32_t c[3];
+        for (int i = 0; i < 3; ++i) {
+            c[i] = int32_t(uint32_t(rgb[i]) + uint32_t(step));
+            if (quarter)
+                c[i] >>= 2;
+        }
+        const uint32_t row = (32u - below) & 31u;
+        od_dos_palette_apply(source, c[0], c[1], c[2], bank + row * 256);
+        written |= 1u << row;
+    };
+    const auto step = [](uint32_t index, int32_t scale) {
+        return int32_t(index * uint32_t(scale)) >> 2; // IMUL, SAR 2
+    };
+    const uint32_t rolling = update->cursor + 1;
+    const int32_t *rgb = update->actor_bound ? update->actor_rgb : update->rgb;
+    const int32_t scale = update->actor_bound ? update->actor_scale : update->scale;
+    if (!update->effect_light) {
+        if (update->actor_bound || scale)
+            apply(rgb, step(rolling, scale), rolling, false);
+        // Row 15, the one an unlit node binds. With project +0xc8 the scene
+        // rows take a quarter of (offset + 12 * scale) instead of the offset.
+        if (!update->actor_bound && update->lit_project)
+            apply(rgb, int32_t(uint32_t(scale) * 12u), 17, true);
+        else
+            apply(rgb, 0, 17, false);
+    } else if (update->actor_bound || scale) {
+        if (update->rebuild)
+            for (uint32_t i = 0; i < 32; ++i)
+                apply(rgb, step(i, scale), i + 1, false);
+        else
+            apply(rgb, step(rolling, scale), rolling, false);
+    }
+    return written;
+}
+void od_lit_palette_rows(const od_dos_palette_update *update, const uint8_t *source, int32_t scale,
+                         uint16_t *bank) {
+    if (!update || !source || !bank)
+        return;
+    // The unlit row's offsets, as od_dos_palette_rows writes row 15 when no
+    // effect light exists.
+    const int32_t *rgb = update->actor_bound ? update->actor_rgb : update->rgb;
+    const bool quarter = !update->actor_bound && update->lit_project;
+    int32_t base[3];
+    for (int i = 0; i < 3; ++i) {
+        base[i] = rgb[i];
+        if (quarter)
+            base[i] = int32_t(uint32_t(rgb[i]) + uint32_t(update->scale) * 12u) >> 2;
+    }
+    for (uint32_t shade = 0; shade < 32; ++shade) {
+        const int32_t step = int32_t(shade * uint32_t(scale)) >> 2; // IMUL, SAR 2
+        int32_t c[3];
+        for (int i = 0; i < 3; ++i)
+            c[i] = int32_t(std::clamp(int64_t(base[i]) + step, int64_t(INT32_MIN),
+                                      int64_t(INT32_MAX)));
+        od_dos_palette_apply(source, c[0], c[1], c[2], bank + shade * 256);
+    }
+}
 int od_projection_hor_plus(float fy, float aspect, float near_z, float far_z, float *m) {
     if (!m || !std::isfinite(fy) || !std::isfinite(aspect) || !std::isfinite(near_z) ||
         !std::isfinite(far_z) || fy <= 0 || aspect <= 0 || near_z <= 0 || far_z <= near_z)
@@ -248,12 +324,10 @@ int od_environment_uv(const int32_t *rotation, const int32_t *normal, unsigned c
     return 1;
 }
 int od_flat_light_shade(const int32_t *vertices, const int32_t *normal, int32_t plane,
-                        const od_local_light *lights, size_t count, uint8_t *shade) {
+                        const od_local_light *lights, size_t count, int32_t *carry,
+                        uint8_t *shade) {
     if (!vertices || !normal || !shade || (count && !lights) || count > 8)
         return 0;
-    for (size_t i = 0; i < count; ++i)
-        if (lights[i].type != 1 && lights[i].type != 2)
-            return 0;
     auto signed32 = [](uint32_t value) {
         int32_t result;
         std::memcpy(&result, &value, 4);
@@ -270,7 +344,13 @@ int od_flat_light_shade(const int32_t *vertices, const int32_t *normal, int32_t 
                                 uint32_t(vertices[6 + axis])) /
                        3;
     uint32_t sum = 0;
+    int32_t kept = carry ? *carry : 0;
     for (size_t i = 0; i < count; ++i) {
+        if (lights[i].type != 1 && lights[i].type != 2) {
+            // Retail computes nothing and falls through to the clamp and add.
+            sum += uint32_t(kept);
+            continue;
+        }
         const auto &light = lights[i].radial;
         double squared = 0;
         for (int axis = 0; axis < 3; ++axis) {
@@ -291,9 +371,11 @@ int od_flat_light_shade(const int32_t *vertices, const int32_t *normal, int32_t 
                 contribution = chop(((double(light.outer_radius) - distance) / light.outer_radius) *
                                     double(contribution));
         }
-        if (contribution < 0)
-            sum += uint32_t(contribution);
+        kept = std::min(contribution, 0);
+        sum += uint32_t(kept);
     }
+    if (carry)
+        *carry = kept;
     int32_t total = signed32(sum);
     if (total < -31)
         total = -31;
@@ -309,7 +391,7 @@ int od_radial_flat_shade(const int32_t *vertices, const int32_t *normal, int32_t
         local[i].radial = lights[i];
         local[i].type = 1;
     }
-    return od_flat_light_shade(vertices, normal, plane, local, count, shade);
+    return od_flat_light_shade(vertices, normal, plane, local, count, nullptr, shade);
 }
 int od_radial_light_local(const float *world, const int32_t *position, int32_t *local) {
     if (!world || !position || !local)

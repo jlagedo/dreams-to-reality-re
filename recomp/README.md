@@ -54,6 +54,36 @@ DREAMS_DISC1=/mnt/e/<disc 1> DREAMS_INSTALL_ROOT=/mnt/e/<...>/CRYO/DREAMS \
   PYTHONPATH=src python3 recomp/windream/run.py --headless --renderer direct --seconds 30
 ```
 
+### Browser tool environment (Windows)
+
+The browser tools on this machine are configured in the gitignored
+`out/recomp/web-tools/tools.json`. From PowerShell in the repository root:
+
+```powershell
+. ./recomp/web-env.ps1
+emcc --version
+cmake --version
+ninja --version
+```
+
+The script activates Emscripten 6.0.10 and adds the existing CMake, Ninja,
+project Python, SDK Node and pinned `sokol-shdc` to the current shell's PATH.
+It sets `DREAMS_EMSDK`, `DREAMS_WEB_SDL3`, `SDL3_DIR`, and `DREAMS_SHDC`, and adds
+the browser SDL3 install to `CMAKE_PREFIX_PATH`. A different local configuration
+can be selected with `-Config <tools.json>` or `DREAMS_WEB_TOOLS`.
+
+SDL3 is the repository's pinned source, built separately for WebAssembly with
+pthreads under `out/recomp/sdl3/fa2c02bb6e21/wasm-6.0.10-pthreads/`. Future browser
+targets should be configured with `emcmake cmake`, link with `-pthread`, and
+pass `-DSDL3_DIR="$env:SDL3_DIR"` (cross-compilation otherwise searches only the
+SDK sysroot) and `-DOD_SHDC_EXECUTABLE="$env:DREAMS_SHDC"` to reuse the pinned
+host shader compiler. Threaded browser runs need a server providing COOP/COEP headers.
+`emrun` is included in the SDK for local browser serving.
+
+This prepares the tools and dependencies only. It does not build the game for
+the browser or adapt its runtime. The setup record and standalone toolchain
+checks are under `out/recomp/web-tools/`.
+
 ## Commands
 
 From the repository root:

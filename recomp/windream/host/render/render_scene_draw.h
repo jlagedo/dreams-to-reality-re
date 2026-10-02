@@ -51,6 +51,8 @@ class SceneDraw {
     // After all frame submissions, before od_renderer_frame_complete().
     void finish_frame(od_renderer *);
     void reset(od_renderer *); // level/resource lifetime boundary
+    // Entries the last submit would have put in Glide's 256-entry deferred list.
+    size_t deferred_blocks() const { return deferred_blocks_; }
   private:
     struct TextureVersion {
         uint64_t hash = 0, last_frame = 0;
@@ -65,6 +67,11 @@ class SceneDraw {
     uint64_t frame_ = 1;
     uint32_t palette_page_ = 0;
     std::array<uint16_t, 256> palette_{};
-    od_render_id texture(od_renderer *, const SceneMaterial &, std::string &);
+    size_t deferred_blocks_ = 0;
+    bool deferred_overflow_logged_ = false;
+    uint64_t no_draw_logged_ = 0; // bit (type + 15): one log line per type
+    uint64_t lit_submits_ = 0;    // submits that drew faces with the host's lit rows
+    od_render_id texture(od_renderer *, const SceneMaterial &, const std::array<uint16_t, 256> &,
+                         std::string &);
 };
 } // namespace wd

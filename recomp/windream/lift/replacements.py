@@ -32,6 +32,8 @@ RENDER_ENTRIES = frozenset(
         0x45C278,
         0x45FD36,
         0x465C80,
+        0x41D2CF,
+        0x42E8B1,
     }
 )
 

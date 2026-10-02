@@ -40,6 +40,7 @@ void wd_render_text_band(int);
 void wd_render_caption_band(void);
 void wd_render_reset_scene(void);
 void wd_render_fog_update(void);
+void wd_render_palette_rows(uint32_t slot, uint32_t page, int32_t r, int32_t g, int32_t b);
 void wd_render_caption_scope_begin(void);
 void wd_render_caption_scope_end(void);
 uint32_t wd_render_copy_caller(uint32_t instruction);

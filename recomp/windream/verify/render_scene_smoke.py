@@ -48,6 +48,8 @@ def read_snapshot(path):
             0x38534457,
             0x39534457,
             0x41534457,
+            0x42534457,
+            0x43534457,
         )
         and nn <= 10000
         and nv <= 1000000
@@ -147,6 +149,8 @@ def read_snapshot(path):
             node["face_normal_pool"] = take("2I")
         for face in faces:
             face["source_normal_dot"] = take("i")[0]
+    if magic >= 0x42534457:
+        camera["light_views"] = [take("12i") for _ in range(100)]
     assert position == len(raw)
     return camera, nodes, vertices, faces
 

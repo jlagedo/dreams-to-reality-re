@@ -1,4 +1,5 @@
 #include "render_scene.h"
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <limits>
@@ -37,7 +38,13 @@ struct Stream {
     }
 };
 bool transfer(Stream &io, SceneSnapshot &s) {
-    uint32_t magic = s.source_vertices.size() == s.vertices.size() ? 0x41534457 : 0x33534457,
+    const bool lit_rows = std::any_of(s.materials.begin(), s.materials.end(),
+                                      [](const auto &m) { return !m.lit_palette.empty(); });
+    uint32_t magic = s.source_vertices.size() != s.vertices.size() ? 0x33534457
+                     : s.light_views && s.dos_palette && lit_rows   ? 0x44534457
+                     : s.light_views && s.dos_palette               ? 0x43534457
+                     : s.light_views                                ? 0x42534457
+                                                                    : 0x41534457,
              nodes = uint32_t(s.nodes.size()), vertices = uint32_t(s.vertices.size()),
              faces = uint32_t(s.faces.size());
     io.u32(magic);
@@ -47,7 +54,8 @@ bool transfer(Stream &io, SceneSnapshot &s) {
     if (!io.ok ||
         (magic != 0x31534457 && magic != 0x32534457 && magic != 0x33534457 && magic != 0x34534457 &&
          magic != 0x35534457 && magic != 0x36534457 && magic != 0x37534457 && magic != 0x38534457 &&
-         magic != 0x39534457 && magic != 0x41534457) ||
+         magic != 0x39534457 && magic != 0x41534457 && magic != 0x42534457 &&
+         magic != 0x43534457 && magic != 0x44534457) ||
         nodes > 10000 || vertices > 1000000 || faces > 1000000)
         return false;
     const bool materials_version = magic != 0x31534457;
@@ -305,6 +313,35 @@ bool transfer(Stream &io, SceneSnapshot &s) {
         for (const auto &face : s.faces)
             if (face.type == 0x1b)
                 return false; // Exact mask projection requires the original integer translations.
+    // Older snapshots lack the retained view transforms; lighting rejects a
+    // bound slot past the refreshed prefix in them instead of guessing.
+    s.light_views = magic >= 0x42534457;
+    if (s.light_views)
+        for (auto &light : s.lights) {
+            for (auto &value : light.view_position)
+                io.i32(value);
+            for (auto &value : light.view_orientation)
+                io.i32(value);
+        }
+    // WDSC: the same layout; the material banks hold the DOS 3dfx rows.
+    s.dos_palette = magic >= 0x43534457;
+    // WDSD: per material, the rows of lit faces (indexed by shade) or none.
+    if (magic >= 0x44534457)
+        for (auto &material : s.materials) {
+            uint32_t present = !material.lit_palette.empty();
+            io.u32(present);
+            if (!io.ok || present > 1)
+                return false;
+            if (!io.writing)
+                material.lit_palette.assign(present ? 32 * 256 : 0, 0);
+            for (auto &colour : material.lit_palette) {
+                uint32_t value = colour;
+                io.u32(value);
+                if (value > 65535)
+                    return false;
+                colour = uint16_t(value);
+            }
+        }
     return io.ok;
 }
 } // namespace

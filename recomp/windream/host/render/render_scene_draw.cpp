@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstring>
 #include <cmath>
+#include <cstdio>
 #include <unordered_map>
 
 namespace wd {
@@ -46,6 +47,14 @@ bool textured_mode(int32_t type, od_face_mode &mode, uint32_t &wrap) {
         return false;
     }
 }
+// Types the Windows dispatch (SW_DrawObjectFaces 0x473014) rasterizes or
+// lights and the Glide hook (DREAMSFX 0x67568) falls through without drawing.
+// No shipped block has one. Values neither dispatch names stay an error.
+bool glide_no_draw(int32_t type) {
+    return (type >= -15 && type <= -8) || type == -2 || (type >= 4 && type <= 8) ||
+           (type >= 10 && type <= 0xc) || type == 0x11 || type == 0x12 || type == 0x14 ||
+           type == 0x15 || (type >= 0x19 && type <= 0x1f);
+}
 bool environment_type(int32_t type) {
     return (type >= -15 && type <= -3) || type == 2 || type == 3 || type == 6 || type == 9 ||
            type == 0xb || type == 0xc || type == 0x12 || (type >= 0x14 && type <= 0x1a) ||
@@ -83,8 +92,8 @@ bool prepare_scene_collector(const SceneSnapshot &scene, int width, int height, 
             error = "invalid collector face owner";
             return false;
         }
-        if (!scene.nodes[face.owner].submitted)
-            continue;
+        if (!scene.nodes[face.owner].submitted || (face.flags & 1))
+            continue; // bit 1: rejected at the far plane (capture_scene)
         polygon.assign(3, {});
         for (unsigned c = 0; c < 3; ++c) {
             const auto &corner = face.corners[c];
@@ -292,20 +301,45 @@ bool prepare_scene_lighting(const SceneSnapshot &scene, const float *vp, SceneLi
         std::array<od_local_light, 8> lights{};
         for (uint32_t i = 0; lighting && i < node.light_count; ++i) {
             const auto index = node.light_indices[i];
-            if (index >= scene.light_transform_count) {
-                error = "bound light lies beyond refreshed light prefix";
-                return false;
-            }
-            if (index >= scene.lights.size() ||
-                (scene.lights[index].type != 1 && scene.lights[index].type != 2)) {
-                error = "unsupported or inactive bound light";
+            if (index >= scene.lights.size()) {
+                error = "invalid bound light index";
                 return false;
             }
             const auto &source = scene.lights[index];
+            // A bound slot whose type is not 1 or 2 (a removed light): retail's
+            // REND_TransformLights writes nothing for it. Type 0 marks it
+            // inactive for the flat and Gouraud branches below.
+            if (source.type != 1 && source.type != 2)
+                continue;
+            const float *affine = world.data() + owner * 12;
+            const int32_t *position = source.position.data();
+            const int32_t *orientation = source.orientation.data();
+            float camera_space[12];
+            if (index >= scene.light_transform_count) {
+                // REND_TransformLightsToView refreshes slots below the live
+                // count only. A live slot at or above it keeps the view-space
+                // transform of an earlier frame, and retail lights the node
+                // from that: local = R_ov^T * (view - T_ov), with the owner's
+                // camera-space transform of this frame.
+                if (!scene.light_views) {
+                    error = "bound light beyond the refreshed prefix lacks its view transform";
+                    return false;
+                }
+                const float *v = scene.camera.view.data();
+                for (int r = 0; r < 3; ++r)
+                    for (int col = 0; col < 4; ++col) {
+                        double value = col == 3 ? v[r * 4 + 3] : 0;
+                        for (int k = 0; k < 3; ++k)
+                            value += double(v[r * 4 + k]) * affine[k * 4 + col];
+                        camera_space[r * 4 + col] = float(value);
+                    }
+                affine = camera_space;
+                position = source.view_position.data();
+                orientation = source.view_orientation.data();
+            }
             auto &local = lights[i].radial;
             lights[i].type = source.type;
-            if (!od_radial_light_local(world.data() + owner * 12, source.position.data(),
-                                       local.position)) {
+            if (!od_radial_light_local(affine, position, local.position)) {
                 error = "invalid local light transform";
                 return false;
             }
@@ -313,8 +347,7 @@ bool prepare_scene_lighting(const SceneSnapshot &scene, const float *vp, SceneLi
             local.outer_radius = source.outer_radius;
             local.intensity = source.intensity;
             if (source.type == 2) {
-                if (!od_oriented_light_axis(world.data() + owner * 12, source.orientation.data(),
-                                            lights[i].axis)) {
+                if (!od_oriented_light_axis(affine, orientation, lights[i].axis)) {
                     error = "invalid local light orientation";
                     return false;
                 }
@@ -340,6 +373,8 @@ bool prepare_scene_lighting(const SceneSnapshot &scene, const float *vp, SceneLi
             if (block.empty())
                 block_order.push_back(face.block);
             block.push_back(i);
+            if (face.flags & 1)
+                continue; // REND_CullFaces rejected it at the far plane: not relit
             float clip[12]{};
             for (int corner = 0; corner < 3; ++corner) {
                 const auto &c = face.corners[corner];
@@ -366,6 +401,13 @@ bool prepare_scene_lighting(const SceneSnapshot &scene, const float *vp, SceneLi
                 continue; // Preserve the source byte, including culled list heads.
             visible_faces[i] = 1;
         }
+        // Retail's flat branch never resets its per-light contribution: an
+        // inactive slot re-adds the previous light's, across the faces and
+        // blocks of one REND_LightObject call. Deviation: the first one of a
+        // node reads an uninitialised stack slot in retail (value not
+        // determined); 0 here, which adds nothing. Blocks retail lights and
+        // Glide does not draw (type 1, the no-draw types) do not feed it.
+        int32_t flat_carry = 0;
         for (auto block : block_order) {
             if (!lighting)
                 break;
@@ -385,6 +427,8 @@ bool prepare_scene_lighting(const SceneSnapshot &scene, const float *vp, SceneLi
                                 {scene.faces[i].address + 0x41 + c, 0, 1, 0x47b7e0});
                     }
                 for (uint32_t light = 0; light < node.light_count; ++light) {
+                    if (!lights[light].type)
+                        continue; // inactive slot: no pool refresh, no contribution
                     // Refresh the whole owner pool, including unreferenced normals.
                     // Corner pointers outside it retain their current scratch value.
                     for (const auto &normal : node.vertex_normals) {
@@ -426,12 +470,13 @@ bool prepare_scene_lighting(const SceneSnapshot &scene, const float *vp, SceneLi
                     std::copy_n(scene.source_vertices[face.corners[corner].vertex].data(), 3,
                                 original + corner * 3);
                 if (!od_flat_light_shade(original, face.normal.data(), face.plane_distance,
-                                         lights.data(), node.light_count, &result.shades[i])) {
+                                         lights.data(), node.light_count, &flat_carry,
+                                         &result.shades[i])) {
                     error = "flat lighting failed";
                     return false;
                 }
                 for (uint32_t light = 0; light < node.light_count; ++light)
-                    if (face.normal_address) {
+                    if (face.normal_address && lights[light].type) {
                         const auto dot = od_light_normal_dot(face.normal.data(), &lights[light]);
                         if (has_gouraud_lighting)
                             normal_dots[face.normal_address] = dot;
@@ -496,15 +541,15 @@ bool prepare_scene_lighting(const SceneSnapshot &scene, const float *vp, SceneLi
 }
 
 od_render_id SceneDraw::texture(od_renderer *renderer, const SceneMaterial &material,
-                                std::string &error) {
+                                const std::array<uint16_t, 256> &palette, std::string &error) {
     if (material.gpu_mask) {
         for (auto &entry : textures_)
             if (entry.mask == material.gpu_mask && entry.mask_version == material.gpu_version &&
-                entry.palette == palette_) {
+                entry.palette == palette) {
                 entry.last_frame = frame_;
                 return entry.texture;
             }
-        auto id = od_renderer_resolve_shadow(renderer, material.gpu_mask, palette_.data());
+        auto id = od_renderer_resolve_shadow(renderer, material.gpu_mask, palette.data());
         if (!id) {
             error = od_renderer_error(renderer);
             return 0;
@@ -514,7 +559,7 @@ od_render_id SceneDraw::texture(od_renderer *renderer, const SceneMaterial &mate
         entry.mask = material.gpu_mask;
         entry.mask_version = material.gpu_version;
         entry.last_frame = frame_;
-        entry.palette = palette_;
+        entry.palette = palette;
         textures_.push_back(std::move(entry));
         return id;
     }
@@ -523,12 +568,12 @@ od_render_id SceneDraw::texture(od_renderer *renderer, const SceneMaterial &mate
         return 0;
     }
     for (auto &entry : textures_)
-        if (!entry.mask && entry.palette == palette_ && entry.indices == material.indices) {
+        if (!entry.mask && entry.palette == palette && entry.indices == material.indices) {
             entry.last_frame = frame_;
             return entry.texture;
         }
     std::vector<uint32_t> rgba(128 * 128);
-    if (!od_expand_material_page(material.indices.data(), 256, palette_.data(), rgba.data(), 128)) {
+    if (!od_expand_material_page(material.indices.data(), 256, palette.data(), rgba.data(), 128)) {
         error = "material palette expansion failed";
         return 0;
     }
@@ -548,7 +593,7 @@ od_render_id SceneDraw::texture(od_renderer *renderer, const SceneMaterial &mate
     entry.last_frame = frame_;
     entry.rgba = std::move(rgba);
     entry.indices = material.indices;
-    entry.palette = palette_;
+    entry.palette = palette;
     entry.texture = id;
     textures_.push_back(std::move(entry));
     return id;
@@ -580,6 +625,8 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
         return false;
     }
     std::vector<od_scene_triangle> opaque, deferred;
+    size_t lit_faces = 0, lit_shade_sum = 0;
+    deferred_blocks_ = 0;
     std::unordered_map<uint32_t, std::vector<const SceneFace *>> blocks;
     std::vector<uint32_t> order, transparent_order;
     for (const auto &face : scene.faces) {
@@ -600,6 +647,17 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
         }
         list.push_back(&face);
     }
+    // The Glide hook queues one entry per -7/-4/-3 block of every node it is
+    // called for, visible faces or not, in a 256-entry list and calls
+    // exit(-11) at the 257th. Policy here: draw them all and report once.
+    deferred_blocks_ = transparent_order.size();
+    if (deferred_blocks_ > 256 && !deferred_overflow_logged_) {
+        std::fprintf(stderr,
+                     "[direct] deferred translucent blocks=%zu exceed the Glide list of 256 "
+                     "(DOS exits with -11); drawing all\n",
+                     deferred_blocks_);
+        deferred_overflow_logged_ = true;
+    }
     order.insert(order.end(), transparent_order.begin(), transparent_order.end());
     for (auto block : order) {
         const auto &faces = blocks[block];
@@ -614,6 +672,8 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
             }
             uint32_t colour = 0;
             for (const auto *face : faces) {
+                if (face->flags & 1)
+                    continue; // rejected at the far plane
                 float clip[12]{};
                 for (int c = 0; c < 3; ++c) {
                     const auto &corner = face->corners[c];
@@ -653,8 +713,18 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
         od_face_mode mode{};
         uint32_t wrap = 0;
         if (!textured_mode(first.type, mode, wrap)) {
-            error = "unimplemented scene face type " + std::to_string(first.type);
-            return false;
+            if (!glide_no_draw(first.type)) {
+                error = "unimplemented scene face type " + std::to_string(first.type);
+                return false;
+            }
+            // Glide draws nothing: lighting and UV updates ran, the block is skipped.
+            const uint64_t bit = uint64_t(1) << (first.type + 15);
+            if (!(no_draw_logged_ & bit)) {
+                std::fprintf(stderr, "[direct] glide_no_draw type=%d block=%08x\n", first.type,
+                             block);
+                no_draw_logged_ |= bit;
+            }
+            continue;
         }
         if (first.material >= scene.materials.size()) {
             error = "unbound scene material";
@@ -669,21 +739,54 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
             error = "lit palette row lies outside the captured bank";
             return false;
         }
-        // Keep lifted Windows palette generation. Its shade r uses physical
-        // row 31-r (neutral 16); the shader receives the resulting colours.
+        // A node with bound lights (attack lights only: the adapter drops the
+        // others) and the host's lit rows: each flat-lit face takes the row
+        // of its own shade, as the Windows rasterizer does; row 0 is the
+        // unlit row. The corner-grey types keep one row per block, the head
+        // face's. This does not go through the retained Glide palette.
+        const bool lit = mode != OD_FACE_TRANSLUCENT && scene.nodes[first.owner].light_count &&
+                         material.lit_palette.size() == 32 * 256;
+        // GLIDE_BindTexture converts physical row = shade (neutral 15) of the
+        // DOS build's bank. A snapshot of the Windows build's bank instead
+        // holds that shade in row 31 - shade (neutral 16).
         // Retain the palette snapshot until the PAGE changes, not the row.
-        if (material.page != palette_page_) {
+        if (!lit && material.page != palette_page_) {
             palette_page_ = material.page;
-            std::copy_n(material.palette.data() + (31 - logical_row) * 256, 256, palette_.data());
+            const uint32_t row = scene.dos_palette ? logical_row : 31 - logical_row;
+            std::copy_n(material.palette.data() + row * 256, 256, palette_.data());
         }
-        const auto gpu_texture = texture(renderer, material, error);
+        const bool lit_per_face = lit && !(first.type >= 0x16 && first.type <= 0x18);
+        std::array<od_render_id, 32> lit_textures{};
+        const auto lit_texture = [&](uint32_t shade) {
+            shade = std::min(shade, 31u);
+            if (!lit_textures[shade]) {
+                std::array<uint16_t, 256> row;
+                std::copy_n(material.lit_palette.data() + shade * 256, 256, row.data());
+                lit_textures[shade] = texture(renderer, material, row, error);
+            }
+            return lit_textures[shade];
+        };
+        const auto gpu_texture = lit ? lit_texture(logical_row)
+                                     : texture(renderer, material, palette_, error);
         if (!gpu_texture)
             return false;
         for (const auto *face : faces) {
+            if (face->flags & 1)
+                continue; // rejected at the far plane; a head face still names the row
             od_scene_triangle triangle{};
             const auto &corners = lighting.corners[size_t(face - scene.faces.data())];
             std::copy(corners.begin(), corners.end(), triangle.corners);
-            triangle.texture = gpu_texture;
+            triangle.texture = lit_per_face
+                                   ? lit_texture(lighting.shades[size_t(face - scene.faces.data())])
+                                   : gpu_texture;
+            if (!triangle.texture)
+                return false;
+            if (lit) {
+                ++lit_faces;
+                lit_shade_sum += std::min<uint32_t>(
+                    lit_per_face ? lighting.shades[size_t(face - scene.faces.data())] : logical_row,
+                    31u);
+            }
             triangle.colour = 0xffffffff;
             triangle.mode = mode;
             triangle.wrap_texture = wrap;
@@ -700,6 +803,10 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
             (mode == OD_FACE_TRANSLUCENT ? deferred : opaque).push_back(triangle);
         }
     }
+    if (lit_faces && (lit_submits_++ % 50) == 0)
+        std::fprintf(stderr, "[direct] attack_light lit_faces=%zu mean_shade=%.2f submits=%llu\n",
+                     lit_faces, double(lit_shade_sum) / double(lit_faces),
+                     (unsigned long long)lit_submits_);
     opaque.insert(opaque.end(), deferred.begin(), deferred.end());
     od_scene_packet packet{};
     packet.target = target;
