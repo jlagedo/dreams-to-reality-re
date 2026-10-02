@@ -343,8 +343,9 @@ int wd_render_requested(void) {
     if (requested < 0) {
         const char *mode = std::getenv("WD_RENDERER");
         if (!mode || !*mode) {
-            // Unset: direct on Windows, software where the GPU path is untested.
-#ifdef _WIN32
+            // Unset: direct on Windows and in the browser (WebGL2), software
+            // elsewhere (the GPU path has not been run there).
+#if defined(_WIN32) || defined(__EMSCRIPTEN__)
             requested = 1;
 #else
             requested = 0;

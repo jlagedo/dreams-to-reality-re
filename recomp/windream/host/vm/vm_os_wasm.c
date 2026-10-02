@@ -7,12 +7,15 @@
  * answers VM_OS_DIRTY, so the ledger zeroes each page it commits for the first
  * time (a page decommitted and committed again counts as first-time too). A
  * later step may put the arena at linear address 0 and build with
- * RECOMP_FLAT_MEMORY. This file has not been compiled yet.
+ * RECOMP_FLAT_MEMORY.
  */
 #include <stdlib.h>
 #include "vm_os.h"
 
-void* vm_os_reserve(size_t bytes) { return calloc(bytes, 1); }
+/* malloc, not calloc: the ledger zeroes every page it commits (VM_OS_DIRTY), and
+ * nothing else reads the arena, so the untouched pages stay uncommitted by the
+ * browser. */
+void* vm_os_reserve(size_t bytes) { return malloc(bytes); }
 
 int vm_os_commit(void* host, size_t bytes) {
     (void)host;

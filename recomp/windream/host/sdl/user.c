@@ -54,6 +54,9 @@
 #include "input_map.h"
 #define RECOMP_GENERATED_CODE
 #include "host.h"
+#ifdef __EMSCRIPTEN__
+#include <emscripten/threading.h>
+#endif
 #include "render_live.h"
 
 int g_wd_quiet;
@@ -431,6 +434,11 @@ static void display_script_pump(void) {
 
 void host_pump(void) {
     wd_devtools_pump();
+#ifdef __EMSCRIPTEN__
+    /* The page's key, mouse and focus events are proxied to this thread and wait
+     * in its queue; a busy guest loop (no Sleep) would never run them. */
+    emscripten_current_thread_process_queued_calls();
+#endif
     if (!SDL_WasInit(SDL_INIT_EVENTS)) return;
     display_script_pump();
     SDL_Event e;
@@ -666,6 +674,7 @@ void imp_GetAsyncKeyState(void) {  /* (vk) -> SHORT */
     uint16_t s = 0;
     if (g_vk_count[vk] || script_down(vk) || joy_key_down(vk) || wd_devtools_key_down(vk)) s |= 0x8000;
     if (g_vk_latch[vk]) { s |= 1; g_vk_latch[vk] = 0; }
+    if (wd_web_boot_key(vk)) s |= 0x8001;   /* the browser build's unattended boot (web_glue.c) */
     RET((uint32_t)(int32_t)(int16_t)s); STDRET(1);
 }
 
@@ -723,6 +732,13 @@ void imp_MessageBoxA(void) {  /* (hwnd, text, caption, type) */
     if (def >= sets[t].n) def = 0;
     fprintf(stderr, "[user] MessageBox \"%s\": %s\n", cap, text);
     int r = sets[t].id[def];
+#ifdef __EMSCRIPTEN__
+    /* No modal box in the page: an error goes to the page's status callback,
+     * the game gets the default button. */
+    if (icon == W32_MB_ICONHAND) wd_web_status("fatal", text);
+    RET(r); STDRET(4);
+    return;
+#endif
     if (!g_wd_quiet) {
         SDL_MessageBoxButtonData b[3];
         for (int i = 0; i < sets[t].n; i++) {

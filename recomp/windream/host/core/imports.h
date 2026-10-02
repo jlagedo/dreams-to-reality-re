@@ -47,7 +47,11 @@ static inline void* wd_host_range(uint32_t va, size_t bytes, int write) {
 #define WD_STACK_SIZE   0x00200000u
 #define WD_IMAGE_BASE   0x00400000u   /* WINDREAM.EXE                          */
 #define WD_HEAP_BASE    0x01000000u   /* VirtualAlloc / shim allocations       */
+#ifdef __EMSCRIPTEN__
+#define WD_HEAP_SIZE    0x18000000u   /* 384 MB: wasm32 memory is one buffer, the guest uses about 32 MB at the menu */
+#else
 #define WD_HEAP_SIZE    0x30000000u   /* 768 MB                                */
+#endif
 #define WD_ARENA_SIZE   (WD_HEAP_BASE + WD_HEAP_SIZE)
 
 /* runtime.c */
@@ -107,6 +111,18 @@ uint32_t guest_call_regs(uint32_t va, uint32_t eax, uint32_t edx, uint32_t ebx, 
 #define WD_COM_BASE 0xCD000000u                        /* synthetic COM method VAs */
 uint32_t wd_com_vtable(const recomp_func_t* fns, int n);
 recomp_func_t wd_com_lookup(uint32_t va);
+
+/* web/web_glue.c (the browser build only; a no-op elsewhere): tell the page.
+ * kind is "boot", "running" or "fatal" (Module.onDreamsStatus(kind, text)). */
+#ifdef __EMSCRIPTEN__
+void     wd_web_status(const char* kind, const char* text);
+void     wd_web_boot_note(const char* rel, int ok);   /* every guest open: the unattended-boot state machine */
+int      wd_web_boot_key(int vk);                    /* 1 while the host presses this key itself */
+#else
+#define  wd_web_status(kind, text) ((void)0)
+#define  wd_web_boot_note(rel, ok) ((void)0)
+#define  wd_web_boot_key(vk) 0
+#endif
 
 /* user.c (host.h has the SDL side) */
 void     host_init(void);

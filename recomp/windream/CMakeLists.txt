@@ -5,6 +5,11 @@ cmake_minimum_required(VERSION 3.28)
 project(windream_recomp C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(EMSCRIPTEN)
+    # The browser build (build.py --web): every object is compiled for shared
+    # memory, as the pthreads SDL3 build it links is.
+    add_compile_options(-pthread)
+endif()
 
 # SDL3 (window, input, audio): a static build shared by every recomp build,
 # made by recomp_env.py from the pin in recomp/render/cmake/Dependencies.cmake
@@ -20,7 +25,12 @@ add_subdirectory(../disc ${CMAKE_BINARY_DIR}/disc EXCLUDE_FROM_ALL)
 # window. main (host/core/runtime.c, under WD_WITH_LAUNCHER) runs it when the
 # program is started with neither an EXE path nor WD_DISC1, and puts the WD_*
 # pairs it returns into the environment; nothing else in the host knows it.
-option(WD_LAUNCHER "link the launcher and run it from main" ON)
+if(EMSCRIPTEN)
+    set(_wd_launcher_default OFF)   # the page is the launcher; no disc mode in the browser
+else()
+    set(_wd_launcher_default ON)
+endif()
+option(WD_LAUNCHER "link the launcher and run it from main" ${_wd_launcher_default})
 # The launcher's test-only script and environment variables (launcher/testing.h): on for
 # development builds, never in a release, whatever the cache says (release.py checks).
 if(WD_RELEASE OR EMSCRIPTEN)
@@ -87,6 +97,8 @@ set(RUNTIME_SRC
     host/render/render_movie.c host/render/render_fatal.c)
 if(WIN32)
     list(APPEND RUNTIME_SRC host/sdl/win32_abi_check.c)   # guest_win32.h against the SDK
+elseif(EMSCRIPTEN)
+    list(APPEND RUNTIME_SRC host/web/web_glue.c)          # the page's status callback and arguments
 endif()
 
 add_executable(windream_recomp ${RUNTIME_SRC} ${GEN_SRC} ${WD_GEN_DIR}/recomp_dispatch.c)
@@ -160,9 +172,36 @@ if(WD_DEVTOOLS)
         target_link_libraries(windream_recomp PRIVATE ws2_32)
     endif()
 endif()
-if(WIN32)
+if(EMSCRIPTEN)
+    # Browser build. The guest runs on a pthread (PROXY_TO_PTHREAD: main is
+    # started on a worker), so its blocking message loop, Sleep and waits never
+    # block the page; SDL's canvas moves to that thread as an OffscreenCanvas.
+    # The 784 MB guest arena is one malloc'd block (vm_os_wasm.c), hence memory
+    # growth up to 2 GB; INITIAL_MEMORY covers the image, stacks and the usual heap.
+    # No ASYNCIFY, no launcher, no disc mode: the page puts the game's files in
+    # the Emscripten FS under /dreams (WD_INSTALL_ROOT).
+    set(WD_WEB_INITIAL_MEMORY 256MB CACHE STRING "initial wasm memory of the browser build")
+    set(WD_WEB_MAX_MEMORY 2GB CACHE STRING "maximum wasm memory of the browser build")
+    set(WD_WEB_OPT -O1 CACHE STRING "optimization of the browser build's own and lifted code (-O0 does not load)")
+    set(WD_WEB_POOL 8 CACHE STRING "pre-spawned pthread workers (guest threads + SDL audio and timers)")
+    # The guest program in the install root: GDIDREAM.EXE for the retail game;
+    # build.py --web-exe changes it with --web-gen (another lifted program).
+    set(WD_WEB_EXE GDIDREAM.EXE CACHE STRING "name of the guest EXE in the install root of the browser build")
+    target_compile_definitions(windream_recomp PRIVATE WD_WEB WD_WEB_EXE_NAME="${WD_WEB_EXE}")
+    set_target_properties(windream_recomp PROPERTIES OUTPUT_NAME dreams SUFFIX .js LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/host/web/pre.js)
+    target_link_options(windream_recomp PRIVATE
+        -pthread -sPROXY_TO_PTHREAD -sOFFSCREENCANVAS_SUPPORT
+        --pre-js ${CMAKE_CURRENT_SOURCE_DIR}/host/web/pre.js -Wl,--wrap=SDL_GL_SwapWindow -lidbfs.js
+        -sMODULARIZE=1 -sEXPORT_NAME=createDreams -sENVIRONMENT=web,worker,node
+        -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=${WD_WEB_INITIAL_MEMORY} -sMAXIMUM_MEMORY=${WD_WEB_MAX_MEMORY}
+        -sSTACK_SIZE=1MB -sDEFAULT_PTHREAD_STACK_SIZE=1MB -sPTHREAD_POOL_SIZE=${WD_WEB_POOL}
+        -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2
+        -sFORCE_FILESYSTEM=1 -sEXIT_RUNTIME=0 -sINVOKE_RUN=1
+        -sEXPORTED_RUNTIME_METHODS=FS,ENV,GL,addRunDependency,removeRunDependency,callMain,ccall,cwrap
+        -sEXPORTED_FUNCTIONS=_main,_malloc,_free)
+elseif(WIN32)
     target_link_libraries(windream_recomp PRIVATE dbghelp)
-elseif(NOT EMSCRIPTEN)
+else()
     # SDL3's static target brings its own m, dl and pthread; the host uses
     # them directly too (libm in recomp_types.h, dladdr in crash_posix.c).
     find_package(Threads REQUIRED)
@@ -183,14 +222,18 @@ if(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
         target_compile_options(windream_recomp PRIVATE /Z7 -gline-tables-only)
         target_link_options(windream_recomp PRIVATE /DEBUG)
     endif()
-else()
+elseif(NOT EMSCRIPTEN)
     target_compile_options(windream_recomp PRIVATE -g1)
 endif()
 # One unoptimized development build (build.py leaves CMAKE_BUILD_TYPE empty).
 # Optimizing buys nothing while we debug and dominates the build: sub_0044E9B0
 # alone is 27k generated lines, 90 s to compile at /O2, 68 s at /O1, 4 s at /Od.
 if(NOT CMAKE_BUILD_TYPE)
-    if(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    if(EMSCRIPTEN)
+        # -O0 leaves one wasm local per temporary: the biggest lifted functions
+        # exceed the engines' limit of 50000 locals ("local count too large").
+        target_compile_options(windream_recomp PRIVATE ${WD_WEB_OPT})
+    elseif(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
         if(CMAKE_C_COMPILER_ID MATCHES "Clang")
             target_compile_options(windream_recomp PRIVATE /Od)
         endif()

@@ -1,11 +1,29 @@
 // Native readback here is an oracle operation, never a compositor dependency.
+// Two ways to drive the renderer: raw D3D11 (Windows, the original oracle) or,
+// with OD_TEST_SDL (and always off Windows), a window and od::GraphicsBackend
+// with its explicit export (read_image). The second is the one the GL and
+// WebGL2 backends run.
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+#if defined(_WIN32) && !defined(OD_TEST_SDL)
+#define OD_TEST_D3D11 1
+#endif
+#ifdef OD_TEST_D3D11
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <d3d11.h>
+#else
+#include "render/graphics_backend.h"
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+#endif
 #include "render/direct_sokol.h"
 #include "render/fog.h"
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <cmath>
 #include <vector>
 #include <array>
@@ -13,6 +31,10 @@
 static void check(bool b, const char *text) {
     if (!b) {
         std::fprintf(stderr, "%s\n", text);
+        std::fflush(stderr);
+#ifdef __EMSCRIPTEN__
+        MAIN_THREAD_EM_ASM({ if (Module.onGpuTestsDone) Module.onGpuTestsDone(1, UTF8ToString($0)); }, text);
+#endif
         std::exit(1);
     }
 }
@@ -28,6 +50,7 @@ static void logger(const char *, uint32_t level, uint32_t, const char *msg, uint
         std::exit(2);
     }
 }
+#ifdef OD_TEST_D3D11
 static ID3D11Device *device;
 static ID3D11DeviceContext *context;
 static std::vector<uint32_t> capture(od_renderer *r, od_render_id id) {
@@ -52,6 +75,18 @@ static std::vector<uint32_t> capture(od_renderer *r, od_render_id id) {
     sg_reset_state_cache();
     return pixels;
 }
+#else
+static od::GraphicsBackend backend;
+static std::vector<uint32_t> capture(od_renderer *r, od_render_id id) {
+    const sg_image image = od_renderer_image(r, id);
+    std::vector<uint32_t> pixels;
+    std::string error;
+    check(backend.read_image(image, 0, 0, sg_query_image_width(image),
+                             sg_query_image_height(image), pixels, error),
+          error.c_str());
+    return pixels;
+}
+#endif
 static void submit(od_renderer *r, od_draw_2d c) {
     check(od_renderer_draw_2d(r, &c) != 0, od_renderer_error(r));
 }
@@ -145,8 +180,7 @@ static void packed_lines(od_renderer *r) {
     std::puts("direct GPU: packed Bresenham lines, endpoint reversal, RGB555 high bit and centered canvas passed");
 }
 static void line_fixture(od_renderer *r, const char *path) {
-    FILE *file = nullptr;
-    fopen_s(&file, path, "rb");
+    FILE *file = std::fopen(path, "rb");
     check(file && word(file) == 0x314c4457, "invalid retail line fixture");
     const uint32_t count = word(file);
     check(count > 0 && count <= 10000, "invalid retail line case count");
@@ -183,8 +217,7 @@ static void line_fixture(od_renderer *r, const char *path) {
     std::printf("direct GPU: %u original-x86 packed line fixtures passed\n", count);
 }
 static void fixture(od_renderer *r, const char *path) {
-    FILE *f = nullptr;
-    fopen_s(&f, path, "rb");
+    FILE *f = std::fopen(path, "rb");
     check(f && word(f) == 0x31443244, "invalid fixture");
     const uint32_t w = word(f), h = word(f), fmt = word(f), nt = word(f), nc = word(f);
     check(w && h && w <= 1920 && h <= 1080 && fmt < 2 && nt <= 8 && nc <= 256, "fixture limits");
@@ -609,17 +642,28 @@ static void fog_selector_checks(od_renderer *r) {
                 maximum_error);
 }
 int main(int argc, char **argv) {
+    sg_desc d{};
+#ifdef OD_TEST_D3D11
     const D3D_FEATURE_LEVEL requested = D3D_FEATURE_LEVEL_11_0;
     D3D_FEATURE_LEVEL got;
     check(SUCCEEDED(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, &requested, 1,
                                       D3D11_SDK_VERSION, &device, &got, &context)),
           "hardware D3D11 unavailable");
-    sg_desc d{};
     d.environment.d3d11.device = device;
     d.environment.d3d11.device_context = context;
     d.environment.defaults.color_format = SG_PIXELFORMAT_RGBA8;
     d.environment.defaults.depth_format = SG_PIXELFORMAT_NONE;
     d.environment.defaults.sample_count = 1;
+#else
+    std::string error;
+    check(SDL_Init(SDL_INIT_VIDEO), SDL_GetError());
+    check(od::GraphicsBackend::configure_window(error), error.c_str());
+    SDL_Window *window = SDL_CreateWindow("Direct GPU validation", 64, 64,
+                                          SDL_WINDOW_HIDDEN | od::GraphicsBackend::window_flags());
+    check(window != nullptr, SDL_GetError());
+    check(backend.init(window, error), error.c_str());
+    d.environment = backend.environment();
+#endif
     d.logger.func = logger;
     sg_setup(&d);
     auto *r = od_renderer_create();
@@ -639,6 +683,17 @@ int main(int argc, char **argv) {
             fixture(r, argv[i]);
     od_renderer_destroy(r);
     sg_shutdown();
+#ifdef OD_TEST_D3D11
     context->Release();
     device->Release();
+#else
+    backend.shutdown();
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+#endif
+    std::puts("direct GPU tests passed");
+#ifdef __EMSCRIPTEN__
+    MAIN_THREAD_EM_ASM({ if (Module.onGpuTestsDone) Module.onGpuTestsDone(0, "passed"); });
+#endif
+    return 0;
 }
