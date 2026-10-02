@@ -107,7 +107,15 @@ def dot(p, q):
 
 
 def closest_on_triangle(p, a, b, c):
-    """Ericson, Real-Time Collision Detection 5.1.5."""
+    """Ericson, Real-Time Collision Detection 5.1.5; a degenerate triangle (two
+    vertices equal, or all three in a line) answers with its nearest vertex."""
+    try:
+        return _closest_on_triangle(p, a, b, c)
+    except ZeroDivisionError:
+        return min((a, b, c), key=lambda q: math.dist(p, q))
+
+
+def _closest_on_triangle(p, a, b, c):
     ab, ac, ap = sub(b, a), sub(c, a), sub(p, a)
     d1, d2 = dot(ab, ap), dot(ac, ap)
     if d1 <= 0 and d2 <= 0:

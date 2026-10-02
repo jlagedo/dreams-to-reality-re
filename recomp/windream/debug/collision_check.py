@@ -60,11 +60,27 @@ def read_geometry(ctl) -> dict[int, tuple[tuple[int, int, int], ...]]:
     the vertices reproduce the +0x48 / +0x54 bounds of all 1,959 triangles."""
     n, a0 = struct.unpack("<2I", ctl.read(WORLD, 8))
     raw = read_big(ctl, a0, 2 * n * 8)
-    geometry = {}
-    for tri in {struct.unpack_from("<I", raw, i * 8)[0] for i in range(2 * n)}:
-        pointers = struct.unpack("<3I", ctl.read(tri, 12))
-        geometry[tri] = tuple(struct.unpack("<3i", ctl.read(p, 12)) for p in pointers)
-    return geometry
+    triangles = sorted({struct.unpack_from("<I", raw, i * 8)[0] for i in range(2 * n)})
+    pointers = {
+        tri: struct.unpack("<3I", data) for tri, data in _read_many(ctl, triangles, 12).items()
+    }
+    vertices = _read_many(ctl, sorted({p for ps in pointers.values() for p in ps}), 12)
+    return {
+        tri: tuple(struct.unpack("<3i", vertices[p]) for p in ps) for tri, ps in pointers.items()
+    }
+
+
+def _read_many(ctl, addresses: list[int], size: int) -> dict[int, bytes]:
+    """`size` bytes at each address: one read of the span they lie in when
+    that is small (the level's triangles and vertices are allocated together),
+    one read per address otherwise."""
+    if not addresses:
+        return {}
+    lo, hi = addresses[0], addresses[-1] + size
+    if hi - lo <= 16 * CHUNK:
+        span = read_big(ctl, lo, hi - lo)
+        return {a: span[a - lo : a - lo + size] for a in addresses}
+    return {a: ctl.read(a, size) for a in addresses}
 
 
 @dataclass

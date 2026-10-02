@@ -73,7 +73,8 @@ def disc_list_tool() -> Path:
         import recomp_env
     finally:
         sys.path.remove(str(ROOT / "recomp"))
-    return recomp_env.out_dir("disc") / "build" / recomp_env.exe_name("disc_list")
+    build = "build" + recomp_env.platform_suffix()  # as recomp/disc/build.py names it
+    return recomp_env.out_dir("disc") / build / recomp_env.exe_name("disc_list")
 
 
 def track_table(cue: str | Path, tool: str | Path | None = None) -> dict[int, Track]:

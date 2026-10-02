@@ -14,6 +14,7 @@ are missing.
 import asyncio
 import importlib.util
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -51,7 +52,11 @@ def session(body):
     """Run `body(client_session)` against a fresh server process; its result."""
 
     async def go():
-        params = StdioServerParameters(command=sys.executable, args=[str(SERVER)], cwd=str(ROOT))
+        # The server runs with the caller's environment, as it does under Claude Code: the
+        # SDK's default environment has no DISPLAY, and a Linux host then has no video device.
+        params = StdioServerParameters(
+            command=sys.executable, args=[str(SERVER)], cwd=str(ROOT), env=dict(os.environ)
+        )
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as client:
                 await client.initialize()

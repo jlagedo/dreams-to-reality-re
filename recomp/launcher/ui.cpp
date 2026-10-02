@@ -157,7 +157,12 @@ struct Ui {
         default:
             break;
         }
-        ImGui_ImplSDL3_ProcessEvent(&e);
+        // X11 reports Shift+Tab as SDLK_LEFT_TAB (XK_ISO_Left_Tab); ImGui's SDL3 backend knows only
+        // SDLK_TAB, so without this the keyboard could not navigate backwards on Linux.
+        SDL_Event forwarded = e;
+        if ((e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP) && e.key.key == SDLK_LEFT_TAB)
+            forwarded.key.key = SDLK_TAB;
+        ImGui_ImplSDL3_ProcessEvent(&forwarded);
     }
 
     // ---- widgets ----
