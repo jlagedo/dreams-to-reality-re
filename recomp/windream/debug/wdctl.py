@@ -138,8 +138,10 @@ class Ctl:
         `timeout` seconds (then the connection is closed: it is out of step)."""
         self._id += 1
         request = {"id": self._id, "cmd": cmd, **{k: v for k, v in args.items() if v is not None}}
-        self._socket.settimeout(self.timeout if timeout is None else timeout)
         try:
+            # On a channel a failed call has already closed, the socket's own
+            # calls raise OSError (EBADF): that is a CtlError too.
+            self._socket.settimeout(self.timeout if timeout is None else timeout)
             self._socket.sendall(json.dumps(request).encode() + b"\n")
             while True:
                 line = self._lines.readline()

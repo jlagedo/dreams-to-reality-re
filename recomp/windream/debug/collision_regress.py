@@ -37,7 +37,7 @@ import struct
 import sys
 import time
 import traceback
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -418,14 +418,20 @@ class Project:
                 try:
                     self.full_check()
                     self.ctl.screenshot(self.game.run_dir / "end.bmp")
-                except wdctl.CtlError as error:
+                except (wdctl.CtlError, OSError) as error:  # the channel is gone
                     self.event("final check failed", error=str(error))
         finally:
             if self.game:
                 text = self.game.stderr_text
                 self.result["stderr_tail"] = text[-1500:]
                 self.result["hook"] = hook_details(text)
-                self.game.close()
+                if "=== recomp: CRASH" in text and "crash" not in self.result["failures"]:
+                    at = text.index("=== recomp: CRASH")
+                    self.fail("crash", log=text[at : at + 800])
+                try:
+                    self.game.close()
+                except OSError:
+                    self.game.process.kill()
         self.result["seconds"] = round(time.monotonic() - self.t0, 1)
         return self.result
 
@@ -478,6 +484,19 @@ def run_project(slot: int, seconds: float, renderer: str = "direct") -> dict:
         flush=True,
     )
     return result
+
+
+def failed_result(bank: bank_patch.Bank, slot: int, outcome: str) -> dict:
+    return {
+        "slot": slot,
+        "name": bank.parsed(slot).name,
+        "scene": bank.parsed(slot).scene,
+        "outcome": outcome,
+        "failures": [],
+        "checks": [],
+        "stats": {"max_depth": None},
+        "camera": {"far": 0, "outside": 0},
+    }
 
 
 def summarize(results: list[dict]) -> None:
@@ -544,31 +563,23 @@ def main() -> int:
         if kept.exists() and not options.redo:
             results.append(json.loads(kept.read_text()))
         elif not bank.parsed(slot).scene:
-            results.append(
-                {
-                    "slot": slot,
-                    "name": bank.parsed(slot).name,
-                    "scene": "",
-                    "outcome": "no scene",
-                    "failures": [],
-                    "checks": [],
-                    "stats": {"max_depth": None},
-                    "camera": {"far": 0, "outside": 0},
-                }
-            )
+            results.append(failed_result(bank, slot, "no scene"))
         else:
             todo.append(slot)
     print(f"[regress] {len(todo)} projects to run, {len(results)} kept", flush=True)
     if options.workers > 1 and len(todo) > 1:
         with ProcessPoolExecutor(max_workers=options.workers) as pool:
-            results += list(
-                pool.map(
-                    run_project,
-                    todo,
-                    [options.seconds] * len(todo),
-                    [options.renderer] * len(todo),
-                )
-            )
+            futures = {
+                pool.submit(run_project, slot, options.seconds, options.renderer): slot
+                for slot in todo
+            }
+            for future in as_completed(futures):
+                slot = futures[future]
+                try:
+                    results.append(future.result())
+                except Exception as error:  # noqa: BLE001 - one project must not end the sweep
+                    print(f"[regress] slot {slot:3d} worker failed: {error}", flush=True)
+                    results.append(failed_result(bank, slot, f"worker failed: {error}"))
     else:
         results += [run_project(slot, options.seconds, options.renderer) for slot in todo]
     summarize(results)
