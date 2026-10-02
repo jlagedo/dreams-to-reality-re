@@ -212,15 +212,20 @@ od_renderer *od_renderer_create() {
     }
     return r;
 }
+constexpr size_t retired_limit = 64;
+static void collect_retired(od_renderer *r) {
+    r->stats.retired_peak = std::max(r->stats.retired_peak, uint32_t(r->retired.size()));
+    for (auto &resource : r->retired)
+        destroy_resource(resource);
+    r->retired.clear();
+}
 void od_renderer_frame_complete(od_renderer *r) {
     if (!r)
         return;
     for (auto b : r->frame_buffers)
         sg_destroy_buffer(b);
     r->frame_buffers.clear();
-    for (auto &resource : r->retired)
-        destroy_resource(resource);
-    r->retired.clear();
+    collect_retired(r);
 }
 void od_renderer_destroy(od_renderer *r) {
     if (!r)
@@ -328,6 +333,13 @@ int od_renderer_release(od_renderer *r, od_render_id id) {
     *t = {};
     t->generation = next;
     --r->stats.live_resources;
+    // A released resource is destroyed at od_renderer_frame_complete, but a
+    // frame may release any number of them (the Load list with ten saves
+    // uploads about 1,700 images between two presents), so the queue is
+    // bounded: every draw here is a complete pass, issued before its inputs
+    // can be released, and the backends keep what the GPU still needs.
+    if (r->retired.size() >= retired_limit)
+        collect_retired(r);
     return 1;
 }
 sg_view od_renderer_view(od_renderer *r, od_render_id id) {

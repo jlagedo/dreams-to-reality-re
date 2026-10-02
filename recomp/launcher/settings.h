@@ -43,7 +43,15 @@ struct KeyPair {
 };
 
 struct PortSettings {
-    bool gpu = false;
+    // The renderer when dreams.ini does not name one, and what the host does with no
+    // WD_RENDERER (wd_render_requested, render_live.cpp): the GPU renderer on Windows,
+    // software elsewhere.
+#ifdef _WIN32
+    static constexpr bool kGpuDefault = true;
+#else
+    static constexpr bool kGpuDefault = false;
+#endif
+    bool gpu = kGpuDefault;
     bool fullscreen = false;
     int scale = 2;
     std::string filter = "pixelart";  // pixelart | nearest | linear

@@ -133,7 +133,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """The options, checked; args.disc_paths is disc_sources' answer."""
     ap = argparse.ArgumentParser(description="Run the recompiled game.")
     ap.add_argument("--exe", help="guest exe (default DREAMS_DISC1/GDIDREAM.EXE)")
-    ap.add_argument("--renderer", choices=("software", "direct"), default="software")
+    ap.add_argument(
+        "--renderer", choices=recomp_env.RENDERER_CHOICES, default=recomp_env.renderer_default(),
+        help="direct (GPU; stops on a case it does not support) or software; "
+        "default direct on Windows, software elsewhere",
+    )  # fmt: skip
     ap.add_argument("--headless", action="store_true", help="keep the window hidden and run muted")
     ap.add_argument(
         "--mute", action="store_true", help="mix silently without opening an audio device"

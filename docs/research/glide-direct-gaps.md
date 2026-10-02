@@ -823,11 +823,24 @@ The black walls were a second, separate difference. `E29USINE` sets project
 `0x478980`) uses it for **whole nodes**: a bounding sphere entirely at or
 beyond the far plane sets cull bit 8 (unless node flag `0x80`), and
 `REND_DrawObject` then returns before lighting and the draw hook, except for a
-flag-`0x10` node whose parent is not culled. **[verified]** Nothing clips a
-face at the far plane: the 3dfx captures and the software build (with the
-light's radius raised) both draw the far walls of a node that reaches across
-it, and neither draws the nodes wholly behind it. **[verified by observation;
-the DOS routine was not read]** The direct renderer ignored the cull bits and
+flag-`0x10` node whose parent is not culled. **[verified]** The DOS twin
+(`0x91740`, caller `0x96178`) is the same routine with the same tests, the same
+truncation (`__CHP`) and the same exception. **[verified from instructions]**
+
+Faces are rejected too, in both builds. `REND_TransformClipVertices` (Windows
+`0x478c2c`, DOS `0x91984`) gives a vertex outcode `0x20` when its truncated
+camera depth is `>=` the far plane and its node lacks flag `0x80`;
+`REND_CullFaces` (`0x47b0bc`, DOS `0x93774`) drops a face when the three
+outcodes share a bit of `0x3f` **or when any one corner has `0x20`**, before
+the near-clip test. So a face with one corner at or beyond the far plane is
+not drawn and not lit; nothing is clipped there. The far walls that the 3dfx
+captures show beyond the plane belong to a flag-`0x80` node (in `E29USINE`
+node radius 16,091, 48 faces, none rejected). In the software build's own
+memory, `E29USINE` at spawn has 207 faces of drawn nodes with a `0x20` corner,
+equal to the count computed from the node transforms. **[verified]** The
+shared vertices of a culled parent (`0x478dac`, DOS `0x91b28`) test `>` and
+ignore flag `0x80`; the direct renderer uses the owner rule for them
+(deviation, not seen in shipped content). The direct renderer ignored the cull bits and
 let the GPU clip at the far plane, which removed the walls, the far flames and
 the second spiral, and in other projects the sky and far terrain (45, 84, 31,
 109).
@@ -873,9 +886,25 @@ stream.
    and the random stream is the Windows one.
 4. **Far plane.** `capture_scene` applies the far part of
    `REND_CullObjectSphere` to each node from its composed transform
-   (`+0x54`, `+0x70..+0x78`, sphere `+0xb0..+0xbc`) and
+   (`+0x54`, `+0x70..+0x78`, sphere `+0xb0..+0xbc`), flags each vertex at or
+   beyond the plane and sets face flag bit 1 on a face with such a corner
+   (skipped by lighting, the collector and the draw);
    `SceneSnapshot::view_projection` no longer clips at the project's far plane
-   (it uses the game's default, `0xfffff`).
+   (it uses the game's default, `0xfffff`). Fixture: "scene far plane" in
+   `render_scene_mode_tests.cpp`.
+5. **Attack and spell lights (owner decision 2026-10-01: keep the Windows
+   flash).** The DOS binder leaves the scene out when its scale is 0 and the
+   DOS rows of the other 39 projects run the other way (observed in
+   `E29USINE` Project141: the whole scene brightens while an attack object
+   lives). Neither is reproduced. The adapter drops only the actor lights;
+   a node with bound attack lights takes its rows from `od_lit_palette_rows`:
+   offsets of the unlit row (what the DOS routine writes to row 15 with no
+   effect light, including the `+0xc8` quarter rule) plus the Windows step
+   `shade * scale >> 2` with the Windows scale of the slot (`0x626300` scene,
+   `0x6262e8` actor; defaults 2 and 8). Row 0 is bit for bit the unlit row, a
+   lighter shade is brighter, and each flat-lit face binds the row of its own
+   shade as the Windows rasterizer does. The host DOS rows are generated with
+   the effect-light flag clear, so row 15 keeps refreshing during an attack.
 
 Guest-visible effects: for a node whose lights are dropped, the adapter writes
 neither the flat or corner shades and normal dots nor the light's owner-local
@@ -900,10 +929,10 @@ scratch (`+0x64`, `+0x70`). The render path alone reads those
 
 ### Not established
 
-- The DOS twin of `REND_CullObjectSphere` was not read; the far rule is the
-  Windows routine plus the two observations above.
-- Lit blocks under the DOS rows (attack lights in the 39 projects with
-  `+0xc4` ≠ 0) follow the code; no 3dfx capture of an attack was compared.
+- The spell used for the attack-light captures leaves its light about 2,500
+  units from the player, so neither the software nor the direct picture shows
+  a flash at the cast itself; the comparison moved the attack object next to
+  the player through the control channel.
 - `MDL_BindActorPalette` in Windows initialises the actor offsets to ±64 and
   the DOS helper `0x3f3c0` does not. The host rows use the guest's values;
   the unlit actor rows agreed with the captures compared, and the difference

@@ -92,7 +92,8 @@ From the repository root:
 uv run --with capstone --with pefile python recomp/windream/lift/lift.py          # gen/ + lift-report.json
 uv run --with capstone --with pefile python recomp/windream/lift/gen_imports.py   # gen/imports_gen.c
 uv run python recomp/windream/build.py        # out/recomp/windream/build (unoptimized)
-uv run python recomp/windream/run.py          # play; logs and dumps in out/recomp/windream/run
+uv run python recomp/windream/run.py          # play (direct GPU renderer on Windows, software elsewhere); logs and dumps in out/recomp/windream/run
+uv run python recomp/windream/run.py --renderer software   # the original software rendering
 uv run python recomp/windream/run.py --mute --renderer direct --seconds 30 # silent unattended run
 uv run python recomp/windream/run.py --headless --renderer direct --seconds 30 # hidden, muted run
 uv run python recomp/windream/run.py --seconds 60 --keys 2000:ESC,5000:RETURN --snap-ms 4000
@@ -116,6 +117,7 @@ does. F11 toggles fullscreen; the game sees F11 too.
 
 | `run.py` option | Environment | Default | What |
 |---|---|---|---|
+| `--renderer` | `WD_RENDERER` | `direct` on Windows, `software` elsewhere | `direct` is the GPU renderer: it stops with an error on a case it does not support and never falls back. `software` is the original rendering. The launcher's Renderer setting (`dreams.ini` `[port] renderer = gpu` or `software`) has the same default |
 | `--scale N` | `WD_SCALE` | 2 | Window size in multiples of 640x480, reduced to fit the desktop |
 | `--fullscreen` | `WD_FULLSCREEN` | off | Start fullscreen (borderless, desktop resolution) |
 | `--filter` | `WD_FILTER` | `pixelart` | Scaling: `pixelart` (sharp, even pixels), `nearest` or `linear` |
@@ -387,7 +389,7 @@ software renderer's BMP into a PNG for `game_screenshot`.
 
 | Tool | What |
 |---|---|
-| `game_start(tag, discs=True, headless=True, renderer="software", extra_env={})` | Start a game as `run.py` does (run directory `out/recomp/windream/run-<tag>`) and keep it; one at a time. Returns `port`, `run_dir`, `pid` |
+| `game_start(tag, discs=True, headless=True, renderer=None, extra_env={})` | Start a game as `run.py` does (run directory `out/recomp/windream/run-<tag>`) and keep it; one at a time. Returns `port`, `run_dir`, `pid` |
 | `game_attach(run_dir=None, port=None)` | Attach to a game already running with `run.py --ctl` |
 | `game_stop()`, `game_status()` | End the game this server started (an attached one is only disconnected); the host's status and whether the process is alive |
 | `game_key(name, action="tap", frames=None)` | A game key: tap, down or up |
@@ -611,8 +613,8 @@ Coverage, fallback requirements and timings are in the
 
 The shared `ODRender` / `ODGraphics` targets, generation-checked GPU resources,
 ordered RGBA8 compositor and basic posed-scene pipeline are implemented. The
-game defaults to software rendering. `run.py --renderer direct` runs the tested
-first-scene GPU path, including HUD and introductory dialogue. Full R0–R4 gates
+game defaults to the direct renderer on Windows and to software rendering
+elsewhere; `run.py --renderer software` selects the original. Full R0–R4 gates
 remain open. See [implementation status](../docs/specs/006-recomp-glide-renderer/implementation.md).
 
 Build and check the renderer core on its own:

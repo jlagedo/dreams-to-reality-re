@@ -7,11 +7,13 @@
 > updates no longer apply. The supporting documents in this directory were
 > written before the move and may still mention them.
 
-Status: **Buildable/playable Windows checkpoint; full Windows acceptance remains
-open. Software stays the default; direct rendering is explicitly selectable.**
-Date: 2026-09-30. Owner direction: close Windows rendering quickly, reproduce
-Dreams' visible rendering and game behavior, and accept imperceptible GPU/CPU
-numerical differences.
+Status: **Implemented and evidenced by automated runs; direct is the Windows
+default; the open gate is manual QA ([manual-qa.md](manual-qa.md)).** An
+unsupported case stops the game with the reason; `--renderer software` is the
+way around one. Date: 2026-10-01. Owner direction: close Windows rendering
+quickly, reproduce Dreams' visible rendering and game behavior, follow the 3dfx
+build for 3D output, and accept imperceptible GPU/CPU numerical differences.
+Details: [current evidence and remaining work](#current-evidence-and-remaining-work).
 
 ## Deliverable
 
@@ -261,7 +263,57 @@ acceptance gate. Supported Windows development/debug rendering is inside it.
 
 ## Current evidence and remaining work
 
-### Session closure checkpoint — 2026-09-30
+### State — 2026-10-01
+
+**Implemented and evidenced.** The live game runs through direct GPU 3D, GPU
+2D and one present. Under the strict audit build all 150 projects load at
+their spawn view (149 clean; project 95, `END.DSN`, exits after one scene in
+every build). Menus, the four options, captions, link, intro and death
+movies, combat, project fog, water fog and animated water ran with no
+unclassified surface access and no routine scene readback. Ten save reloads
+pass twice. Headless 640x480, 1920x1080 and a resize round trip pass. Isolated
+pacing holds the 25 FPS cap (means 23.9 and 24.1 fps over 200 s). For 3D
+output the 3dfx build is the authority: level-load retyping of the translucent
+and tiling nodes, the DOS palette rows (the `+0xc8` levels such as
+`E29USINE`), the node far cull and the inactive and stale light slots are
+implemented, and every project's spawn view was compared with the DOS 3dfx
+build under DOSBox (`DREAMS_OUT/recomp/reference-3dfx/`). What changed and why
+is in [glide-direct-gaps.md](../../research/glide-direct-gaps.md); the
+per-item evidence is in the [coverage ledger](windows-coverage.tsv).
+
+**Default and aborts.** Direct is the default renderer on Windows; software
+remains selectable (`--renderer software`). Direct has no log-and-skip
+fallback: an unsupported case prints `[direct] FATAL: <reason>`, writes
+`direct-fatal.txt` and the guest state report, shows a message box in a
+visible session, and ends the process. One abort is predicted and has not been
+run: real shadows while the player holds a weapon (non-mask faces in the
+shadow frame; no DOS contract exists).
+
+**Open gate: manual QA.** [manual-qa.md](manual-qa.md) lists what no automated
+run has judged: visible fullscreen, hand resizing, DPI scaling, a second
+monitor and widescreen proportions; mouse mapping at several window sizes;
+motion (shimmer, translucent water and beams, fog); movie sync and
+proportions; and what only play reaches (spells obtained normally, an in-level
+event movie, leaving water, level transitions with the disc change, the parts
+of levels beyond the spawn, real shadows with a weapon). 006 closes when that
+list has been worked through and its findings are fixed or accepted. Known
+smaller items stay in the ledger: the haze of project 128, one object in
+project 14, attack-light rows under the DOS palette unobserved, and the DOS
+twin of the sphere cull unread.
+
+**Deferred.** Comparison of valid external saves across retail, software and
+direct; the cause of the 3.4 s pause after a level's opening caption (present
+under software too, so game or runtime); the optional source-edge seam
+correction (Project39 seams are accepted); non-Windows execution (Metal, Linux
+GL, WebGL2); RGB565 and dithering. The ModelPreview and shared-adapter ledger
+rows are retired with the consumers they referred to.
+
+Everything below this point is historical: checkpoints written before the
+state above, kept for their evidence. Where they say software is the default,
+that acceptance is open, or that a route is unexercised, the state above and
+the ledger supersede them.
+
+### Session closure checkpoint — 2026-09-30 (historical)
 
 This checkpoint adds GPU debug lines and bounded collector output, prepared
 lighting/UV metadata before frame callbacks, expanded guest/host memory auditing,

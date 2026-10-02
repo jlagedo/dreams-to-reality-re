@@ -16,6 +16,7 @@ import importlib.util
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,13 @@ from dreams import paths
 
 ROOT = Path(__file__).resolve().parents[2]
 EXE_SHA256 = "b2f053bd26627eb618f034481fbeb49c2287bec834351787385a69d74db05001"
+
+# The renderer the launcher does not start with (PortSettings::kGpuDefault: the GPU one is the
+# default on Windows, software elsewhere), as dreams.ini and the combo spell it and as
+# WD_RENDERER does; a setting at its default emits no pair. DEFAULT_RENDERER_INI is the other one.
+OTHER_RENDERER_INI, OTHER_RENDERER_VAR, DEFAULT_RENDERER_INI = (
+    ("software", "software", "gpu") if sys.platform == "win32" else ("gpu", "direct", "software")
+)
 
 
 def load(relative):
@@ -183,7 +191,7 @@ disc2 = {cue_of(2)}
 dir = mydata ; relative to this file
 
 [port]
-renderer = gpu
+renderer = {OTHER_RENDERER_INI}
 fullscreen = 1
 scale = 3
 filter = linear
@@ -214,7 +222,7 @@ keep = me
         "WD_DISC1": str(cue_of(1)),
         "WD_DISC2": str(cue_of(2)),
         "WD_DATA_DIR": data_dir(home, "mydata"),
-        "WD_RENDERER": "direct",
+        "WD_RENDERER": OTHER_RENDERER_VAR,
         "WD_FULLSCREEN": "1",
         "WD_SCALE": "3",
         "WD_FILTER": "linear",
@@ -232,7 +240,7 @@ keep = me
     assert cfg["discs"]["disc1"] == str(cue_of(1))
     assert cfg["data"]["dir"] == "mydata"
     assert {k: cfg["port"][k] for k in cfg["port"]} == {
-        "renderer": "gpu",
+        "renderer": OTHER_RENDERER_INI,
         "fullscreen": "1",
         "scale": "3",
         "filter": "linear",
@@ -244,6 +252,21 @@ keep = me
     assert cfg["gamepad"]["direction"] == "dpad" and cfg["gamepad"]["deadzone"] == "20,90"
     rc, again, err = run(demo, home)  # and a second start reads back what the first wrote
     assert rc == 0 and again == pairs, err
+
+
+@pytest.mark.parametrize("saved", ["gpu", "software", None])
+def test_a_saved_renderer_is_kept_and_a_missing_one_takes_the_default(demo, home, saved):
+    home.mkdir()
+    ini = home / "dreams.ini"
+    port = f"\n[port]\nrenderer = {saved}\n" if saved else ""
+    ini.write_text(f"[discs]\ndisc1 = {cue_of(1)}\ndisc2 = {cue_of(2)}\n{port}", encoding="utf-8")
+    rc, pairs, err = run(demo, home)
+    assert rc == 0, err
+    chosen = saved or DEFAULT_RENDERER_INI
+    # Only the renderer that is not the host's default needs a pair.
+    want = OTHER_RENDERER_VAR if chosen == OTHER_RENDERER_INI else None
+    assert pairs.get("WD_RENDERER") == want
+    assert read_ini(ini)["port"]["renderer"] == chosen
 
 
 def test_command_line_values_are_used_but_not_saved(demo, home):

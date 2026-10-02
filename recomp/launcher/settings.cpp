@@ -192,7 +192,9 @@ int parse_joy_target(const std::string& v) {
 void PortSettings::load(const Ini& ini) {
     *this = PortSettings();
     std::string v = ini.get_or("port", "renderer", "");
-    gpu = iequals(v, "gpu") || iequals(v, "direct");
+    // A saved choice is kept either way; only a missing (or unknown) value takes the default.
+    if (iequals(v, "gpu") || iequals(v, "direct")) gpu = true;
+    else if (iequals(v, "software")) gpu = false;
     fullscreen = parse_bool(ini.get_or("port", "fullscreen", ""), false);
     scale = parse_int(ini.get_or("port", "scale", ""), 2, 1, 6);
     v = ini.get_or("port", "filter", "");
@@ -311,7 +313,7 @@ std::string keyboard_conflict(const PortSettings& s) {
 // ---- the host's variables ----
 
 void emit_port_vars(const PortSettings& s, VarList& out) {
-    if (s.gpu) out.emplace_back("WD_RENDERER", "direct");
+    if (s.gpu != PortSettings::kGpuDefault) out.emplace_back("WD_RENDERER", s.gpu ? "direct" : "software");
     if (s.fullscreen) out.emplace_back("WD_FULLSCREEN", "1");
     if (s.scale != 2) out.emplace_back("WD_SCALE", std::to_string(s.scale));
     if (s.filter != "pixelart") out.emplace_back("WD_FILTER", s.filter);

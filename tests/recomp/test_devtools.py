@@ -42,6 +42,10 @@ recomp_env = run.recomp_env
 # test writes it while the guest is paused and puts the old value back before
 # resuming, so the game never sees the change.
 DEBUG_FLAG = 0x49D5C0
+# Named, not left to run.py's default (direct on Windows): test_screenshot
+# checks the software renderer's 640x480 BMP of the game's frame. The channel
+# under the direct renderer is in test_wd_mcp.py and test_direct_fatal.py.
+SOFTWARE = ["--renderer", "software"]
 
 
 def requirements():
@@ -93,7 +97,9 @@ def press_until_opened(ctl, key, path, since):
 @pytest.fixture(scope="module")
 def game():
     requirements()
-    session = wdctl.start_game(tag=f"devtools-test-{os.getpid()}", discs=True, headless=True)
+    session = wdctl.start_game(
+        tag=f"devtools-test-{os.getpid()}", discs=True, headless=True, args=SOFTWARE
+    )
     try:
         yield session
     finally:
@@ -238,7 +244,7 @@ def test_without_wd_ctl_nothing_changes(game):
     """The same build without WD_CTL: no [ctl] line, no ctl.port, no listening
     socket, and the opens up to the intro movie are those of the run above."""
     plain = wdctl.start_game(
-        tag=f"devtools-plain-{os.getpid()}", discs=True, headless=True, ctl=False
+        tag=f"devtools-plain-{os.getpid()}", discs=True, headless=True, ctl=False, args=SOFTWARE
     )
     try:
         deadline = time.monotonic() + 30

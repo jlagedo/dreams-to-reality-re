@@ -172,6 +172,22 @@ int main(int argc, char **argv) {
         for (const auto &point : triangle.points)
             check(point[0] >= 0 && point[0] <= 256 && point[1] >= 0 && point[1] <= 128,
                   "collector projected outside clip canvas");
+    {
+        // One frame may upload and release far more images than the sokol
+        // pool holds (the Load list: about 1,700 between two presents). The
+        // released ones must not wait for the frame to end.
+        const uint32_t pixel = 0;
+        const auto live = od_renderer_stats(renderer).live_resources;
+        for (unsigned i = 0; i < 5000; ++i) {
+            const auto id = od_renderer_upload_packed(renderer, 1, 1, &pixel, 4);
+            check(id != 0, "an upload failed although every earlier one was released");
+            check(od_renderer_release(renderer, id) != 0, "upload release");
+        }
+        od_renderer_frame_complete(renderer);
+        check(od_renderer_stats(renderer).live_resources == live &&
+                  od_renderer_stats(renderer).retired_peak <= 64,
+              "released uploads were held until the frame ended");
+    }
     auto target = od_renderer_target(renderer, 256, 128, 256, 128);
     wd::SceneDraw draw;
     auto render = [&]() {
@@ -1188,6 +1204,7 @@ int main(int argc, char **argv) {
     std::puts("scene environment: WDS9 UV aliases, opaque/deferred versions, hook-disabled and culled updates passed");
     std::puts("scene lights: stale view-space slot (WDSB), inactive flat carry and Gouraud skip passed");
     std::puts("scene palette: DOS 3dfx snapshot (WDSC) binds row = shade, Windows snapshot 31 - shade passed");
+    std::puts("renderer: 5,000 uploads released within one frame stay inside the image pool");
     std::puts("scene attack lights: lit row 0 equals the DOS unlit row, Windows step per shade, "
               "per-face rows, head row without host rows, WDSD round trip passed");
     std::puts("scene far plane: node sphere, flag 0x80, flag 0x10 under a drawn or culled parent, "

@@ -20,7 +20,14 @@ import subprocess
 from dataclasses import dataclass
 
 import pytest
-from test_launcher import cue_of, load, read_ini
+from test_launcher import (
+    DEFAULT_RENDERER_INI,
+    OTHER_RENDERER_INI,
+    OTHER_RENDERER_VAR,
+    cue_of,
+    load,
+    read_ini,
+)
 
 from dreams import paths
 
@@ -583,8 +590,8 @@ def test_display_settings_reach_play_and_the_next_start(demo, home):
             [
                 'expect var.WD_RENDERER ""',
                 "click renderer",
-                "click renderer.gpu",
-                "expect var.WD_RENDERER direct",
+                f"click renderer.{OTHER_RENDERER_INI}",
+                f"expect var.WD_RENDERER {OTHER_RENDERER_VAR}",
                 "click fullscreen",
                 "expect var.WD_FULLSCREEN 1",
                 *set_int("scale", 3),
@@ -606,7 +613,7 @@ def test_display_settings_reach_play_and_the_next_start(demo, home):
         "WD_DISC1": str(cue_of(1)),
         "WD_DISC2": str(cue_of(2)),
         "WD_DATA_DIR": data_dir(home),
-        "WD_RENDERER": "direct",
+        "WD_RENDERER": OTHER_RENDERER_VAR,
         "WD_FULLSCREEN": "1",
         "WD_SCALE": "3",
         "WD_FILTER": "linear",
@@ -630,11 +637,11 @@ def test_display_settings_reach_play_and_the_next_start(demo, home):
             demo,
             home,
             [
-                "expect var.WD_RENDERER direct",
+                f"expect var.WD_RENDERER {OTHER_RENDERER_VAR}",
                 "expect var.WD_SCALE 3",
                 "expect var.WD_FPS 0",
                 "click renderer",
-                "click renderer.software",
+                f"click renderer.{DEFAULT_RENDERER_INI}",
                 "click fullscreen",
                 "click filter",
                 "click filter.pixelart",
@@ -649,7 +656,7 @@ def test_display_settings_reach_play_and_the_next_start(demo, home):
     assert r.rc == 0, r.err
     assert set(r.pairs) == {"WD_DISC1", "WD_DISC2", "WD_DATA_DIR"}  # the defaults add nothing
     assert dict(read_ini(home / "dreams.ini")["port"]) == {
-        "renderer": "software",
+        "renderer": DEFAULT_RENDERER_INI,
         "fullscreen": "0",
         "scale": "2",
         "filter": "pixelart",

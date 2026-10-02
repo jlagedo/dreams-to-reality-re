@@ -17,10 +17,10 @@ copy of the game.
 
 ## Status
 
-- The recompiled game builds and plays on Windows with the original software
-  rendering.
-- The direct GPU renderer (`run.py --renderer direct`) runs the tested first
-  scene, HUD and dialogue; full Windows acceptance is open
+- The recompiled game builds and plays on Windows; the original software
+  rendering is `run.py --renderer software`.
+- The direct GPU renderer is the default on Windows (software elsewhere) and
+  stops on a case it does not support; full Windows acceptance is open
   ([spec 006](docs/specs/006-recomp-glide-renderer/spec.md)).
 - The game runs straight from the two original disc images (`.cue` + `.bin`):
   no installer, no extraction, no disc-swap prompt, CD music included. A

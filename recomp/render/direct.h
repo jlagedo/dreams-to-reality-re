@@ -55,6 +55,7 @@ typedef struct od_render_stats {
     uint32_t live_resources;
     uint64_t stitched_edges;
     uint64_t stitch_cpu_nanoseconds;
+    uint32_t retired_peak; /* most released resources held at once before their destruction */
 } od_render_stats;
 
 /* Floating-point, row-major affine transform; parent -1 is a model root.

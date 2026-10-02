@@ -197,7 +197,9 @@ def test_new_game_into_a_disc2_project(bank_patch, tmp_path, source, frames):
     if source == 116:
         assert level == 3 and scene == "H15ARENE.DSN" and track == 2
     bank.copy(source, 0)
-    game = start(f"a{source}", bank)
+    # software, by name: the frame checked below is that renderer's 640x480 BMP
+    # (the default, direct on Windows, gives a PNG of the window)
+    game = start(f"a{source}", bank, args=["--renderer", "software"])
     try:
         ctl = game.ctl
         opened = boot_into(ctl, scene)
@@ -568,6 +570,7 @@ def test_first_level_music_is_track_9_from_its_index_01(cues, audio):
         wav = game.run_dir / "music.wav"
         started = ctl.audio_dump(wav)
         press_until_opened(ctl, "ESC", "H18ANGKR.DSN", movie["event"])
+        scene = opens(events_after(ctl, movie["event"]), "H18ANGKR.DSN", ok=True)[0]
         ctl.wait_until_cd_track(9, timeout_ms=20000)
         ctl.wait(ms=5500)
         ctl.audio_dump_stop()
@@ -587,20 +590,30 @@ def test_first_level_music_is_track_9_from_its_index_01(cues, audio):
         for number in (8, 10):
             other = audio.track_pcm(table[number], 0, 6 * RATE)
             assert audio.align(dump, other, expected, at=RATE).score < 0.5
-        # nothing of the track was output before its start
-        assert audio.loudness(dump[: 2 * first.lag]) < 1
+        # nothing of the track was output before its start. The dump begins
+        # while the skipped movie is still open, and its sound can reach a
+        # mixer block before ESC lands, so the silence is checked from the
+        # scene's open (plus a few blocks) on.
+        quiet_from = round((scene["ms"] - started["ms"] + 100) * RATE / 1000)
+        assert 0 <= quiet_from < first.lag - RATE
+        assert audio.loudness(dump[2 * quiet_from : 2 * first.lag]) < 1
         assert_runs_clean(game)
     finally:
         game.close(remove=True)
 
 
 def test_a_track_ends_where_the_next_begins_in_the_same_file(cues, audio, bank_patch):
-    """A cue whose second file holds two tracks: disc 2's track 2 cut to 3 s,
+    """A cue whose second file holds two tracks: disc 2's track 2 cut to 2.7 s,
     and a track 3 that is the rest of the same music. The game plays track 2
-    (Project116); playback must stop at 3 s, not run on into "track 3", and
-    the game's playlist then starts the track again. (3 s: the level's first
-    voice line, which would cover the music, comes a second later.)"""
-    seconds = 3
+    (Project116); playback must stop at the cut, not run on into "track 3",
+    and the game's playlist then starts the track again. The cut is 202 CD
+    frames: the playlist polls the CD every 15 game frames (600 ms at 25 FPS),
+    so a cut on a multiple of that is a race the renderer's pacing decides,
+    and the restart has to come before the level's first voice line, which
+    would cover the music."""
+    frames = 202
+    assert (frames * 1000 // 75) % 600 > 200  # well off a poll
+    cut_at = frames * RATE // 75
     table = audio.track_table(cues[1])
     data, music = table[1], table[2]
     game = None
@@ -618,12 +631,13 @@ def test_a_track_ends_where_the_next_begins_in_the_same_file(cues, audio, bank_p
         cue.write_text(
             f'FILE "{names[0]}" BINARY\n  TRACK 01 MODE1/2352\n    INDEX 01 00:00:00\n'
             f'FILE "{names[1]}" BINARY\n  TRACK 02 AUDIO\n    INDEX 00 00:00:00\n'
-            f"    INDEX 01 00:02:00\n  TRACK 03 AUDIO\n    INDEX 01 00:{2 + seconds:02d}:00\n",
+            f"    INDEX 01 00:02:00\n  TRACK 03 AUDIO\n"
+            f"    INDEX 01 00:{2 + frames // 75:02d}:{frames % 75:02d}\n",
             encoding="utf-8",
         )
         cut = audio.track_table(cue)
-        assert (cut[2].offset, cut[2].length) == (music.offset, seconds * RATE * 4)
-        assert cut[3].offset == music.offset + seconds * RATE * 4
+        assert (cut[2].offset, cut[2].length) == (music.offset, cut_at * 4)
+        assert cut[3].offset == music.offset + cut_at * 4
 
         bank = bank_patch.Bank.from_disc(1)
         bank.copy(116, 0)
@@ -646,20 +660,20 @@ def test_a_track_ends_where_the_next_begins_in_the_same_file(cues, audio, bank_p
         assert_runs_clean(game)
 
         dump = audio.read_wav(wav)
-        pcm = audio.track_pcm(music, 0, (seconds + 4) * RATE)  # the real track, past the cut
+        pcm = audio.track_pcm(music, 0, cut_at + 4 * RATE)  # the real track, past the cut
         first, again = (round((e["ms"] - started["ms"]) * RATE / 1000) for e in plays[:2])
         start_match = audio.align(dump, pcm, first, at=RATE)
         assert start_match.score > 0.98, start_match
         assert abs(start_match.lag - first) < ONSET_TOLERANCE
         lag = start_match.lag
         # the last second before the cut is the track's; what follows the cut is not
-        assert audio.score_at(dump, pcm, lag, (seconds - 1) * RATE) > 0.98
-        assert audio.score_at(dump, pcm, lag, seconds * RATE, RATE // 2) < 0.5
+        assert audio.score_at(dump, pcm, lag, cut_at - RATE) > 0.98
+        assert audio.score_at(dump, pcm, lag, cut_at, RATE // 2) < 0.5
         # the game saw the track end and played it again from its start
-        assert again - lag >= seconds * RATE
+        assert again - lag >= cut_at
         restart = audio.align(dump, pcm, again, at=RATE // 4, length=RATE // 2)
         assert restart.score > 0.9 and abs(restart.lag - again) < ONSET_TOLERANCE, restart
-        assert restart.lag - lag >= seconds * RATE
+        assert restart.lag - lag >= cut_at
     finally:
         if game is not None:
             game.close(remove=True)

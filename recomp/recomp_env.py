@@ -36,6 +36,16 @@ HOST_DIRS = [HOST / name for name in ("core", "sdl", "vm", "render", "hooks")]
 DISC = RECOMP / "disc"
 VM_CHOICES = ("win32", "ledger", "shadow")
 VM_DEFAULT = "ledger"  # the implementation plain build.py / run.py use (CMakeLists.txt WD_VM)
+RENDERER_CHOICES = ("software", "direct")
+
+
+def renderer_default() -> str:
+    """What run.py uses without --renderer: the direct GPU renderer on Windows,
+    software elsewhere (the GL path has never been executed). The host's own
+    answer for an unset WD_RENDERER is wd_render_requested (render_live.cpp),
+    the launcher's is PortSettings::kGpuDefault (settings.h): keep the three
+    alike."""
+    return "direct" if sys.platform == "win32" else "software"
 
 
 def platform_suffix() -> str:

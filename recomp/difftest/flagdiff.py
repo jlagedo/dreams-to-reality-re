@@ -23,7 +23,8 @@ names = [
 out = {}
 for parts in names:
     name = " ".join(parts[:-1])
-    env = dict(os.environ, T_ONLY=name)
+    # software: the direct renderer (the Windows default) replaces game functions only
+    env = dict(os.environ, T_ONLY=name, WD_RENDERER="software")
     n = subprocess.run(
         [os.path.join(work, "t_insn.exe")], env=env, cwd=work, capture_output=True, text=True
     ).stdout.splitlines()

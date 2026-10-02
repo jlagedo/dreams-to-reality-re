@@ -342,7 +342,14 @@ int wd_render_requested(void) {
     static int requested = -1;
     if (requested < 0) {
         const char *mode = std::getenv("WD_RENDERER");
-        if (!mode || !*mode || !std::strcmp(mode, "software"))
+        if (!mode || !*mode) {
+            // Unset: direct on Windows, software where the GPU path is untested.
+#ifdef _WIN32
+            requested = 1;
+#else
+            requested = 0;
+#endif
+        } else if (!std::strcmp(mode, "software"))
             requested = 0;
         else if (!std::strcmp(mode, "direct"))
             requested = 1;
@@ -361,10 +368,8 @@ SDL_WindowFlags wd_render_window_flags(void) {
 int wd_render_open(SDL_Window *window) {
     std::string error;
     state.window = window;
-    if (!state.backend.init(window, error)) {
-        std::fprintf(stderr, "[direct] %s\n", error.c_str());
-        return 0;
-    }
+    if (!state.backend.init(window, error))
+        fatal("cannot start the graphics backend: " + error);
     sg_desc desc{};
     desc.environment = state.backend.environment();
     desc.logger.func = log_sokol;

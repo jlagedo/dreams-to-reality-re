@@ -143,6 +143,8 @@ def test_one_short_live_session():
             status = await client.call_tool("game_status", {})
             assert not failed(status), text_of(status)
             assert "true" in text_of(status).lower()
+            # no renderer was named: run.py's default (direct on Windows)
+            assert f'"renderer": "{recomp_env.renderer_default()}"' in text_of(status)
 
             await client.call_tool("game_wait", {"frames": 5})
             shot = await client.call_tool("game_screenshot", {})

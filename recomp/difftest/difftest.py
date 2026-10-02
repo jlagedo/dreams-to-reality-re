@@ -112,6 +112,9 @@ def main() -> int:
         try:
             p = subprocess.run(
                 [str(binary), str(exe), "--run"], cwd=work, stdout=so, stderr=se,
+                # A test program has none of the game functions the direct
+                # renderer (the Windows default) replaces.
+                env=dict(os.environ, WD_RENDERER="software"),
                 timeout=args.timeout,
             )  # fmt: skip
             print(f"exit {p.returncode}")

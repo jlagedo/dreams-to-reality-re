@@ -59,6 +59,8 @@ model root lands at the recorded project spawn.
 
 Hand-written sources are in `recomp/`; everything they generate, build or dump
 goes under `DREAMS_OUT/recomp/` (generated code is game-derived; never commit).
+`run.py` and the launcher default to the direct GPU renderer on Windows and to
+software elsewhere; direct aborts on a case it does not support (no fallback).
 Run from the repository root:
 
 ```sh
@@ -67,6 +69,7 @@ uv run --with capstone --with pefile python recomp/windream/lift/gen_imports.py
 uv run python recomp/windream/build.py
 uv run python recomp/windream/build.py --vm shadow
 uv run python recomp/windream/run.py
+uv run python recomp/windream/run.py --renderer software
 uv run python recomp/windream/run.py --headless --renderer direct --seconds 30
 uv run python recomp/windream/run.py --discs
 uv run python recomp/disc/build.py
@@ -134,6 +137,7 @@ Found by running (Windows, Git Bash tool):
 - Replaying a save load headless with the thumbnail smoke's key schedule (`...,28000:ESC,30000:LEFT,32000:RETURN,34000:RETURN`) → never opens a save (no `[save] open` line): fixed timings miss the menu states. Drive it through the control channel instead; the working key sequences are in `recomp/windream/debug/game_nav.py`.
 - Looking for a Save command in the game → there is none in retail (the system page is Load / Options / Quit); the game autosaves on every level entry.
 - Setting a `WD_*` variable inside the process with `SDL_setenv_unsafe` only → C `getenv` (`host_env`) does not see it on Windows; `main` also calls `_putenv_s`.
+- Starting the host yourself (not through `run.py`) on a program that is not the game, or for a software reference → set `WD_RENDERER=software`: unset means direct on Windows, which replaces game functions (`difftest.py` sets it).
 - Starting `windream_recomp.exe` with no arguments and no `WD_DISC1` → opens the launcher window instead of printing usage; pass the EXE path or use `run.py`.
 - Rebuilding while a game from that build directory is still running → the link fails (the executable is locked); stop the run first.
 - `run.py` importing `build.py` → `ModuleNotFoundError: build` when `tests/recomp` load `run.py` via importlib without `recomp/windream` on `sys.path`; shared helpers go in `recomp/recomp_env.py`.

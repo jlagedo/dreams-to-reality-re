@@ -38,6 +38,14 @@ run = load("recomp/windream/run.py")
 # ---- run.py ----
 
 
+@pytest.mark.parametrize(("platform", "renderer"), [("win32", "direct"), ("linux", "software")])
+def test_the_default_renderer_is_direct_on_windows_only(monkeypatch, platform, renderer):
+    monkeypatch.setattr(run.recomp_env.sys, "platform", platform)
+    assert run.parse_args([]).renderer == renderer
+    assert run.parse_args(["--renderer", "software"]).renderer == "software"
+    assert run.parse_args(["--renderer", "direct"]).renderer == "direct"
+
+
 def folder(tmp_path, name, cues):
     tree = tmp_path / name / "extracted"
     tree.mkdir(parents=True)

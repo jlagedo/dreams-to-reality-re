@@ -58,6 +58,8 @@ void wd_render_caption_scope_begin(void) { abort(); }
 void wd_render_caption_scope_end(void) { abort(); }
 void wd_render_fog_update(void) { abort(); }
 void wd_render_hnm5(void) { abort(); }
+void wd_render_palette_rows(uint32_t s,uint32_t p,int32_t r,int32_t g,int32_t b) { abort(); }
+void wd_render_fatalf(const char *format, ...) { abort(); }
 int wd_render_copy(uint32_t p,uint32_t s,uint32_t d,uint32_t c,uint32_t w,int dir) { abort(); }
 int wd_render_fill(uint32_t p,uint32_t d,uint32_t v,uint32_t c,uint32_t w,int dir) { abort(); }
 

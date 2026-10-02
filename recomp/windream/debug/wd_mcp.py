@@ -111,27 +111,28 @@ def game_start(
     tag: str,
     discs: bool = True,
     headless: bool = True,
-    renderer: str = "software",
+    renderer: str | None = None,
     extra_env: dict[str, str] | None = None,
 ) -> dict:
     """Start the game under the control channel (wdctl.start_game, run.py's options) and keep it.
 
     tag names the run directory (out/recomp/windream/run-<tag>); discs plays from the two disc
-    images; headless hides the window and mutes; renderer is "software" or "direct"; extra_env
+    images; headless hides the window and mutes; renderer is "software" or "direct" (default:
+    run.py's, direct on Windows and software elsewhere); extra_env
     adds environment variables (WD_* settings). One game at a time. Returns the channel's port,
     the run directory and the process id."""
     global _game, _ctl, _run_dir
     if _holding():
         raise wdctl.CtlError("a game is already held; call game_stop first")
     _forget()
-    if renderer not in ("software", "direct"):
+    if renderer not in ("software", "direct", None):
         raise wdctl.CtlError(f"renderer must be software or direct, not {renderer!r}")
     game = wdctl.start_game(
         tag=tag,
         discs=discs,
         headless=headless,
         extra_env=extra_env,
-        args=["--renderer", renderer],
+        args=["--renderer", renderer] if renderer else [],
     )
     _game, _ctl, _run_dir = game, game.ctl, game.run_dir
     return {"port": game.ctl.port, "run_dir": str(game.run_dir), "pid": game.process.pid}
