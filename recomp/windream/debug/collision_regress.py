@@ -66,6 +66,7 @@ CAM_STATES = {
     7: 0x52C7F8,
 }
 CAM_FAR = 2500  # follow mode: eye distance 528 behind the actor, lead 1024
+TOO_FAST = 900  # units per second: beyond Duncan's run; the tracked collider is something else
 # Deep penetration has no retail reference, so the sweep reports it apart.
 COLLISION = tuple(f for f in cw.COLLISION if f != "deep penetration")
 INV_LINE = re.compile(
@@ -120,6 +121,7 @@ class Project:
                 "returns": 0,
                 "turns": 0,
                 "edge_turns": 0,
+                "too_fast": 0,
                 "min_y": None,
                 "max_y": None,
             },
@@ -211,17 +213,21 @@ class Project:
         return out
 
     def find_player(self) -> None:
-        """The swept, floor-flagged collider nearest the record's spawn: the
-        record also has an inert collider standing exactly at the spawn."""
+        """The swept, floor-flagged collider nearest the follow camera's eye,
+        which starts 528 units behind the actor it follows (CAM_StartFollow's
+        snapped update). The spawn is a worse anchor: the record keeps an inert
+        collider exactly there, and on some levels another entity passes by."""
         cols = self.colliders()
         swept = [c for c in cols if c["swept"] and c["flags"] & cc.FLAG_FLOORS]
         floors = swept or [c for c in cols if c["flags"] & cc.FLAG_FLOORS] or cols
         if not floors:
             self.player = None
             return
-        best = min(floors, key=lambda c: math.dist(c["centre"], self.spawn))
+        eye = struct.unpack("<3i", self.ctl.read(CAM_STATES[0], 12))
+        best = min(floors, key=lambda c: math.dist(c["centre"], eye))
         self.player, self.radius = best["addr"], best["radius"]
         self.result["player"] = {k: v for k, v in best.items()}
+        self.result["player"]["eye_distance"] = round(math.dist(best["centre"], eye))
         self.result["player"]["spawn_distance"] = round(math.dist(best["centre"], self.spawn))
 
     # -- one sample --
@@ -264,7 +270,10 @@ class Project:
         stats["max_y"] = p[1] if stats["max_y"] is None else max(stats["max_y"], p[1])
         prev = self.prev
         if prev is not None:
-            stats["distance"] += round(math.dist((p[0], p[2]), (prev[0], prev[2])))
+            moved = math.dist((p[0], p[2]), (prev[0], prev[2]))
+            stats["distance"] += round(moved)
+            if moved > TOO_FAST * SAMPLE_MS / 1000:
+                stats["too_fast"] += 1  # not Duncan's walking or falling: another entity?
             for tri, (a, b, c) in self.geometry.items():
                 y0 = cw.plane_y(a, b, c, prev[0], prev[2])
                 if y0 is None or prev[1] > y0 - 1:
