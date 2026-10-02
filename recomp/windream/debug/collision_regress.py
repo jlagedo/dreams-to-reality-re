@@ -2,7 +2,8 @@
 (bank_patch slot 0), walk and jump for a while with every collision check on,
 and tabulate.
 
-Per project, headless, software renderer, WD_PHYS_INVARIANT=1:
+Per project, headless, the direct (GPU) renderer unless --renderer software,
+WD_PHYS_INVARIANT=1:
 - new game through the menus (game_nav.boot_into) into the record's scene;
 - the player's collider: the floor-flagged collider nearest the record's spawn;
 - then for --seconds: UP held, a jump (CTRL) about once a second, RETURN when
@@ -88,8 +89,8 @@ def parse_slots(text: str, count: int) -> list[int]:
 
 
 class Project:
-    def __init__(self, slot: int, seconds: float):
-        self.slot, self.seconds = slot, seconds
+    def __init__(self, slot: int, seconds: float, renderer: str = "direct"):
+        self.slot, self.seconds, self.renderer = slot, seconds, renderer
         bank = bank_patch.Bank.from_disc(1)
         self.bank = bank
         record = bank.parsed(slot)
@@ -159,10 +160,11 @@ class Project:
         self.game = wdctl.start_game(
             tag=tag,
             headless=True,
-            args=["--renderer", "software"],
+            args=["--renderer", self.renderer, "--scale", "1"],  # 640x480: three GL games fit
             extra_env={"WD_PHYS_INVARIANT": "1"},
         )
         self.ctl = self.game.ctl
+        self.result["renderer"] = self.renderer
         try:
             nav.boot_into(self.ctl, self.scene)
         except (nav.NavError, wdctl.CtlError) as error:
@@ -458,8 +460,8 @@ def hook_details(text: str) -> dict:
     }
 
 
-def run_project(slot: int, seconds: float) -> dict:
-    project = Project(slot, seconds)
+def run_project(slot: int, seconds: float, renderer: str = "direct") -> dict:
+    project = Project(slot, seconds, renderer)
     try:
         if project.start():
             project.drive()
@@ -526,6 +528,12 @@ def main() -> int:
     ap.add_argument("--workers", type=int, default=3)
     ap.add_argument("--seconds", type=float, default=40)
     ap.add_argument("--redo", action="store_true", help="replace kept results")
+    ap.add_argument(
+        "--renderer",
+        choices=("direct", "software"),
+        default="direct",
+        help="the renderer under test (direct: the GPU renderer, the product's)",
+    )
     options = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     bank = bank_patch.Bank.from_disc(1)
@@ -553,9 +561,16 @@ def main() -> int:
     print(f"[regress] {len(todo)} projects to run, {len(results)} kept", flush=True)
     if options.workers > 1 and len(todo) > 1:
         with ProcessPoolExecutor(max_workers=options.workers) as pool:
-            results += list(pool.map(run_project, todo, [options.seconds] * len(todo)))
+            results += list(
+                pool.map(
+                    run_project,
+                    todo,
+                    [options.seconds] * len(todo),
+                    [options.renderer] * len(todo),
+                )
+            )
     else:
-        results += [run_project(slot, options.seconds) for slot in todo]
+        results += [run_project(slot, options.seconds, options.renderer) for slot in todo]
     summarize(results)
     return 1 if any(f in COLLISION for r in results for f in r["failures"]) else 0
 
