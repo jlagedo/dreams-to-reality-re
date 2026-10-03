@@ -550,7 +550,10 @@ def run_design_checks(
 
         # losing focus shows the veil; clicking it takes control again
         page.evaluate("document.activeElement.blur()")
-        page.wait_for_timeout(200)
+        try:  # the page reacts on its next task; a busy real engine can delay it
+            page.wait_for_function("!document.getElementById('veil').hidden", timeout=5000)
+        except Exception:  # noqa: BLE001 - the check below reports it
+            pass
         rep.check(
             not page.evaluate("document.getElementById('veil').hidden"),
             f"{tag}: 'click to take control' shows when the game has no focus",

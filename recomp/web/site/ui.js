@@ -5,8 +5,8 @@
  * events, and owns: the toolbar and its status text, the controls dialog (the
  * "?" key), the scale mode (fit or pixel-perfect), the "click to take control"
  * veil, the key shield (keys go to the game only while it has focus), fullscreen
- * toolbar hiding, loading tips, plain-language error help, and the optional
- * screenshot strip. No framework. Notes: recomp/web/NOTES-design.md.
+ * toolbar hiding, loading tips, plain-language error help, the start screen's
+ * optional picture and the optional screenshot strip. No framework. Notes: recomp/web/NOTES-design.md.
  */
 (() => {
 'use strict';
@@ -145,13 +145,14 @@ function stateText() {
       const pct = p.bytesTotal ? Math.floor((p.bytesDone / p.bytesTotal) * 100) : 0;
       return 'Downloading the demo ' + pct + '% (' + mib(p.bytesDone) + ' of ' + mib(p.bytesTotal) + ')';
     }
-    case 'ready': return p.cacheHit ? 'Ready. Demo data was already in your browser' : 'Ready. Press play';
+    case 'ready': return 'Ready. Press play';
     case 'starting': return el.status.textContent || 'Starting the game';
     case 'running':
       if (document.hidden || !document.hasFocus()) return 'Paused while the tab is in the background';
       if (dialogOpen()) return 'Controls open';
       if (inHud()) return 'Toolbar has the keys. Esc returns to the game';
       return gameFocused() ? 'Playing. Keys go to the game' : 'Click the game to take control';
+    case 'ended': return 'You quit the game';
     case 'error': return 'Stopped';
     default: return '';
   }
@@ -218,6 +219,7 @@ function onPhase() {
   if (lbl) {
     if (p === 'starting') lbl.textContent = 'Starting...';
     else if (p === 'running') lbl.textContent = 'Playing';
+    else if (p === 'ended') lbl.textContent = 'Play again';
     else if (page.clicked && p !== 'ready') lbl.textContent = 'Starting when the data is ready...';
     else lbl.textContent = 'Play demo';
   }
@@ -360,20 +362,14 @@ $('volume').addEventListener('pointerup', () => { if (page.phase === 'running') 
   box.hidden = false;
 })();
 
-/* ---- a little parallax on the backdrop (off for reduced motion) ------------------------------- */
-if (!reduced) {
-  const near = document.querySelector('.islands .near'), far = document.querySelector('.islands .far');
-  let raf = 0;
-  addEventListener('pointermove', (e) => {
-    if (raf) return;
-    raf = requestAnimationFrame(() => {
-      raf = 0;
-      const x = (e.clientX / innerWidth - .5) * 2;
-      if (near) near.style.translate = (x * -14) + 'px 0';
-      if (far) far.style.translate = (x * -6) + 'px 0';
-    });
-  }, { passive: true });
-}
+/* ---- the start screen's picture (package.py --poster writes DREAMS_POSTER into config.js) -------- */
+(function poster() {
+  const box = $('poster');
+  if (!box || typeof window.DREAMS_POSTER !== 'string' || !window.DREAMS_POSTER) return;
+  // an absolute URL: one in a custom property would resolve against the stylesheet
+  box.style.setProperty('--poster', 'url(' + JSON.stringify(new URL(window.DREAMS_POSTER, location.href).href) + ')');
+  box.classList.add('photo');
+})();
 
 /* ---- start: catch up with what loader.js already did before this file ran --------------------- */
 onPhase();

@@ -93,7 +93,7 @@ send no key.
 - `MessageBoxA` shows no dialog in the browser; an error box goes to `onDreamsStatus("fatal", text)`.
 - The unset `WD_RENDERER` means `direct` (WebGL2) in the browser as on Windows.
 - The Emscripten `CMD_CALL_HANDLER` constant (9) is internal to `libpthread.js`: re-check it when the
-  SDK is updated (`tests/recomp/test_web_host.py` checks the two halves of the relay agree, not the number).
+  SDK is updated (`tests/recomp/test_web_host.py` checks the two halves of the relay agree); CMake now reads the number from the SDK's `libpthread.js` and fails if it is gone.
 
 ## Verified (headless Chrome 154, Windows; Playwright)
 

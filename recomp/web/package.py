@@ -18,6 +18,10 @@ out/, never commit them) to the "About the game" section: they are copied to
 site/shots/ (shrunk to JPEG when Pillow is installed) and listed in config.js.
 Without it the page has no game images, only original CSS and SVG art.
 
+--poster FILE puts one frame of the game on the start screen (also game-derived:
+a file under out/, never committed); it is copied to site/poster.jpg. Without it
+the start screen shows a plain dusk sky.
+
 --demo-url leaves the pack out of dist and points the page at that base URL
 (an R2 bucket, a CDN). The page fetches it with CORS, so the host must send
 Access-Control-Allow-Origin; see recomp/README.md, "Browser build". The pack
@@ -140,6 +144,22 @@ def copy_shots(src: Path, out: Path, limit: int = 8) -> list[dict]:
     return shots
 
 
+def copy_poster(src: Path, out: Path) -> str:
+    """Copy the start screen's picture to out/site/ (a 1280-wide JPEG with Pillow)."""
+    try:
+        from PIL import Image
+    except ImportError:
+        name = f"poster{src.suffix.lower()}"
+        shutil.copy2(src, out / "site" / name)
+    else:
+        name = "poster.jpg"
+        im = Image.open(src).convert("RGB")
+        im.thumbnail((1280, 960))
+        im.save(out / "site" / name, quality=85, optimize=True)
+    print(f"start screen picture: {src} (game-derived, not for the repository)")
+    return f"site/{name}"
+
+
 def check_sizes(out: Path, limit: int, label: str) -> int:
     files = [p for p in out.rglob("*") if p.is_file()]
     big = [p for p in files if p.stat().st_size > limit]
@@ -180,6 +200,12 @@ def main() -> int:
         default=None,
         help="folder of game screenshots to show in the page (game-derived; optional)",
     )
+    ap.add_argument(
+        "--poster",
+        type=Path,
+        default=None,
+        help="a frame of the game for the start screen (game-derived; optional)",
+    )
     args = ap.parse_args()
 
     out = args.out.resolve()
@@ -190,7 +216,9 @@ def main() -> int:
     for name in PAGE_FILES:
         shutil.copy2(HERE / name, out / name)
     shutil.rmtree(out / "site", ignore_errors=True)
-    shutil.copytree(SITE_DIR, out / "site", ignore=shutil.ignore_patterns("shots", "*.md"))
+    shutil.copytree(
+        SITE_DIR, out / "site", ignore=shutil.ignore_patterns("shots", "poster.*", "*.md")
+    )
     copy_engine(args.engine.resolve(), out)
 
     demo_local = False
@@ -219,6 +247,8 @@ def main() -> int:
         shots = copy_shots(args.shots.resolve(), out)
         if shots:
             cfg.append(f"window.DREAMS_SHOTS = {json.dumps(shots)};")
+    if args.poster:
+        cfg.append(f"window.DREAMS_POSTER = {json.dumps(copy_poster(args.poster.resolve(), out))};")
     if args.engine_url:
         cfg.append(f"window.DREAMS_ENGINE_BASE = {json.dumps(args.engine_url.rstrip('/') + '/')};")
     (out / "config.js").write_text("\n".join(cfg) + "\n", encoding="utf-8")

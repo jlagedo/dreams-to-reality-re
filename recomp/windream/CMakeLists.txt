@@ -176,7 +176,7 @@ if(EMSCRIPTEN)
     # Browser build. The guest runs on a pthread (PROXY_TO_PTHREAD: main is
     # started on a worker), so its blocking message loop, Sleep and waits never
     # block the page; SDL's canvas moves to that thread as an OffscreenCanvas.
-    # The 784 MB guest arena is one malloc'd block (vm_os_wasm.c), hence memory
+    # The 400 MB guest arena is one malloc'd block (vm_os_wasm.c), hence memory
     # growth up to 2 GB; INITIAL_MEMORY covers the image, stacks and the usual heap.
     # No ASYNCIFY, no launcher, no disc mode: the page puts the game's files in
     # the Emscripten FS under /dreams (WD_INSTALL_ROOT).
@@ -187,7 +187,21 @@ if(EMSCRIPTEN)
     # The guest program in the install root: GDIDREAM.EXE for the retail game;
     # build.py --web-exe changes it with --web-gen (another lifted program).
     set(WD_WEB_EXE GDIDREAM.EXE CACHE STRING "name of the guest EXE in the install root of the browser build")
-    target_compile_definitions(windream_recomp PRIVATE WD_WEB WD_WEB_EXE_NAME="${WD_WEB_EXE}")
+    # The frame relay (host/web/web_glue.c) posts the pthread runtime's own
+    # "call a Module handler" message; its number is internal to the SDK, so it
+    # is read from the SDK being used instead of being written down.
+    set(_wd_libpthread ${EMSCRIPTEN_ROOT_PATH}/src/lib/libpthread.js)
+    if(NOT EXISTS ${_wd_libpthread})
+        message(FATAL_ERROR "cannot find ${_wd_libpthread}: the frame relay needs its CMD_CALL_HANDLER")
+    endif()
+    file(STRINGS ${_wd_libpthread} _wd_call_handler REGEX "^const CMD_CALL_HANDLER = [0-9]+")
+    if(NOT _wd_call_handler MATCHES "CMD_CALL_HANDLER = ([0-9]+)")
+        message(FATAL_ERROR "no CMD_CALL_HANDLER in ${_wd_libpthread}: the SDK changed, see host/web/web_glue.c")
+    endif()
+    set(WD_WEB_CALL_HANDLER ${CMAKE_MATCH_1})
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_wd_libpthread})
+    target_compile_definitions(windream_recomp PRIVATE WD_WEB WD_WEB_EXE_NAME="${WD_WEB_EXE}"
+        WD_WEB_CALL_HANDLER=${WD_WEB_CALL_HANDLER})
     set_target_properties(windream_recomp PROPERTIES OUTPUT_NAME dreams SUFFIX .js LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/host/web/pre.js)
     target_link_options(windream_recomp PRIVATE
         -pthread -sPROXY_TO_PTHREAD -sOFFSCREENCANVAS_SUPPORT
@@ -233,6 +247,9 @@ if(NOT CMAKE_BUILD_TYPE)
         # -O0 leaves one wasm local per temporary: the biggest lifted functions
         # exceed the engines' limit of 50000 locals ("local count too large").
         target_compile_options(windream_recomp PRIVATE ${WD_WEB_OPT})
+        # Function names in the wasm, so a browser stack trace names sub_XXXXXXXX
+        # and host functions instead of wasm-function[1177].
+        target_link_options(windream_recomp PRIVATE --profiling-funcs)
     elseif(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
         if(CMAKE_C_COMPILER_ID MATCHES "Clang")
             target_compile_options(windream_recomp PRIVATE /Od)

@@ -665,6 +665,26 @@ def main():
             bounds[t] = end
             added[t] = end
 
+    # A literal jump out of a body into a fragment (a closure entry: a body
+    # Ghidra's bounds do not start, entered mid-frame by a jump) runs through
+    # RECOMP_ITAIL_FRAGMENT, which keeps the host stack flat when a loop's back
+    # edge crosses fragments (recomp_types.h). Other targets stay calls.
+    fragments = {a for a in bodies if a not in ghidra}
+    to_fragment = re.compile(
+        r"RECOMP_ITAIL\(0x([0-9A-F]{8})u\); \{ RECOMP_REGS_OUT\(\); return; \}"
+    )
+    fragment_jumps = 0
+    for a, c in bodies.items():
+
+        def mark(m):
+            if int(m.group(1), 16) not in fragments:
+                return m.group(0)
+            return m.group(0).replace("RECOMP_ITAIL(", "RECOMP_ITAIL_FRAGMENT(", 1)
+
+        bodies[a], n = to_fragment.subn(mark, c)
+        fragment_jumps += bodies[a].count("RECOMP_ITAIL_FRAGMENT(")
+    print(f"{len(fragments)} fragments, {fragment_jumps} jumps to them")
+
     lifted = sorted(bodies)
     head = (
         '#define RECOMP_GENERATED_CODE\n#include "recomp_types.h"\n'

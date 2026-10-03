@@ -7,8 +7,9 @@ The header and packaging tests need nothing. The browser test drives the
 shell in headless Chromium against a mock engine and a fake demo pack
 (recomp/web/mock/, built under out/recomp/web/mock/ with emcc); it is skipped
 when Playwright or a browser is missing, or the mock engine is not built and
-emcc is not available. The same checks run against the real build with
-`recomp/web/browser_check.py --real`.
+emcc is not available. test_real_engine_in_browser runs the same checks on
+the real build and demo pack when both are under out/ (as
+`recomp/web/browser_check.py --real` does).
 """
 
 import importlib.util
@@ -164,5 +165,38 @@ def test_page_in_browser():
     finally:
         srv.close()
         plain.close()
+    failed = [f"{n}: {d}" for ok, n, d in rep.rows if not ok]
+    assert not failed, "\n".join(failed)
+
+
+def test_real_engine_in_browser():
+    """The built engine and the demo pack: download, start, saves, reload from the cache."""
+    pytest.importorskip("playwright.sync_api")
+    from playwright.sync_api import sync_playwright
+
+    check = load(WEB / "browser_check.py", "dreams_web_browser_check_r")
+    if not (check.REAL_ENGINE / "dreams.js").is_file():
+        pytest.skip("no browser engine (recomp/windream/build.py --web)")
+    if not (check.REAL_DEMO / "manifest.json").is_file():
+        pytest.skip("no demo pack (recomp/web/demo/make_demo.py)")
+    dist = check.WEB_OUT / "check-real-test" / "dist"
+    check.package(check.REAL_ENGINE, check.REAL_DEMO, dist)
+    rep = check.Report()
+    srv = check.Server(dist)
+    try:
+        with sync_playwright() as pw:
+            try:
+                browser = check.launch(pw)
+            except Exception as e:  # noqa: BLE001
+                pytest.skip(f"no browser: {str(e).splitlines()[0]}")
+            try:
+                check.run_checks(
+                    browser, srv.url, dist, dist.parent / "shots", rep, mock=False, run_seconds=20
+                )
+            finally:
+                browser.close()
+    finally:
+        srv.close()
+        shutil.rmtree(dist.parent, ignore_errors=True)
     failed = [f"{n}: {d}" for ok, n, d in rep.rows if not ok]
     assert not failed, "\n".join(failed)

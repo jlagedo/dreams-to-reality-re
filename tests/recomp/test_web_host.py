@@ -9,6 +9,7 @@ the frame relay's two halves, and the tool environment. The real run is
 """
 
 import importlib.util
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -49,9 +50,23 @@ def test_frame_relay_halves_agree():
     glue = (WINDREAM / "host" / "web" / "web_glue.c").read_text()
     pre = (WINDREAM / "host" / "web" / "pre.js").read_text()
     assert "handler: 'dreamsFrame'" in glue
+    # The message number is the SDK's, read by CMake, not a literal in the glue.
+    assert "cmd: cmd" in glue and "WD_WEB_CALL_HANDLER" in glue
+    cmake = (WINDREAM / "CMakeLists.txt").read_text()
+    assert "libpthread.js" in cmake and "WD_WEB_CALL_HANDLER=${WD_WEB_CALL_HANDLER}" in cmake
     assert "Module['dreamsFrame']" in pre
     assert "__wrap_SDL_GL_SwapWindow" in glue
     assert "bitmaprenderer" in pre
+
+
+def test_sdk_has_the_relay_message():
+    """The number CMake reads is where the pattern in CMakeLists.txt looks for it."""
+    web_build = _load_web_build()
+    if not web_build.tools_config().is_file():
+        pytest.skip("no browser tools (out/recomp/web-tools/tools.json)")
+    emsdk = Path(web_build.load_tools()["emsdk"])
+    text = (emsdk / "upstream" / "emscripten" / "src" / "lib" / "libpthread.js").read_text()
+    assert re.search(r"^const CMD_CALL_HANDLER = \d+", text, re.M)
 
 
 def test_web_flag_in_build_py():

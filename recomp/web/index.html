@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#080c1a">
+<meta name="theme-color" content="#12162e">
 <meta name="description" content="An unofficial, in-browser preservation demo of Dreams to Reality (Cryo Interactive, 1997): the original Windows game statically recompiled to WebAssembly and WebGL 2.">
 <title>Dreams to Reality: browser demo</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' fill='none' stroke='%23f08a3c' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='4.5' fill='%2347d4e0'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' fill='none' stroke='%23e8762b' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='4.5' fill='%2386d5bf'/%3E%3C/svg%3E">
 <!-- Presentation lives in site/ (style.css, ui.js); behaviour in loader.js. Notes: NOTES-design.md. -->
 <link rel="stylesheet" href="site/style.css">
 </head>
@@ -28,47 +28,14 @@
   </defs>
 </svg>
 
-<!-- Backdrop: stars, mist and distant floating islands (decorative, CSS and SVG only). -->
-<div class="sky" aria-hidden="true">
-  <div class="stars s1"></div><div class="stars s2"></div>
-  <div class="mist m1"></div><div class="mist m2"></div>
-  <svg class="islands" viewBox="0 0 1600 420" preserveAspectRatio="xMidYMax slice">
-    <defs><linearGradient id="isl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3a63"/><stop offset="1" stop-color="#0d1430"/></linearGradient></defs>
-    <g class="far" fill="url(#isl)" opacity=".5">
-      <path d="M120 250c40-14 110-16 150 0-8 22-30 46-52 78-8 16-14 40-22 40s-12-26-24-44c-24-30-44-52-52-74z"/>
-      <path d="M980 190c36-10 92-12 126 0-6 18-24 38-42 64-6 14-12 34-18 34s-10-22-20-36c-20-26-38-44-46-62z"/>
-      <path d="M1380 300c30-8 78-10 106 0-5 15-20 32-35 54-5 12-10 28-15 28s-8-18-17-30c-16-22-32-37-39-52z"/>
-    </g>
-    <g class="near" fill="url(#isl)" opacity=".85">
-      <path d="M470 300c60-20 150-22 206 0-12 30-40 62-70 106-10 20-20 54-33 54s-18-34-34-60c-34-44-60-74-69-100z"/>
-      <path d="M1120 340c52-16 130-18 178 0-10 26-34 54-60 92-8 17-17 46-28 46s-15-30-29-52c-30-38-52-64-61-86z"/>
-    </g>
-  </svg>
-</div>
-
 <header class="top">
-  <a class="brand" href="#player" aria-label="Dreams to Reality, browser demo">
-    <svg class="emblem" viewBox="0 0 48 48" aria-hidden="true"><use href="#emblem"/></svg>
-    <span class="wordmark"><b>Dreams</b> <i>to</i> <b>Reality</b></span>
-  </a>
+  <a class="brand" href="#player" aria-label="Dreams to Reality, browser demo">Dreams to Reality</a>
   <nav aria-label="Sections">
-    <a href="#player">Play</a><a href="#game">The game</a><a href="#controls">Controls</a><a href="#tips">Tips</a><a href="#port">This port</a><a href="#faq">FAQ</a>
+    <a href="#player">Play</a><a href="#game">The game</a><a href="#controls">Controls</a><a href="#tips">Tips</a><a href="#port">This port</a><a href="#faq">Questions</a>
   </nav>
 </header>
 
 <main>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <defs>
-    <linearGradient id="ringg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6a04a"/><stop offset="1" stop-color="#47d4e0"/></linearGradient>
-    <symbol id="emblem" viewBox="0 0 48 48">
-      <circle cx="24" cy="24" r="19" fill="none" stroke="url(#ringg)" stroke-width="3"/>
-      <circle cx="24" cy="24" r="8" fill="#0b1226" stroke="#47d4e0" stroke-width="2"/>
-      <circle cx="24" cy="24" r="3" fill="#f6a04a"/>
-      <path d="M24 2v11" stroke="#e5484d" stroke-width="3" stroke-linecap="round"/>
-      <path d="M24 35v11" stroke="#47d4e0" stroke-width="3" stroke-linecap="round"/>
-    </symbol>
-  </defs>
-</svg>
 
 <noscript><p class="notice" style="margin:1rem">This demo runs the game in your browser and needs JavaScript. Please enable it and reload.</p></noscript>
 
@@ -83,54 +50,16 @@
         <div class="screen" id="stage">
           <canvas id="canvas" tabindex="0" aria-label="Dreams to Reality game screen. Keyboard controls: press question mark for the list."></canvas>
 
-          <!-- Poster, loading, ready and error states. loader.js toggles .hidden once the game runs. -->
+          <!-- Start screen (letterbox): loading, ready, ended and error states. loader.js toggles .hidden once the game runs. -->
           <div id="overlay" role="region" aria-label="Start screen">
-            <svg class="poster" viewBox="0 0 640 480" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-              <defs>
-                <linearGradient id="p-sky" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#0a1038"/><stop offset=".38" stop-color="#1f3f8f"/>
-                  <stop offset=".68" stop-color="#5aa6e0"/><stop offset=".9" stop-color="#f1d3a2"/><stop offset="1" stop-color="#f6b878"/>
-                </linearGradient>
-                <linearGradient id="p-top" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a867c"/><stop offset="1" stop-color="#5b5a58"/></linearGradient>
-                <linearGradient id="p-side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2d5a6e"/><stop offset="1" stop-color="#16303e"/></linearGradient>
-                <linearGradient id="p-rock" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a47a42"/><stop offset="1" stop-color="#4a3420"/></linearGradient>
-                <radialGradient id="p-halo" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-                <radialGradient id="p-vig" cx=".5" cy=".45" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#050816" stop-opacity=".85"/></radialGradient>
-                <radialGradient id="p-cloud" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".8"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-              </defs>
-              <rect width="640" height="480" fill="url(#p-sky)"/>
-              <g fill="#fff"><circle cx="62" cy="40" r="1.2"/><circle cx="140" cy="86" r="1"/><circle cx="238" cy="30" r="1.4"/><circle cx="312" cy="70" r="1"/><circle cx="410" cy="26" r="1.3"/><circle cx="512" cy="64" r="1.1"/><circle cx="590" cy="30" r="1"/><circle cx="470" cy="112" r=".9"/><circle cx="96" cy="140" r=".9"/></g>
-              <circle cx="470" cy="150" r="120" fill="url(#p-halo)"/>
-              <g fill="none" stroke="#fff" opacity=".28"><circle cx="470" cy="150" r="46"/><circle cx="470" cy="150" r="74" opacity=".6"/><circle cx="470" cy="150" r="108" opacity=".35"/></g>
-              <circle cx="470" cy="150" r="10" fill="#fff" opacity=".9"/>
-              <g class="cloud c1" fill="url(#p-cloud)" opacity=".7"><ellipse cx="150" cy="300" rx="170" ry="30"/><ellipse cx="240" cy="284" rx="120" ry="22"/></g>
-              <g class="cloud c2" fill="url(#p-cloud)" opacity=".6"><ellipse cx="520" cy="330" rx="190" ry="32"/><ellipse cx="440" cy="312" rx="110" ry="20"/></g>
-              <g fill="#1b2a5a" opacity=".7"><path d="M60 250c20-8 52-9 70 0-4 12-14 24-24 40-4 8-6 20-11 20s-6-13-12-22c-12-17-20-28-23-38z"/><path d="M560 232c14-6 36-6 48 0-3 8-10 17-17 28-3 6-4 14-7 14s-4-9-8-15c-8-12-14-19-16-27z"/></g>
-              <!-- the slab, high in the frame so the start panel leaves it visible -->
-              <g transform="translate(0 -118)">
-                <path d="M40 440L150 330 540 326 640 410 640 700 0 700z" fill="url(#p-rock)"/>
-                <path d="M110 400L214 316 506 312 598 378 520 412 150 418z" fill="url(#p-top)"/>
-                <path d="M150 418L520 412 598 378 598 412 520 450 150 456z" fill="url(#p-side)"/>
-                <path d="M214 338h250M236 354h210" stroke="#3b3a39" stroke-width="3" stroke-linecap="round" opacity=".55" fill="none"/>
-                <path d="M262 366c40-18 120-18 168 0" stroke="#3b3a39" stroke-width="3" opacity=".45" fill="none"/>
-                <g transform="translate(340 320)">
-                  <ellipse cx="0" cy="52" rx="20" ry="5" fill="#000" opacity=".3"/>
-                  <rect x="-10" y="26" width="8" height="24" rx="3" fill="#e8762b"/><rect x="2" y="26" width="8" height="24" rx="3" fill="#d4631f"/>
-                  <rect x="-11" y="2" width="22" height="28" rx="6" fill="#7fcfb8"/>
-                  <path d="M-13 8l-14 6M13 8l14 6" stroke="#7fcfb8" stroke-width="5" stroke-linecap="round"/>
-                  <circle cx="0" cy="-8" r="9" fill="#8fdcc6"/>
-                  <circle cx="0" cy="-12" r="2.6" fill="none" stroke="#fff" stroke-width="1.2"/>
-                </g>
-              </g>
-              <rect width="640" height="480" fill="url(#p-vig)"/>
-            </svg>
-
-            <div class="card">
+            <p class="letter"><span>Cryo Interactive, 1997</span><span>Browser demo</span></p>
+            <div class="band">
+              <div class="poster" id="poster" aria-hidden="true"></div>
               <div class="title-block">
-                <p class="eyebrow">Cryo Interactive, 1997</p>
-                <h1 id="title" class="wordmark big"><b>Dreams</b> <i>to</i> <b>Reality</b></h1>
-                <p class="sub">The browser demo</p>
+                <h1 id="title">Dreams to Reality</h1>
+                <p class="sub">The 1997 adventure across the dream islands, running in this tab.</p>
               </div>
+            </div>
 
               <div class="panel">
                 <div id="bar" role="progressbar" aria-label="Download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
@@ -157,12 +86,11 @@
                   <pre id="error-text"></pre>
                   <div class="error-actions">
                     <button id="retry" type="button" class="btn">Try again</button>
-                    <button id="clear-retry" type="button" class="btn ghost">Clear downloaded data and retry</button>
-                    <button id="copylog" type="button" class="btn ghost">Copy technical details</button>
+                    <button id="clear-retry" type="button" class="btn">Clear downloaded data and retry</button>
+                    <button id="copylog" type="button" class="btn">Copy technical details</button>
                   </div>
                 </div>
               </div>
-            </div>
           </div>
 
           <!-- Shown while the game runs but the keyboard is not going to it. -->
@@ -190,7 +118,7 @@
 
       <!-- Controls overlay: opened by the ? key or the Controls button. Filled from #controls by ui.js. -->
       <dialog id="controls-dialog" aria-labelledby="controls-dialog-title">
-        <div class="dlg-head"><h2 id="controls-dialog-title">Controls</h2><button type="button" class="btn ghost" id="controls-close">Close <kbd>Esc</kbd></button></div>
+        <div class="dlg-head"><h2 id="controls-dialog-title">Controls</h2><button type="button" class="btn" id="controls-close">Close <kbd>Esc</kbd></button></div>
         <p class="dlg-note">The game keeps running behind this window, but your keys do not reach it while it is open.</p>
         <div class="dlg-body" id="controls-dialog-body"></div>
       </dialog>
@@ -199,7 +127,7 @@
     <aside class="side" aria-label="Quick controls">
       <h2>Controls</h2>
       <div id="side-controls"></div>
-      <p class="fine">Press <kbd>?</kbd> in the game for this list. <kbd>F10</kbd> shows the original game's own control screen.</p>
+      <p class="fine">Press <kbd>?</kbd> for every control: magic, cameras, the menu and the gamepad.</p>
     </aside>
   </div>
   <pre id="log"></pre>
@@ -208,7 +136,7 @@
 <div class="wrap">
 
 <section id="game" class="block">
-  <header class="block-head"><p class="eyebrow">About the game</p><h2>A dream world, seen from behind your hero</h2></header>
+  <header class="block-head"><h2>A dream world, seen from behind your hero</h2></header>
   <div class="cols">
     <div class="prose">
       <p><em>Dreams to Reality</em> is a third-person 3D adventure from <b>Cryo Interactive</b>, released in 1997 for Windows 95, DOS and 3dfx graphics cards. You guide <b>Duncan</b>, the "chosen one" a voice tells you that you are at the start, across floating dream islands: an overgrown stone temple in the clouds, an island of giant stone heads, a hammam, a cinema, a factory, a house of spiders, a shark arena and many more. The game ships about 95 distinct scenes.</p>
@@ -228,7 +156,7 @@
 </section>
 
 <section id="controls" class="block">
-  <header class="block-head"><p class="eyebrow">How to play</p><h2>Controls</h2></header>
+  <header class="block-head"><h2>Controls</h2></header>
   <p class="lead">The game is played entirely from the keyboard: there is no mouse input at all. Click the game once so it has the keyboard. These are the original game's controls (from its README).</p>
 
   <div class="controls-grid" id="controls-src">
@@ -271,7 +199,7 @@
       <div class="krow"><dt>Back to the game</dt><dd><kbd>Esc</kbd> or a click</dd></div>
       <div class="krow"><dt>Fullscreen</dt><dd><kbd>F11</kbd> or the toolbar</dd></div>
     </dl></section>
-    <section class="kgroup pad"><h3>Gamepad <small>experimental</small></h3><dl>
+    <section class="kgroup pad"><h3>Gamepad <small>(experimental)</small></h3><dl>
       <div class="krow"><dt>Move</dt><dd>left stick or d-pad = arrows</dd></div>
       <div class="krow"><dt>Jump, kick</dt><dd><kbd class="pb">A</kbd> = <kbd>Ctrl</kbd></dd></div>
       <div class="krow"><dt>Punch, walk, fly</dt><dd><kbd class="pb">X</kbd> = <kbd>Alt</kbd></dd></div>
@@ -286,7 +214,7 @@
 </section>
 
 <section id="tips" class="block">
-  <header class="block-head"><p class="eyebrow">Hints</p><h2>Tips for the demo</h2></header>
+  <header class="block-head"><h2>Tips</h2></header>
   <div class="cards">
     <article class="card-s"><h3>Look after your manna</h3><p>Flying and magic cost manna. The small flying blue bubbles refill a lot of it. Watch the gauge, especially in flight: some places need more than others.</p></article>
     <article class="card-s"><h3>Trust your shadow</h3><p>When you jump, the shadow you throw shows where you will land. The original game is unforgiving about falls.</p></article>
@@ -299,7 +227,7 @@
 </section>
 
 <section id="port" class="block">
-  <header class="block-head"><p class="eyebrow">About this port</p><h2>Not an emulator: the original program, translated</h2></header>
+  <header class="block-head"><h2>Not an emulator: the original program, translated</h2></header>
   <div class="cols">
     <div class="prose">
       <p>This is an <b>unofficial fan preservation project</b>. It has no connection with Cryo Interactive or any rights holder. It exists so that a 1997 game keeps being playable, and so that its code can be studied.</p>
@@ -325,7 +253,7 @@
 </section>
 
 <section id="faq" class="block">
-  <header class="block-head"><p class="eyebrow">Questions</p><h2>FAQ</h2></header>
+  <header class="block-head"><h2>Questions</h2></header>
   <div class="faq">
     <details><summary>The keys do nothing, or the page scrolls.</summary><p>Click the game once: keys only go to it while it has focus. If the picture shows "Click to take control", click it. Press <kbd>?</kbd> for the key list.</p></details>
     <details><summary>Esc leaves fullscreen instead of opening the game's menu.</summary><p>Chrome and Edge let the game keep <kbd>Esc</kbd> in fullscreen. Other browsers reserve it: use the toolbar's <b>Menu</b> button, which sends <kbd>Esc</kbd> to the game.</p></details>
@@ -337,7 +265,7 @@
     <details><summary>The game stops or crashes.</summary><p>Reload; your autosave is kept. If it repeats, open the page with <code>?debug</code> to see the log, and use "Copy technical details" in the error box when reporting it.</p></details>
     <details><summary>Can I remove the downloaded data and my save?</summary>
       <p>Your browser's site-data settings can do it, or use the button here. It deletes the cached demo data and the saved game, then reloads.</p>
-      <p><button id="clear-data" type="button" class="btn ghost">Delete cached data and my save</button></p></details>
+      <p><button id="clear-data" type="button" class="btn">Delete cached data and my save</button></p></details>
     <details><summary>Is this official?</summary><p>No. It is a fan preservation project. See below for credits and the legal note.</p></details>
   </div>
 </section>
@@ -367,7 +295,7 @@
   </div>
 </footer>
 
-<!-- config.js (written by package.py) may set DREAMS_DEMO_BASE, DREAMS_ENGINE_BASE and DREAMS_SHOTS -->
+<!-- config.js (written by package.py) may set DREAMS_DEMO_BASE, DREAMS_ENGINE_BASE, DREAMS_POSTER and DREAMS_SHOTS -->
 <script src="config.js"></script>
 <script src="loader.js"></script>
 <script src="site/ui.js"></script>

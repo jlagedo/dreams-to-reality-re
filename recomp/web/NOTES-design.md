@@ -7,6 +7,28 @@ COEP `require-corp`): system fonts, inline SVG. Weight: `index.html` 32 KB,
 `style.css` 27 KB, `ui.js` 19 KB, `loader.js` 26 KB (about 104 KB raw, well under
 the 150 KB target; screenshots are optional and extra).
 
+## The look (reworked)
+
+Two places on one page. The dream: dusk (`--dusk`), holding the header, the stage, its toolbar and
+the quick controls. Past a dawn gradient at the bottom of `.play` (the page's one decorated edge),
+reality: a sandstone page (`--sand`, ink text) set like the booklet in the game's box, each section
+with its heading in a margin column. One book face (`--book`, the Palatino stack) for everything
+that is read; the system face (`--ui`) for buttons, key caps and the start screen's control strip.
+No backdrop art, no emblem, no cards, no upper-case labels. Key caps and hairlines take their
+colours from custom properties set per place (`--key-*`, `--rule`, `--text`, `--link`).
+
+The start screen is the game's own letterbox: a black bar, a picture band with the title, and a
+black control strip (progress, status, the play button, hints, errors). The band shows a frame of
+the game when the deployment gives one (`package.py --poster FILE` copies it to `site/poster.jpg`
+and sets `DREAMS_POSTER`; game-derived, so only from `out/`), otherwise a plain dusk sky. The
+earlier drawn poster (a figure on a slab) is gone: nothing drawn stands in for the game.
+
+Phase `ended` (the player chose Quit in the game's menu; the host sends status `exit`): the start
+screen returns with "Play again", which reloads the page.
+
+The sections below describe structure and behaviour; where they name the old backdrop
+(`.sky`, the poster SVG, the emblem, the `--night-*` tokens), the paragraphs above replace them.
+
 ## Files
 
 | File | What |

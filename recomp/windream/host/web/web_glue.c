@@ -5,7 +5,7 @@
  * a pthread (PROXY_TO_PTHREAD), so everything that touches the page goes to
  * the main thread through MAIN_THREAD_EM_ASM. The contract is
  * recomp/web/CONTRACT.md: Module.onDreamsStatus(kind, text), kind "boot",
- * "running" or "fatal"; the page works without it.
+ * "running", "fatal" or "exit"; the page works without it.
  */
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -27,14 +27,22 @@ void wd_web_status(const char* kind, const char* text) {
     })(UTF8ToString($0), UTF8ToString($1)), kind, text ? text : "");
 }
 
-/* After a swap: hand the finished frame to the page. */
-EM_JS(void, wd_web_present, (void), {
-    var rec = GL.offscreenCanvases['canvas'];
+/* After a swap: hand the finished frame to the page. The guest thread has one
+ * canvas, the one pre.js registered under the page canvas's id. cmd is the
+ * pthread runtime's "call a Module handler on the main thread" message
+ * (CMD_CALL_HANDLER), which CMake reads from the SDK's libpthread.js. */
+#ifndef WD_WEB_CALL_HANDLER
+#error "WD_WEB_CALL_HANDLER is not defined (CMakeLists.txt reads it from the Emscripten SDK)"
+#endif
+EM_JS(void, wd_web_present_js, (int cmd), {
+    var all = GL.offscreenCanvases, rec = null;
+    for (var id in all) { rec = all[id]; break; }
     var oc = rec && (rec.offscreenCanvas || rec.canvas);
     if (!oc) return;
     var bmp = oc.transferToImageBitmap();
-    postMessage({ cmd: 9 /* CMD_CALL_HANDLER, libpthread.js (Emscripten 6.0.10) */, handler: 'dreamsFrame', args: [bmp] }, [bmp]);
+    postMessage({ cmd: cmd, handler: 'dreamsFrame', args: [bmp] }, [bmp]);
 });
+static void wd_web_present(void) { wd_web_present_js(WD_WEB_CALL_HANDLER); }
 
 /* Every SDL_GL_SwapWindow (the direct renderer's present and SDL_Renderer's
  * own) goes through here: the linker wraps the symbol (CMakeLists.txt). */

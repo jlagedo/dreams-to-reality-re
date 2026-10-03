@@ -1000,6 +1000,39 @@ recomp_func_t recomp_lookup_import(uint32_t va);    /* import bridges */
     else { fprintf(stderr, "ITAIL: unresolved VA 0x%08X from 0x%08X\n", _va, g_cur_func); } \
 } while(0)
 
+/* Jump to a fragment: a piece of a function that the lifter emitted as a body
+ * of its own because a jump enters it from outside (lift.py marks these
+ * targets; their bodies start with RECOMP_ENTER_FRAGMENT). RECOMP_ITAIL would
+ * call it, so a loop whose back edge crosses fragments (PHYS_SweepCollider:
+ * 0x40CB1D <-> 0x40CE6B, one pass per collider step) nests two host frames per
+ * pass and overflows the host stack on a long sweep; the browser's stack is
+ * small enough for that to happen in play. Here the first jump runs a loop
+ * instead: it arms the fragment it calls, and an armed fragment's own jump to a
+ * fragment only records the target and returns to that loop. The host stack
+ * stays flat; the guest state is the same as with nested calls. Only fragments
+ * read the arming, at their entry, so calls and host code never see it. */
+extern RECOMP_TLS uint32_t g_tail_armed, g_tail_pending;
+#define RECOMP_ITAIL_FRAGMENT(target_va) do { \
+    if (_tail_driven) { g_tail_pending = (uint32_t)(target_va); break; } \
+    uint32_t _va = (uint32_t)(target_va); \
+    RECOMP_REGS_OUT(); \
+    do { \
+        g_icall_trace[g_icall_trace_idx & (ICALL_TRACE_SIZE-1)] = _va; \
+        g_icall_from[g_icall_trace_idx & (ICALL_TRACE_SIZE-1)] = g_cur_func; \
+        g_icall_trace_idx++; \
+        g_icall_count++; \
+        recomp_func_t _fn = recomp_lookup(_va); \
+        if (!_fn) { fprintf(stderr, "ITAIL: fragment 0x%08X is not lifted (from 0x%08X)\n", _va, g_cur_func); break; } \
+        g_tail_pending = 0; \
+        g_tail_armed = 1; \
+        _fn(); \
+        g_tail_armed = 0; \
+        _va = g_tail_pending; \
+    } while (_va); \
+    g_tail_pending = 0; \
+    RECOMP_REGS_IN(); \
+} while(0)
+
 /* ============================================================
  * Optional function-entry tracer (enable with -DRECOMP_TRACE).
  *
@@ -1016,14 +1049,14 @@ recomp_func_t recomp_lookup_import(uint32_t va);    /* import bridges */
 extern uint32_t g_enter_trace[RECOMP_ENTER_SIZE];
 extern uint32_t g_enter_idx;
 void recomp_trace_enter(uint32_t va);
-#define RECOMP_ENTER(va) uint32_t _entry_esp = esp; do { g_cur_func = (va); recomp_trace_enter(va); } while (0)
+#define RECOMP_ENTER(va) uint32_t _entry_esp = esp; const int _tail_driven = 0; do { (void)_tail_driven; g_cur_func = (va); recomp_trace_enter(va); } while (0)
 #else
-#define RECOMP_ENTER(va) uint32_t _entry_esp = esp; (g_cur_func = (va))
+#define RECOMP_ENTER(va) uint32_t _entry_esp = esp; const int _tail_driven = 0; ((void)_tail_driven, g_cur_func = (va))
 #endif
 #ifdef RECOMP_TRACE
-#define RECOMP_ENTER_FRAGMENT(va) uint32_t _entry_esp = 0xFFFFFFFFu; do { g_cur_func = (va); recomp_trace_enter(va); } while (0)
+#define RECOMP_ENTER_FRAGMENT(va) uint32_t _entry_esp = 0xFFFFFFFFu; const int _tail_driven = (int)g_tail_armed; do { g_tail_armed = 0; g_cur_func = (va); recomp_trace_enter(va); } while (0)
 #else
-#define RECOMP_ENTER_FRAGMENT(va) uint32_t _entry_esp = 0xFFFFFFFFu; (g_cur_func = (va))
+#define RECOMP_ENTER_FRAGMENT(va) uint32_t _entry_esp = 0xFFFFFFFFu; const int _tail_driven = (int)g_tail_armed; (g_tail_armed = 0, g_cur_func = (va))
 #endif
 /* Always-callable trace dump (no-op unless RECOMP_TRACE). */
 void recomp_dump_trace(const char* why);

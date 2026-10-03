@@ -76,7 +76,7 @@ def configure_and_build(
     name: str = "build-web",
 ) -> tuple[int, Path]:
     """Configure and build; returns (exit code, build directory). optimize is
-    a CMake build type ("" is the development build: -O0 for lifted code)."""
+    a CMake build type ("" is the development build: -O1, see WD_WEB_OPT in CMakeLists.txt)."""
     tools = load_tools()
     env = web_env(tools)
     cmake = shutil.which("cmake", path=env["PATH"]) or "cmake"

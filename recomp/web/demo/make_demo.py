@@ -1,8 +1,8 @@
 """Build the minimal browser demo pack from the retail game files.
 
-    uv run python recomp/web/demo/make_demo.py                    # profile wip, no movies
+    uv run python recomp/web/demo/make_demo.py                    # profile wip, each level's movie
     uv run python recomp/web/demo/make_demo.py --profile first    # the first level only
-    uv run python recomp/web/demo/make_demo.py --movies project   # keep each level's movie
+    uv run python recomp/web/demo/make_demo.py --movies none      # no movies (experiments)
 
 Reads disc 1 (`DREAMS_DISC1`; the install root `DREAMS_INSTALL_ROOT` and disc 2
 are searched too, their shared files are byte-identical) through
@@ -63,7 +63,10 @@ PROFILES = {
 CORE = [
     ("DATA/1CD.ID", "disc-1 marker the game checks at start (CD_FindDrive)"),
     ("DATA/HD.ID", "install marker (CD_CheckInstall)"),
-    ("DATA/FULL.ID", "full-install marker: data read from the install root, no CD copying"),
+    (
+        "DATA/FULL.ID",
+        "full-install marker for a native run of the root; the browser host hides it (files.c)",
+    ),
     ("DATA/LEVEL.ID", "cached level number (4-byte 1, written here)"),
     ("DATA/FONT/HI640.SPR", "font"),
     ("DATA/FONT/HI480.SPR", "font"),

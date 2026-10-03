@@ -34,7 +34,7 @@ const el = {
 function setLabel(node, text) { const l = node.querySelector('.lbl'); (l || node).textContent = text; }
 
 const page = window.dreamsPage = {
-  phase: 'init',          // init, checking, manifest, downloading, ready, starting, running, error
+  phase: 'init',          // init, checking, manifest, downloading, ready, starting, running, ended, error
   isolated: false,
   cacheHit: false,        // every file came from the cache, nothing was downloaded
   cacheKey: '',
@@ -87,6 +87,20 @@ function fail(title, detail, canRetry = true) {
   emit('error', { title, detail: String(detail), canRetry });
 }
 el.retry.addEventListener('click', () => location.reload());
+
+// The player chose Quit in the game's menu (or the program returned): the start screen comes back.
+function ended(text) {
+  if (page.phase === 'error' || page.phase === 'ended') return;
+  syncSaves('exit');
+  setPhase('ended');
+  el.overlay.classList.remove('hidden');
+  el.hud.classList.remove('show');
+  el.play.disabled = false;
+  setLabel(el.play, 'Play again');
+  setStatus('You quit the game. Your autosave is kept.');
+  log('ended', text || '');
+  el.play.focus({ preventScroll: true });
+}
 
 /* ---- audio: capture contexts so the page can unlock and mute them -------- */
 
@@ -532,13 +546,15 @@ async function startGame() {
       print: (t) => log('out:', t),
       printErr: (t) => log('err:', t),
       preRun: [function (mod) { populate(mod && mod.FS ? mod : this, files); }],
-      onAbort: (what) => fail('The game stopped', 'The engine aborted: ' + what, true),
+      // A fatal error the host already reported (its text is the useful one) aborts next; so does a quit.
+      onAbort: (what) => { if (page.phase !== 'error' && page.phase !== 'ended') fail('The game stopped', 'The engine aborted: ' + what, true); },
       onDreamsStatus: (kind, text) => {
         log('status', kind, text || '');
         gotStatus = true;
         if (kind === 'boot') setStatus(text || 'Starting the game...');
         else if (kind === 'running') markRunning('onDreamsStatus');
-        else if (kind === 'fatal') fail('The game reported a fatal error', text || '(no details)', true);
+        else if (kind === 'fatal') { if (page.phase !== 'error') fail('The game reported a fatal error', text || '(no details)', true); }
+        else if (kind === 'exit') ended(text);
         if (typeof page.onStatus === 'function') page.onStatus(kind, text);
       },
     });
@@ -551,6 +567,7 @@ async function startGame() {
 }
 
 function userStart() {
+  if (page.phase === 'ended') { location.reload(); return; }
   page.clicked = true;
   resumeAudio();
   el.canvas.focus();

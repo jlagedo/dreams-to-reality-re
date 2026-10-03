@@ -110,6 +110,7 @@ void imp_UnhandledExceptionFilter(void) { RET(0); STDRET(1); }   /* EXCEPTION_CO
 void imp_ExitProcess(void) {
     fprintf(stderr, "[kernel] ExitProcess(%u) from sub_%08X\n", ARG(0), g_cur_func);
     /* As ExitProcess does: no atexit handlers, the other threads just stop. */
+    wd_web_status("exit", "the game was closed");
     fflush(NULL);
     _Exit((int)ARG(0));
 }

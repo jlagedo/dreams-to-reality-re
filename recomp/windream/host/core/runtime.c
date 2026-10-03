@@ -45,6 +45,7 @@ RECOMP_TLS uint16_t g_seg_cs, g_seg_ds, g_seg_es, g_seg_fs, g_seg_gs, g_seg_ss;
 RECOMP_TLS uint32_t g_fs_base, g_gs_base;
 RECOMP_TLS uint64_t g_mm[8];
 RECOMP_TLS uint32_t g_cur_func;
+RECOMP_TLS uint32_t g_tail_armed, g_tail_pending;   /* RECOMP_ITAIL_FRAGMENT */
 
 ptrdiff_t g_mem_base;
 uint32_t g_icall_trace[ICALL_TRACE_SIZE];
@@ -281,7 +282,11 @@ static int apply_pokes(void) {
  * name the discs. Returns 0 to go on (*exe NULL: the disc's; *options: the
  * index of the first option), else the exit code. */
 static const char* exe_argument(int argc, char** argv) {
-    return argc >= 2 && strncmp(argv[1], "--", 2) && !strchr(argv[1], '=') ? argv[1] : NULL;
+    if (argc < 2 || !strncmp(argv[1], "--", 2)) return NULL;
+#ifdef __EMSCRIPTEN__
+    if (strchr(argv[1], '=')) return NULL;   /* a WD_NAME=VALUE option of the page (web_glue.c) */
+#endif
+    return argv[1];
 }
 #ifdef __EMSCRIPTEN__
 /* The browser build (CONTRACT.md): the page puts the game's files in the

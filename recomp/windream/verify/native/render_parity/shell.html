@@ -1,0 +1,44 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>WINDREAM render parity (WebGL2)</title>
+<style>body{margin:0;background:#222;color:#ddd;font:12px monospace}canvas{display:block}pre{margin:4px}</style></head>
+<body>
+<canvas id="canvas" width="640" height="480" tabindex="0"></canvas>
+<pre id="log"></pre>
+<script>
+// The runner (recomp/windream/verify/render_parity.py) waits for parityReady,
+// then calls parityCase(url, name) per case: the input is fetched into the
+// Emscripten file system, drawn, and its outputs are handed back as bytes.
+var logEl = document.getElementById('log');
+window.parityReady = false;
+var Module = {
+  canvas: document.getElementById('canvas'),
+  print: function (t) { console.log(t); logEl.textContent += t + "\n"; },
+  printErr: function (t) { console.log('ERR ' + t); logEl.textContent += 'ERR ' + t + "\n"; },
+  onParityReady: function () { window.parityReady = true; },
+};
+window.parityCase = async function (url, name) {
+  var response = await fetch(url);
+  if (!response.ok) return { code: 2, error: 'HTTP ' + response.status + ' for ' + url };
+  var input = '/' + name;
+  Module.FS.writeFile(input, new Uint8Array(await response.arrayBuffer()));
+  var code = Module.ccall('wd_parity_case', 'number', ['string', 'string'], [input, '/out']);
+  var result = { code: code, error: Module.UTF8ToString(Module._wd_parity_error()) };
+  Module.FS.unlink(input);
+  var take = function (path) {
+    try { var bytes = Module.FS.readFile(path); Module.FS.unlink(path); return bytes; } catch (e) { return null; }
+  };
+  // Stashed on the window: the runner reads them in slices (a large array does
+  // not go through one evaluate call well).
+  window.parityOut = { rgba: take('/out.rgba'), wds: take('/out.wds') };
+  result.rgba = window.parityOut.rgba ? window.parityOut.rgba.length : 0;
+  result.wds = window.parityOut.wds ? window.parityOut.wds.length : 0;
+  return result;
+};
+window.paritySlice = function (which, begin, end) {
+  var bytes = window.parityOut[which].subarray(begin, end), text = '';
+  for (var i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(text);
+};
+</script>
+{{{ SCRIPT }}}
+</body></html>

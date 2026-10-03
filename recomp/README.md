@@ -550,6 +550,37 @@ clearly, and a pack on another origin. The mock (`recomp/web/mock/`) is a
 real Emscripten module that lists `/dreams` on the canvas; screenshots go to
 `out/recomp/web/check/`.
 
+### Render parity with the Windows build
+
+`recomp/windream/verify/render_parity.py` compares the browser's 3D frame with
+the Windows build's from the same guest state, without anyone playing:
+
+```sh
+uv run --with playwright --with pillow python recomp/windream/verify/render_parity.py all
+uv run python recomp/windream/verify/render_parity.py capture --projects 0,62 --shots 4
+uv run --with playwright --with pillow pytest tests/recomp/test_render_parity.py
+```
+
+- **capture** (Windows build, needs the discs): starts the game in each demo
+  project and, at paused frames, writes through the control channel the scene
+  inputs the renderer was about to draw (`scene_capture`, a `.wds` file), the
+  guest's committed memory (`memory_dump`, a `.wdmi` file) and a screenshot.
+- **build**: `verify/native/render_parity.cpp`, the production scene adapter
+  and renderer behind `od::GraphicsBackend`, for Windows (D3D11) and for the
+  browser (WebGL2).
+- **run**: every case on both, then two comparisons. Data: the adapter
+  captures the scene from the memory image on both hosts and the two snapshots
+  must be the same bytes (a 64-bit host against wasm32). Pixels: the 640x480
+  frames; a pixel fails beyond `--tolerance` (2), a case beyond `--budget`
+  (0.2% of the pixels). Failing or differing cases get an image in `report/`:
+  Windows, browser, difference.
+
+Everything is under `out/recomp/render-parity/` (game-derived). It covers the
+3D scene pass of a display frame. It does not cover the 2D interface, captions
+and movies, the shadow and thumbnail passes, or the lifted game code itself:
+a difference in what the game computes shows up as different inputs, which
+this test takes from Windows.
+
 ## Layout
 
 | Path | What |
