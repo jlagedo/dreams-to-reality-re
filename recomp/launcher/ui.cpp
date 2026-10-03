@@ -274,11 +274,33 @@ struct Ui {
         ImGui::SetNextItemWidth(w);
         if (combo("##filter", "filter", &f, filter_names, filter_ids, 3)) s.filter = filter_ids[f];
 
+        // Not the original timing: a steady 30 steps a second and, with the GPU
+        // renderer, a frame at every display refresh (recomp/README.md, --smooth).
+        label("Smooth motion", lw);
+        ImGui::Checkbox("##smooth", &s.smooth);
+        track("smooth");
+        ImGui::SameLine();
+        ImGui::TextColored(kGrey, s.gpu ? "steady 30 steps a second, drawn at every display refresh"
+                                        : "steady 30 steps a second (the GPU renderer also draws between them)");
+
+        label("Camera smoothing", lw);
+        ImGui::BeginDisabled(!(s.smooth && s.gpu));
+        ImGui::SetNextItemWidth(w);
+        ImGui::SliderInt("##smooth_camera", &s.smooth_camera, 0, 200, s.smooth_camera == 0 ? "off" : "%d ms",
+                         ImGuiSliderFlags_AlwaysClamp);
+        track("smooth_camera");
+        ImGui::EndDisabled();
+
         label("Frame cap", lw);
+        ImGui::BeginDisabled(s.smooth);
         ImGui::SetNextItemWidth(w);
         ImGui::SliderInt("##fps", &s.fps, 0, 60, s.fps == 0 ? "uncapped" : "%d frames per second", ImGuiSliderFlags_AlwaysClamp);
         track("fps");
-        if (s.fps > 30) {
+        ImGui::EndDisabled();
+        if (s.smooth) {
+            ImGui::SameLine();
+            ImGui::TextColored(kGrey, "set by smooth motion");
+        } else if (s.fps > 30) {
             ImGui::SameLine();
             ImGui::TextColored(kYellow, "above 30 the original physics breaks");
         }
@@ -562,6 +584,7 @@ struct Ui {
 
         // The WD_* pairs the port settings would emit now ("" for a name left out), as var.NAME.
         static const char* const names[] = {"WD_RENDERER", "WD_FULLSCREEN", "WD_SCALE", "WD_FILTER", "WD_FPS", "WD_MUTE",
+                                            "WD_FIXED_STEP", "WD_INTERPOLATE", "WD_SMOOTH_CAMERA",
                                             "WD_PAD", "WD_DEADZONE", "WD_PAD_DIRECTION", "WD_KEYMAP", "WD_PADMAP"};
         for (const char* n : names) t.fact(std::string("var.") + n, "");
         VarList vars;

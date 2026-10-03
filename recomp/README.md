@@ -127,6 +127,10 @@ does. F11 toggles fullscreen; the game sees F11 too.
 | none | `WD_PAD_DIRECTION` | `stick` (`winmm`), `both` (`keys`) | Which pad control gives direction: `stick`, `dpad` or `both`. `winmm`: the stick drives X/Y and the d-pad the POV hat; `dpad` makes the d-pad drive X/Y (POV centred); `both` lets either drive X/Y. `keys`: which of them press the arrows |
 | none | `WD_PADMAP` | unset | Pad button remap, comma-separated `BUTTON=TARGET` pairs over the defaults. BUTTON: `a b x y lb rb back start ls rs`, and in `keys` mode `lt rt`. TARGET: `button1`-`button32` in `winmm` mode (default `a b x y lb rb back start ls rs` = 1-10), a key name as for `WD_KEYMAP` in `keys` mode |
 | `--fps N` | `WD_FPS` | 25 | Present cap; above 30 the original physics breaks (`docs/research/running.md`) |
+| `--fixed-step` | `WD_FIXED_STEP` | off | Not retail: presents on a 30 Hz grid and a frame delta of exactly 1.0 (the step the engine's demo recorder uses) instead of retail's 0.9 to 1.35 from its 5 ms tick counter; `--fps` is ignored (`host/sdl/pacing.c`) |
+| `--interpolate` | `WD_INTERPOLATE` | off | Direct renderer, native builds: a frame at every display refresh, the game's scene blended between its last two frames with its HUD replayed over it; implies `--fixed-step`. The display trails the game by about 25 ms; frames with no 3D scene (menus, dialogue) show as drawn (`host/render/render_live.cpp`, `render_interp.cpp`) |
+| `--smooth-camera MS` | `WD_SMOOTH_CAMERA` | 0 | With `--interpolate`: the shown camera follows the game's through a lag of that time constant, which evens out the follow camera's per-frame easing (display only) |
+| `--smooth` | | off | `--fixed-step` and `--interpolate`. The launcher's "Smooth motion" and "Camera smoothing" settings (`dreams.ini` `[port] smooth = 1`, `smooth_camera = MS`) give the same, interpolation and the camera lag with the GPU renderer only |
 | `--mute` | `WD_MUTE` | off | Open no audio device; keep mixing on a timer so sound/CD cursors and completion polling still advance |
 | `--headless` | `WD_HEADLESS` | off | Keep the SDL window hidden, run muted, and enable scripted input while reporting focus |
 
@@ -392,6 +396,8 @@ host's main thread at `host_pump`, where SDL events are drained.
 | `log` | `since` (event number, default 0), `max` (default 100) | `events`, `dropped`. File opens (`kind: "open"`: `path`, `host`, `write`, `ok`), CD changes (`"cd"`: `text` such as `play track 9 (disc 1)`) and changes of the active disc (`"disc"`), each with `seq`, `ms`, `frame`. A ring of the last 512; every open is recorded, also those past the `WD_FILES_LOG` budget |
 | `audio_dump` | `path` | Writes the mixer's output (44.1 kHz 16-bit stereo, what goes to the audio device) to a WAV file from now on; works muted and headless, where the mixer runs on a timer |
 | `audio_dump_stop` | | `path`, `frames`, `rate` |
+| `trace` | `path`, `frames`, `ranges` (`"va:size,..."`, sizes up to 64) | After each of the next `frames` presents, one line in `path`: frame, host nanoseconds, each range as hex (`-` when unmapped). The game is not paused, so the timing is its own; answers at once |
+| `display_shot` | `path` | The next display interpolation frame (`WD_INTERPOLATE`), not the game's own, as a PNG from the swapchain; answers at once, the file follows with that frame |
 | `quit` | `code` (default 0) | Ends the process as `main` does when the game returns: trace flushed, renderer closed, `exit(code)` |
 
 Time is not paused: `timeGetTime` is the host's clock (`SDL_GetTicks`), and the
@@ -456,6 +462,12 @@ uv run python recomp/windream/debug/bank_patch.py write out/recomp/windream/run-
   `--spawn-in-link SLOT:DEST` moves the spawn into a link's box,
   `--link SLOT:LINK:DEST` repoints a link, `--set32` writes a field. It
   refuses to write outside `out/`.
+- `debug/motion_trace.py` boots into the first level, walks, and measures
+  motion over a `trace`: ticks and frame delta per frame, Duncan's speed, the
+  chase camera's wobble; with `--smooth` also the display frames
+  (`WD_INTERP_TRACE`): refresh spacing, how far the shown game step is from
+  even motion, and the shown camera's speed changes. `--visible` (muted, focus
+  kept) gives real vsync; a window covered by another one takes no frames.
 - `debug/cd_audio_check.py` aligns a mixer dump (`audio_dump`) with a track of
   the disc image: `align()` needs only the standard library, `locate()` and
   the CLI need numpy.
@@ -529,7 +541,27 @@ manual extractions retain that image when `--box` is omitted.
 controls overlay and in-game key handling are described in
 `recomp/web/NOTES-design.md`.
 
-### Deploy on Cloudflare Pages
+### Publish with the Cloudflare CLI
+
+The tribute is hosted at **https://dreams.lagedo.dev/** as the assets-only
+Worker `dreams-to-reality`. Use the authenticated `cf` CLI (currently tested
+with 1.0.0-beta.12). Package the release engine, then deploy:
+
+```sh
+uv run python recomp/web/package.py --engine out/recomp/windream/build-web-release
+uv run python recomp/web/deploy.py
+```
+
+`deploy.py` copies the packaged site into cf's prebuilt output under
+`out/recomp/web/cloudflare/.cloudflare/output/v0/` and invokes
+`cf deploy --prebuilt` there. The custom-domain configuration provisions
+`dreams.lagedo.dev`, its proxied DNS record and HTTPS certificate. The
+existing `_headers` rules supply the isolation headers needed by the game.
+It uploads the local release and game-derived data, which remain under `out/`.
+Use `--prepare-only` to generate output without publishing, or `--name`,
+`--domain` and `--account-id` to select a different deployment target.
+
+### Legacy Cloudflare Pages hosting
 
 Deploy the release engine, not the development one: `--web-release` builds
 `out/recomp/windream/build-web-release` at Release (-O3) and leaves out the

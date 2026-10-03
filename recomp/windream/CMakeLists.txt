@@ -89,11 +89,11 @@ set(RUNTIME_SRC
     ${WD_GEN_DIR}/imports_gen.c
     ${VM_SRC}
     host/sdl/threads.c host/sdl/kernel.c host/sdl/files.c
-    host/sdl/user.c host/sdl/gdi.c host/sdl/winmm.c host/sdl/dsound.c
+    host/sdl/user.c host/sdl/gdi.c host/sdl/pacing.c host/sdl/winmm.c host/sdl/dsound.c
     host/hooks/phys_hook.c
     host/render/render_boundary.cpp host/render/render_scene.cpp host/render/render_scene_io.cpp
     host/render/render_scene_draw.cpp host/render/render_scene_probe.c host/render/render_ui.cpp
-    host/render/render_live.cpp host/render/render_hooks.c host/render/render_metrics.cpp
+    host/render/render_live.cpp host/render/render_interp.cpp host/render/render_hooks.c host/render/render_metrics.cpp
     host/render/render_movie.c host/render/render_fatal.c)
 if(WIN32)
     list(APPEND RUNTIME_SRC host/sdl/win32_abi_check.c)   # guest_win32.h against the SDK
@@ -269,5 +269,22 @@ if(NOT CMAKE_BUILD_TYPE)
         endif()
     else()
         target_compile_options(windream_recomp PRIVATE -O0)
+    endif()
+    # The direct renderer's hand-written host code and its library are
+    # optimized all the same: they read each frame's scene from guest memory
+    # and build its GPU work, about 16 ms of a 33 ms frame unoptimized, the
+    # time display interpolation (WD_INTERPOLATE) draws its extra frames in.
+    # Source options follow the target's on the command line, so /O2 wins.
+    if(NOT EMSCRIPTEN)
+        set(WD_RENDER_HOST_SRC host/render/render_scene.cpp host/render/render_scene_draw.cpp
+            host/render/render_interp.cpp host/render/render_live.cpp host/render/render_ui.cpp
+            host/render/render_boundary.cpp host/render/render_scene_probe.c)
+        if(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+            set_source_files_properties(${WD_RENDER_HOST_SRC} PROPERTIES COMPILE_OPTIONS /O2)
+            target_compile_options(ODRender PRIVATE /O2)
+        else()
+            set_source_files_properties(${WD_RENDER_HOST_SRC} PROPERTIES COMPILE_OPTIONS -O2)
+            target_compile_options(ODRender PRIVATE -O2)
+        endif()
     endif()
 endif()

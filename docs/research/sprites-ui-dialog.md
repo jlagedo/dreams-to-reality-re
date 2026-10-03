@@ -163,7 +163,9 @@ rows, each against a 100-point scale. `ENT_TickPlayerStatus` (`0x423399`), the
 player's per-frame status tick (hazards, water/air, the manual/automatic fight
 toggle, stamina), drains actor `+0x40` when
 the actor is at least 150 units below the water surface:
-`oxygen -= scene[+0x118] * frameDelta * 0.01`. At zero it sets the meter to 40
+`oxygen -= scene[+0x114] * frameDelta * 0.01` (`0x4234bd`; this line said
+`+0x118` before 2026-10-03; `+0x118` is the magic regeneration added at
+`0x4235c8`, see [file-formats.md](file-formats.md)). At zero it sets the meter to 40
 and runs the actor transition handler. `ENT_UpdateSwimming` (`0x4231f0`) restores it to 100 in
 the safe water-height band, and `ENT_TickPlayerStatus` (`0x423399`) caps it at 100. Actor `+0x50`
 (fallback `0x004fbac8`) is the transformation meter; `ENT_TickTransform` (`0x42ce4a`) adjusts it with state-dependent
@@ -285,11 +287,15 @@ The save/load browser and boot Options screen remain separate controllers.
 Another cyclic UI-message handler, `MENJ_Dispatcher` (`0x435896`, named by
 its own error string), consumes 12-byte events; event `0x40` selects the voice/caption entry described below. The per-frame
 task table is built by `SCENE_InitTriggers` (`0x4288c6`), called during scene setup. It copies
-`LINKADVENT +0x1C` into task `+0x10`; for opcode `0x40`, that field is the
-one-based dialogue entry ID. When its proximity/interaction conditions pass,
-`SCENE_TickTriggers` (`0x429061`) queues `0x40` with the value minus one as the zero-based entry
-index. Of the 80 `DREAMS.DAT` records with opcode `0x40`, 73 have a nonzero
-dialogue ID in the observed 1–174 range. Thus the speech ID comes from `LINKADVENT`, not
+`LINKADVENT +0x1C` into task `+0x10`; that field is the one-based dialogue
+entry ID of any rule. When the rule's conditions pass (an AND of the
+condition bits at `+0x20`; see [file-formats.md](file-formats.md)),
+`SCENE_TickTriggers` (`0x429061`) queues MGM message `0x40` with the value
+minus one as the zero-based entry index, unless the rule also cuts the
+camera. `0x40` is the message, not a value of `+0x20`: the 80 records once
+called "opcode `0x40`" are those whose only condition is "destination near"
+(bit `0x40`), and 166 retail records carry a dialogue ID under 12 different
+condition masks (corrected 2026-10-03). Thus the speech ID comes from `LINKADVENT`, not
 directly from NPC `OBJET +0x70` (a behavior-specific parameter in the actor
 loader). A nonempty `LINKADVENT +0x2C` filename is also copied into the task
 and opened through the video-event path. `SCENE_CheckExits` (`0x420b60`) is a separate

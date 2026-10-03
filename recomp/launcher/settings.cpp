@@ -202,6 +202,8 @@ void PortSettings::load(const Ini& ini) {
         if (iequals(v, f)) filter = f;
     fps = parse_int(ini.get_or("port", "fps", ""), 25, 0, 240);
     mute = parse_bool(ini.get_or("port", "mute", ""), false);
+    smooth = parse_bool(ini.get_or("port", "smooth", ""), false);
+    smooth_camera = parse_int(ini.get_or("port", "smooth_camera", ""), 0, 0, 200);
 
     v = ini.get_or("gamepad", "mode", "");
     pad = iequals(v, "keys") ? PadMode::Keys : iequals(v, "off") ? PadMode::Off : PadMode::Game;
@@ -248,6 +250,8 @@ void PortSettings::store(Ini& ini) const {
     ini.set("port", "filter", filter);
     ini.set("port", "fps", std::to_string(fps));
     ini.set("port", "mute", mute ? "1" : "0");
+    ini.set("port", "smooth", smooth ? "1" : "0");
+    ini.set("port", "smooth_camera", std::to_string(smooth_camera));
 
     ini.set("gamepad", "mode", pad == PadMode::Keys ? "keys" : pad == PadMode::Off ? "off" : "game");
     if (dir_set) ini.set("gamepad", "direction", dir == PadDir::Dpad ? "dpad" : dir == PadDir::Both ? "both" : "stick");
@@ -319,6 +323,13 @@ void emit_port_vars(const PortSettings& s, VarList& out) {
     if (s.filter != "pixelart") out.emplace_back("WD_FILTER", s.filter);
     if (s.fps != 25) out.emplace_back("WD_FPS", std::to_string(s.fps));  // "0" is uncapped, so it is not empty
     if (s.mute) out.emplace_back("WD_MUTE", "1");
+    if (s.smooth) {
+        out.emplace_back("WD_FIXED_STEP", "1");
+        if (s.gpu) {  // the software renderer draws only the game's own frames
+            out.emplace_back("WD_INTERPOLATE", "1");
+            if (s.smooth_camera > 0) out.emplace_back("WD_SMOOTH_CAMERA", std::to_string(s.smooth_camera));
+        }
+    }
     if (s.pad != PadMode::Game) out.emplace_back("WD_PAD", s.pad == PadMode::Keys ? "keys" : "off");
     if (s.dz_inner != 10 || s.dz_outer != 95)
         out.emplace_back("WD_DEADZONE", std::to_string(s.dz_inner) + "," + std::to_string(s.dz_outer));

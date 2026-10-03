@@ -84,9 +84,9 @@ reads to its extent. The row index distinguishes duplicate names if present.
 `RLE_UnpackZeros` (`0x00448e25`) to obtain its 0x2200-byte record. Each disc
 has its own bank, and six corresponding records differ between the discs.
 `OBJET0 +0x0c` names the scene; later `OBJET` slots name actors or props.
-`LINK` records refer to other projects. A `LINKADVENT` opcode `0x40` uses
-`+0x1c` as a one-based dialogue ID; the runtime subtracts one to select a
-zero-based DRD entry. `+0x2c` can hold a cutscene filename. The browser can
+`LINK` records refer to other projects. A `LINKADVENT` rule uses `+0x1c` as
+a one-based dialogue ID whatever its conditions; the runtime subtracts one to
+select a zero-based DRD entry ([file-formats.md](file-formats.md)). `+0x2c` can hold a cutscene filename. The browser can
 index these references per disc without choosing a global winner between the
 two project banks. Resolve a referenced filename against both mounted source
 roots and report all candidate matches with their own provenance; neither

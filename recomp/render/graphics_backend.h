@@ -24,6 +24,14 @@ public:
     bool read_image(sg_image image, int x, int y, int width, int height,
                     std::vector<uint32_t>& rgba, std::string& error);
     bool present(std::string& error);
+    // Before init: a swapchain that tells when the display can take a frame
+    // without blocking (D3D11: the frame-latency waitable object, one frame
+    // queued). Display interpolation draws its frames on that signal.
+    void request_frame_waits() { want_frame_waits_ = true; }
+    bool has_frame_waits() const;
+    // Waits up to timeout_ns for the display to take a new frame. True: draw
+    // and present one now. Without the object: true at once.
+    bool wait_frame(uint64_t timeout_ns);
     void shutdown();
     // Every completed GPU-to-CPU download (capture and read_image), whatever the
     // caller's reason. The host subtracts the ones it logged as explicit.
@@ -32,6 +40,7 @@ public:
 private:
     void* state_ = nullptr;
     uint64_t downloads_ = 0;
+    bool want_frame_waits_ = false;
 };
 
 } // namespace od

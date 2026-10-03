@@ -252,9 +252,11 @@ channel (`tests/recomp/test_disc_play.py`). **[verified]**
   record again by name, then goes through `CD_PrepareLevel`, so a save from
   the other disc's half triggers the swap.
 - **In-game Quit ends the process**; there is no return to the main menu.
-- **Music**: a level's playlist is the dword at record `+0x11c`, one track
-  number per byte (`CD_SetPlaylist`). Project0 has 9, Project116 has 2,
-  Project113 has 0 (no music). The numbers index the mounted disc's tracks.
+- **Music**: a level's track is the low byte of record `+0x11c` (editor
+  label "Scene CD Track"; `GAME_StartLevel` masks it with `and edx, 0xff`
+  at `0x42f1b4` before `CD_SetPlaylist`, which could take three tracks, one
+  per byte). Project0 has 9, Project116 has 2, Project113 has 0 (no music).
+  The numbers index the mounted disc's tracks.
 
 ## What a port needs
 

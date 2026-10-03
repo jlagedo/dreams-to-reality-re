@@ -163,6 +163,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--keys", default="", help="scripted keys, ms:KEY,...")
     ap.add_argument("--snap-ms", type=int, default=0, help="snapshot interval")
     ap.add_argument("--fps", type=int, default=25, help="frame cap (0 = uncapped)")
+    ap.add_argument(
+        "--fixed-step", action="store_true",
+        help="30 Hz presents and frame delta 1.0 (not retail; --fps is ignored)",
+    )  # fmt: skip
+    ap.add_argument(
+        "--interpolate", action="store_true",
+        help="direct renderer: draw frames between game frames at the display's rate "
+        "(implies --fixed-step)",
+    )  # fmt: skip
+    ap.add_argument(
+        "--smooth-camera", type=float, default=0, metavar="MS",
+        help="with --interpolate: the shown camera follows the game's with this lag (0 = off)",
+    )  # fmt: skip
+    ap.add_argument(
+        "--smooth", action="store_true", help="--fixed-step and --interpolate together",
+    )  # fmt: skip
     ap.add_argument("--scale", type=int, default=2, help="window size in multiples of 640x480")
     ap.add_argument("--width", type=int, help="initial client width; requires --height")
     ap.add_argument("--height", type=int, help="initial client height; requires --width")
@@ -272,6 +288,15 @@ def prepare(args: argparse.Namespace) -> tuple[list[str], dict[str, str], Path] 
         WD_KEYS=args.keys,
         WD_SNAP_MS=str(args.snap_ms) if args.snap_ms else "",
         WD_FPS=str(args.fps),  # "0" = uncapped (an empty value would unset it)
+        WD_FIXED_STEP="1"
+        if args.fixed_step or args.interpolate or args.smooth
+        else os.environ.get("WD_FIXED_STEP", ""),
+        WD_INTERPOLATE="1"
+        if args.interpolate or args.smooth
+        else os.environ.get("WD_INTERPOLATE", ""),
+        WD_SMOOTH_CAMERA=str(args.smooth_camera)
+        if args.smooth_camera
+        else os.environ.get("WD_SMOOTH_CAMERA", ""),
         WD_SCALE=str(args.scale),
         WD_WIDTH=str(args.width) if args.width else "",
         WD_HEIGHT=str(args.height) if args.height else "",

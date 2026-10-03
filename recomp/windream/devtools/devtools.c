@@ -110,6 +110,12 @@ static char g_wav_path[1024];
 static uint64_t g_wav_frames, g_wav_headed;   /* written; and how many the header on disk declares */
 static int g_wav_rate = 44100;
 
+/* ---- frame trace: guest ranges after each present, without pausing ---- */
+#define TRACE_RANGES 16
+static FILE* g_trace;
+static uint32_t g_trace_left, g_trace_n;
+static struct { uint32_t va, size; } g_trace_range[TRACE_RANGES];
+
 /* ================= events ================= */
 
 static int contains(const char* text, const char* needle) {   /* without regard to case, as guest names are */
@@ -554,6 +560,15 @@ static void cmd_scene_capture(const Request* r) {
     wd_render_scene_capture_next(path);
     reply_ok(r->connection, r->id);
 }
+/* display_shot: the next display interpolation frame (WD_INTERPOLATE), not
+ * the game's own frame, written from the swapchain as a PNG. Answers at once;
+ * the file appears with the next display frame. */
+static void cmd_display_shot(const Request* r) {
+    const char* path = arg_text(r, "path");
+    if (!path || !path[0]) { reply_error(r->connection, r->id, "display_shot needs \"path\""); return; }
+    if (!wd_render_display_capture_next(path)) { reply_error(r->connection, r->id, "display_shot needs display interpolation"); return; }
+    reply_ok(r->connection, r->id);
+}
 static void cmd_memory_dump(const Request* r) {
     const char* path = arg_text(r, "path");
     if (!path || !path[0]) { reply_error(r->connection, r->id, "memory_dump needs \"path\""); return; }
@@ -631,6 +646,51 @@ static void cmd_audio_dump_stop(const Request* r) {
     reply_end(&o, r->connection);
 }
 
+/* trace: after each of the next `frames` presents, one line in `path`: the
+ * frame number, host nanoseconds, then each of `ranges` ("va:size,..." with
+ * sizes up to 64) as hex, "-" when unmapped. The game is not paused, so the
+ * timing is the game's own. Answers at once; the file is closed after the
+ * last frame or by a new trace. */
+static void trace_close(void) {
+    if (g_trace) fclose(g_trace);
+    g_trace = NULL;
+    g_trace_left = 0;
+}
+static void cmd_trace(const Request* r) {
+    const char* path = arg_text(r, "path");
+    const char* spec = arg_text(r, "ranges");
+    uint32_t frames = 0;
+    if (!path || !path[0] || !spec) { reply_error(r->connection, r->id, "trace needs \"path\" and \"ranges\""); return; }
+    if (!need_u32(r, "frames", &frames)) return;
+    uint32_t n = 0;
+    for (const char* s = spec; *s && n < TRACE_RANGES;) {
+        char* end;
+        uint32_t va = (uint32_t)strtoul(s, &end, 0);
+        if (*end != ':') { reply_error(r->connection, r->id, "ranges: \"va:size,...\""); return; }
+        uint32_t size = (uint32_t)strtoul(end + 1, &end, 0);
+        if (!size || size > 64) { reply_error(r->connection, r->id, "ranges: size 1 to 64"); return; }
+        g_trace_range[n].va = va; g_trace_range[n].size = size; n++;
+        s = *end == ',' ? end + 1 : end;
+    }
+    trace_close();
+    if (!(g_trace = fopen(path, "w"))) { reply_error(r->connection, r->id, "cannot create %s", path); return; }
+    g_trace_n = n;
+    g_trace_left = frames;
+    reply_ok(r->connection, r->id);
+}
+static void trace_frame(void) {
+    if (!g_trace_left) return;
+    fprintf(g_trace, "%u %llu", g_frames, (unsigned long long)SDL_GetTicksNS());
+    for (uint32_t i = 0; i < g_trace_n; i++) {
+        fputc(' ', g_trace);
+        if (!mapped(g_trace_range[i].va, g_trace_range[i].size)) { fputc('-', g_trace); continue; }
+        const uint8_t* p = guest_bytes(g_trace_range[i].va);
+        for (uint32_t k = 0; k < g_trace_range[i].size; k++) fprintf(g_trace, "%02x", p[k]);
+    }
+    fputc('\n', g_trace);
+    if (!--g_trace_left) trace_close();
+}
+
 /* Leave the way main does when the game returns: flush the trace, close the
  * renderer and exit() (stdio is flushed and the atexit reports are written,
  * the virtual-memory log's exit state among them). */
@@ -640,6 +700,7 @@ static void cmd_quit(const Request* r) {
     reply_ok(r->connection, r->id);
     fprintf(stderr, "[ctl] quit %u\n", code);
     wav_stop();
+    trace_close();
     SDL_RemovePath("ctl.port");
     ctl_net_finish();
     recomp_trace_flush();
@@ -665,6 +726,8 @@ static void run_command(const Request* r, const char* cmd) {
     else if (!strcmp(cmd, "log")) cmd_log(r);
     else if (!strcmp(cmd, "audio_dump")) cmd_audio_dump(r);
     else if (!strcmp(cmd, "audio_dump_stop")) cmd_audio_dump_stop(r);
+    else if (!strcmp(cmd, "trace")) cmd_trace(r);
+    else if (!strcmp(cmd, "display_shot")) cmd_display_shot(r);
     else if (!strcmp(cmd, "quit")) cmd_quit(r);
     else reply_error(r->connection, r->id, "unknown command \"%s\"", cmd);
 }
@@ -798,6 +861,7 @@ const char* wd_devtools_frame(int width, int height) {
     if (!g_on) return NULL;
     g_frames++;
     g_frame_w = width; g_frame_h = height;
+    trace_frame();
     if (g_step_left && !--g_step_left) g_paused = 1;
     if (g_shot != SHOT_WANTED) return NULL;
     g_shot = SHOT_TAKEN;

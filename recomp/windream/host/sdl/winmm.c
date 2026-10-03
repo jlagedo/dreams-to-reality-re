@@ -77,8 +77,12 @@
 #include "host.h"
 #include "input_map.h"
 #include "disc.h"
+#include "render_live.h"
 
-void imp_timeGetTime(void) { RET((uint32_t)SDL_GetTicks() + 60000u); STDRET(0); }
+void imp_timeGetTime(void) {
+    wd_render_display_point();   /* display interpolation's frames while the game computes */
+    RET((uint32_t)SDL_GetTicks() + 60000u); STDRET(0);
+}
 
 /* ---- joysticks ---- */
 #define JOY_IDS 16   /* joyGetNumDevs on NT: the number of ids, not of devices */

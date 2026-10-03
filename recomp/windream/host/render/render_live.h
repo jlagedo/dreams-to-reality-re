@@ -16,8 +16,11 @@ void wd_render_bind_surface(uint32_t, uint32_t, int, int, int, int, int);
 void wd_render_forget_surface(uint32_t);
 void wd_render_begin_present(uint32_t);
 void wd_render_end_present(void);
+void wd_render_display_point(void);
 void wd_render_capture(const char *);
 void wd_render_scene_capture_next(const char *path);
+// The next display interpolation frame as a PNG; 0 when interpolation is off.
+int wd_render_display_capture_next(const char *path);
 int wd_render_scene_capture_pending(void);
 uint32_t wd_render_scene_capture_root(void);
 void wd_render_mouse(SDL_Event *);

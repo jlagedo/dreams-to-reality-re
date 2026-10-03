@@ -746,8 +746,16 @@ fields without established semantics remain identified by offset.
 **[verified]** The two discs' copies differ in exactly **six** project records —
 P31, P41, P55, P69, P75, P87 — with identical embedded asset-name sets. Only
 numeric fields and record lengths differ, and disc 1's copy is 44 bytes larger.
-Neither is demonstrably authoritative; disc 1's is the safer default as the
-program disc.
+Disc 1's is the later snapshot: in five of the six records it moves away from
+the value disc 2 shares with both July 1997 demo banks
+([cryo-editor.md](cryo-editor.md), report D §4.4) **[verified in data; the
+ordering is unverified]**. It is also the program disc, so it stays the
+default.
+
+The bank is the export of the game's built-in editor (`WORKS.C`), which named
+every record `<Kind><slot>` and wrote this file with `WOR_SceneRLECompress_`;
+the editor's menu labels are the field names used below. See
+[cryo-editor.md](cryo-editor.md).
 
 Joining these 150 records to `DREAMS.INI` gives the complete level map — see
 [level-map.md](level-map.md).
@@ -764,14 +772,21 @@ validation: a wrong codec does not land on a constant.
 +0x0000  header         0x200   starts "ProjectN" + environment, camera, lights, spawn
 +0x0200  Link[8]        0x80    name[12], destination[12], ..., i32 min[3] @+0x24, i32 max[3] @+0x30
 +0x0600  Objet[16]      0xc0    name[12], asset[32], flags @+0x34, i32 pos[3] @+0x40, heading @+0x5c, behavior @+0x64
-+0x1200  Box[12]        0x100   name[12], i32 points[16][3] @+0x24, count @+0xe4, type @+0xf0
++0x1200  Box[12]        0x100   name[12], min[3] @+0x0c, max[3] @+0x18, i32 points[16][3] @+0x24, last @+0xe4, type @+0xf0
 +0x1e00  LinkAdvent[16] 0x40    name[12], 8 x i32, asset[16] @+0x2c
 ```
 
-An active slot starts with its family name; an all-zero slot is unused. Counts
-over the corpus: `LINK` 244 (239 naming a project), `OBJET` 711, `BOX` 420,
-`LINKADVENT` 328. `OBJET0` is the project's scene in 150 of 150. Decoded by
-[`dreams.formats.project`](../../src/dreams/formats/project.py).
+A slot is live when its **in-use bit** is set, not when it has a name: bit 0
+of header `+0x14`, LINK `+0x18`, OBJET `+0x34`, BOX `+0xEC` and LINKADVENT
+`+0x28`. The editor sets the bit on create; delete clears it and at most the
+first letter of the name (`INK0`, `BJET3` fragments), and a deleted BOX keeps
+its whole name. **[verified in code and data]** Counts of named slots over
+disc 1: `LINK` 244 (242 live, 239 naming a project), `OBJET` 711 (710 live),
+`BOX` 420 (393 live), `LINKADVENT` 328. `OBJET0` is the project's scene in
+150 of 150. Decoded by
+[`dreams.formats.project`](../../src/dreams/formats/project.py), which still
+decides liveness by the name (and has the other decoder faults listed in
+[cryo-editor.md](cryo-editor.md#corrections-made-with-this-pass)).
 
 ##### Project Header fields (0x200 bytes) **[verified]**
 Decompiled from `SCENE_LoadLevel` (`0x41f9db`) and `ENT_InstantiateFromObjet` (`0x41deb8`) in `WINDREAM.EXE`:
@@ -795,7 +810,10 @@ The strings from `+0x03C` onward are 16-byte cells. The decompiled users
   (`0x42dea3`); not a video target.
 - `+0x07C` `char[16]`: material for the slot-flag `0x40` page effect
   (`0x42dfa0`); it also retargets the HNM4 pixel pointer `0x5e5494`.
-- `+0x08C` `char[16]`: a `.3DC` name (e.g. `MOT.3DC`), observed in data only.
+- `+0x08C` `char[16]`: replacement player model (editor label "Vehicule
+  Mesh", e.g. `MOT.3DC`, `SUR.3DC`; 23 projects). `SCENE_InitLevel` loads it
+  instead of `xh_.3dc`/`mhe.3dc` when the first byte is non-zero
+  (`0x41f66a`). **[verified]**
 - `+0x09C` `i32`: Player movement mode, copied to actor `+0x34` by `ENT_LoadObject` (`0x41d624`) when non-zero (4 → 3, 5 → 1 flying, 6 → 3 flying). **Not** a camera projection mode. **[verified]**
 - `+0x0A0` `i32`: Player movement scale, copied as a float to actor `+0x104` (the animation step scale `ANIM_TickBlend` (`0x405f1f`) and `ANIM_TickClip` (`0x4068be`) multiply by). **Not** a near clip. **[verified]**
 - `+0x0A4` `i32`: Player turn step, copied to actor `+0x108`; `ANIM_RequestState` (`0x405118`) turns by it (default `0x30` of 4096 per turn, ¾ of it outside combat stance `+0xac & 0x20`). Values 63–65 were read as a field of view; the real FOV is a constant 76.36° (engine.md, *Camera and projection*). **[verified]**
@@ -803,26 +821,97 @@ The strings from `+0x03C` onward are 16-byte cells. The decompiled users
 - `+0x0C0/+0x0C4` `i32`: Actor-bound/other palette-row scales (defaults 8/2).
 - `+0x0C8` `i32`: Enables actor effect lights.
 - `+0x0CC` `i32`: Far-plane override, also the player's effect-light outer radius.
-- `+0x0E0` `i32[4]`: Additional palette-effect channel biases/range, formerly mislabeled fog.
+- `+0x0E0` `i32[4]`: underwater palette tint R/G/B and flicker (editor "Fluid
+  Med R/G/B", "Fluid Ond RGB"); `REND_TickPaletteLighting` adds them only
+  while the player is below the water level `+0x0D4` (flag `0x626310`, set
+  by `ENT_TickPlayerStatus` `0x423452`). Formerly mislabeled fog.
 - `+0x0F0` `i32[4]`: Palette interpolation target RGB and duration, formerly mislabeled sky.
 - `+0x10C` `i32`: Player canonical spawn heading (12-bit angle, $0 \dots 4095 \equiv 360^\circ$).
-- `+0x138` `i32`: Raw lighting mode. Exact 0/1 branches assign positive/negative biases; 16 occurs in P0/P108 and bypasses those assignments. Actor binding separately uses the non-1 branch for 16; author intent remains unknown.
+- `+0x138` `i32`: colour of the level fade (editor "Fondu b n", *fondu
+  blanc/noir*): 0 fades to white (palette biases added), 1 to black
+  (subtracted, then the frame buffer cleared), other values (16 in P0/P108)
+  neither. Read by `SCENE_LoadLevel` (`0x41fc67`), the level-exit fade in
+  `GAME_Tick` (`0x424198`, `0x424258`, `0x424329`) and
+  `MDL_BindActorPalette` (`0x42dccd`); `GAME_LoadGame` forces 1 (`0x40fc02`).
+  **[verified]**
 - `+0x1C0/+0x1C4/+0x1C8/+0x1CC` `i32`: Glide fog RGB and density input, with water override behavior; see [glide-renderer.md](glide-renderer.md).
 - `+0x1E8/+0x1EC` `i32`: Optional palette contrast strength and material-name filter.
-- `+0x11C` `i32`: CD music playlist, one Redbook track number per byte, of the disc the level is on (`CD_SetPlaylist`; Project0 = 9, Project116 = 2, Project113 = 0). Seen live 2026-10-01, see [install-and-discs.md](install-and-discs.md).
-- `+0x1F8` `i32`: not the CD track, as this page said before: Project0 has 2 here while the game plays track 9. Meaning unknown.
+- `+0x11C` `i32`: CD music track of the disc the level is on (editor "Scene
+  CD Track", 0..20; Project0 = 9, Project116 = 2, Project113 = 0 = none).
+  `GAME_StartLevel` keeps only the low byte (`and edx, 0xff` at `0x42f1b4`)
+  and sends it with MGM `0x1e`; `CD_SetPlaylist` could take three tracks,
+  one per byte, but the record path passes one. Seen live 2026-10-01, see
+  [install-and-discs.md](install-and-discs.md). **[verified]**
+- `+0x1F8` `i32`: level-entry save mode, read by `GAME_StartLevel`
+  (`0x42f1c9`, `0x42f1e1`) and `SCENE_RestoreLevelState` (`0x41b2b2`): 0
+  autosave; 1 autosave and clear the hotkey slots of items not held; 2 no
+  save; 3 no save and no re-entry restore. Not in the July editor's menu.
+  **[verified]**
+
+Further header fields, named by the July 1997 editor's menu labels (verbatim
+in quotes) and checked against their retail readers (report D §2.1 in
+[cryo-editor.md](cryo-editor.md)) **[verified]** unless marked:
+
+| Offset | Editor label | Retail use |
+|---|---|---|
+| `+0x014` | "Flags Player" | bit 0 in use; byte `+0x16` bits 1/2/4 = GUN OK, SURF OK, FALL NO OK, copied to player `+0xb0` by `ENT_LoadObject` (`0x41d9b3`) |
+| `+0x0A8` / `+0x0B0` | "Sphere collision" / "Sphere shoot" | player `+0x10c` (and half at `+0x110`) / `+0x118` (`0x41da00`, `0x41da3f`) |
+| `+0x0AC` | "Sphere move" | no reader; 0 everywhere |
+| `+0x0D0` | "Scene IA Strategic" | squad order table (`AI_ApplySquadOrderTable` `0x4120af`) |
+| `+0x0D4` | "Fluid YPos Level" | water level `0x5e5490` (`SCENE_InitLevel` `0x41f5b2`); oxygen drains 150 units below it |
+| `+0x0D8` / `+0x0DC` | "Move Inertie swim" / "fly" | swimming and flying movement scale |
+| `+0x100..+0x108` | "Phys Gravite Const Vect X/Y/Z" | gravity override (`PHYS_InitForceFields`); 0 in every bank |
+| `+0x114` | "Scene Dec Oxygen MUL 10" | oxygen −= v·Δt·0.01 below water (`0x4234bd`) |
+| `+0x118` | "Scene Add Mana MUL 10" | magic += v·Δt·0.01, cap 120 (`0x4235c8`) |
+| `+0x120..+0x134` | "Camera K_OBJ_TARGET_MIN/MAX", "K_OBJ_BACK_MIN/MAX", "Y_LOW/HIGH_FOLLOW_OBJ" | follow-camera preset 0 overrides when non-zero (`CAM_LoadPreset` `0x40b829`–`0x40b8bf`) |
+| `+0x13C` | "Bruit pas" (footsteps) | no reader; set in 9 projects |
+| `+0x140` | July "Camera Combat Angle" | retail: player `+0x44` = v/64 (`ENT_LoadObject` `0x41d974`); meaning changed |
+| `+0x144` | July "Camera Combat back" | retail: 0 enables camera collision (`0x409d8c`, `0x40a988`); meaning changed |
+| `+0x148..+0x1D4` | "Scene Particle" branch: volume min/max (×256), speeds, generation, turbulence, lifespans, force, attractors, quantity, player mana gain | `PART_LoadLevelParams` (`0x43b3c3`…) |
+| `+0x1C0..+0x1CC` | July "Particle Four" attractor | retail Windows zeroes that attractor; the DOS Glide build reads the four words as fog (above). Project 66 still holds July attractor values |
+| `+0x1D8` | "Camera Speed" | `CAM_LoadPreset` `0x40b80b` |
+| `+0x1DC` | "Player Speed Move" | player `+0x180` = v/16 |
+| `+0x1E0` | "Particle OK" | particles on (`PART_InitLevel` `0x43b726`) |
+| `+0x1E4` | "Sky Speed" | sky rotation (`SCENE_RotateSky` `0x41d4a9`) |
+| `+0x1F0` | "Sky Dead" | kill height: while the player is below it, 40 damage per tick (`0x4233ec`) |
+| `+0x1F4` | "Perso Integration" | loaded by `ENT_AdaptActorColor` and overwritten before use: dead in retail |
+| `+0x1FC` | — (October only) | chapter/disc group 0–4: the mastering lists and `CD_PrepareLevel` (`SCENE_GetLevelNumber` `0x41ad77`); see [cryo-editor.md](cryo-editor.md#the-mastering-step) |
 
 ##### `OBJET` fields (0xC0 bytes) **[verified]**
 Decompiled from `ENT_InstantiateFromObjet` (`0x41deb8`) (entity instantiation) and `DBG_DrawObjectInfo` (`0x416606`) (the engine's developer debug HUD):
 - `+0x00` `char[12]`: slot name (`OBJET0` .. `OBJET15`).
 - `+0x0C` `char[16]`: asset filename (`.DSN` scene for slot 0; `.DAN` character or `.3DC` prop for slots 1..15).
-- `+0x1C` `char[16]`: secondary instance identifier or label.
-- `+0x34` `u16`: entity bitfield flags:
-  - bit 0 (`0x01`): active / spawn immediately on level entry.
-  - bit 1 (`0x02`): dynamic character / creature entity (`XH_.DAN`, `F07BLEU.DAN`, `CH0.DAN`).
-  - bit 8 (`0x0100`): dormant / disabled entity (kept inactive until triggered by adventure script).
-  - bit 14 (`0x4000`): `PART_SetEmitterActor` (`0x43b8aa`) makes the mana-particle spawn box follow this actor. Verified from code; not yet compared in play.
-- `+0x3C` `i32`: bounding / collision radius (scaled by the engine if $> 256$ or $> 512$).
+- `+0x1C` `char[16]`: symbol file (`.SYM`, editor "Load Symb"), passed to
+  `SYM_InitSymboleInObjet_` when non-empty; empty in every bank. **[verified]**
+- `+0x2C` `i32`: "Life" → actor `+0x38` vitality (`0x41e335`). **[verified]**
+- `+0x30` `i32`: "Mana" → actor `+0x3c` magic (`0x41e34a`). **[verified]**
+- `+0x34` `u16`: flags. The editor labels each bit; the actor bits are the
+  same in the July demo (`LoadSceneObjet2TableObjet3dS_`) and retail. Counts
+  are named slots on disc 1. **[verified]**
+
+  | Bit | Editor label | Runtime | Count |
+  |---|---|---|---|
+  | `0x0001` | (in-use bit) | spawned at level load only if set | 710 |
+  | `0x0002` | "Flag NO ANI / ANI" | animation set loaded: characters and creatures (`XH_.DAN`, `F07BLEU.DAN`, `CH0.DAN`) | 411 |
+  | `0x0004` | "Flag Ami / Enemi" | actor `+0xa9 \| 0x20` | 201 |
+  | `0x0008` | "Flag NO Light / Light" | `+0xab \| 8` | 8 |
+  | `0x0010` | "Flag NO Run / Run" | `+0xab \| 1` | 147 |
+  | `0x0020` | "Flag NO DN Bless / Bless" | `+0xac \| 2` | 19 |
+  | `0x0040` | "Flag NO See-Move / YES" | `+0xac \| 8`; exempts a source from the "Src NEAR" pickup | 57 |
+  | `0x0080` | "Flag NO Hit-Link / YES" | `+0xac \| 0x10`; LINK flag 4 tests it | 4 |
+  | `0x0100` | "Flag NO SHADOW / YES" | the record is skipped at load; **set in no bank**, and no event re-creates such a record (formerly read here as "dormant until triggered") | 0 |
+  | `0x0200` | "Flag NO PosRand / YES" | `+0xad \| 1` | 75 |
+  | `0x0400` | "Flag NO Follow / YES" | `+0xad \| 0x10` | 30 |
+  | `0x0800` | "Flag NO Platf / YES" | `+0xad \| 8` | 7 |
+  | `0x1000` | "Flag NO Fire / YES" | `+0xae \| 2` | 39 |
+  | `0x2000` | "Flag YES Ami hit / NO" | `+0xae \| 4` | 35 |
+  | `0x4000` | "Flag NO ManaCreat / YES" | `PART_SetEmitterActor` (`0x43b8aa`) makes the mana-particle spawn box follow this actor | 5 |
+  | `0x8000` | "Flag YES Shock / NO" | `+0xaf \| 0x20` | 50 |
+- `+0x38` `i32`: "Speed" → actor `+0x44` = v/64 (`0x41e377`). **[verified]**
+- `+0x3C` `i32`: "Strenght", the hit strength: actor `+0x48`, ×2 above 256,
+  100000.0 above 512 (`0x41e409`); `ENT_ApplyAttackHit` passes the
+  attacker's `+0x48` to `ENT_ApplyDamage` as the damage (`0x4442b3`).
+  **Not** a collision radius, as this page said before. **[verified]**
 - `+0x40` `i32[3]`: spawn position `(x, y, z)` in scene units (negative Y is up).
 - `+0x5C` `i32`: facing orientation / heading — a **12-bit fixed point angle** ($0 \dots 4095$ where $4096 = 360^\circ$ or $2\pi$).
 - `+0x64` `i32`: movement/behavior selector copied to actor `+0x34`, with
@@ -834,7 +923,22 @@ Decompiled from `ENT_InstantiateFromObjet` (`0x41deb8`) (entity instantiation) a
   `PHYS_AttachActorCollider` (`0x40bedb`), also the attack facing-offset magnitude
   in `ENT_PlaceAtFacingOffset` (`0x442786`). Vitality is actor `+0x38`; dialogue
   event `0x40` gets its one-based entry ID from `LINKADVENT +0x1C`.
-- `+0x74` .. `+0x98`: animation playback state, secondary action timers, and sub-object visibility masks.
+- `+0x74` .. `+0x98`: spawn stats copied into the actor by
+  `ENT_InstantiateFromObjet` (`0x41e31d`–`0x41e400`), named by the editor;
+  formerly misread here as animation state. **[verified]**
+
+  | Offset | Editor label | Actor field |
+  |---|---|---|
+  | `+0x74` | "Sphere move" | `+0x114` (LINKADVENT action `0x20` sets 50000) |
+  | `+0x78` | "Sphere see" | `+0x118` (action `0x40` sets 40000) |
+  | `+0x7C` | "Masse" | `+0x250` (double), the mass in the physics step |
+  | `+0x80` | "Courage" | `+0x188` = round(v·0.2) |
+  | `+0x84` | "Defence" | `+0x190` |
+  | `+0x88` | "Attack" | `+0x194` |
+  | `+0x8C` | "Path" | `+0x198`, first BOX index `AI_FindPatrolBox` scans |
+  | `+0x90` | "Speed Move" | `+0x180` = v/16 |
+  | `+0x94` | "Shoot Impact /128" | `+0x58` = v/128 |
+  | `+0x98` | "Scale" | every node scaled by v/32 |
 
 The engine's debug HUD at `DBG_DrawObjectInfo` (`0x416606`) directly labels these fields:
 `Project Name`, `Object Name`, `Object Pos`, `Object Speed`, `Object PHY Speed`,
@@ -844,11 +948,16 @@ The engine's debug HUD at `DBG_DrawObjectInfo` (`0x416606`) directly labels thes
 ##### `LINK` fields (0x80 bytes) **[verified]**
 - `+0x00` `char[12]`: link slot name (`LINK0` .. `LINK7`).
 - `+0x0C` `char[12]`: destination project name (e.g. `Project134`).
-- `+0x18` `u8`: flags, read by `SCENE_CheckExits` (`0x420b60`): 1 enabled (set in all 242 used
-  links), 2 no living enemy left, 4 a partner condition, 8 invert the item
-  test, `0x10` the level's trigger-completion flag, `0x20` Ctrl pressed,
-  `0x40` no volume test, `0x80` any actor may take it (else the player only).
-  **[verified]** 2026-09-26
+- `+0x18` `u8`: flags, read by `SCENE_CheckExits` (`0x420b60`): 1 the
+  editor's in-use bit (set in all 242 live links), 2 no living enemy left
+  ("Flag NO EnemiDead"), 4 the actor touches an object with OBJET flag
+  `0x80` ("Flag NO HitLink"; `0x420a44`), 8 invert the item test, `0x10` the
+  level's trigger-completion flag ("Flag NO LinkAdvent"), `0x20` Ctrl
+  pressed ("Flag NO Player Action"), `0x40` fire while the actor is
+  **outside** the box ("Flag In Space / Out"; its own volume test at
+  `0x420f22`–`0x4211b7`; set in no bank), `0x80` any actor may take it (else
+  the player only; retail only). **[verified]** 2026-09-26, corrected
+  2026-10-03
 - `+0x24` `i32[3]`: bounding volume minimum `(minX, minY, minZ)`.
 - `+0x30` `i32[3]`: bounding volume maximum `(maxX, maxY, maxZ)`.
 - `+0x3C` `char[16]`: object that must be held (or, with flag 8, not held),
@@ -859,11 +968,29 @@ on the conditions alone.
 
 ##### `BOX` fields (0x100 bytes) **[verified]**
 - `+0x00` `char[12]`: box name (`BOX0` .. `BOX11`).
-- `+0x24` `i32[16][3]`: sequence of up to 16 3D waypoint coordinates `(x, y, z)`.
-- `+0xE4` `i32`: number of points used ($0 \dots 16$).
+- `+0x0C` / `+0x18` `i32[3]`: volume min / max (editor "Box Pos Min/Max";
+  the editor sorts them on save), read by `AI_FindPatrolBox` (XZ) and
+  `ENT_ApplyZoneHazards` (3D). **[verified]**
+- `+0x24` `i32[16][3]`: sequence of up to 16 3D waypoint coordinates `(x, y, z)`,
+  recorded in the editor by walking the player and pressing Shift+4 at
+  each point.
+- `+0xE4` `i32`: index of the **last** point, −1 = none (the create default),
+  16 = full; not a count. Retail readers disagree: kinds 2, 3, 6 and 7 loop
+  `i < e4` and drop the last authored point, kinds 4 and 5 loop `i <= e4`,
+  kind 1 draws `e4` segments. **[verified]**
+- `+0xEC` `u32`: bit 0 in use (delete clears only this bit). **[verified]**
+- `+0xF4` `i32`: intensity (editor "Mode 2 Phys Intensity"), read by the
+  force-field, mana-pickup, prop, air-point and hazard-zone code
+  (`0x41f034`, `0x4195f2`, `0x41893b`, `0x419296`, `0x420829`); down to −600
+  in retail. **[verified]**
+- `+0xF8` `i32`: written at run time by `PHYS_InitForceFields` (last force
+  field index); non-zero in 92 shipped boxes because the editor saved the
+  live record. **[verified]**
 - `+0xF0` `i32`: path kind:
   - `0`: patrol regions/paths; `AI_FindPatrolBox` selects an active box by XZ bounds.
-  - `1`: aerial flight waypoints.
+  - `1`: a force-field path (`PHYS_InitForceFields`, segments between the
+    points; LINKADVENT actions switch it on or off), which also carries
+    flight.
   - `2`: mana pickups; `3`: X01SOL props; `4`: random respawn points;
     `5`: re-entry points; `6`: air points; `7`: maintained spawn points;
     `8`: trigger zones; `9`: health-drain zones.
@@ -873,12 +1000,89 @@ they still need corpus and play validation. The kind-8 zone is separate from
 the `LINKADVENT` condition/action table below.
 
 ##### `LINKADVENT` fields (0x40 bytes) **[verified]**
-- `+0x00` `char[12]`: advent slot name (`LINKADVENT0` .. `LINKADVENT15`).
-- `+0x14` `i32`: target `OBJET` slot index ($0 \dots 15$) bound to this adventure event condition.
-- `+0x1C` `i32`: for opcode `0x40`, a one-based `DIALOG.DRD` entry ID; zero means no dialogue. The runtime copies it to the action task and queues `value - 1` as the zero-based entry index. Across the discs, 73 of 80 opcode-`0x40` records have a nonzero value (1–174). Other opcodes may use this field differently.
-- `+0x20` `i32`: event condition opcode (e.g. proximity trigger, item delivery, interaction).
-- `+0x24` `i32`: action parameter / destination event.
-- `+0x2C` `char[16]`: cutscene video filename (11 entries carry a `.HNM`/`.UBB` cutscene movie, e.g. `AUTEL.HNM`, `ANGKOR.HNM`, `CASCADE.HNM`, `SHAMAN.HNM`, `GUARDIAN.UBB`).
+Each record is one rule of the level's event script: **if all selected
+conditions hold, apply all selected actions**. `SCENE_InitTriggers`
+(`0x4288c6`) copies the active records into 0x38-byte tasks and
+`SCENE_TickTriggers` (`0x429061`) evaluates them every tick from
+`GAME_Tick`. Conditions start true and are AND-ed; most actions clear the
+task's active bit, so a rule fires once unless it has "Time Cycle".
+**[verified]** 2026-10-03; this replaces the earlier "opcode / parameter"
+reading of `+0x20`/`+0x24`.
+
+- `+0x00` `char[12]`: slot name (`LINKADVENT0` .. `LINKADVENT15`).
+- `+0x0C` `i32`: source `OBJET` ("Name Objet"), −1 = none.
+- `+0x10` `i32`: source `BOX` ("Name Box"); −1 in every record of every bank
+  and never read by the tick.
+- `+0x14` `i32`: destination `OBJET` ("Link with Name Objet").
+- `+0x18` `i32`: destination `BOX` ("Link with Name Box"; 6 retail records).
+- `+0x1C` `i32`: one-based `DIALOG.DRD` entry ("Time Cut" in the July menu,
+  where it was also the camera-cut length); when the rule fires without a
+  camera action the runtime posts MGM `0x40` with `value - 1`. 166 retail
+  records carry one, under 12 different condition masks; the 80 records
+  formerly called "opcode `0x40`" are those whose only condition is
+  "destination near". **[verified]**
+- `+0x20` `u32`: condition bits (table below).
+- `+0x24` `u32`: action bits (table below).
+- `+0x28` `u32`: bit 0 in use; copied to the task as its active bit.
+- `+0x2C` `char[16]`: cutscene movie ("Flag Element Dest HNM"), MGM `0x17`
+  (11 entries, e.g. `AUTEL.HNM`, `ANGKOR.HNM`, `CASCADE.HNM`, `SHAMAN.HNM`,
+  `GUARDIAN.UBB`).
+- `+0x3C` `i32`: "Time", seconds; ×30 into a countdown in game ticks.
+
+The source and destination indexes were written by the editor as positions
+in its picker list, which equal the slot only when the used slots have no
+gaps; in the July bank 24 of 189 references differ. How the engine reads
+them is **[unverified]**.
+
+Condition bits (`+0x20`), with the editor's labels and the retail test;
+counts are disc 1 records. **[verified]**
+
+| Bit | Editor label | Retail test | n |
+|---|---|---|---|
+| `0x0001` | "Flag Ele. Src NEAR" | player within 400 of the source; then the source is picked up (hidden, life 0) unless it has See-Move | 27 |
+| `0x0004` | "Flag Ele. Src KILL" | source visible with life ≤ 0 | 21 |
+| `0x0008` | "Flag All Ele Src KILL" | no living opposing fighter (`ENT_CheckSideCleared`) | 12 |
+| `0x0010` | "Flag Time End" | the timer has run out (the rule then deactivates) | 115 |
+| `0x0020` | "Flag Ele. Src In Invent." | the player holds the source's model | 41 |
+| `0x0040` | "Flag Ele. Dest NEAR" | player within 400 (550 for spheres over 200) of the destination | 108 |
+| `0x0080` | "Flag Time Cycle" | the timer has run out; it reloads | 0 |
+| `0x0100` | "Flag Ele. Src SYM END." | July: the source's symbol animation ended; retail: source life equals its OBJET Life | 2 |
+| `0x0200` | "Flag E. Src NOT In Invt." | the player does not hold the source | 34 |
+| `0x0400` | "Flag Just One Freeze" | fewer than 3 hidden actors | 2 |
+| `0x0800` | "Flag All UnFreeze" | fewer than 2 hidden actors | 1 |
+| `0x1000` | "Flag Ele. D. NEAR src" | destination within range of the source | 14 |
+| `0x2000` | — (retail only) | the player does not hold the destination | 4 |
+
+Action bits (`+0x24`). **[verified]**
+
+| Bit | Editor label | Retail effect | n |
+|---|---|---|---|
+| `0x00001` | "Flag Ele Dest OK" | destination shown at its spawn; a destination BOX gets its force fields. A destination of this action is **hidden at level load** until the rule fires (`SCENE_HideTriggerTarget` `0x428a50`, `SCENE_IsBoxUntriggered` `0x428b34`) | 89 |
+| `0x00002` | "Flag all Ele Dest OK" | `ENT_RestoreRemoved` | 0 |
+| `0x00004` | "Flag Ele Dest KILL" | destination hidden; a kind-1 destination BOX loses its force fields | 14 |
+| `0x00008` | "Flag all Ele Dest KILL" | not implemented (July or retail) | 0 |
+| `0x00010` | "Flag Ele Src KILL" | not implemented | 1 |
+| `0x00020` | "Flag Ele Dest MOVE OK" | destination `+0x114` = 50000 (free to roam) | 19 |
+| `0x00040` | "Flag Ele Dest SEE OK" | destination `+0x118` = 40000 | 5 |
+| `0x00080` | "Flag A. Dest CHANGE" | destination changes side | 2 |
+| `0x00100` | "Flag A. Dest Recharge" | destination recharged, life +10 | 0 |
+| `0x00200` | "Flag all Dest Time Susp" | other actors' time scale 0 | 3 |
+| `0x00400` | "Flag Ele Dest Near Src" | destination moved to the source | 30 |
+| `0x00800` | "Flag all D. Time NO Susp" | time scales reset | 0 |
+| `0x01000` | "Flag Camera Obj to Obj" | camera cut onto the destination, 90 frames | 5 |
+| `0x02000` | "Flag Camera Pt to Obj" | camera cut from a point facing the destination | 25 |
+| `0x04000` | "Link OK" | sets `0x6155e4` (`SCENE_IsTriggerDone`), opening LINK flag `0x10` exits | 44 |
+| `0x08000` | "Flag A. Dest Follow" | destination follows (`+0xad \| 0x10`) | 3 |
+| `0x10000` | "Flag A. Dest In INV" | destination's model added to the inventory | 16 |
+| `0x20000` | "Light OK" | palette base +0x40 per channel | 1 |
+| `0x40000` | — (retail only) | the player takes damage | 4 |
+
+Common recipes on disc 1: "destination near" alone (59 records: talk to an
+NPC, the dialogue is `+0x1C`); "time end" alone (43, timed narration);
+"source near" → "dest OK" + "dest near source" (20, pick something up and
+its reward appears in its place); "source in inventory" → "dest OK" (16, an
+item unlocks something); "time end" → "Link OK" (13, the exit opens after a
+delay).
 
 Coordinates use **the scene's own axes** - `(x, y, z)`, up at negative Y.
 Calibrated, not assumed: read that way, Project 0's `LINK0` box centres 165

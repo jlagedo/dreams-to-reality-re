@@ -5,7 +5,9 @@ extern int g_wd_quiet;
 #include "render_fatal.h"
 #include "render_live.h"
 #include "render_boundary.h"
+#include "render_interp.h"
 #include "render_scene_draw.h"
+#include "pacing.h"
 #include "render_ui.h"
 #include "render_metrics.h"
 #include "render_movie.h"
@@ -15,9 +17,11 @@ extern int g_wd_quiet;
 #include "render/fog.h"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <map>
 #include <set>
 #include <string>
@@ -92,6 +96,74 @@ struct Live {
     int present_w = 0, present_h = 0;
     bool pending_present = false, captured_scene = false;
 } state;
+// Display interpolation (WD_INTERPOLATE, with WD_FIXED_STEP's 30 Hz grid,
+// host/sdl/pacing.c). The display gets a frame at every refresh, not only
+// when the game presents one: the scene of a recent game frame with its
+// node, vertex and camera transforms blended from the frame before
+// (render_interp.cpp), then the 2D draws the game made into the same surface
+// after that scene (HUD, text) replayed over it.
+//
+// Timing: game frame k is due at grid time D_k and is shown in full at
+// D_k + latency; a refresh at time v shows the game at step
+// k + (v - D_k - latency) / period, from the pair of frames around it. The
+// latency covers the time the game takes to make a frame, so a refresh while
+// it computes the next still has both frames it needs. Frames are drawn when
+// the swapchain can take one without blocking (the D3D11 frame-latency
+// waitable object): in the present while the game waits for the grid, and at
+// host calls while it computes (wd_render_display_point). The game frame's
+// own present is then left out (its output stays in the back buffer for
+// captures). Host-only: nothing blended is written to the guest, and a frame
+// with a draw that cannot be replayed ends the interpolation until the next
+// two clean ones.
+struct Replay {
+    bool line = false;
+    od_draw_2d draw{};
+    int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+    uint32_t colour = 0;
+    od_pixel_format format = OD_RGB565;
+};
+struct GameFrame {
+    bool scene = false, clean = false;
+    const char *unclean = nullptr; // why it cannot be replayed
+    uint32_t base = 0;         // the surface the main scene went to
+    od_render_id target = 0;   // its target then
+    int width = 0, height = 0; // its physical size
+    uint64_t deadline = 0;     // the grid time its present was due
+    uint64_t index = 0;        // game frames presented before it
+    wd::SceneSnapshot snapshot;
+    wd::SceneLighting lighting;
+    wd::SceneDraw::Retained before; // Glide's retained palette its submit began with
+    std::vector<Replay> replays;
+    std::vector<od_render_id> held; // uploads its replays draw, released with it
+};
+struct Interpolation {
+    int enabled = -1;
+    SDL_ThreadID thread = 0;
+    GameFrame recording;            // the game frame being drawn
+    std::deque<GameFrame> history;  // the last ones presented, oldest first, at most 3
+    wd::SceneMotion motion[2];      // history[n-3] to [n-2], and [n-2] to [n-1]
+    od_render_id scratch = 0;
+    int scratch_w = 0, scratch_h = 0, scratch_lw = 0, scratch_lh = 0;
+    bool busy = false;
+    bool showing = false;           // this game frame's own present is left out
+    uint64_t interval = 0;          // the display's refresh period
+    uint64_t vblank = 0;            // a recent refresh: when a blocking wait returned
+    uint64_t latency = 0;           // how far the display trails the grid
+    uint64_t render_ns = 2000000;   // a display frame's cost, smoothed
+    uint64_t returned = 0;          // when the last game-frame present went back to the game
+    uint64_t shown = 0;             // when the last display frame was presented
+    uint64_t next_poll = 0;         // display points do nothing before this
+    uint64_t game_frames = 0, frames = 0, in_present = 0, stalls = 0, refused = 0;
+    std::map<std::string, uint64_t> reasons;
+    FILE *trace = nullptr;          // WD_INTERP_TRACE: one line per display frame
+    // WD_SMOOTH_CAMERA=<ms>: the displayed camera follows the game's through
+    // a first-order lag of that time constant (display only; 0: off). It
+    // evens out the follow camera's per-frame easing and dead zone.
+    double camera_tau_ns = 0;
+    bool camera_valid = false;
+    wd::CameraPose camera;          // the displayed camera
+    uint64_t camera_when = 0;       // the refresh it was for
+} interp;
 [[noreturn]] void fatal(const std::string &message) { wd_render_fatal(message.c_str()); }
 // wd_render_fatal's hooks, installed before main so that the earliest failure
 // (an unknown WD_RENDERER) is reported like any other.
@@ -141,6 +213,36 @@ uint32_t word(uint32_t address) {
     return value;
 }
 void put(uint32_t address, uint32_t value) { wd_render_write_arena(address, &value, 4); }
+bool interpolating() {
+    if (interp.enabled < 0) {
+        const char *value = std::getenv("WD_INTERPOLATE");
+        const bool wanted = value && *value && std::atoi(value) != 0;
+#ifdef __EMSCRIPTEN__
+        // A worker's OffscreenCanvas shows only the last frame of its task.
+        interp.enabled = 0;
+#else
+        interp.enabled = wanted && wd_fixed_step();
+#endif
+        if (interp.enabled) {
+            std::fprintf(stderr, "[direct] display interpolation on\n");
+            const char *trace = std::getenv("WD_INTERP_TRACE");
+            if (trace && *trace)
+                interp.trace = std::fopen(trace, "w");
+            const char *tau = std::getenv("WD_SMOOTH_CAMERA");
+            interp.camera_tau_ns = tau && *tau ? std::max(0.0, std::atof(tau)) * 1e6 : 0;
+        } else if (wanted) {
+            std::fprintf(stderr, "[direct] display interpolation needs WD_FIXED_STEP and a "
+                                 "native build; off\n");
+        }
+    }
+    return interp.enabled > 0;
+}
+// A draw into the target this game frame's scene was drawn to, after it.
+bool recording(od_render_id target) {
+    return interp.enabled > 0 && interp.recording.scene && target == interp.recording.target;
+}
+void forget_target(od_render_id id);
+void refuse(const char *why);
 void retire_invalid_surfaces() {
     // VM decommit may originate on a guest worker thread. It only invalidates
     // registry IDs; release GPU objects here on the renderer's owning thread.
@@ -150,6 +252,7 @@ void retire_invalid_surfaces() {
             ++it;
             continue;
         }
+        forget_target(it->second.target);
         od_renderer_release(state.renderer, it->second.target);
         std::fprintf(stderr, "[direct] retired decommitted surface=%08x generation=%llu\n",
                      it->first, (unsigned long long)it->second.registry);
@@ -276,6 +379,18 @@ void draw_shadow(const wd::SceneSnapshot &scene, Surface &surface) {
 void draw(od_draw_2d command) {
     MetricScope metric(command.kind == OD_DRAW_COPY || command.kind == OD_DRAW_DIM ? WD_METRIC_COPY : WD_METRIC_UI);
     require(od_renderer_draw_2d(state.renderer, &command) != 0, od_renderer_error(state.renderer));
+    if (recording(command.target)) {
+        // A copy of the surface onto itself changes nothing (a dialogue frame
+        // makes one); any other draw reading its own target is not replayed.
+        if (command.kind == OD_DRAW_COPY && command.source == command.target)
+            return;
+        if (command.source == command.target || command.lookup == command.target) {
+            interp.recording.clean = false;
+            interp.recording.unclean = "a 2D draw that reads its own target";
+        } else {
+            interp.recording.replays.push_back({false, command});
+        }
+    }
 }
 void resize(Surface &surface) {
     if (!surface.main)
@@ -297,6 +412,7 @@ void resize(Surface &surface) {
           surface.format,
           0,
           1});
+    forget_target(surface.target);
     od_renderer_release(state.renderer, surface.target);
     surface.target = next;
     surface.physical_width = state.drawable_w;
@@ -317,9 +433,16 @@ void upload(Surface &surface, od_rect rect, const std::vector<uint32_t> &pixels,
         require(table != 0, od_renderer_error(state.renderer));
     }
     draw({kind, surface.target, texture, rect, surface.format, parameter, 0, table});
+    // A recorded upload is drawn again by the replays; release it after them.
+    const auto release = [&](od_render_id id) {
+        if (recording(surface.target))
+            interp.recording.held.push_back(id);
+        else
+            od_renderer_release(state.renderer, id);
+    };
     if (table)
-        od_renderer_release(state.renderer, table);
-    od_renderer_release(state.renderer, texture);
+        release(table);
+    release(texture);
     state.uploads += table ? 2 : 1;
 }
 std::vector<od_rect> ranges(const Surface &surface, uint32_t address, uint32_t bytes) {
@@ -369,6 +492,252 @@ void log_sokol(const char *, uint32_t level, uint32_t item, const char *message,
 #endif
     fatal(text);
 }
+// A target is about to be released: replays that read it cannot be drawn
+// again (the dialogue's caption surfaces go at the end of their scope).
+void forget_target(od_render_id id) {
+    if (interp.enabled <= 0 || !id)
+        return;
+    const auto reads = [id](const GameFrame &frame) {
+        return std::any_of(frame.replays.begin(), frame.replays.end(), [id](const Replay &r) {
+            return !r.line && (r.draw.source == id || r.draw.lookup == id);
+        });
+    };
+    if (reads(interp.recording)) {
+        interp.recording.clean = false;
+        interp.recording.unclean = "a replayed draw's source surface was released";
+    }
+    if (std::any_of(interp.history.begin(), interp.history.end(), reads))
+        refuse("a replayed draw's source surface was released");
+}
+void refuse(const char *why) {
+    ++interp.refused;
+    if (++interp.reasons[why] == 1)
+        std::fprintf(stderr, "[direct] interpolation stops: %s\n", why);
+    for (auto &frame : interp.history)
+        for (auto id : frame.held)
+            od_renderer_release(state.renderer, id);
+    interp.history.clear();
+    interp.motion[0] = interp.motion[1] = wd::SceneMotion{};
+}
+// The refresh a frame drawn now is shown at. interp.vblank is the refresh the
+// last display frame was shown at (predicted when it was drawn, measured when
+// a wait for the swapchain blocks until it): with one frame queued, the next
+// one goes out at the first refresh after it that its drawing can make.
+uint64_t display_time(uint64_t now) {
+    const uint64_t i = interp.interval, ready = now + interp.render_ns;
+    if (!interp.vblank || ready < interp.vblank)
+        return interp.vblank ? interp.vblank + i : ready + i;
+    return interp.vblank + std::max<uint64_t>(1, (ready - interp.vblank + i - 1) / i) * i;
+}
+// Development control channel ("display_shot"): the next display frame as a PNG.
+std::string display_capture;
+// One display frame: the game at the step the refresh at `when` stands for.
+void show_frame(uint64_t when, bool in_present) {
+    const size_t n = interp.history.size();
+    const uint64_t period = wd_pacing_period_ns(), begin = SDL_GetTicksNS();
+    // Relative to the newest frame: 0 is that frame, -1 the one before.
+    const auto step = [&](size_t i) {
+        return (double(int64_t(when - interp.history[i].deadline)) - double(interp.latency)) /
+               double(period);
+    };
+    size_t newer = n - 1;
+    double alpha = 1 + step(newer);
+    if (alpha < 0 && n >= 3) {
+        newer = n - 2;
+        alpha = 1 + step(newer);
+    }
+    if (alpha > 1)
+        ++interp.stalls; // the next game frame is late: hold this one
+    alpha = std::clamp(alpha, 0.0, 1.0);
+    auto &older_frame = interp.history[newer - 1], &frame = interp.history[newer];
+    const auto &motion = interp.motion[newer == n - 1 ? 1 : 0];
+    std::string error;
+    interp.busy = true;
+    wd::blend_scene(older_frame.snapshot, frame.snapshot, motion, float(alpha));
+    auto camera = wd::blended_camera(older_frame.snapshot, frame.snapshot, motion, float(alpha));
+    if (interp.camera_tau_ns > 0) {
+        const double dt = interp.camera_valid ? double(int64_t(when - interp.camera_when)) : 0;
+        const float follow = dt > 0 ? float(1 - std::exp(-dt / interp.camera_tau_ns)) : 0.0f;
+        if (!interp.camera_valid || !wd::follow_camera(interp.camera, camera, follow))
+            interp.camera = camera; // the first frame, or a cut
+        interp.camera_valid = true;
+        interp.camera_when = when;
+        camera = interp.camera;
+        wd::apply_camera(frame.snapshot, camera);
+    }
+    const auto retained = state.scene.retained();
+    state.scene.restore(frame.before);
+    require(state.scene.submit(state.renderer, frame.snapshot, interp.scratch, frame.width,
+                               frame.height, true, error, nullptr, &frame.lighting),
+            error);
+    state.scene.restore(retained);
+    wd::restore_scene_motion(frame.snapshot, motion);
+    // Each call before its error text is read: a failure replaces that string.
+    const auto check = [](int ok, const char *what) {
+        if (!ok)
+            fatal(std::string("display interpolation: ") + what + ": " +
+                  od_renderer_error(state.renderer));
+    };
+    for (const auto &replay : frame.replays) {
+        if (replay.line) {
+            check(od_renderer_line_2d(state.renderer, interp.scratch, replay.x0, replay.y0,
+                                      replay.x1, replay.y1, uint16_t(replay.colour),
+                                      replay.format),
+                  "line replay");
+            continue;
+        }
+        auto command = replay.draw;
+        command.target = interp.scratch;
+        check(od_renderer_draw_2d(state.renderer, &command), "2D replay");
+    }
+    sg_swapchain swapchain{};
+    const auto acquired = state.backend.acquire(state.window, swapchain, error);
+    if (acquired == od::FrameState::failed)
+        fatal(error);
+    if (acquired == od::FrameState::ready) {
+        sg_pass pass{};
+        pass.swapchain = swapchain;
+        pass.action.colors[0].load_action = SG_LOADACTION_CLEAR;
+        pass.action.colors[0].clear_value = {0, 0, 0, 1};
+        sg_begin_pass(&pass);
+        check(od_renderer_output(state.renderer, interp.scratch, 0.8f), "output");
+        sg_end_pass();
+    }
+    sg_commit();
+    if (acquired == od::FrameState::ready && !display_capture.empty()) {
+        require(state.backend.capture(display_capture, error), error);
+        std::fprintf(stderr, "[direct] display frame step %.3f written to %s\n",
+                     double(frame.index) - 1 + alpha, display_capture.c_str());
+        display_capture.clear();
+    }
+    if (acquired == od::FrameState::ready)
+        require(state.backend.present(error), error);
+    od_renderer_frame_complete(state.renderer);
+    interp.busy = false;
+    const uint64_t end = SDL_GetTicksNS();
+    interp.render_ns = (interp.render_ns * 7 + (end - begin)) / 8;
+    interp.shown = end;
+    interp.vblank = when;
+    interp.next_poll = when - interp.interval / 8;
+    ++interp.frames;
+    interp.in_present += in_present;
+    if (interp.trace)
+        std::fprintf(interp.trace, "%llu %llu %.4f %d %d %.2f %.2f %.2f\n",
+                     (unsigned long long)end, (unsigned long long)when,
+                     double(frame.index) - 1 + alpha, in_present ? 1 : 0,
+                     alpha >= 1 && step(n - 1) > 0 ? 1 : 0, camera.eye[0], camera.eye[1],
+                     camera.eye[2]);
+}
+// Waits until the display can take a frame, at most until `until`; true when
+// one may be drawn now.
+bool frame_slot(uint64_t until) {
+    uint64_t now = SDL_GetTicksNS();
+    // Never more than one frame a refresh, whatever the swapchain says (a
+    // hidden window does not wait for the display).
+    if (interp.shown) {
+        const uint64_t earliest = interp.shown + interp.interval / 2;
+        if (earliest >= until)
+            return false;
+        if (now < earliest) {
+            SDL_DelayPrecise(earliest - now);
+            now = SDL_GetTicksNS();
+        }
+    }
+    if (now >= until)
+        return false;
+    if (state.backend.has_frame_waits()) {
+        if (!state.backend.wait_frame(until - now))
+            return false;
+        const uint64_t after = SDL_GetTicksNS();
+        if (after - now > 500000) // it blocked until the last frame went on screen
+            interp.vblank = after;
+    }
+    return true;
+}
+void ensure_scratch(const GameFrame &frame, const Surface &surface) {
+    if (interp.scratch && interp.scratch_w == frame.width && interp.scratch_h == frame.height &&
+        interp.scratch_lw == surface.width && interp.scratch_lh == surface.height)
+        return;
+    if (interp.scratch)
+        od_renderer_release(state.renderer, interp.scratch);
+    interp.scratch =
+        od_renderer_target(state.renderer, frame.width, frame.height, surface.width, surface.height);
+    require(interp.scratch != 0, od_renderer_error(state.renderer));
+    interp.scratch_w = frame.width;
+    interp.scratch_h = frame.height;
+    interp.scratch_lw = surface.width;
+    interp.scratch_lh = surface.height;
+}
+// The present of a game frame: it joins the history, then display frames
+// fill the refreshes until the game must go on at the grid's deadline.
+void present_game_frame(Surface &surface) {
+    const uint64_t arrival = SDL_GetTicksNS(), deadline = wd_pacing_deadline_ns(),
+                   period = wd_pacing_period_ns();
+    interp.interval = [] {
+        const SDL_DisplayMode *mode =
+            SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(state.window));
+        return uint64_t(1e9 / (mode && mode->refresh_rate > 1 ? mode->refresh_rate : 60.0f));
+    }();
+    // The latency must cover the game's time to make a frame (and a display
+    // frame's): grow at once, shrink slowly.
+    if (interp.returned) {
+        const uint64_t compute = arrival - interp.returned;
+        // A display frame drawn just before the next game frame arrives is
+        // for a refresh up to one interval later.
+        const uint64_t want =
+            std::min(compute + interp.interval + interp.render_ns + 1000000, period);
+        interp.latency = want > interp.latency ? want : interp.latency - (interp.latency - want) / 32;
+    }
+    ++interp.game_frames;
+    auto frame = std::move(interp.recording);
+    interp.recording = GameFrame{};
+    const char *why = !frame.scene                     ? "no 3D scene"
+                      : !frame.clean                   ? frame.unclean
+                      : frame.base != surface.base     ? "the scene went to another surface"
+                      : frame.target != surface.target ? "the surface was resized"
+                      : !deadline                      ? "no grid yet"
+                                                       : nullptr;
+    interp.showing = false;
+    if (why) {
+        refuse(why);
+        for (auto id : frame.held)
+            od_renderer_release(state.renderer, id);
+        return;
+    }
+    if (!interp.history.empty() &&
+        (interp.history.back().width != frame.width || interp.history.back().height != frame.height))
+        refuse("the display was resized"); // older frames were drawn for another size
+    frame.deadline = deadline;
+    frame.index = interp.game_frames;
+    interp.history.push_back(std::move(frame));
+    if (interp.history.size() > 3) {
+        for (auto id : interp.history.front().held)
+            od_renderer_release(state.renderer, id);
+        interp.history.pop_front();
+    }
+    const size_t n = interp.history.size();
+    interp.motion[0] = std::move(interp.motion[1]);
+    interp.motion[1] = wd::SceneMotion{};
+    if (n < 2)
+        return;
+    wd::prepare_scene_motion(interp.history[n - 2].snapshot, interp.history[n - 1].snapshot,
+                             interp.motion[1]);
+    ensure_scratch(interp.history.back(), surface);
+    interp.showing = true;
+    while (frame_slot(deadline - std::min(deadline, interp.render_ns)))
+        show_frame(display_time(SDL_GetTicksNS()), true);
+    if (interp.game_frames % 300 == 0)
+        std::fprintf(stderr,
+                     "[direct] interpolation game_frames=%llu display_frames=%llu "
+                     "in_present=%llu stalls=%llu refused=%llu latency=%.1fms render=%.2fms "
+                     "nodes=%zu/%zu moving_vertices=%zu camera=%d\n",
+                     (unsigned long long)interp.game_frames, (unsigned long long)interp.frames,
+                     (unsigned long long)interp.in_present, (unsigned long long)interp.stalls,
+                     (unsigned long long)interp.refused, double(interp.latency) / 1e6,
+                     double(interp.render_ns) / 1e6, interp.motion[1].nodes,
+                     interp.history.back().snapshot.nodes.size(), interp.motion[1].vertices,
+                     interp.motion[1].camera);
+}
 } // namespace
 
 // The next display-size 3D frame writes its scene inputs to path (render parity
@@ -376,6 +745,12 @@ void log_sokol(const char *, uint32_t level, uint32_t item, const char *message,
 static std::string capture_request;
 static uint32_t capture_root;
 void wd_render_scene_capture_next(const char *path) { capture_request = path ? path : ""; }
+int wd_render_display_capture_next(const char *path) {
+    if (interp.enabled <= 0)
+        return 0;
+    display_capture = path ? path : "";
+    return 1;
+}
 int wd_render_scene_capture_pending(void) { return capture_request.empty() ? 0 : 1; }
 uint32_t wd_render_scene_capture_root(void) { return capture_root; } // of the last capture
 
@@ -410,6 +785,9 @@ SDL_WindowFlags wd_render_window_flags(void) {
 int wd_render_open(SDL_Window *window) {
     std::string error;
     state.window = window;
+    interp.thread = SDL_GetCurrentThreadID();
+    if (interpolating())
+        state.backend.request_frame_waits();
     if (!state.backend.init(window, error))
         fatal("cannot start the graphics backend: " + error);
     sg_desc desc{};
@@ -434,6 +812,13 @@ void wd_render_close(void) {
     if (!state.renderer)
         return;
     state.scene.reset(state.renderer);
+    interp.recording = GameFrame{};
+    interp.history.clear();
+    interp.motion[0] = interp.motion[1] = wd::SceneMotion{};
+    interp.scratch = 0; // destroyed with the renderer
+    if (interp.trace)
+        std::fclose(interp.trace);
+    interp.trace = nullptr;
     wd_render_metrics_shutdown();
     od_renderer_destroy(state.renderer);
     state.renderer = nullptr;
@@ -487,14 +872,17 @@ void wd_render_forget_surface(uint32_t base) {
     auto it = state.surfaces.find(base);
     if (it == state.surfaces.end())
         return;
+    forget_target(it->second.target);
     od_renderer_release(state.renderer, it->second.target);
     wd_surface_unregister(it->second.registry);
     state.surfaces.erase(it);
 }
 void wd_render_begin_present(uint32_t base) {
     SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
-    MetricScope metric(WD_METRIC_OUTPUT);
     auto &surface = exact(base);
+    if (interpolating())
+        present_game_frame(surface);
+    MetricScope metric(WD_METRIC_OUTPUT);
     std::string error;
     sg_swapchain swapchain{};
     const auto acquired = state.backend.acquire(state.window, swapchain, error);
@@ -539,10 +927,44 @@ void wd_render_begin_present(uint32_t base) {
 void wd_render_end_present(void) {
     if (state.pending_present) {
         std::string error;
-        require(state.backend.present(error), error);
+        // Interpolating: the display frames stand for this one, which stays in
+        // the back buffer for a capture. Otherwise it waits for its slot, as
+        // the display frames do, before going out.
+        if (!(interp.enabled > 0 && interp.showing)) {
+            // At most one refresh: a window hidden behind another takes no
+            // frames, and the game must not slow down for it.
+            if (interp.enabled > 0)
+                state.backend.wait_frame(interp.interval ? interp.interval : 16666667);
+            require(state.backend.present(error), error);
+        }
         state.pending_present = false;
         wd_render_metrics_frame_completed();
     }
+    if (interp.enabled > 0)
+        interp.returned = SDL_GetTicksNS();
+}
+// Host calls while the game makes a frame (user.c, winmm.c and the renderer's
+// own entries): a display frame when the display can take one. Cheap until
+// the next refresh is near; only on the renderer's thread, outside its calls.
+void display_point(bool inside_scene);
+void wd_render_display_point(void) {
+    if (!state.surface_depth)
+        display_point(false);
+}
+// inside_scene: wd_render_scene between its capture and its submit, a long
+// stretch without other host calls; the frame drawn there touches neither.
+void display_point(bool inside_scene) {
+    if (interp.enabled <= 0 || SDL_GetCurrentThreadID() != interp.thread || interp.busy ||
+        !interp.showing || (state.surface_depth && !inside_scene) || interp.history.size() < 2)
+        return;
+    const uint64_t now = SDL_GetTicksNS();
+    if (now < interp.next_poll)
+        return;
+    if (!frame_slot(now + 1)) {
+        interp.next_poll = now + 500000;
+        return;
+    }
+    show_frame(display_time(SDL_GetTicksNS()), false);
 }
 void wd_render_capture(const char *path) {
     if (!state.pending_present) {
@@ -613,11 +1035,23 @@ void wd_render_line(uint32_t destination, int x0, int y0, int x1, int y1, uint32
     require(od_renderer_line_2d(state.renderer, surface.target, x0, y0, x1, y1,
                                 uint16_t(colour), surface.format) != 0,
             od_renderer_error(state.renderer));
+    if (recording(surface.target)) {
+        Replay replay;
+        replay.line = true;
+        replay.x0 = x0;
+        replay.y0 = y0;
+        replay.x1 = x1;
+        replay.y1 = y1;
+        replay.colour = colour;
+        replay.format = surface.format;
+        interp.recording.replays.push_back(replay);
+    }
     ++state.ui_draws;
     if (++state.lines == 1 || state.lines % 1000 == 0)
         std::fprintf(stderr, "[direct] lines=%llu\n", (unsigned long long)state.lines);
 }
 void wd_render_ui(const uint32_t raw[8], uint32_t entry) {
+    wd_render_display_point();
     SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     ReadScope scope;
     if (!state.renderer)
@@ -819,6 +1253,7 @@ void wd_render_collect_scene(uint32_t root) {
 }
 void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32_t caller,
                      uint32_t frame_callback) {
+    wd_render_display_point();
     SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     MetricScope preparation(WD_METRIC_PREPARE);
     ReadScope scope;
@@ -851,6 +1286,7 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
     }
     const uint64_t captured = SDL_GetTicksNS();
     preparation.finish();
+    display_point(true);
     for (const auto &face : scene.faces) {
         const auto &node = scene.nodes[face.owner];
         if (!node.submitted && !node.visual_active) continue;
@@ -892,13 +1328,32 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
         state.captured_scene = true;
         std::fprintf(stderr, "[render-capture] captured original scene inputs to %s\n", capture);
     }
+    // Display interpolation keeps the main scene, its lighting and the retained
+    // palette it was drawn from; any other scene into that target makes the
+    // frame unreplayable.
+    const bool record = interpolating() && main_frame && !thumbnail;
+    if (!record && recording(surface->target)) {
+        interp.recording.clean = false;
+        interp.recording.unclean = main_frame ? "a thumbnail scene into the display surface"
+                                              : "a second scene into the display surface";
+    }
+    wd::SceneLighting own_lighting;
+    const wd::SceneLighting *lighting = frame_callback ? &prepared_lighting : nullptr;
+    if (record && !lighting) {
+        // What submit prepares for itself otherwise, with the same arguments.
+        float vp[16];
+        require(scene.view_projection(surface->physical_width, surface->physical_height, true, vp),
+                "invalid scene camera");
+        require(wd::prepare_scene_lighting(scene, vp, own_lighting, error, true), error);
+        lighting = &own_lighting;
+    }
+    const auto retained = state.scene.retained();
     std::vector<wd::SceneLightingWrite> lighting_writes;
     {
         MetricScope metric(WD_METRIC_SCENE);
         require(state.scene.submit(state.renderer, scene, surface->target, surface->physical_width,
                                surface->physical_height, main_frame != 0, error,
-                               frame_callback ? nullptr : &lighting_writes,
-                               frame_callback ? &prepared_lighting : nullptr),
+                               frame_callback ? nullptr : &lighting_writes, lighting),
             error);
     }
     for (const auto &write : lighting_writes)
@@ -942,9 +1397,25 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
                      double(SDL_GetTicksNS() - captured) / 1e6, scene.faces.size(),
                      (unsigned long long)stats.scene_batches, stats.live_resources);
     }
+    if (record) {
+        // A later main scene into the same target clears it: the last one wins.
+        auto &frame = interp.recording;
+        for (auto id : frame.held)
+            od_renderer_release(state.renderer, id);
+        frame = GameFrame{};
+        frame.scene = frame.clean = true;
+        frame.base = destination;
+        frame.target = surface->target;
+        frame.width = surface->physical_width;
+        frame.height = surface->physical_height;
+        frame.snapshot = std::move(scene);
+        frame.lighting = frame_callback ? std::move(prepared_lighting) : std::move(own_lighting);
+        frame.before = retained;
+    }
 }
 int wd_render_copy(uint32_t instruction, uint32_t source, uint32_t destination, uint32_t count,
                    uint32_t width, int direction) {
+    wd_render_display_point();
     SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     if (!state.renderer || !count)
         return 0;
@@ -1014,6 +1485,7 @@ int wd_render_copy(uint32_t instruction, uint32_t source, uint32_t destination, 
 }
 int wd_render_fill(uint32_t instruction, uint32_t destination, uint32_t value, uint32_t count,
                    uint32_t width, int direction) {
+    wd_render_display_point();
     SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     if (!state.renderer || !count)
         return 0;
@@ -1081,6 +1553,8 @@ void wd_render_reset_scene(void) {
     SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
     state.dos_banks.clear(); // SCENE_LoadLevel registers the level's materials again
     state.lit_sources.clear();
+    if (interp.enabled > 0)
+        refuse("a new level"); // nothing to blend from
     if (state.renderer) {
         state.scene.reset(state.renderer);
         std::vector<uint32_t> masks;

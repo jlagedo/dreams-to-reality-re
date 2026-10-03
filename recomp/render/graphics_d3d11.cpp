@@ -1,7 +1,7 @@
 #include "render/graphics_backend.h"
 
 #include <d3d11.h>
-#include <dxgi1_2.h>
+#include <dxgi1_3.h>
 
 #include <cstdio>
 #include <new>
@@ -15,6 +15,8 @@ struct D3DState {
     ID3D11DeviceContext* context = nullptr;
     IDXGISwapChain1* swapchain = nullptr;
     ID3D11RenderTargetView* render_view = nullptr;
+    HANDLE frame_wait = nullptr; // request_frame_waits: the latency waitable object
+    UINT flags = 0;              // the swapchain's, which ResizeBuffers must repeat
     int width = 0;
     int height = 0;
 };
@@ -94,12 +96,26 @@ bool GraphicsBackend::init(SDL_Window* window, std::string& error) {
     desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     desc.Scaling = DXGI_SCALING_STRETCH;
     desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+    if (want_frame_waits_) desc.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
+    state->flags = desc.Flags;
     hr = factory->CreateSwapChainForHwnd(state->device, hwnd, &desc, nullptr,
                                          nullptr, &state->swapchain);
     factory->Release();
     if (FAILED(hr)) {
         set_hr_error(error, "DXGI swapchain creation", hr);
         return false;
+    }
+    if (want_frame_waits_) {
+        IDXGISwapChain2* swapchain2 = nullptr;
+        hr = state->swapchain->QueryInterface(__uuidof(IDXGISwapChain2),
+                                              reinterpret_cast<void**>(&swapchain2));
+        if (FAILED(hr)) {
+            set_hr_error(error, "DXGI frame-latency waitable object", hr);
+            return false;
+        }
+        swapchain2->SetMaximumFrameLatency(1);
+        state->frame_wait = swapchain2->GetFrameLatencyWaitableObject();
+        swapchain2->Release();
     }
     return create_render_view(*state, error);
 }
@@ -130,7 +146,7 @@ FrameState GraphicsBackend::acquire(SDL_Window* window, sg_swapchain& out, std::
         state->render_view = nullptr;
         const HRESULT hr = state->swapchain->ResizeBuffers(0, static_cast<UINT>(width),
                                                            static_cast<UINT>(height),
-                                                           DXGI_FORMAT_UNKNOWN, 0);
+                                                           DXGI_FORMAT_UNKNOWN, state->flags);
         if (FAILED(hr)) {
             set_hr_error(error, "DXGI swapchain resize", hr);
             return FrameState::failed;
@@ -233,6 +249,18 @@ bool GraphicsBackend::present(std::string& error) {
     return true;
 }
 
+bool GraphicsBackend::has_frame_waits() const {
+    const auto* state = static_cast<const D3DState*>(state_);
+    return state && state->frame_wait;
+}
+
+bool GraphicsBackend::wait_frame(uint64_t timeout_ns) {
+    auto* state = static_cast<D3DState*>(state_);
+    if (!state || !state->frame_wait) return true;
+    const DWORD ms = static_cast<DWORD>(timeout_ns / 1000000u);
+    return WaitForSingleObjectEx(state->frame_wait, ms, FALSE) == WAIT_OBJECT_0;
+}
+
 bool GraphicsBackend::read_image(sg_image image,int x,int y,int width,int height,
                                  std::vector<uint32_t>& rgba,std::string& error) {
     auto* state=static_cast<D3DState*>(state_);
@@ -271,6 +299,7 @@ bool GraphicsBackend::read_image(sg_image image,int x,int y,int width,int height
 void GraphicsBackend::shutdown() {
     auto* state = static_cast<D3DState*>(state_);
     if (!state) return;
+    if (state->frame_wait) CloseHandle(state->frame_wait);
     if (state->render_view) state->render_view->Release();
     if (state->swapchain) state->swapchain->Release();
     if (state->context) state->context->Release();

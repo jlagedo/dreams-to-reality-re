@@ -834,6 +834,31 @@ Open: the Δt players actually saw in 1997 (a 15–20 fps software renderer
 gives 1.5–2.0, which the table shows is gentler); whether demo playback
 (`0x49d34a == 1`) also ran at 1.0 through another path.
 
+### In the recomp **[measured]**
+
+Measured 2026-10-03 with `recomp/windream/debug/motion_trace.py` (first
+level, Duncan walking, the control channel's per-present `trace`):
+
+- **Retail pacing jitters Δt.** At the recomp's default 25 fps cap the presents
+  are 40.00 ms apart (cv 0.1%), yet the counter gives 6 to 9 ticks a frame:
+  Δt 1.2 (70% of frames), 1.05 (27%), 1.35 and 0.9. `SYS_UpdateTimer` drops
+  the leftover milliseconds at each update, so frames of the same length are
+  counted differently.
+- **`WD_FIXED_STEP` (`run.py --fixed-step`)** presents on a 30 Hz grid and
+  writes Δt = 1.0 after the delta block (`host/sdl/pacing.c`, called at
+  `0x4172a2`): every frame then has Δt 1.0, and the frame-to-frame change of
+  the eye-to-Duncan distance drops from at most 22 units to at most 10.
+- **The walk's speed varies by itself.** With a constant Δt Duncan's step per
+  frame repeats exactly every 26 frames and ranges 17 to 38 units: the walk
+  clip's root motion, not the clock. It is retail behaviour and is kept.
+- **Display interpolation** (`WD_INTERPOLATE`, `run.py --interpolate`;
+  `host/render/render_live.cpp`) draws a frame at every display refresh
+  between two game frames, display-only. On a 120 Hz display: 119.8 frames/s,
+  the shown game step within 0.02 steps (mean) of even motion, about 25 ms
+  behind the game. `WD_SMOOTH_CAMERA=<ms>` adds a display-only lag on the
+  camera; 60 ms cuts the largest frame-to-frame change of the shown eye's
+  speed from about 400 to about 85 units/s.
+
 ## Subsystem naming
 
 Recovered symbol fragments suggest a `<MODULE>_<Verb><Type>` convention:

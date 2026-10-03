@@ -83,6 +83,9 @@ bool GraphicsBackend::capture(const std::string&, std::string& error) {
     return false;
 }
 
+bool GraphicsBackend::has_frame_waits() const { return false; }
+bool GraphicsBackend::wait_frame(uint64_t) { return true; }
+
 bool GraphicsBackend::present(std::string&) {
     // sokol_gfx schedules presentation in sg_commit().
     auto* state = static_cast<MetalState*>(state_);

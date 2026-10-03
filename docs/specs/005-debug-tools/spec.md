@@ -4,6 +4,12 @@
 > `opendreams-final`); the recomp is the project. Steps that carry these tools
 > into OpenDreams or ODRuntime no longer apply.
 
+> **Note, 2026-10-03.** The July 1997 demo keeps the complete editor with its
+> original names (`WORKS.C`). [cryo-editor.md](../../research/cryo-editor.md)
+> describes it end to end and answers several open questions below (mouse
+> source, copy commands, BOX working copy, gizmo offset, key codes); the
+> affected paragraphs are marked "Update 2026-10-03".
+
 Status: **Three debug views, a step override and the Dreams Editor (noclip,
 menu tree, mouse cursor, record pages) run in the recomp through data pokes,
 keypad toggles and two restored links; the editor's file pickers are broken in
@@ -41,7 +47,7 @@ tags follow [the docs index](../../README.md#evidence-tags).
 | Collision wireframe alone | live, but painted over | hold Backspace | visible only with keypad 3 |
 | Gameplay hotkeys incl. Ctrl+I+R | live | keys (below) | original keys |
 | Dreams Editor (`DREAMS.DAT` editor) | gameplay branches live; draw, mouse producer and flag setter removed; file pickers broken; fill stubbed | `0x4a477c != 0`, draw `0x44d46d` called | keypad 5: flag plus a restored draw call; noclip, menu tree, cursor, record pages (owner-observed) |
-| Editor BOX gizmo | inside the editor draw, before its flag test | working BOX record `+0xec & 1` | drawn whenever the editor draw runs (owner-observed) |
+| Editor BOX gizmo | inside the editor draw, before its flag test | working BOX record `+0xec & 1` | runs with the editor draw; the working BOX is empty until an editor page fills it, so the box seen is most likely `ShowLink_`'s exit volume (update 2026-10-03) |
 | Editor TGA frame capture | inside the editor draw | `0x4a4758` (every frame) or `0x4a475c` (once) | keypad 4 with keypad 5; `data\tga` must exist |
 | Demo recorder | per-frame code live, start functions dead | `0x49d34a` = 0 record / 1 play / 2 normal | untested poke |
 | Box wireframes, axis gizmo, post-scene callback | dead | no caller, no pointer | not reachable |
@@ -118,7 +124,10 @@ Two retail pieces combine:
    the object hook, clear the second hook and **skip the flush**. The collector
    records each face's projected corners into arrays at `0x6760e4`/`0x67f0e4`
    (counters `0x6808e4`/`0x6808e8`, reset by `REND_DrawScene`); nothing reads
-   them. No bounds check was seen in the collector.
+   them. No bounds check was seen in the collector. *Update 2026-10-03:* the
+   flag is `_build_list` of the BEN11 library (`3DC_LIST.C`), never written
+   in the July builds either; it is a library debug list, not part of the
+   editor.
 
 With both, the 3D view freezes on the last rasterized frame while the game
 runs on; the HUD and text still update. Holding Backspace adds the collision
@@ -143,9 +152,11 @@ recomp's 25 fps cap the normal Δt is about 1.2.
 **It is half of a frame-capture mode.** The dead editor draw `0x44d46d`
 calls the TGA writer `0x4479c7` every frame while `0x4a4758 == 1`, or once
 while `0x4a475c == 1` (then clears it). The writer stores the frame buffer,
-read as RGB565, as a 24-bit top-down TGA named
-`data\tga\<first 3 characters of project +0x60c><counter>.tga`, with a
-four-digit counter `0x4a4754`. A fixed 2.0 step gives 15 captured frames per
+read as RGB565, as a 24-bit top-down TGA named `data\tga\%s_%04d.tga`:
+the first 3 characters of project `+0x60c` (OBJET0's scene file), an
+underscore and the four-digit counter `0x4a4754` (`_TgaSceneImage`; update
+2026-10-03). The July demo set these flags with keys `6` (every frame) and
+`7` (once). A fixed 2.0 step gives 15 captured frames per
 game second. In retail only the step half is reachable; in the recomp the
 capture runs while the editor draw does (keypad 5). The writer passes
 `fopen`'s result straight to `fwrite`, so a missing `data\tga` folder is not
@@ -209,8 +220,15 @@ An in-game editor for the `DREAMS.DAT` project graph
   list of `+0xe4` entries at `+0x24` with `0x41bed6`. It runs before the
   editor flag test. In the recomp it draws a blue wireframe box in the level,
   around an NPC on Project 0's platform (owner-observed); the owner reads the
-  boxes as level-change or trigger volumes. What fills the working copy
-  outside the editor, and what the offset is, are **[unverified]**.
+  boxes as level-change or trigger volumes. *Update 2026-10-03:* only editor
+  functions write the working copy (`_CurrentSceneBoxS`), so it is empty in
+  play and the gizmo draws nothing; the box seen with keypad 5 is most likely
+  `ShowLink_` (`0x44c51f`, editor flag only), which draws the current
+  project's live LINK volumes (Project 0: `LINK0` → Project134). The offset
+  `0x4fbd48` is actor slot 2, OBJET0's world position: BOX and LINK
+  coordinates are relative to the scene object. `0x41bed6` is
+  `PutVideoSpaceLine_`, the BOX path polyline. **[verified in code; the
+  identification of the observed box unverified]**
 - **Pages.** `0x44c625` runs one page at a time from about 30 flags
   (`0x4a46b4`–`0x4a474c`). Each record kind has create, edit, copy, list and
   confirm functions; creating one names it after the kind and a counter:
@@ -219,15 +237,21 @@ An in-game editor for the `DREAMS.DAT` project graph
   working copy `0x65b244`; its min/max corners are what the gizmo draws).
   Pages seen in the recomp: "LOAD LINKADVENTURE" and "LOAD MESH" (`0x44a6e4`),
   each a scrolling list with `UP`, `DOWN` and `EXIT` rows. `0x447b72` and
-  `0x447e7c` write text files with `fprintf` (not examined).
+  `0x447e7c` (no caller) write `listL0..4.txt` and `copyL0..4.bat`, the
+  per-chapter file lists and CD-mastering copy scripts; replayed on disc 1's
+  `DREAMS.DAT`, the first reproduces the shipped `LISTL*.TXT` line for line
+  (update 2026-10-03, [cryo-editor.md](../../research/cryo-editor.md#the-mastering-step)).
 - **File pickers are broken in the retail code.** The fillers `0x4486bd`
   (`data\3dc\*.3dc`, `*.dan`, `*.dsn`), `0x4487ed` (`data\hnm\*.ubb`,
   `*.Hnm`), `0x448937` (`data\anim\*.hnm`, `data\sym\*.sym`) and `0x4489ab`
-  (`data\sym\*.sym`) have no caller. They and the list pages both address
-  entry *i* as `0x661e21 + i`: a 1-byte stride, so each name would overwrite
-  the previous one but for its first letter. The buffer is not a list either:
-  `0x661e2c`, eleven bytes on, is the live memory pointer the Mem 3DTR
-  readout shows. With the list empty, a page's selection stays -1; confirming
+  (`data\sym\*.sym`) have no caller. They and the list pages address entry
+  *i* as `base + i`: a 1-byte stride, so each name would overwrite the
+  previous one but for its first letter. *Update 2026-10-03:* there are ten
+  such tables, one byte each at `0x661e1e`–`0x661e27` (`0x661e21` is the
+  mesh list); the July builds compile the same code with strides of 13, 16
+  and 12, so the fault is a change in the tables' declared sizes, not in
+  the code. The next module's globals follow (`0x661e28`, and `0x661e2c`,
+  the memory pointer the Mem 3DTR readout shows). With the list empty, a page's selection stays -1; confirming
   (a click in the title row, or Space) copies the string at `0x661e20` into
   the record. In the recomp, `Z` (new OBJET) then "LOAD MESH" confirm led to
   opening `data\3dc` with an empty name at the install and CD roots and the
@@ -239,7 +263,9 @@ An in-game editor for the `DREAMS.DAT` project graph
   strings, 20 DOS copy targets under `D:\CD1\DATA` and `D:\CD2\DATA` (`3DC`,
   `ANIM`, `HNM`; `0x4c5b4b`–`0x4c5dcf`) stage files for the two CD masters,
   such as `COPY DATA\3DC\*.3DC D:\CD2\DATA\3DC` and
-  `COPY DATA\HNM\GENERIC.* D:\CD1\DATA\HNM`. Their user is not traced.
+  `COPY DATA\HNM\GENERIC.* D:\CD1\DATA\HNM`. *Update 2026-10-03:* their
+  only user is `0x447e7c`, which writes them into `copyL0..4.bat` by the
+  project's disc group (record `+0x1fc`).
 - **Live edits.** With no page open, `0x44c625` copies the working project's
   `+0x18`, `+0x24` and `+0x30` RGB fields into the live lighting globals
   every frame, so lighting edits show at once. Loading or confirming a
@@ -250,7 +276,11 @@ An in-game editor for the `DREAMS.DAT` project graph
   pages (`A` new Project, `Q` load Project, `Z` new OBJET, `E` new LINK, `R`
   the fifth kind, `T` new LINKADVENT, `1`–`6` and others); PageUp, Left,
   Delete and a few other codes call the record copy helpers
-  `0x448a1f`–`0x448c0a`, probably copy and paste.
+  `0x448a1f`–`0x448c0a`, probably copy and paste. *Update 2026-10-03:* the
+  table holds DOS characters from the July DOS build, re-based by 0x21; the
+  copy/paste cases are AZERTY punctuation (`?`/`.` project, `/`/`§` objet,
+  `:`/`!` link, `%`/`µ` box), which read as virtual keys become Page Up,
+  Left, Delete and unreachable OEM codes.
 - **Gameplay while the flag is set** (from the code after each test):
 
 | Where | Editor-mode effect |
@@ -284,7 +314,10 @@ An in-game editor for the `DREAMS.DAT` project graph
   (`0x4a4784`, flags 6), whose value is the quit flag `0x4a4780`. No code
   writes the root's other four child slots, so the tree was a panel of
   adjustable variables with only its exit entry left. The recomp shows
-  exactly these two rows (owner-observed).
+  exactly these two rows (owner-observed). *Update 2026-10-03:* the July
+  demo has the whole tree, 351 nodes in the same format under Project,
+  Scene Particle, Option, Debug and Exit To DOS; retail deleted the node
+  data and put "Exit To DOS" in the July empty-node slot.
 - **Mouse: consumers kept, producer removed.** `GAME_TickFrame` and the
   live boot/menu dispatcher `CTRL_Dispatcher` (`0x40e75c`) decode the same
   events: `0x34` = cursor `x << 16 | y` into `0x4a314c`/`0x4a3150` and signed
@@ -301,7 +334,9 @@ An in-game editor for the `DREAMS.DAT` project graph
   only mouse-related imports are `LoadCursorA` and `ShowCursor`, and
   `DREAMSFX.EXE` has no `int 33h` (its real-mode interrupt helpers serve only
   the Watcom graphics library). The joystick event `0x39` writes the same
-  delta and button globals. **[verified in code]**
+  delta and button globals. **[verified in code]** *Update 2026-10-03:* the
+  July builds have the producer: DOS `EVM_CollectEvents_` (`int 33h` mouse
+  library) and Windows `0x42029a` (`GetCursorPos`, `ScreenToClient`).
 - **Stubs.** The rectangle fill `0x402406` used by `0x44cd62` and `0x44d658`
   is a bare `RET`; `0x44d632` → `0x44d658` has no caller.
 
@@ -329,12 +364,23 @@ places it before `GAME_HandleHotkeys` (`0x41743a`):
 
 The other candidate is directly after `DBG_DrawObjectInfo` (`0x41708c`).
 
+*Update 2026-10-03:* the July builds do not settle it, because none of them
+calls the draw either. Two more facts support a site after the render and
+before the hotkeys: `SaveImage_` captures the buffer drawn this frame, and
+every picker page zeroes the key code after Esc or Space, which only matters
+if `GAME_HandleHotkeys` (July `DreamsKey_`, whose cases include Esc and
+Space) runs later in the frame. Both candidates satisfy them; a TGA capture
+with the readout on would tell them apart
+([cryo-editor.md](../../research/cryo-editor.md#where-the-editor-was-wired)).
+
 A data-only route exists: the post-scene callback `0x4aa704`, which
 `REND_DrawFrame`/`Ex` call when non-zero and whose only writer is the dead
 `0x45842c`, accepts the argument-less editor draw (`--poke
 0x4aa704=0x44d46d`, tested without a crash). It runs inside the renderer,
 before the span flush repaints the 3D view, and again during the shadow
-render, so the restored call replaces it. The live code calls through only
+render, so the restored call replaces it. (`0x4aa704` is `_PreRender` of the
+BEN11 3D library, `3DC_MEM.C`; its setter `New_PreRender_` is uncalled in
+every build, July included.) The live code calls through only
 four game pointer slots: `0x4aa704`, the span flush `0x4aa708`, the object
 hooks `0x4ac8cc`/`0x4ac8d0` (rewritten every frame) and the event handler
 `0x626f74`; the rest belong to the Watcom runtime.
@@ -346,6 +392,13 @@ Demo mode `0x49d34a`: 0 records (`DEMO_RecordFrame`, 6,144 frames, then
 (`DEMO_PlayFrame`, `DEMO_StopPlayback`), 2 is normal play and the initial
 value. The start-recording function `0x40db80` and start-playback `0x40dac2`
 (only called from `0x40ee88`) have no reachable caller and no pointer.
+
+*Update 2026-10-03:* in the July demo the recorder is live: `r` (F3 in the
+Windows build) records, and the title menu and its idle timeout play
+`data\replay.bin`, which there holds 1,848 frames recorded on the build day.
+Retail ships a 3-frame `REPLAY.BIN` of 104-byte frames, while the retail
+writer uses 0x70-byte frames (`0x40ee31`), so the shipped file no longer
+matches its own format.
 
 ### Debug draws with no caller **[verified in code]**
 
@@ -438,7 +491,10 @@ The last run reaches Project 0 and taps Backspace; snapshots land in
 
 1. **Names.** Register the functions above (`DBG_`, `DEMO_`, the editor) in
    `re/names/WINDREAM.EXE.tsv` with two sources each and run
-   `re/tools/check_names.py`; nothing here is renamed in Ghidra yet.
+   `re/tools/check_names.py`; nothing here is renamed in Ghidra yet. The
+   July `WORKS.C` names now map to every retail editor function (101-row
+   table in `out/research/editor/reports/C-retail-vs-demo.md`; 73 of them by
+   normalized instruction match).
 2. **Editor.** Running in the recomp. Still open: which pages are safe
    without a file list, each page's fields, the text writers
    `0x447b72`/`0x447e7c` and the `D:\CD1`/`D:\CD2` copy commands' user,
@@ -466,17 +522,21 @@ The last run reaches Project 0 and taps Backspace; snapshots land in
 ## Open questions
 
 - Is `0x4fbdc8` (player actor `+0x350`) always the level's `.3DI` mesh?
-- The editor was mouse-driven, but no retail build keeps a mouse reader.
-  Did the developers' build read it through Windows messages or DOS
-  `int 33h`? The cursor sprite set is probably `SOUR.ALP`; confirm the set
-  number `GAME_Init` assigns.
+- ~~Did the developers' build read the mouse through Windows messages or
+  DOS `int 33h`?~~ Both: the July DOS build through an `int 33h` library,
+  the July Windows build with `GetCursorPos`. The cursor is
+  `data\objet\sour.alp`, sprite set 10, frame 1 (answered 2026-10-03).
 - Was the editor draw called before `GAME_HandleHotkeys` or after
-  `DBG_DrawObjectInfo`? The recomp uses the first.
-- What fills the working BOX record `0x65b244` in normal play, what is the
-  gizmo's offset at `0x4fbd48`, and what does `0x41bed6` draw from the
-  record's list?
-- Who runs the `D:\CD1`/`D:\CD2` copy commands, and did the picker defect
-  exist in the developers' build too?
+  `DBG_DrawObjectInfo`? The recomp uses the first. Still open; a capture
+  test would decide.
+- ~~What fills the working BOX record `0x65b244` in normal play, what is the
+  gizmo's offset at `0x4fbd48`, and what does `0x41bed6` draw?~~ Nothing;
+  OBJET0's position; the BOX path polyline (answered 2026-10-03).
+- ~~Who runs the `D:\CD1`/`D:\CD2` copy commands, and did the picker defect
+  exist in the developers' build too?~~ `0x447e7c` writes them into
+  `copyL*.bat`; the July builds index the pickers correctly, and the October
+  bank and lists were produced by a build whose tables were full size
+  (answered 2026-10-03; the last point is an inference).
 - What do `SCENE_CheckExits`'s four Girl Power branches change?
 - Can the triangle collector overrun its arrays in larger scenes?
 

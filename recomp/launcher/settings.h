@@ -55,8 +55,13 @@ struct PortSettings {
     bool fullscreen = false;
     int scale = 2;
     std::string filter = "pixelart";  // pixelart | nearest | linear
-    int fps = 25;                     // 0 = uncapped
+    int fps = 25;                     // 0 = uncapped; the fixed step replaces it when smooth
     bool mute = false;
+    // Smooth motion, not the original timing: WD_FIXED_STEP (30 steps a second,
+    // frame delta 1.0) and, with the GPU renderer, WD_INTERPOLATE (a frame at
+    // every display refresh). smooth_camera is WD_SMOOTH_CAMERA, in ms, 0 = off.
+    bool smooth = false;
+    int smooth_camera = 0;
 
     PadMode pad = PadMode::Game;
     bool dir_set = false;  // false: the host's default for the mode
