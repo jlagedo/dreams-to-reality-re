@@ -232,13 +232,18 @@ is unexplained and is an open question.
 Of 409 disc-2 files, 170 names collide with disc 1 and only **10 differ in
 content**. **[verified]**
 
+Resolution rule (2026-10-03, [spec 008](../specs/008-editor-restoration/spec.md#b1-decisions)):
+the newer copy of each differing file wins, since the merged tree should
+hold the final retail data. Dates are the extracted files' timestamps.
+**[verified: sizes and dates]**
+
 | File | Disc 1 | Disc 2 | Resolution |
 |---|---|---|---|
-| `DATA\HNM\INTRO.HNM` | 38,164,312 | 1,698,736 | **keep disc 1** — full intro, 2781 frames |
-| `DATA\ICONE\ICONES.BF` | 372,358 | 440,029 | **keep disc 2** — larger |
-| `DREAMS.DAT` | 138,879 | 138,835 | **unresolved** — diff the offset tables first |
-| `DATA\UNIVBE\UVCONFIG.EXE` | 309,382 | 269,682 | keep disc 1 (DOS-only path) |
-| `DATA\HD.ID` | `toto\r\n` | `01 00 00 00` | **keep disc 1** — see above |
+| `DATA\HNM\INTRO.HNM` | 38,164,312 (1997-10-08) | 1,698,736 (09-30) | **keep disc 1** — newer, full intro, 2781 frames |
+| `DATA\ICONE\ICONES.BF` | 372,358 (1997-09-10) | 440,029 (08-03) | **keep disc 1** — newer. This page said "keep disc 2, larger" before 2026-10-03; disc 2's larger file is the older generation, the same size as the `DATA\ICONE\ICONES.BAK` backup disc 2 also carries |
+| `DREAMS.DAT` | 138,879 (1997-10-29) | 138,835 (10-08) | **keep disc 1** — the final bank, dated the day `WINDREAM.EXE` was linked; in 5 of the 6 differing records disc 2 keeps the July value and disc 1 changes it. Formerly unresolved; reasons in spec 008 |
+| `DATA\UNIVBE\UVCONFIG.EXE` | 309,382 (1997-01-27) | 269,682 (04-15) | disc 2 is newer; DOS-only path, never read by the Windows game |
+| `DATA\HD.ID` | `toto\r\n` (1997-09-18) | `01 00 00 00` (09-01) | **keep disc 1** — newer; see above |
 | `DATA\3DC\DESCRIPT.ION` | 723 | 386 | junk — 4DOS file descriptions |
 | `DATA\ANTI-VIR.DAT` | 192 | 192 | junk — AV checksum cache |
 | `DATA\SOUND\ANTI-VIR.DAT` | 256 | 256 | junk |

@@ -267,8 +267,13 @@ one data set:
 - **CD root**: both discs merged (conflicts in [disc-layout.md](disc-layout.md)),
   with both `1CD.ID` and `2CD.ID` present. By the code above the mounted disc
   then reads as 1, a level 3 or 4 load enters `CD_PromptSwap(2)`, and its first
-  `fopen` of `2CD.ID` succeeds (seen in the test above). Which `DREAMS.DAT`
-  the merged root keeps is open (six differing records).
+  `fopen` of `2CD.ID` succeeds (seen in the test above). The merged root
+  keeps disc 1's `DREAMS.DAT` (2026-10-03): it is the final bank (dated
+  1997-10-29, the day `WINDREAM.EXE` was linked; disc 2's is 10-08), and
+  since `DDAT_Load` reads the bank only at start, it is also the one a
+  session started from disc 1 plays for every level. Reasons and the rule for
+  the other differing files: [disc-layout.md](disc-layout.md#merging-both-discs),
+  [spec 008](../specs/008-editor-restoration/spec.md#b1-decisions).
 - **Install root**: a writable directory for `DATA\GAME` and `LEVEL.ID`, with
   `HD.ID`, `DIALOG.DRD` and `REPLAY.BIN` readable. For animated textures,
   `DATA\ANIM` must resolve under it.
