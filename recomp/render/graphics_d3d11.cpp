@@ -2,6 +2,7 @@
 
 #include <d3d11.h>
 #include <dxgi1_3.h>
+#include <dwmapi.h>
 
 #include <cstdio>
 #include <new>
@@ -252,6 +253,25 @@ bool GraphicsBackend::present(std::string& error) {
 bool GraphicsBackend::has_frame_waits() const {
     const auto* state = static_cast<const D3DState*>(state_);
     return state && state->frame_wait;
+}
+
+bool GraphicsBackend::refresh_timing(uint64_t& last_refresh_ns, uint64_t& period_ns) {
+    DWM_TIMING_INFO info{};
+    info.cbSize = sizeof info;
+    if (FAILED(DwmGetCompositionTimingInfo(nullptr, &info)) || !info.qpcVBlank ||
+        !info.qpcRefreshPeriod)
+        return false;
+    // DWM counts in QueryPerformanceCounter ticks: carry the refresh over to
+    // SDL's clock through one pair of readings taken together.
+    LARGE_INTEGER now, frequency;
+    QueryPerformanceCounter(&now);
+    const uint64_t now_ns = SDL_GetTicksNS();
+    QueryPerformanceFrequency(&frequency);
+    const double ns_per_tick = 1e9 / double(frequency.QuadPart);
+    const double age_ns = double(now.QuadPart - static_cast<LONGLONG>(info.qpcVBlank)) * ns_per_tick;
+    last_refresh_ns = static_cast<uint64_t>(double(now_ns) - age_ns);
+    period_ns = static_cast<uint64_t>(double(info.qpcRefreshPeriod) * ns_per_tick);
+    return period_ns > 0;
 }
 
 bool GraphicsBackend::wait_frame(uint64_t timeout_ns) {

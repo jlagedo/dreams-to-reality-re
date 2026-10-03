@@ -8,14 +8,15 @@
  * the physics, whose position step and damping are per frame, is tuned for
  * one Δt only (docs/research/engine.md, "The fixed step").
  *
- *   WD_FPS=25         retail pacing (default): presents at least 1/25 s apart
- *   WD_FIXED_STEP=1   presents on a 30 Hz grid and Δt = 1.0 in every gameplay
- *                     frame, the step the engine's own demo recorder forces
- *                     (0x49d34a == 0). WD_FPS is ignored. A frame that runs
- *                     late is presented at once and the grid catches up by at
- *                     most one period; a longer stall (a level load, a pause)
- *                     starts a new grid. Game time then runs slow rather than
- *                     taking a larger step.
+ *   WD_FIXED_STEP=1   (the default in native builds) presents on a 30 Hz grid
+ *                     and Δt = 1.0 in every gameplay frame, the step the
+ *                     engine's own demo recorder forces (0x49d34a == 0). A
+ *                     frame that runs late is presented at once and the grid
+ *                     catches up by at most one period; a longer stall (a
+ *                     level load, a pause) starts a new grid. Game time then
+ *                     runs slow rather than taking a larger step.
+ *   WD_FIXED_STEP=0   retail timing (the browser build's default), paced by
+ *   WD_FPS=25         presents at least 1/25 s apart, 0 = uncapped
  *
  * The fixed step is a departure from retail: retail's Δt follows the
  * machine. The render's display interpolation (render_live.cpp) runs inside
@@ -35,8 +36,14 @@ static uint64_t g_deadline;   /* when the present in progress is due */
 int wd_fixed_step(void) {
     if (g_fixed < 0) {
         const char* s = host_env("WD_FIXED_STEP");
-        g_fixed = s && atoi(s) != 0;
-        if (g_fixed) fprintf(stderr, "[pacing] fixed step: 30 Hz presents, frame delta 1.0\n");
+#ifdef __EMSCRIPTEN__
+        const int fallback = 0;   /* the browser build keeps retail pacing until it is tested there */
+#else
+        const int fallback = 1;
+#endif
+        g_fixed = s ? atoi(s) != 0 : fallback;
+        fprintf(stderr, g_fixed ? "[pacing] fixed step: 30 Hz presents, frame delta 1.0\n"
+                                : "[pacing] retail timing: frame delta from the 200 Hz counter\n");
     }
     return g_fixed;
 }

@@ -14,7 +14,8 @@
  *
  *   WD_FILTER=pixelart|nearest|linear   scaling filter (default pixelart:
  *                      nearest sampling without uneven pixel sizes)
- *   WD_FPS=25          cap presents per second, 0 = uncapped (pacing.c, with WD_FIXED_STEP)
+ *   WD_FPS=25          with WD_FIXED_STEP=0 (retail timing): cap presents per
+ *                      second, 0 = uncapped (pacing.c)
  *   WD_SNAP="60,300"   write snap_<present>_<ms>.bmp after those presents
  *   WD_SNAP_MS=4000    ... and every 4 s
  *   WD_CRASH_AT=N      fault at present N (tests the crash report)

@@ -246,8 +246,8 @@ keep = me
         "filter": "linear",
         "fps": "0",
         "mute": "1",
-        "smooth": "0",
-        "smooth_camera": "0",
+        "smooth": "1",  # not in the ini: smooth motion is the default
+        "smooth_camera": "60",
     }
     assert dict(cfg["keyboard"]) == {"W": "UP", "A": "LEFT"}
     assert cfg["gamepad"]["keys_a"] == "ALT" and "a" not in cfg["gamepad"]

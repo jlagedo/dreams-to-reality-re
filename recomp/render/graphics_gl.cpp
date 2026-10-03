@@ -225,6 +225,7 @@ bool GraphicsBackend::capture(const std::string& png_path, std::string& error) {
 
 bool GraphicsBackend::has_frame_waits() const { return false; }
 bool GraphicsBackend::wait_frame(uint64_t) { return true; }
+bool GraphicsBackend::refresh_timing(uint64_t&, uint64_t&) { return false; }
 
 bool GraphicsBackend::present(std::string& error) {
     auto* state = static_cast<GLState*>(state_);

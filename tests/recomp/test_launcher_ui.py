@@ -17,6 +17,7 @@ real gamepad hardware and "Open folder" cannot be tested here.
 
 import os
 import subprocess
+import sys
 from dataclasses import dataclass
 
 import pytest
@@ -32,6 +33,9 @@ from test_launcher import (
 from dreams import paths
 
 SHOTS = paths.out_dir("recomp", "launcher", "shots")
+# PortSettings::kInterpolates: where the GPU renderer draws between game frames by default,
+# so the Camera smoothing slider is on with smooth motion and that renderer.
+INTERPOLATES = sys.platform == "win32"
 
 
 @pytest.fixture(scope="session")
@@ -599,6 +603,8 @@ def test_display_settings_reach_play_and_the_next_start(demo, home):
                 "click filter",
                 "click filter.linear",
                 "expect var.WD_FILTER linear",
+                "click smooth",  # the original timing: the frame cap applies again
+                "expect var.WD_FIXED_STEP 0",
                 "click fps 0",  # the slider's left end: uncapped
                 "expect var.WD_FPS 0",
                 "click mute",
@@ -619,6 +625,7 @@ def test_display_settings_reach_play_and_the_next_start(demo, home):
         "WD_FILTER": "linear",
         "WD_FPS": "0",
         "WD_MUTE": "1",
+        "WD_FIXED_STEP": "0",
     }
     assert r.pairs == want
     assert list(r.pairs)[3:] == [  # the order the library emits them in
@@ -628,6 +635,7 @@ def test_display_settings_reach_play_and_the_next_start(demo, home):
         "WD_FILTER",
         "WD_FPS",
         "WD_MUTE",
+        "WD_FIXED_STEP",
     ]
     assert run_play(demo, home) == (0, want)  # the second start, without a window
 
@@ -647,6 +655,7 @@ def test_display_settings_reach_play_and_the_next_start(demo, home):
                 "click filter.pixelart",
                 *set_int("scale", 2),
                 *set_int("fps", 25),
+                "click smooth",
                 "click mute",
                 shot("display-defaults"),
                 "click play",
@@ -662,14 +671,15 @@ def test_display_settings_reach_play_and_the_next_start(demo, home):
         "filter": "pixelart",
         "fps": "25",
         "mute": "0",
-        "smooth": "0",
-        "smooth_camera": "0",
+        "smooth": "1",
+        "smooth_camera": "60",
     }
 
 
-def test_smooth_motion_reaches_play_and_the_next_start(demo, home):
-    """Smooth motion is the fixed step and, with the GPU renderer, display interpolation and
-    the camera lag. The camera slider does nothing without it; the frame cap nothing with it."""
+def test_smooth_motion_is_the_default_and_turns_off_to_retail_timing(demo, home):
+    """Smooth motion and 60 ms of camera smoothing are the defaults and add nothing; smooth
+    motion off is WD_FIXED_STEP=0 and frees the frame cap. Camera smoothing needs smooth
+    motion and the GPU renderer where the host interpolates; 0 turns it off."""
     discs_ini(home)
     r = clean(
         run_ui(
@@ -678,50 +688,59 @@ def test_smooth_motion_reaches_play_and_the_next_start(demo, home):
             [
                 "click renderer",
                 "click renderer.gpu",
-                'expect var.WD_FIXED_STEP ""',
-                "click smooth_camera",  # disabled: no value
-                'expect var.WD_SMOOTH_CAMERA ""',
-                "click smooth",
-                "expect var.WD_FIXED_STEP 1",
-                "expect var.WD_INTERPOLATE 1",
-                'expect var.WD_SMOOTH_CAMERA ""',  # 0 ms: off
-                *set_int("smooth_camera", 60),
-                "expect var.WD_SMOOTH_CAMERA 60",
-                "click fps",  # disabled while smooth: the cap stays at its default
+                'expect var.WD_FIXED_STEP ""',  # on: the host's default
+                'expect var.WD_SMOOTH_CAMERA ""',  # 60 ms: the host's default
+                "click fps",  # the fixed step replaces the cap: the slider is off
                 'expect var.WD_FPS ""',
+                *(
+                    [*set_int("smooth_camera", 0), "expect var.WD_SMOOTH_CAMERA 0"]
+                    if INTERPOLATES
+                    else ["click smooth_camera", 'expect var.WD_SMOOTH_CAMERA ""']
+                ),
                 shot("smooth"),
+                "click smooth",
+                "expect var.WD_FIXED_STEP 0",
+                'expect var.WD_SMOOTH_CAMERA ""',  # no lag without the frames it smooths
                 "click play",
             ],
         )
     )
     assert r.rc == 0, r.err
-    smooth = {"WD_FIXED_STEP": "1", "WD_INTERPOLATE": "1", "WD_SMOOTH_CAMERA": "60"}
-    assert {k: r.pairs.get(k) for k in smooth} == smooth
+    assert r.pairs["WD_FIXED_STEP"] == "0" and "WD_SMOOTH_CAMERA" not in r.pairs
     port = read_ini(home / "dreams.ini")["port"]
-    assert (port["smooth"], port["smooth_camera"]) == ("1", "60")
+    assert port["smooth"] == "0"
+    assert port["smooth_camera"] == ("0" if INTERPOLATES else "60")  # kept for next time
     assert run_play(demo, home) == (0, r.pairs)  # the second start, without a window
 
-    # The software renderer keeps the fixed step only; turning it off removes every pair.
+    # Back on: the saved lag returns with the GPU renderer; the software renderer draws only
+    # the game's own frames, so it takes no lag.
     r = clean(
         run_ui(
             demo,
             home,
             [
-                "click renderer",
-                "click renderer.software",
-                "expect var.WD_FIXED_STEP 1",
-                'expect var.WD_INTERPOLATE ""',
-                'expect var.WD_SMOOTH_CAMERA ""',
                 "click smooth",
                 'expect var.WD_FIXED_STEP ""',
+                *(
+                    [
+                        "expect var.WD_SMOOTH_CAMERA 0",
+                        *set_int("smooth_camera", 120),
+                        "expect var.WD_SMOOTH_CAMERA 120",
+                    ]
+                    if INTERPOLATES
+                    else ['expect var.WD_SMOOTH_CAMERA ""']
+                ),
+                "click renderer",
+                "click renderer.software",
+                'expect var.WD_SMOOTH_CAMERA ""',
                 "click play",
             ],
         )
     )
     assert r.rc == 0, r.err
-    assert not set(smooth) & set(r.pairs)
+    assert not {"WD_FIXED_STEP", "WD_SMOOTH_CAMERA"} & set(r.pairs)
     port = read_ini(home / "dreams.ini")["port"]
-    assert (port["smooth"], port["smooth_camera"]) == ("0", "60")  # the lag is kept for next time
+    assert (port["smooth"], port["smooth_camera"]) == ("1", "120" if INTERPOLATES else "60")
 
 
 def test_sliders_hold_a_typed_value_to_their_range(demo, home):
@@ -736,6 +755,7 @@ def test_sliders_hold_a_typed_value_to_their_range(demo, home):
                 "expect var.WD_SCALE 6",
                 *set_int("scale", 0),
                 "expect var.WD_SCALE 1",
+                "click smooth",  # the frame cap applies to the original timing only
                 *set_int("fps", 999),
                 "expect var.WD_FPS 60",
                 "tab gamepad",
@@ -860,8 +880,8 @@ def test_keyboard_only_every_control_in_tab_order_then_play(demo, home):
         "fullscreen",
         "scale",
         "filter",
-        "smooth",  # (the camera smoothing slider is off without it: not a stop)
-        "fps",
+        "smooth",
+        *(["smooth_camera"] if INTERPOLATES else []),  # (the frame cap is off: not a stop)
         "mute",
         "tab.keyboard",
         "tab.gamepad",
@@ -966,7 +986,7 @@ def test_gamepad_navigation_flags_and_a_virtual_gamepad(demo, home):
             "pad press a",
             "expect var.WD_MUTE 1",
             "pad press up",
-            "expect focus fps",
+            f"expect focus {'smooth_camera' if INTERPOLATES else 'smooth'}",  # the cap is off
             "pad press down",
             "pad press down",
             "pad press down",

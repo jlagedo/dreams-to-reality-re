@@ -844,20 +844,26 @@ level, Duncan walking, the control channel's per-present `trace`):
   Δt 1.2 (70% of frames), 1.05 (27%), 1.35 and 0.9. `SYS_UpdateTimer` drops
   the leftover milliseconds at each update, so frames of the same length are
   counted differently.
-- **`WD_FIXED_STEP` (`run.py --fixed-step`)** presents on a 30 Hz grid and
-  writes Δt = 1.0 after the delta block (`host/sdl/pacing.c`, called at
-  `0x4172a2`): every frame then has Δt 1.0, and the frame-to-frame change of
-  the eye-to-Duncan distance drops from at most 22 units to at most 10.
+- **`WD_FIXED_STEP`** (the recomp's default since 2026-10-03; `run.py
+  --retail-timing` or `WD_FIXED_STEP=0` for the original) presents on a
+  30 Hz grid and writes Δt = 1.0 after the delta block (`host/sdl/pacing.c`,
+  called at `0x4172a2`): every frame then has Δt 1.0, and the frame-to-frame
+  change of the eye-to-Duncan distance drops from at most 22 units to at
+  most 10.
 - **The walk's speed varies by itself.** With a constant Δt Duncan's step per
   frame repeats exactly every 26 frames and ranges 17 to 38 units: the walk
   clip's root motion, not the clock. It is retail behaviour and is kept.
-- **Display interpolation** (`WD_INTERPOLATE`, `run.py --interpolate`;
+- **Display interpolation** (`WD_INTERPOLATE`, default on with the direct
+  renderer in a visible window on Windows, `run.py --no-interpolate`;
   `host/render/render_live.cpp`) draws a frame at every display refresh
   between two game frames, display-only. On a 120 Hz display: 119.8 frames/s,
   the shown game step within 0.02 steps (mean) of even motion, about 25 ms
-  behind the game. `WD_SMOOTH_CAMERA=<ms>` adds a display-only lag on the
-  camera; 60 ms cuts the largest frame-to-frame change of the shown eye's
-  speed from about 400 to about 85 units/s.
+  behind the game. `WD_SMOOTH_CAMERA=<ms>` (default 60, `0` off) adds a
+  display-only lag on the camera; 60 ms cuts the largest frame-to-frame
+  change of the shown eye's speed from about 400 to about 85 units/s (120 ms:
+  66). At a steady speed the shown camera trails by exactly that time, on top
+  of the follow camera's own easing (¼ of the gap per 30 Hz step, a time
+  constant of about 116 ms).
 
 ## Subsystem naming
 

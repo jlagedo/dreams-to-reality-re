@@ -32,6 +32,11 @@ public:
     // Waits up to timeout_ns for the display to take a new frame. True: draw
     // and present one now. Without the object: true at once.
     bool wait_frame(uint64_t timeout_ns);
+    // The display's own refresh timing: when the last refresh happened (on
+    // SDL_GetTicksNS's clock) and the exact period. False where the platform
+    // gives none, and the caller estimates them. D3D11: DWM's composition
+    // timing (the display it composes for).
+    bool refresh_timing(uint64_t& last_refresh_ns, uint64_t& period_ns);
     void shutdown();
     // Every completed GPU-to-CPU download (capture and read_image), whatever the
     // caller's reason. The host subtracts the ones it logged as explicit.

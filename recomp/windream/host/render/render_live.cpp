@@ -147,7 +147,12 @@ struct Interpolation {
     bool busy = false;
     bool showing = false;           // this game frame's own present is left out
     uint64_t interval = 0;          // the display's refresh period
-    uint64_t vblank = 0;            // a recent refresh: when a blocking wait returned
+    uint64_t vblank = 0;            // the refresh the last display frame is shown at
+    uint64_t grid = 0;              // a refresh on the display's own timing (0: estimated)
+    uint64_t grid_period = 0;       // its exact period
+    int grid_logged = -1;
+    double phase_sum = 0, phase_sq = 0; // blocking waits' return after the grid's refresh, in ms
+    uint64_t phase_count = 0;
     uint64_t latency = 0;           // how far the display trails the grid
     uint64_t render_ns = 2000000;   // a display frame's cost, smoothed
     uint64_t returned = 0;          // when the last game-frame present went back to the game
@@ -156,9 +161,10 @@ struct Interpolation {
     uint64_t game_frames = 0, frames = 0, in_present = 0, stalls = 0, refused = 0;
     std::map<std::string, uint64_t> reasons;
     FILE *trace = nullptr;          // WD_INTERP_TRACE: one line per display frame
-    // WD_SMOOTH_CAMERA=<ms>: the displayed camera follows the game's through
-    // a first-order lag of that time constant (display only; 0: off). It
-    // evens out the follow camera's per-frame easing and dead zone.
+    // WD_SMOOTH_CAMERA=<ms> (default 60, 0: off): the displayed camera follows
+    // the game's through a first-order lag of that time constant, display only.
+    // It evens out the follow camera's per-frame easing and dead zone; at a
+    // steady speed the shown camera trails by exactly that time.
     double camera_tau_ns = 0;
     bool camera_valid = false;
     wd::CameraPose camera;          // the displayed camera
@@ -215,8 +221,18 @@ uint32_t word(uint32_t address) {
 void put(uint32_t address, uint32_t value) { wd_render_write_arena(address, &value, 4); }
 bool interpolating() {
     if (interp.enabled < 0) {
+        // Unset: on where the swapchain says when it can take a frame (D3D11's
+        // waitable object; elsewhere a present would hold up the game) and
+        // someone can see the window. WD_INTERPOLATE=1 or 0 decides otherwise.
         const char *value = std::getenv("WD_INTERPOLATE");
-        const bool wanted = value && *value && std::atoi(value) != 0;
+        const char *headless = std::getenv("WD_HEADLESS");
+        const bool given = value && *value;
+#ifdef _WIN32
+        const bool fallback = !(headless && *headless);
+#else
+        const bool fallback = false;
+#endif
+        const bool wanted = given ? std::atoi(value) != 0 : fallback;
 #ifdef __EMSCRIPTEN__
         // A worker's OffscreenCanvas shows only the last frame of its task.
         interp.enabled = 0;
@@ -229,10 +245,10 @@ bool interpolating() {
             if (trace && *trace)
                 interp.trace = std::fopen(trace, "w");
             const char *tau = std::getenv("WD_SMOOTH_CAMERA");
-            interp.camera_tau_ns = tau && *tau ? std::max(0.0, std::atof(tau)) * 1e6 : 0;
-        } else if (wanted) {
-            std::fprintf(stderr, "[direct] display interpolation needs WD_FIXED_STEP and a "
-                                 "native build; off\n");
+            interp.camera_tau_ns = (tau && *tau ? std::max(0.0, std::atof(tau)) : 60.0) * 1e6;
+        } else if (given && wanted) {
+            std::fprintf(stderr, "[direct] display interpolation needs the fixed step "
+                                 "(WD_FIXED_STEP) and a native build; off\n");
         }
     }
     return interp.enabled > 0;
@@ -519,12 +535,19 @@ void refuse(const char *why) {
     interp.history.clear();
     interp.motion[0] = interp.motion[1] = wd::SceneMotion{};
 }
-// The refresh a frame drawn now is shown at. interp.vblank is the refresh the
-// last display frame was shown at (predicted when it was drawn, measured when
-// a wait for the swapchain blocks until it): with one frame queued, the next
-// one goes out at the first refresh after it that its drawing can make.
+// The refresh a frame drawn now is shown at: with one frame queued, the first
+// refresh its drawing can make, after the one the last display frame is shown
+// at (interp.vblank). On the display's own timing when the backend gives it
+// (interp.grid); otherwise estimated from interp.vblank, predicted when that
+// frame was drawn and measured when a wait for the swapchain blocks until it.
 uint64_t display_time(uint64_t now) {
     const uint64_t i = interp.interval, ready = now + interp.render_ns;
+    if (interp.grid) {
+        const uint64_t g = interp.grid, p = interp.grid_period;
+        const auto on_grid = [g, p](uint64_t t) { return t <= g ? g : g + (t - g + p - 1) / p * p; };
+        const uint64_t when = on_grid(ready);
+        return interp.vblank && when <= interp.vblank ? on_grid(interp.vblank + 1) : when;
+    }
     if (!interp.vblank || ready < interp.vblank)
         return interp.vblank ? interp.vblank + i : ready + i;
     return interp.vblank + std::max<uint64_t>(1, (ready - interp.vblank + i - 1) / i) * i;
@@ -649,8 +672,16 @@ bool frame_slot(uint64_t until) {
         if (!state.backend.wait_frame(until - now))
             return false;
         const uint64_t after = SDL_GetTicksNS();
-        if (after - now > 500000) // it blocked until the last frame went on screen
-            interp.vblank = after;
+        if (after - now > 500000) { // it blocked until the last frame went on screen
+            if (!interp.grid) {
+                interp.vblank = after;
+            } else if (after > interp.grid) { // how far after the system's refresh: steady if it agrees
+                const double phase = double((after - interp.grid) % interp.grid_period) / 1e6;
+                interp.phase_sum += phase;
+                interp.phase_sq += phase * phase;
+                ++interp.phase_count;
+            }
+        }
     }
     return true;
 }
@@ -678,6 +709,23 @@ void present_game_frame(Surface &surface) {
             SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(state.window));
         return uint64_t(1e9 / (mode && mode->refresh_rate > 1 ? mode->refresh_rate : 60.0f));
     }();
+    // The display's own refresh timing, when the backend has it and it is for
+    // the window's display (its period within 5% of that display's rate):
+    // exact for the 33 ms until the next game frame asks again.
+    uint64_t last_refresh = 0, refresh_period = 0;
+    const bool exact = state.backend.refresh_timing(last_refresh, refresh_period) &&
+                       refresh_period * 20 > interp.interval * 19 &&
+                       refresh_period * 20 < interp.interval * 21;
+    interp.grid = exact ? last_refresh : 0;
+    interp.grid_period = exact ? refresh_period : 0;
+    if (exact)
+        interp.interval = refresh_period;
+    if (interp.grid_logged != int(exact)) {
+        interp.grid_logged = int(exact);
+        std::fprintf(stderr, "[direct] interpolation: display refresh %s, period %.4f ms\n",
+                     exact ? "timing from the system" : "timing estimated",
+                     double(interp.interval) / 1e6);
+    }
     // The latency must cover the game's time to make a frame (and a display
     // frame's): grow at once, shrink slowly.
     if (interp.returned) {
@@ -730,13 +778,21 @@ void present_game_frame(Surface &surface) {
         std::fprintf(stderr,
                      "[direct] interpolation game_frames=%llu display_frames=%llu "
                      "in_present=%llu stalls=%llu refused=%llu latency=%.1fms render=%.2fms "
-                     "nodes=%zu/%zu moving_vertices=%zu camera=%d\n",
+                     "nodes=%zu/%zu moving_vertices=%zu camera=%d wait_phase=%.2f+-%.2fms (%llu)\n",
                      (unsigned long long)interp.game_frames, (unsigned long long)interp.frames,
                      (unsigned long long)interp.in_present, (unsigned long long)interp.stalls,
                      (unsigned long long)interp.refused, double(interp.latency) / 1e6,
                      double(interp.render_ns) / 1e6, interp.motion[1].nodes,
                      interp.history.back().snapshot.nodes.size(), interp.motion[1].vertices,
-                     interp.motion[1].camera);
+                     interp.motion[1].camera,
+                     interp.phase_count ? interp.phase_sum / double(interp.phase_count) : 0.0,
+                     interp.phase_count
+                         ? std::sqrt(std::max(0.0, interp.phase_sq / double(interp.phase_count) -
+                                                       std::pow(interp.phase_sum /
+                                                                    double(interp.phase_count),
+                                                                2)))
+                         : 0.0,
+                     (unsigned long long)interp.phase_count);
 }
 } // namespace
 

@@ -51,17 +51,26 @@ struct PortSettings {
 #else
     static constexpr bool kGpuDefault = false;
 #endif
+    // Where the host's GPU renderer draws frames between game frames by default
+    // (render_live.cpp: the D3D11 frame-latency object), so camera smoothing applies.
+#ifdef _WIN32
+    static constexpr bool kInterpolates = true;
+#else
+    static constexpr bool kInterpolates = false;
+#endif
     bool gpu = kGpuDefault;
     bool fullscreen = false;
     int scale = 2;
     std::string filter = "pixelart";  // pixelart | nearest | linear
-    int fps = 25;                     // 0 = uncapped; the fixed step replaces it when smooth
+    int fps = 25;                     // 0 = uncapped; only without smooth motion
     bool mute = false;
-    // Smooth motion, not the original timing: WD_FIXED_STEP (30 steps a second,
-    // frame delta 1.0) and, with the GPU renderer, WD_INTERPOLATE (a frame at
-    // every display refresh). smooth_camera is WD_SMOOTH_CAMERA, in ms, 0 = off.
-    bool smooth = false;
-    int smooth_camera = 0;
+    // Smooth motion, the host's default and not the original timing: 30 steps a
+    // second with frame delta 1.0 and, with the GPU renderer where kInterpolates,
+    // a frame at every display refresh. Off is WD_FIXED_STEP=0 (retail timing).
+    // smooth_camera is WD_SMOOTH_CAMERA, in ms (the host's default 60), 0 = off.
+    static constexpr int kSmoothCameraDefault = 60;
+    bool smooth = true;
+    int smooth_camera = kSmoothCameraDefault;
 
     PadMode pad = PadMode::Game;
     bool dir_set = false;  // false: the host's default for the mode

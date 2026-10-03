@@ -114,8 +114,8 @@ typedef struct {
  *
  * Emitted names, each left out when its setting is at the host's default:
  *   WD_DISC1 WD_DISC2 WD_DATA_DIR (always) WD_RENDERER WD_FULLSCREEN WD_SCALE
- *   WD_FILTER WD_FPS WD_MUTE WD_FIXED_STEP WD_INTERPOLATE WD_SMOOTH_CAMERA WD_PAD
- *   WD_DEADZONE WD_PAD_DIRECTION WD_KEYMAP WD_PADMAP
+ *   WD_FILTER WD_FPS WD_MUTE WD_FIXED_STEP (0: smooth motion off) WD_SMOOTH_CAMERA
+ *   WD_PAD WD_DEADZONE WD_PAD_DIRECTION WD_KEYMAP WD_PADMAP
  */
 int launcher_run(int argc, char** argv, LauncherResult* out);
 

@@ -10,7 +10,8 @@
 extern "C" {
 #endif
 
-/* WD_FIXED_STEP: presents on a 30 Hz grid, Δt = 1.0 every gameplay frame. */
+/* WD_FIXED_STEP (on unless 0; off by default in the browser build): presents
+ * on a 30 Hz grid, Δt = 1.0 every gameplay frame. */
 int wd_fixed_step(void);
 /* The grid's period, and when the present in progress is due (0 before the
  * first present or without the fixed step). */

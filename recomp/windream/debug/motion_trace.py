@@ -14,7 +14,8 @@ What it reports:
   eye-player distance  horizontal distance from the eye to Duncan; its
                        frame-to-frame change is the chase camera's wobble
 
-With --smooth (WD_FIXED_STEP and WD_INTERPOLATE) it also reads the display
+The game runs at the recomp's default, the fixed step (--retail: the original
+timing). With --smooth (WD_INTERPOLATE, also headless) it reads the display
 frames from WD_INTERP_TRACE: their rate, how evenly they fall on the
 display's refreshes, how far the game step each shows is from even motion,
 and how evenly the shown camera eye moves. --visible (muted, focus kept)
@@ -167,13 +168,18 @@ def main() -> int:
     ap.add_argument("--turn", default="LEFT", help="key held with UP while tracing")
     ap.add_argument(
         "--smooth", action="store_true",
-        help="fixed step and display interpolation, with its per-display-frame trace",
+        help="display interpolation (even headless), with its per-display-frame trace",
+    )  # fmt: skip
+    ap.add_argument(
+        "--retail", action="store_true", help="the original timing (WD_FIXED_STEP=0)",
     )  # fmt: skip
     options = ap.parse_args()
     env = dict(e.split("=", 1) for e in options.env)
     if options.visible:
         env.setdefault("WD_FOCUS", "1")  # a window in the background must not pause the game
         env.setdefault("WD_MUTE", "1")
+    if options.retail:
+        env["WD_FIXED_STEP"] = "0"
     if options.smooth:
         env.update(WD_FIXED_STEP="1", WD_INTERPOLATE="1")
         sys.path.insert(0, str(Path(__file__).resolve().parents[2]))

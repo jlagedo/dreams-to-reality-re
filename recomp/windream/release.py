@@ -99,10 +99,11 @@ First start
    it on the disc's row (not on DreamsToReality.exe). Each row says whether
    the image was found and is the supported edition.
 4. Change the port settings if you like (renderer, window, keyboard, gamepad).
-   "Smooth motion" is not the original timing: the game runs a steady 30
+   "Smooth motion" is on unless you turn it off: the game runs a steady 30
    steps a second and, with the GPU renderer, shows a frame at every refresh
-   of your display. "Camera smoothing" then evens out the camera as well.
-   Leave both off to play as the original did.
+   of your display, and "Camera smoothing" (60 ms) evens out the camera
+   (0 turns it off; more is smoother but the camera trails further).
+   Turn Smooth motion off to play with the original timing.
 5. Press Play.
 
 The launcher opens on every start with your settings remembered. To skip it,
@@ -146,7 +147,8 @@ If something goes wrong
   tests but has seen little real play.
 - Keypad 1 to 5 toggle the original game's hidden debug switches; keypad 5
   turns off collision and level exits. Press the key again to undo.
-- A frame cap above 30 breaks the original game's physics.
+- With Smooth motion off, a frame cap above 30 breaks the original game's
+  physics.
 - To report a problem, open an issue at
   https://github.com/jlagedo/dreams-to-reality-re/issues and attach
   userdata\\log.txt (its first line names this version, {version}).
