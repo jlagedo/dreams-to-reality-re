@@ -14,6 +14,12 @@
  * With no audio device a thread mixes into nothing on a timer, so play
  * cursors still advance and the game's polling behaves.
  *
+ * Silence: a new secondary buffer holds its format's silence, as DirectSound
+ * gives it (0x80 in 8-bit, 0 in 16-bit). Two departures from retail, sound
+ * only: the CD music fades over CD_FADE instead of being cut at whatever
+ * sample it had reached (a click), and DSOUND_LoadWav's tail clear writes
+ * 8-bit silence into the 8-bit voice channel (b_Unlock).
+ *
  *   WD_NOSOUND=1   DirectSoundCreate fails (DSERR_NODRIVER): the game runs mute
  *   WD_MUTE=1      mix silently on the normal timer, retaining buffers/cursors/CD state
  */
@@ -45,11 +51,22 @@ typedef struct {
     uint32_t freq;              /* 0 = the format's rate */
 } Buf;
 
+/* CD audio (winmm.c). A track change, a stop or a pause takes effect for the
+ * game at once (mixer_cd_playing, the MCI status); only the output ramps, over
+ * CD_FADE frames: the track that was playing fades out from where it was and
+ * the new one fades in. The game never reads this audio. */
+#define CD_FADE    (OUT_RATE / 100)   /* 10 ms */
+typedef struct {
+    SDL_IOStream* io;
+    uint64_t left;              /* bytes of the track still to play */
+    int gain;                   /* 0..CD_FADE */
+} CdStream;
+
 static Buf g_buf[MAX_BUF];
 static SDL_Mutex* g_cs;
 static uint32_t g_ds_vtbl, g_dsb_vtbl;
-static SDL_IOStream* g_cd;
-static uint64_t g_cd_left;      /* bytes of the track still to play */
+static CdStream g_cd;           /* the track the game plays */
+static CdStream g_cd_out;       /* the one it replaced or stopped, fading out */
 static int g_cd_paused;
 
 static Buf* buf_of(uint32_t obj) {
@@ -66,6 +83,25 @@ static void set_format(Buf* b, uint32_t wfx) {
 static double db_gain(int32_t hundredths) { return hundredths <= -10000 ? 0.0 : pow(10.0, hundredths / 2000.0); }
 
 /* ---- mixer ---- */
+/* Add up to `frames` frames of a CD stream to acc, its gain moving one step a
+ * frame toward target (0 or CD_FADE). Nothing is read once the gain rests at
+ * 0, so a paused track keeps its place; the end of the track closes it. */
+static void mix_cd(CdStream* s, int32_t* acc, int frames, int target) {
+    static int16_t cd[OUT_FRAMES * 2];
+    if (!s->io || (!target && !s->gain)) return;
+    int n = !target && s->gain < frames ? s->gain : frames;
+    size_t want = (size_t)n * 4;
+    if (want > s->left) want = (size_t)s->left;
+    size_t got = SDL_ReadIO(s->io, cd, want) / 4;
+    s->left -= got * 4;
+    for (size_t f = 0; f < got; f++) {
+        s->gain += s->gain < target ? 1 : s->gain > target ? -1 : 0;
+        acc[f * 2] += cd[f * 2] * s->gain / CD_FADE;
+        acc[f * 2 + 1] += cd[f * 2 + 1] * s->gain / CD_FADE;
+    }
+    if (got < (size_t)n) { SDL_CloseIO(s->io); s->io = NULL; }   /* the end of the track */
+}
+
 static void mix(int16_t* out, int frames) {
     static int32_t acc[OUT_FRAMES * 2];
     memset(acc, 0, sizeof(int32_t) * (size_t)frames * 2);
@@ -96,15 +132,9 @@ static void mix(int16_t* out, int frames) {
             b->pos += step;
         }
     }
-    if (g_cd && !g_cd_paused) {
-        static int16_t cd[OUT_FRAMES * 2];
-        size_t want = (size_t)frames * 4;
-        if (want > g_cd_left) want = (size_t)g_cd_left;
-        size_t got = SDL_ReadIO(g_cd, cd, want) / 4;
-        g_cd_left -= got * 4;
-        for (size_t f = 0; f < got; f++) { acc[f * 2] += cd[f * 2]; acc[f * 2 + 1] += cd[f * 2 + 1]; }
-        if (got < (size_t)frames) { SDL_CloseIO(g_cd); g_cd = NULL; }   /* the end of the track */
-    }
+    mix_cd(&g_cd, acc, frames, g_cd_paused ? 0 : CD_FADE);
+    mix_cd(&g_cd_out, acc, frames, 0);
+    if (g_cd_out.io && !g_cd_out.gain) { SDL_CloseIO(g_cd_out.io); g_cd_out.io = NULL; }
     SDL_UnlockMutex(g_cs);
     for (int i = 0; i < frames * 2; i++) {
         int32_t v = acc[i];
@@ -165,12 +195,16 @@ void mixer_cd_play(const char* path, uint64_t offset, uint64_t length, int track
         fprintf(stderr, "[cd] play track %d%s%s\n", track, on, f ? "" : " (cannot open)");
     }
     SDL_LockMutex(g_cs);
-    if (g_cd) SDL_CloseIO(g_cd);
-    g_cd = f; g_cd_left = length ? length : UINT64_MAX; g_cd_paused = 0;
+    if (g_cd.io) {   /* the game stops the CD twice in a row: the second leaves the fade alone */
+        if (g_cd_out.io) SDL_CloseIO(g_cd_out.io);   /* an earlier fade still running: cut short */
+        g_cd_out = g_cd;
+    }
+    g_cd = (CdStream){f, length ? length : UINT64_MAX, 0};
+    g_cd_paused = 0;
     SDL_UnlockMutex(g_cs);
 }
 void mixer_cd_pause(int paused) { mixer_start(); g_cd_paused = paused; }
-int mixer_cd_playing(void) { return g_cd != NULL; }
+int mixer_cd_playing(void) { return g_cd.io != NULL; }
 
 /* ---- IUnknown ---- */
 static void m_QueryInterface(void) { if (ARG(2)) WD_HOST_WRITE32(ARG(2)) = 0; RET(E_NOINTERFACE_); STDRET(3); }
@@ -207,6 +241,12 @@ static void ds_CreateSoundBuffer(void) {  /* (this, desc, ppBuf, unk) */
     if (!b->primary && bytes) {
         b->size = bytes;
         b->data = vm_alloc(0, bytes, W32_MEM_COMMIT | W32_MEM_RESERVE, W32_PAGE_READWRITE);
+        /* DirectSound fills a new buffer with silence (checked against
+         * Windows' dsound.dll): 0x80 in 8-bit. Left as the allocation's zeros,
+         * the 8-bit voice channel, which DSOUND_PlayVoice plays past the end
+         * of each line, sat at full-scale negative DC until the next line:
+         * a loud click at each end and every effect clipped meanwhile. */
+        if (b->data && b->bits == 8) memset(wd_host_range(b->data, bytes, 1), 0x80, bytes);
     }
     if (!b->obj) { b->obj = shim_alloc(8, 16); }
     WD_HOST_WRITE32(b->obj) = g_dsb_vtbl;
@@ -334,7 +374,27 @@ static void b_Stop(void) {
     SDL_LockMutex(g_cs); b->playing = 0; SDL_UnlockMutex(g_cs);
     RET(DS_OK); STDRET(1);
 }
-static void b_Unlock(void) { RET(DS_OK); STDRET(5); }
+/* Departure from retail, sound only. DSOUND_LoadWav's fill helper (0x4474ad)
+ * locks max(new length, previous length) from the start of the buffer, clears
+ * it with memset_(p, 0, n) when the new sample is the shorter, copies the
+ * sample in, stores its length at [ebp-0x28] (and channel +0x10) and Unlocks.
+ * 0 is silence in 16-bit but full-scale negative in 8-bit, so in the 8-bit
+ * voice channel a shorter line after a longer one is followed by seconds of
+ * DC offset, as on Windows: clicks, and effects clipped meanwhile. At that
+ * helper's Unlock (return address 0x447619) the part it cleared and did not
+ * copy over becomes 8-bit silence. */
+#define LOADWAV_UNLOCK_RETURN 0x00447619u
+static void b_Unlock(void) {  /* (this, p1, n1, p2, n2) */
+    Buf* b = buf_of(ARG(0));
+    if (b && b->bits == 8 && WD_HOST_READ32(g_esp) == LOADWAV_UNLOCK_RETURN) {
+        uint32_t copied = WD_HOST_READ32(g_ebp - 0x28);
+        uint32_t p1 = ARG(1), n1 = ARG(2), p2 = ARG(3), n2 = ARG(4);
+        uint32_t copied2 = copied > n1 ? copied - n1 : 0;
+        if (copied < n1) memset(wd_host_range(p1 + copied, n1 - copied, 1), 0x80, n1 - copied);
+        if (p2 && copied2 < n2) memset(wd_host_range(p2 + copied2, n2 - copied2, 1), 0x80, n2 - copied2);
+    }
+    RET(DS_OK); STDRET(5);
+}
 static void b_Restore(void) { RET(DS_OK); STDRET(1); }
 
 void imp_DirectSoundCreate(void) {  /* (guid, ppDS, outer) */

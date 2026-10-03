@@ -193,6 +193,17 @@ succeeds silently in both modes; it used to fail, which the game showed as an
 silently when the device has no audio track at all (an `.iso`); with audio
 tracks, a track that is not one of them is still out of range.
 
+A stop, a pause or a track change takes effect for the game at once (the MCI
+mode), but the mixer fades the music out over 10 ms (`CD_FADE`,
+`windream/host/sdl/dsound.c`) instead of cutting it at whatever sample it had
+reached, which clicked; the next track fades in. Two other mixer rules came from
+the same clicks. A new 8-bit DirectSound buffer holds 8-bit silence (0x80), as
+Windows' DirectSound gives it. And, departing from retail, `DSOUND_LoadWav`'s
+clear of a longer previous voice line, a `memset_` of 0 (full-scale negative in
+the 8-bit voice channel), is turned into 8-bit silence. Before that, voice lines
+ended in seconds of DC offset: a loud click at each end, and sound effects
+clipped in between.
+
 The three disc-mode paths are read with `SDL_getenv`, which on Windows gives
 the Unicode environment as UTF-8, so paths with non-ASCII characters work
 whatever the ANSI code page; code that sets them inside the process must use
