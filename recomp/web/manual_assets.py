@@ -1,6 +1,6 @@
 """Extract tribute artwork from the 33-page Spanish retail manual.
 
-uv run --with pypdf --with pillow python recomp/web/manual_assets.py MANUAL.pdf
+uv run --with pypdf --with pillow python recomp/web/manual_assets.py MANUAL.pdf --box BOX.jpg
 
 The original scan and extracted artwork stay under out/; never commit them.
 No artwork is redrawn or generated. Crops only remove margins or adjacent text.
@@ -39,6 +39,7 @@ def main() -> int:
 
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("pdf", type=Path)
+    ap.add_argument("--box", type=Path, help="original PC box-front JPEG to preserve unchanged")
     ap.add_argument("--out", type=Path, default=OUT)
     args = ap.parse_args()
     reader = PdfReader(args.pdf)
@@ -73,6 +74,22 @@ def main() -> int:
         "sha256": hashlib.sha256(args.pdf.read_bytes()).hexdigest(),
         "assets": records,
     }
+    box = args.out / "box-front.jpg"
+    if args.box:
+        with Image.open(args.box) as im:
+            if im.format != "JPEG":
+                ap.error("--box must be a JPEG scan; it is copied without image editing")
+        if args.box.resolve() != box.resolve():
+            shutil.copy2(args.box, box)
+    if box.is_file():
+        with Image.open(box) as im:
+            manifest["box_art"] = {
+                "file": box.name,
+                "source": "User-supplied original PC + PC3Dfx retail box scan",
+                "sha256": hashlib.sha256(box.read_bytes()).hexdigest(),
+                "width": im.width,
+                "height": im.height,
+            }
     (args.out / "sources.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )

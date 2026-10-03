@@ -484,9 +484,11 @@ and full credits. Prepare its images from the 33-page Spanish manual before
 packaging (the PDF and extracted images remain under `out/`, never committed):
 
 ```sh
-uv run --with pypdf --with pillow python recomp/web/manual_assets.py /path/to/manual-es.pdf
+uv run --with pypdf --with pillow python recomp/web/manual_assets.py /path/to/manual-es.pdf --box /path/to/box-front.jpg
 ```
 
+The `--box` JPEG is copied unchanged for the demo's start screen. Subsequent
+manual extractions retain that image when `--box` is omitted.
 `package.py` copies `out/recomp/web/manual/` into `site/manual/`; use
 `--manual DIR` for another prepared asset folder. The page's look, sources,
 controls overlay and in-game key handling are described in

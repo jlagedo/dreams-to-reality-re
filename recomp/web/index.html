@@ -81,17 +81,20 @@
         <div class="screen" id="stage">
           <canvas id="canvas" tabindex="0" aria-label="Dreams to Reality game screen. Keyboard controls: press question mark for the list."></canvas>
 
-          <!-- Start screen (letterbox): loading, ready, ended and error states. loader.js toggles .hidden once the game runs. -->
+          <!-- Original retail box beside the start controls; the canvas keeps its 4:3 shape. -->
           <div id="overlay" role="region" aria-label="Start screen">
             <p class="letter"><span>Cryo Interactive, 1997</span><span>Browser demo</span></p>
-            <div class="band">
-              <div class="poster" id="poster" aria-hidden="true"></div>
-              <div class="title-block">
-                <h3 id="title">Dreams to Reality</h3>
-                <p class="sub">Walk. Fly. Find your way.</p>
-              </div>
-            </div>
-
+            <div class="start-body">
+              <figure class="start-art">
+                <div class="poster" id="poster" role="img" aria-label="Original Dreams to Reality PC box: Duncan flying through clouds above the game's title."></div>
+                <figcaption class="box-caption">Dreams to Reality · 1997</figcaption>
+              </figure>
+              <div class="start-info">
+                <div class="title-block">
+                  <p class="start-eyebrow">Return to the world of dreams</p>
+                  <h3 id="title">Dreams<br><em>to Reality</em></h3>
+                  <p class="sub">An adventure beyond the waking world.</p>
+                </div>
               <div class="panel">
                 <div id="bar" role="progressbar" aria-label="Download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
                 <div id="progress-text"><span id="bytes">&nbsp;</span><span id="rate"></span></div>
@@ -101,12 +104,7 @@
                   <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none"/></svg>
                   <span class="lbl" id="play-label">Play demo</span>
                 </button>
-                <div id="hint">
-                  <span><kbd class="arr">&uarr;</kbd><kbd class="arr">&larr;</kbd><kbd class="arr">&darr;</kbd><kbd class="arr">&rarr;</kbd> move</span>
-                  <span><kbd>Ctrl</kbd> jump</span><span><kbd>Alt</kbd> punch</span><span><kbd>Esc</kbd> menu</span>
-                  <span><kbd>?</kbd> all controls</span>
-                </div>
-                <p class="soundnote" id="soundnote">A keyboard is needed to play. Sound begins when you press play; your progress stays in this browser.</p>
+                <p class="soundnote" id="soundnote">Sound starts when you play.<br>Your progress stays in this browser.</p>
                 <p class="tip" id="tip" aria-hidden="true"></p>
 
                 <details id="filebox" hidden><summary id="filesum">Files</summary><ul id="files"></ul></details>
@@ -122,6 +120,12 @@
                   </div>
                 </div>
               </div>
+              </div>
+            </div>
+            <div id="hint">
+              <span><kbd class="arr">&uarr;</kbd><kbd class="arr">&larr;</kbd><kbd class="arr">&darr;</kbd><kbd class="arr">&rarr;</kbd> move</span>
+              <span><kbd>Ctrl</kbd> jump</span><span><kbd>Alt</kbd> act</span><span><kbd>Esc</kbd> menu</span>
+            </div>
           </div>
 
           <!-- Shown while the game runs but the keyboard is not going to it. -->
@@ -161,7 +165,7 @@
       <p class="fine">Press <kbd>?</kbd> for every control: magic, cameras, the menu and the gamepad.</p>
     </aside>
   </div>
-  <p class="game-note">Arrows to move &nbsp;·&nbsp; Ctrl to jump &nbsp;·&nbsp; Alt to act &nbsp;·&nbsp; Esc for the menu<br><a href="#controls">All controls</a> &nbsp;·&nbsp; <a href="#questions">Help playing</a></p><pre id="log"></pre>
+  <p class="game-note"><a href="#controls">All controls</a> &nbsp;·&nbsp; <a href="#questions">Help playing</a></p><pre id="log"></pre>
 </section>
 
 

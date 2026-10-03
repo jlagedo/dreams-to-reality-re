@@ -243,6 +243,11 @@ const HELP = [
     ['Open the demo directly in its own tab, not inside another page.',
      'Use a current Chrome, Edge or Firefox on a desktop or laptop.',
      'If you host this page yourself: it must be served over https (or localhost) with the Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy headers that recomp/web/package.py writes.']],
+  // before /WebGL/: the engine's text names the WebGL context
+  [/context was lost/i, 'The browser reset the graphics card',
+    ['Reload the page; your autosave is kept.',
+     'If it happens again, close other tabs that use 3D graphics and update your graphics driver.',
+     'Pixel-perfect draws the game at its original 640 x 480, which asks less of the graphics card.']],
   [/WebGL/i, 'Your browser has no WebGL 2',
     ['Turn on hardware acceleration in the browser settings and restart it.',
      'Update your graphics driver, then try Chrome, Edge or Firefox.',

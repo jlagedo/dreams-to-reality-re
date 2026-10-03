@@ -22,6 +22,9 @@ extern int g_wd_quiet;
 #include <set>
 #include <string>
 #include <vector>
+#ifdef __EMSCRIPTEN__
+#include <emscripten/html5_webgl.h>
+#endif
 
 namespace {
 using wd::SurfaceScope;
@@ -97,6 +100,12 @@ void fatal_report(const char *message) {
     const std::string why = std::string("direct renderer FATAL: ") + message;
     recomp_report_state(why.c_str());
 }
+#ifdef __EMSCRIPTEN__
+// The page shows the message (wd_render_fatal's wd_web_status). SDL's box
+// calls alert(), which a worker does not have: it would abort the runtime
+// before the page hears why.
+void fatal_notify(const char *) {}
+#else
 bool set(const char *name) {
     const char *value = std::getenv(name);
     return value && *value;
@@ -113,6 +122,7 @@ void fatal_notify(const char *message) {
         "Details are in the log and in direct-fatal.txt.";
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Dreams to Reality", text.c_str(), nullptr);
 }
+#endif
 const int fatal_hooks_installed = (wd_render_fatal_hooks(fatal_report, fatal_notify), 0);
 void require(bool ok, const char *message) {
     if (!ok)
@@ -331,10 +341,32 @@ std::vector<od_rect> ranges(const Surface &surface, uint32_t address, uint32_t b
     }
     return result;
 }
-void log_sokol(const char *, uint32_t level, uint32_t, const char *message, uint32_t, const char *,
-               void *) {
-    if (level <= 1)
-        fatal(message ? message : "sokol error");
+const char *sokol_item_name(uint32_t item) {
+#define _SG_LOGITEM_XMACRO(item, msg) #item,
+    static const char *const names[] = {_SG_LOG_ITEMS};
+#undef _SG_LOGITEM_XMACRO
+    return item < sizeof names / sizeof *names ? names[item] : "unknown item";
+}
+// sokol's message text is compiled out of non-debug builds: name the log item
+// and the line, so a report says which check failed.
+void log_sokol(const char *, uint32_t level, uint32_t item, const char *message, uint32_t line,
+               const char *, void *) {
+    if (level > 1)
+        return;
+    std::string text = std::string("sokol ") + sokol_item_name(item) + " (sokol_gfx.h:" +
+                       std::to_string(line) + ")";
+    if (message)
+        text += std::string(": ") + message;
+#ifdef __EMSCRIPTEN__
+    // A lost context fails sokol's next framebuffer check before the backend's
+    // acquire sees it: WebGL's checkFramebufferStatus answers UNSUPPORTED once
+    // the context is gone, while isContextLost() can still say false (seen with
+    // CDP Browser.crashGpuProcess).
+    if (item == SG_LOGITEM_GL_FRAMEBUFFER_STATUS_UNSUPPORTED ||
+        emscripten_is_webgl_context_lost(emscripten_webgl_get_current_context()))
+        text += "; the WebGL context was lost (the browser reset the GPU)";
+#endif
+    fatal(text);
 }
 } // namespace
 

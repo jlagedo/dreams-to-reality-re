@@ -301,6 +301,13 @@ def run_checks(
     page.evaluate(
         "window.__kp = []; addEventListener('keydown', e => window.__kp.push([e.key, e.defaultPrevented]))"
     )
+    # Starting the game scrolls the player into view (the tribute opens above it); the keys must not
+    # move the page from there.
+    page.wait_for_function(  # that scroll is smooth: wait until it stops
+        "(() => { const s = document.scrollingElement.scrollTop, same = window.__s === s; window.__s = s; return same; })()",
+        polling=200,
+    )
+    scroll0 = page.evaluate("document.scrollingElement.scrollTop")
     for k in ["ArrowDown", "ArrowUp", "Space", "Alt", "Control", "Escape", "F10", "Tab"]:
         page.keyboard.press(k)
     kp = page.evaluate("window.__kp")
@@ -309,7 +316,8 @@ def run_checks(
         "game keys are prevented (no page scrolling or browser menus)",
         str([k for k, p in kp if not p]),
     )
-    rep.check(page.evaluate("document.scrollingElement.scrollTop") == 0, "page did not scroll")
+    scroll1 = page.evaluate("document.scrollingElement.scrollTop")
+    rep.check(scroll1 == scroll0, "game keys did not scroll the page", f"{scroll0} -> {scroll1}")
     page.hover("#hud")
     page.click("#mute")
     rep.check(
@@ -491,6 +499,25 @@ def run_design_checks(
         page.locator("#player").evaluate(
             "el => el.scrollIntoView({block: 'start', behavior: 'instant'})"
         )
+        page.screenshot(path=str(out / f"d-{tag}-2-player-ready.png"))
+        start = page.evaluate(
+            """() => {
+              const overlay = document.getElementById('overlay').getBoundingClientRect();
+              const play = document.getElementById('play').getBoundingClientRect();
+              const parts = ['poster', 'title', 'play'].map(id =>
+                document.getElementById(id).getBoundingClientRect());
+              return {button: [play.width, play.height], fits: parts.every(r =>
+                r.width > 0 && r.height > 0 && r.left >= overlay.left &&
+                r.right <= overlay.right + 1 && r.top >= overlay.top &&
+                r.bottom <= overlay.bottom + 1)};
+            }"""
+        )
+        rep.check(start["fits"], f"{tag}: box art, title and Play fit inside the start screen")
+        rep.check(
+            start["button"][0] >= 110 and start["button"][1] >= 40,
+            f"{tag}: Play remains a prominent usable button",
+            str(start["button"]),
+        )
         geo = page.evaluate(
             """() => { const r = document.getElementById('stage').getBoundingClientRect();
               const b = document.getElementById('hud').getBoundingClientRect();
@@ -615,6 +642,10 @@ def run_design_checks(
                 str(fs),
             )
             page.screenshot(path=str(out / f"d-{tag}-8-fullscreen.png"))
+            # The toolbar hides after 2.6 s without pointer movement (the screenshot can take
+            # longer); a user's pointer wakes it on the way to the button.
+            box = page.locator("#fs").bounding_box()
+            page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
             page.click("#fs")
             page.wait_for_timeout(300)
         errs = [c for c in console if c.startswith(("[error]", "[pageerror]"))]

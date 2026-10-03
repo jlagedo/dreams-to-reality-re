@@ -675,7 +675,7 @@ addEventListener('unhandledrejection', (e) => log('unhandled rejection:', (e.rea
   setPhase('ready');
   el.play.disabled = false;
   el.play.focus({ preventScroll: true });
-  setStatus(page.cacheHit ? 'Ready (demo data loaded from the cache).' : 'Ready.');
+  setStatus('Ready when you are.');
   if (page.clicked || qs.has('autostart')) startGame();
 })();
 })();

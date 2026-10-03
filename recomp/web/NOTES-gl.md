@@ -174,7 +174,10 @@ Files added or changed (all under `recomp/render/` plus this note):
 
 - Firefox and Safari WebGL2 (only Chrome 154 with ANGLE SwiftShader and ANGLE D3D11).
   JSPI (the `_jspi` variant) is Chromium-only as far as tested; the host's relay does not use it.
-- Mobile GPUs, Linux/macOS browsers, HiDPI canvases (`SDL_WINDOW_HIGH_PIXEL_DENSITY`).
+- Mobile GPUs, Linux/macOS browsers. HiDPI: the game build does not use
+  `SDL_WINDOW_HIGH_PIXEL_DENSITY`; the page passes device pixels and the window is sized in them
+  (`web_glue.c` `wd_web_view_size`). Checked in headless Chrome with emulated device pixel
+  ratios 1.5 and 2 only, not on a real HiDPI screen.
 - Real game scenes through the browser renderer (the WASM stream's runs), the far-plane
   depth behaviour compared with D3D11, long-run memory growth of sokol resources.
 - A browser run of the Windows-only retail fixtures (`fixture` / `line_fixture` in

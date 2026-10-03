@@ -28,9 +28,11 @@ known to work together.
   must not be moved to another origin.
 - The pack is written into MEMFS (`FS.writeFile(..., {canOwn: true})`), so the whole pack lives in
   the JS heap: a minimal demo pack, not the full `DREAMS.DAT`.
-- `#canvas` is styled `100vw x 100vh; object-fit: contain`. The page does not set its pixel size:
-  the engine owns `canvas.width/height` (a 640x480 mock canvas is scaled and letterboxed). If SDL
-  resizes the canvas through its own CSS size, tell PAGE.
+- `#canvas` fills the 4:3 stage. The page asks for its pixel size through
+  `Module._wd_web_view_size(w, h)` (the canvas in device pixels, or 640x480 for pixel-perfect);
+  the engine applies it with `SDL_SetWindowSize` at its next message pump
+  (`recomp/windream/host/web/web_glue.c`) and `pre.js` sizes `canvas.width/height` from each frame.
+  An engine without the export keeps 640x480 and the browser stretches it.
 - Audio: the page wraps `window.AudioContext` before the engine loads and routes everything the
   engine connects to the destination through one gain node (mute), and resumes contexts on the
   user's click. The engine's `AudioContext` must be created on the main thread (SDL3 does).
