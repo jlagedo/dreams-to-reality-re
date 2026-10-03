@@ -246,6 +246,8 @@ keep = me
         "filter": "linear",
         "fps": "0",
         "mute": "1",
+        "smooth": "0",
+        "smooth_camera": "0",
     }
     assert dict(cfg["keyboard"]) == {"W": "UP", "A": "LEFT"}
     assert cfg["gamepad"]["keys_a"] == "ALT" and "a" not in cfg["gamepad"]

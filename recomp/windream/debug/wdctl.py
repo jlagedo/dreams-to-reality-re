@@ -284,6 +284,30 @@ class Ctl:
     def audio_dump_stop(self) -> dict:
         return self.call("audio_dump_stop")
 
+    def display_shot(self, path: str | Path, timeout: float = 5.0) -> Path:
+        """The next display interpolation frame (WD_INTERPOLATE) as a PNG,
+        written from the swapchain; waits for the file."""
+        target = Path(path).resolve()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.unlink(missing_ok=True)
+        self.call("display_shot", path=str(target))
+        end = time.monotonic() + timeout
+        while not target.exists() or not target.stat().st_size:
+            if time.monotonic() > end:
+                raise CtlError(f"display_shot: no display frame within {timeout} s")
+            time.sleep(0.02)
+        time.sleep(0.05)  # the PNG is written in one call; let it close
+        return target
+
+    def trace(self, path: str | Path, frames: int, ranges: list[tuple[int, int]]) -> dict:
+        """After each of the next `frames` presents, write a line to `path`:
+        the frame number, host nanoseconds, then each (va, size) range as hex
+        ("-" when unmapped). The game is not paused. Answers at once."""
+        target = Path(path).resolve()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        spec = ",".join(f"0x{va:x}:{size}" for va, size in ranges)
+        return self.call("trace", path=str(target), frames=frames, ranges=spec)
+
     def quit(self, code: int = 0) -> dict:
         """End the host process with that exit code."""
         try:

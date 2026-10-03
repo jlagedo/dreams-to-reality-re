@@ -99,6 +99,10 @@ First start
    it on the disc's row (not on DreamsToReality.exe). Each row says whether
    the image was found and is the supported edition.
 4. Change the port settings if you like (renderer, window, keyboard, gamepad).
+   "Smooth motion" is not the original timing: the game runs a steady 30
+   steps a second and, with the GPU renderer, shows a frame at every refresh
+   of your display. "Camera smoothing" then evens out the camera as well.
+   Leave both off to play as the original did.
 5. Press Play.
 
 The launcher opens on every start with your settings remembered. To skip it,

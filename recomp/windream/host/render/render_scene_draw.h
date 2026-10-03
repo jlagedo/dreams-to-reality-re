@@ -53,6 +53,18 @@ class SceneDraw {
     void reset(od_renderer *); // level/resource lifetime boundary
     // Entries the last submit would have put in Glide's 256-entry deferred list.
     size_t deferred_blocks() const { return deferred_blocks_; }
+    // Glide's retained palette, which a submit starts from and leaves for the
+    // next. Display interpolation draws a scene again from the state its
+    // original submit began with, then puts back the state it ended with.
+    struct Retained {
+        uint32_t page = 0;
+        std::array<uint16_t, 256> palette{};
+    };
+    Retained retained() const { return {palette_page_, palette_}; }
+    void restore(const Retained &retained) {
+        palette_page_ = retained.page;
+        palette_ = retained.palette;
+    }
   private:
     struct TextureVersion {
         uint64_t hash = 0, last_frame = 0;

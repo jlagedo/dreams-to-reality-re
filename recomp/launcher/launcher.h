@@ -67,7 +67,7 @@
  * Widget ids (click, move, drop @): disc1.row disc2.row (drop only) browse1 browse2
  *   tab.display tab.keyboard tab.gamepad  play quit open_folder
  *   display: renderer renderer.software renderer.gpu  fullscreen  scale  filter
- *            filter.pixelart filter.nearest filter.linear  fps  mute
+ *            filter.pixelart filter.nearest filter.linear  smooth  smooth_camera  fps  mute
  *   keyboard: key.wasd key.reset  key.<GAME>.capture key.<GAME>.reset  (GAME = UP DOWN LEFT RIGHT
  *            CTRL ALT SPACE 1 2 3 ESC F1.. ; rows scrolled out of view are refused)
  *   gamepad: pad.mode pad.mode.game|keys|off  pad.dir pad.dir.stick|dpad|both  pad.dzin pad.dzout
@@ -114,7 +114,8 @@ typedef struct {
  *
  * Emitted names, each left out when its setting is at the host's default:
  *   WD_DISC1 WD_DISC2 WD_DATA_DIR (always) WD_RENDERER WD_FULLSCREEN WD_SCALE
- *   WD_FILTER WD_FPS WD_MUTE WD_PAD WD_DEADZONE WD_PAD_DIRECTION WD_KEYMAP WD_PADMAP
+ *   WD_FILTER WD_FPS WD_MUTE WD_FIXED_STEP WD_INTERPOLATE WD_SMOOTH_CAMERA WD_PAD
+ *   WD_DEADZONE WD_PAD_DIRECTION WD_KEYMAP WD_PADMAP
  */
 int launcher_run(int argc, char** argv, LauncherResult* out);
 

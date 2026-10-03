@@ -39,6 +39,11 @@ add_executable(WDRenderBoundaryTests
     "${WD_HOST}/render/render_boundary.cpp"
     "${WD_HOST}/render/render_fatal.c")
 target_include_directories(WDRenderBoundaryTests PRIVATE ${WD_HOST_INCLUDES})
+add_executable(WDRenderInterpTests
+    "${WD_NATIVE}/render_interp_tests.cpp"
+    "${WD_HOST}/render/render_interp.cpp")
+target_link_libraries(WDRenderInterpTests PRIVATE ODRender)
+target_include_directories(WDRenderInterpTests PRIVATE ${WD_HOST_INCLUDES})
 if(WIN32)
     add_executable(WDRenderMetricsTests "${WD_NATIVE}/render_metrics_tests.cpp")
     target_link_libraries(WDRenderMetricsTests PRIVATE d3d11)
@@ -54,3 +59,4 @@ endif()
 enable_testing()
 add_test(NAME ODDirectMath COMMAND ODDirectMathTests)
 add_test(NAME WDRenderBoundary COMMAND WDRenderBoundaryTests)
+add_test(NAME WDRenderInterp COMMAND WDRenderInterpTests)

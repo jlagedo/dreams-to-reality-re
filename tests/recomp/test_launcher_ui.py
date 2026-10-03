@@ -662,7 +662,66 @@ def test_display_settings_reach_play_and_the_next_start(demo, home):
         "filter": "pixelart",
         "fps": "25",
         "mute": "0",
+        "smooth": "0",
+        "smooth_camera": "0",
     }
+
+
+def test_smooth_motion_reaches_play_and_the_next_start(demo, home):
+    """Smooth motion is the fixed step and, with the GPU renderer, display interpolation and
+    the camera lag. The camera slider does nothing without it; the frame cap nothing with it."""
+    discs_ini(home)
+    r = clean(
+        run_ui(
+            demo,
+            home,
+            [
+                "click renderer",
+                "click renderer.gpu",
+                'expect var.WD_FIXED_STEP ""',
+                "click smooth_camera",  # disabled: no value
+                'expect var.WD_SMOOTH_CAMERA ""',
+                "click smooth",
+                "expect var.WD_FIXED_STEP 1",
+                "expect var.WD_INTERPOLATE 1",
+                'expect var.WD_SMOOTH_CAMERA ""',  # 0 ms: off
+                *set_int("smooth_camera", 60),
+                "expect var.WD_SMOOTH_CAMERA 60",
+                "click fps",  # disabled while smooth: the cap stays at its default
+                'expect var.WD_FPS ""',
+                shot("smooth"),
+                "click play",
+            ],
+        )
+    )
+    assert r.rc == 0, r.err
+    smooth = {"WD_FIXED_STEP": "1", "WD_INTERPOLATE": "1", "WD_SMOOTH_CAMERA": "60"}
+    assert {k: r.pairs.get(k) for k in smooth} == smooth
+    port = read_ini(home / "dreams.ini")["port"]
+    assert (port["smooth"], port["smooth_camera"]) == ("1", "60")
+    assert run_play(demo, home) == (0, r.pairs)  # the second start, without a window
+
+    # The software renderer keeps the fixed step only; turning it off removes every pair.
+    r = clean(
+        run_ui(
+            demo,
+            home,
+            [
+                "click renderer",
+                "click renderer.software",
+                "expect var.WD_FIXED_STEP 1",
+                'expect var.WD_INTERPOLATE ""',
+                'expect var.WD_SMOOTH_CAMERA ""',
+                "click smooth",
+                'expect var.WD_FIXED_STEP ""',
+                "click play",
+            ],
+        )
+    )
+    assert r.rc == 0, r.err
+    assert not set(smooth) & set(r.pairs)
+    port = read_ini(home / "dreams.ini")["port"]
+    assert (port["smooth"], port["smooth_camera"]) == ("0", "60")  # the lag is kept for next time
 
 
 def test_sliders_hold_a_typed_value_to_their_range(demo, home):
@@ -801,6 +860,7 @@ def test_keyboard_only_every_control_in_tab_order_then_play(demo, home):
         "fullscreen",
         "scale",
         "filter",
+        "smooth",  # (the camera smoothing slider is off without it: not a stop)
         "fps",
         "mute",
         "tab.keyboard",

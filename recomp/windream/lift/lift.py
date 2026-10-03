@@ -61,6 +61,9 @@ CALLS = {
     # GAME_TickFrame's tail handles the editor's other state, before
     # GAME_HandleHotkeys (spec 005). host/sdl/user.c runs it while keypad 5 is on.
     0x0041743A: "wd_editor_frame",
+    # After GAME_TickFrame's frame delta block, on every path into it: with
+    # WD_FIXED_STEP, host/sdl/pacing.c sets the delta to 1.0.
+    0x004172A2: "wd_frame_delta",
 }
 # Self-modifying code. Five span blitters (0x4024B8, 0x40254D, 0x4027B8,
 # 0x40294D, 0x4029AF) write their texture steps, pointer steps and loop limits

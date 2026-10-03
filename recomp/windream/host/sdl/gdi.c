@@ -14,7 +14,7 @@
  *
  *   WD_FILTER=pixelart|nearest|linear   scaling filter (default pixelart:
  *                      nearest sampling without uneven pixel sizes)
- *   WD_FPS=25          cap presents per second, 0 = uncapped
+ *   WD_FPS=25          cap presents per second, 0 = uncapped (pacing.c, with WD_FIXED_STEP)
  *   WD_SNAP="60,300"   write snap_<present>_<ms>.bmp after those presents
  *   WD_SNAP_MS=4000    ... and every 4 s
  *   WD_CRASH_AT=N      fault at present N (tests the crash report)
@@ -22,6 +22,7 @@
 #define RECOMP_GENERATED_CODE
 #include "host.h"
 #include "render_live.h"
+#include "pacing.h"
 
 #define FAKE_TAG   0x7E000000u
 #define FAKE_MASK  0xFF000000u
@@ -165,14 +166,7 @@ static void present_hook(const Dib* d) {
     }
     static uint32_t every = 0xFFFFFFFFu, next;
     if (every == 0xFFFFFFFFu) { const char* s = host_env("WD_SNAP_MS"); every = s ? (uint32_t)atoi(s) : 0; next = every; }
-    static uint32_t fps = 0xFFFFFFFFu;
-    static uint64_t last;
-    if (fps == 0xFFFFFFFFu) { const char* s = host_env("WD_FPS"); fps = s ? (uint32_t)atoi(s) : 25; }
-    if (fps) {   /* WD_FPS: presents per second, default 25, 0 = uncapped (1998 machines ran at 15-30) */
-        uint64_t slot = SDL_NS_PER_SECOND / fps, now = SDL_GetTicksNS();
-        if (now - last < slot) SDL_DelayPrecise(slot - (now - last));
-        last = SDL_GetTicksNS();
-    }
+    wd_pacing_wait();   /* WD_FPS or WD_FIXED_STEP (pacing.c) */
     g_presents++;
     if (g_presents == 1) {
         fprintf(stderr, "[gdi] first present at %u ms\n", host_elapsed_ms());

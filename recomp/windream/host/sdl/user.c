@@ -434,6 +434,7 @@ static void display_script_pump(void) {
 }
 
 void host_pump(void) {
+    wd_render_display_point();
     wd_devtools_pump();
 #ifdef __EMSCRIPTEN__
     /* The page's key, mouse and focus events are proxied to this thread and wait
@@ -680,6 +681,7 @@ void imp_GetFocus(void) {
 /* ---- keyboard ---- */
 void imp_GetAsyncKeyState(void) {  /* (vk) -> SHORT */
     int vk = (int)(ARG(0) & 0xFF);
+    wd_render_display_point();   /* display interpolation's frames while the game computes */
     if (SDL_GetTicks() - g_last_pump >= 4) host_pump();   /* loops that poll keys without PeekMessageA */
     uint16_t s = 0;
     if (g_vk_count[vk] || script_down(vk) || joy_key_down(vk) || wd_devtools_key_down(vk)) s |= 0x8000;

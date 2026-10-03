@@ -57,7 +57,7 @@ def main():
         )
     commands = [
         [str(build / recomp_env.exe_name(name))]
-        for name in ("ODDirectMathTests", "WDRenderBoundaryTests")
+        for name in ("ODDirectMathTests", "WDRenderBoundaryTests", "WDRenderInterpTests")
     ]
     if args.gpu:
         commands.append([str(build / "WDRenderMetricsTests.exe")])
