@@ -71,8 +71,12 @@ def test_sdk_has_the_relay_message():
 
 def test_web_flag_in_build_py():
     text = (WINDREAM / "build.py").read_text()
-    for flag in ("--web", "--web-opt", "--web-gen", "--web-exe"):
+    for flag in ("--web", "--web-opt", "--web-gen", "--web-exe", "--web-release"):
         assert flag in text
+    # The deployable build leaves the verification capture out, explicitly
+    # (a cached ON must not survive into a release).
+    assert "capture=not args.web_release" in text
+    assert "-DWD_WEB_CAPTURE=" in (WINDREAM / "web_build.py").read_text()
 
 
 def test_web_env_finds_the_toolchain():

@@ -9,10 +9,13 @@ only the ledger exists); one unoptimized development build, see CMakeLists.txt.
 
 --web builds the browser version with Emscripten instead (web_build.py):
 out/recomp/windream/build-web/dreams.{js,wasm}; --web-opt picks a CMake build
-type for it (Release, MinSizeRel, ...).
+type for it (Release, MinSizeRel, ...). --web-release is the build to deploy:
+Release, without the verification tools' frame capture (WD_WEB_CAPTURE), in
+out/recomp/windream/build-web-release.
 
 usage: uv run python recomp/windream/build.py [--trace] [--render-audit] [--vm win32|ledger|shadow]
        uv run python recomp/windream/build.py --web [--web-opt Release]
+       uv run python recomp/windream/build.py --web-release
 """
 
 import argparse
@@ -50,17 +53,26 @@ def main() -> int:
     )
     ap.add_argument(
         "--web-name",
-        default="build-web",
-        help="build directory name under out/recomp/windream (--web)",
+        help="build directory name under out/recomp/windream "
+        "(--web: build-web, --web-release: build-web-release)",
+    )
+    ap.add_argument(
+        "--web-release",
+        action="store_true",
+        help="the browser build to deploy: Release, no frame capture (build-web-release)",
     )
     args = ap.parse_args()
     out = recomp_env.out_dir("windream")
-    if args.web:
+    if args.web or args.web_release:
         import web_build
 
         gen = Path(args.web_gen).resolve() if args.web_gen else out / "gen"
         rc, build = web_build.configure_and_build(
-            gen, optimize=args.web_opt, exe=args.web_exe, name=args.web_name
+            gen,
+            optimize="Release" if args.web_release else args.web_opt,
+            exe=args.web_exe,
+            name=args.web_name or ("build-web-release" if args.web_release else "build-web"),
+            capture=not args.web_release,
         )
         if rc == 0:
             for name in ("dreams.js", "dreams.wasm"):

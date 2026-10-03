@@ -74,9 +74,11 @@ def configure_and_build(
     quiet: bool = False,
     exe: str = "GDIDREAM.EXE",
     name: str = "build-web",
+    capture: bool = True,
 ) -> tuple[int, Path]:
     """Configure and build; returns (exit code, build directory). optimize is
-    a CMake build type ("" is the development build: -O1, see WD_WEB_OPT in CMakeLists.txt)."""
+    a CMake build type ("" is the development build: -O1, see WD_WEB_OPT in CMakeLists.txt).
+    capture is WD_WEB_CAPTURE, the verification tools' frame capture (off in a release)."""
     tools = load_tools()
     env = web_env(tools)
     cmake = shutil.which("cmake", path=env["PATH"]) or "cmake"
@@ -104,7 +106,7 @@ def configure_and_build(
          f"-DOD_SHDC_EXECUTABLE={Path(tools['shdc']).as_posix()}",
          f"-DCMAKE_MAKE_PROGRAM={Path(tools['ninja']).as_posix()}",
          f"-DWD_GEN_DIR={gen.as_posix()}", "-DWD_LAUNCHER=OFF", "-DWD_DEVTOOLS=OFF",
-         f"-DWD_WEB_EXE={exe}"],
+         f"-DWD_WEB_EXE={exe}", f"-DWD_WEB_CAPTURE={'ON' if capture else 'OFF'}"],
         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
     )  # fmt: skip
     if configure.returncode:

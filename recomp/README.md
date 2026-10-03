@@ -483,7 +483,14 @@ The page's look, copy, controls overlay and in-game key handling (`site/style.cs
 
 ### Deploy on Cloudflare Pages
 
+Deploy the release engine, not the development one: `--web-release` builds
+`out/recomp/windream/build-web-release` at Release (-O3) and leaves out the
+verification tools' frame capture (`WD_WEB_CAPTURE`). Check it, then deploy:
+
 ```sh
+uv run python recomp/windream/build.py --web-release
+uv run python recomp/web/package.py --engine out/recomp/windream/build-web-release
+grep -c wd_web_capture out/recomp/web/dist/dreams.js   # 0: no capture in the release
 wrangler pages deploy out/recomp/web/dist --project-name <name>
 ```
 
