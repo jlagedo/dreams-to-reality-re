@@ -1,111 +1,137 @@
-/* Dreams to Reality, browser demo: presentation. System fonts only; no external requests.
- * The page is two places: the dream (dusk, the game and its toolbar) and, past the dawn line,
- * reality (a sandstone page set like the booklet in the game's box). Tokens are the :root block.
- * Notes: recomp/web/NOTES-design.md. */
 
+/* An illustrated tribute to Dreams to Reality. Game-derived artwork is packaged from out/. */
 :root {
-  /* the dream: dusk over the islands */
-  --dusk: #12162e;
-  --dusk-deep: #0a0d1e;
-  --dusk-line: rgba(190, 205, 255, .18);
-  --dusk-ink: #eef0f8;
-  --dusk-dim: #a9b2cf;            /* 7.4:1 on --dusk */
-  /* reality: the sandstone of the first level, and ink */
-  --sand: #dfc391;
-  --sand-hi: #ecd8ae;
-  --sand-line: rgba(42, 28, 17, .22);
-  --ink: #2a1c11;
-  --ink-dim: #5b4630;             /* 5.6:1 on --sand */
-  /* from the game: the sky, Duncan's jade skin and orange trousers, the gauge's red */
-  --sky: #7db9ea;
-  --jade: #1e6f60;                /* links on sand, 4.6:1 */
-  --jade-hi: #86d5bf;             /* links on dusk */
-  --ember: #e8762b;
-  --ember-hi: #f79a4e;
-  --life: #e5484d;
-  --ok: #7ad6a0;
-  --bad: #ff8d8d;
-  /* type: one book face for everything that is read, the system face for controls */
-  --book: "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", P052, Georgia, serif;
-  --ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
-  /* layout */
-  --header-h: 52px;
-  --bezel: 0px;
-  --tool-h: 52px;
-  --chrome: 176px;                /* header + toolbar + paddings the stage shares the viewport with */
-  --gutter: clamp(14px, 3vw, 36px);
-  /* key caps and hairlines take their colours from where they sit (sand by default) */
-  --key-bg: var(--sand-hi);
-  --key-ink: var(--ink);
-  --key-edge: rgba(42, 28, 17, .55);
-  --rule: var(--sand-line);
-  --text: var(--ink);
-  --text-dim: var(--ink-dim);
-  --link: var(--jade);
+  --paper:#fafaf8; --ink:#222321; --ink-dim:#62645e; --rule:#d9dad4;
+  --sand:var(--paper); --sand-hi:#f0f0eb; --text:var(--ink); --text-dim:var(--ink-dim);
+  --link:#343d33; --book:Georgia,"Times New Roman",serif;
+  --ui:"Segoe UI",Arial,sans-serif; --mono:Consolas,monospace;
+  --dusk:#141613; --dusk-ink:#f5f5ef; --dusk-dim:#b6bcb1; --dusk-line:#3a3e36;
+  --sky:#c5d0bc; --jade-hi:#d5ddce; --ember:#e8eddf; --ember-hi:#fff; --life:#b94b45;
+  --ok:#bbcfaa; --bad:#ffb7aa;
+  --key-bg:#f0f0eb; --key-ink:#222321; --key-edge:#a7aaa1;
+  --header-h:72px; --bezel:0px; --tool-h:60px; --chrome:210px;
+  --gutter:clamp(22px,5.4vw,88px);
 }
-.top, .play, .foot {
-  --key-bg: #262d52;
-  --key-ink: var(--dusk-ink);
-  --key-edge: rgba(190, 205, 255, .4);
-  --rule: var(--dusk-line);
-  --text: var(--dusk-ink);
-  --text-dim: var(--dusk-dim);
-  --link: var(--jade-hi);
-}
-/* the controls dialog sits inside .play but is a page of the booklet */
-dialog {
-  --key-bg: var(--sand-hi);
-  --key-ink: var(--ink);
-  --key-edge: rgba(42, 28, 17, .55);
-  --rule: var(--sand-line);
-  --text: var(--ink);
-  --text-dim: var(--ink-dim);
-  --link: var(--jade);
-}
-
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-h) + 12px); -webkit-text-size-adjust: 100%; }
-body { margin: 0; min-height: 100vh; background: var(--sand); color: var(--ink); font: 17px/1.65 var(--book); overflow-x: hidden; }
-a { color: var(--link); text-underline-offset: 3px; }
-a:hover { text-decoration-thickness: 2px; }
-b { font-weight: 700; }
-code { font-family: var(--mono); font-size: .82em; background: rgba(42, 28, 17, .09); padding: .1em .35em; border-radius: 3px; }
-:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
-canvas:focus-visible { outline: none; }
-.skip { position: fixed; left: 12px; top: -60px; z-index: 100; background: var(--sand-hi); color: var(--ink); padding: 8px 14px; transition: top .15s; }
-.skip:focus { top: 10px; }
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-
-/* ---- header ------------------------------------------------------------------------------------ */
-.top {
-  position: sticky; top: 0; z-index: 30; height: var(--header-h);
-  display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 var(--gutter);
-  background: var(--dusk); color: var(--text); border-bottom: 1px solid var(--rule);
-}
-.brand { color: inherit; text-decoration: none; font-size: 1.2rem; white-space: nowrap; }
-.top nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; font: .9rem var(--ui); }
-.top nav a { color: var(--text-dim); text-decoration: none; padding: 6px 10px; white-space: nowrap; }
-.top nav a:hover { color: var(--text); text-decoration: underline; }
-
-/* ---- the game ---------------------------------------------------------------------------------- */
-/* The dusk ends in a dawn: the one decorated edge of the page, where the dream meets the booklet. */
-.play {
-  color: var(--text);
-  padding: clamp(10px, 2vh, 20px) var(--gutter) 0;
-  background: linear-gradient(180deg, var(--dusk) 0, var(--dusk) calc(100% - 150px), #2b3a78 calc(100% - 96px), #6f9fd6 calc(100% - 46px), #f2c98f calc(100% - 12px), var(--sand) 100%);
-  padding-bottom: 168px;
-}
-.play-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; max-width: 1760px; margin: 0 auto; align-items: start; }
-@media (min-width: 1200px) { .play-grid { grid-template-columns: minmax(0, 1fr) 300px; } }
-.player { container-type: inline-size; min-width: 0; outline: none; }
-.player { --stage-w: min(100cqw - 2 * var(--bezel), max(340px, calc((100svh - var(--chrome)) * 4 / 3))); }
-.bezel { width: var(--stage-w); max-width: 100%; margin: 0 auto; }
-.screen { position: relative; width: var(--stage-w); aspect-ratio: 4 / 3; background: #000; overflow: hidden; container-type: inline-size; box-shadow: 0 0 0 1px var(--rule), 0 24px 70px rgba(0, 0, 0, .5); }
-/* The engine owns the canvas pixel size (SDL may also write an inline CSS size): the stage decides the display size. */
-#canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; background: #000; outline: none; touch-action: none; }
-body[data-phase="running"] #canvas { cursor: none; }
-body.pixel #canvas { image-rendering: crisp-edges; image-rendering: pixelated; }
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:calc(var(--header-h) + 24px);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.65 var(--ui)}
+a{color:inherit;text-underline-offset:5px}
+a:hover{text-decoration-thickness:2px}
+button,input{font:inherit}
+img{display:block;max-width:100%;height:auto}
+figure,p,dl{margin:0}
+h1,h2,h3{font-family:var(--book);font-weight:400}
+h2{font-size:clamp(38px,4.8vw,66px);letter-spacing:-.055em;line-height:1.08;margin:0}
+h3{font-size:28px;letter-spacing:-.035em;line-height:1.2;margin:0 0 20px}
+:focus-visible{outline:2px solid #5a7152;outline-offset:5px}
+.wrap{max-width:1480px;padding-inline:var(--gutter);margin-inline:auto}
+.eyebrow{font:600 10px/1.6 var(--ui);text-transform:uppercase;letter-spacing:.19em;margin-bottom:28px}
+.section-heading{margin-bottom:58px}
+.section-intro{max-width:520px;margin-top:22px;color:var(--ink-dim)}
+.source-note{font:12px/1.8 var(--ui);color:var(--ink-dim);margin-top:28px;max-width:760px}
+.source-note a{display:inline-block;margin-right:16px}
+.skip{position:fixed;left:20px;top:-80px;background:white;padding:12px;z-index:100}
+.skip:focus{top:10px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.top{position:sticky;top:0;z-index:30;height:var(--header-h);padding:0 var(--gutter);display:flex;align-items:center;justify-content:space-between;gap:24px;background:var(--paper);border-bottom:1px solid var(--rule)}
+.brand{font:600 21px/1 var(--book);text-decoration:none;white-space:nowrap;letter-spacing:-.03em}
+.brand em{font-weight:400;font-size:.8em}
+.brand-note{font:10px var(--ui);text-transform:uppercase;letter-spacing:.13em;border-left:1px solid var(--rule);padding-left:20px;margin-left:20px;color:var(--ink-dim)}
+.top nav{display:flex;align-items:center;gap:30px;font-size:12px}
+.top nav a{text-decoration:none}
+.top nav a:hover{text-decoration:underline}
+.top .nav-play{border:1px solid var(--ink);padding:9px 16px}
+.nav-play span{margin-left:18px}
+.hero{display:grid;grid-template-columns:1fr 1.12fr;align-items:center;gap:6%;padding-top:90px;padding-bottom:76px;min-height:620px}
+.hero h1{font-size:clamp(50px,5.5vw,80px);line-height:1.02;letter-spacing:-.065em;margin:0 0 30px}
+.hero h1 em{font-weight:400;color:#545d4e}
+.hero-intro{font:20px/1.6 var(--book);margin-bottom:18px}
+.hero-description{font-size:14px;line-height:1.85;color:var(--ink-dim);max-width:360px}
+.hero-actions{display:flex;align-items:center;flex-wrap:wrap;gap:26px;margin-top:34px;font-size:12px}
+.button-dark{display:inline-flex;gap:32px;align-items:center;background:var(--ink);color:var(--paper);text-decoration:none;padding:15px 20px}
+.button-dark:hover{background:#434a3f}
+.text-link{display:inline-flex;gap:28px;align-items:center;font-size:13px}
+.cover{margin-top:8px}
+.cover img{width:100%;aspect-ratio:1.836;object-fit:cover}
+figcaption{display:flex;justify-content:space-between;gap:16px;font:11px/1.6 var(--ui);color:var(--ink-dim);margin-top:15px}
+.edition-line{display:flex;justify-content:space-between;gap:16px;padding-top:16px;padding-bottom:16px;border-block:1px solid var(--rule);font:10px/1.5 var(--ui);text-transform:uppercase;letter-spacing:.15em}
+.story-section{padding-top:105px;padding-bottom:100px}
+.story-layout{display:grid;grid-template-columns:1fr .85fr;gap:12%;align-items:start}
+.story-text{max-width:640px}
+.chapter{position:relative;padding:0 0 34px 34px;border-left:1px solid var(--rule)}
+.chapter::before{content:"";position:absolute;left:-4px;top:7px;width:7px;height:7px;border-radius:50%;background:#555e50}
+.chapter:last-of-type{padding-bottom:0}
+.chapter-date{font:600 11px var(--ui);letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px;color:#555e50}
+.chapter h3{font-size:31px;margin-bottom:18px}
+.chapter p:not(.chapter-date){font:18px/1.85 var(--book);margin-bottom:16px}
+.chapter .story-ending{font-style:italic;font-size:27px!important}
+.story-art{padding-top:0}
+.manual-art a{display:block}
+.manual-art img{width:100%}
+.duncan-art{width:69%;margin:0 auto 56px}
+.child-art{width:47%;margin:0 0 0 auto}
+.story-art img{mix-blend-mode:multiply}
+.story-art figcaption{justify-content:center;font-size:10px}
+.world-section{padding:86px 0 76px;background:#eeefea}
+.split-heading{display:grid;grid-template-columns:1fr .85fr;gap:12%;align-items:end}
+.split-heading>p{color:var(--ink-dim);max-width:460px;font:18px/1.8 var(--book);margin-bottom:5px}
+.art-grid{display:grid;grid-template-columns:1fr 1fr;gap:42px 30px}
+.art-wide{grid-column:1/-1}
+.art-wide img{aspect-ratio:2.15;object-fit:cover}
+.art-grid img{background:#fff}
+.art-grid a{overflow:hidden}
+.art-grid img{transition:opacity .2s}
+.art-grid a:hover img{opacity:.9}
+.play{padding:90px var(--gutter) 38px;background:var(--dusk);color:var(--dusk-ink);--text:var(--dusk-ink);--text-dim:var(--dusk-dim);--rule:var(--dusk-line);--key-bg:#30332e;--key-ink:var(--dusk-ink);--key-edge:#626a5c}
+.game-heading{text-align:center}
+.game-heading>p:last-child{font:18px/1.7 var(--book);color:var(--dusk-dim);margin-top:22px}
+.play-grid{max-width:1160px;margin:auto}
+.player{container-type:inline-size;min-width:0;outline:none;--stage-w:min(100cqw,max(280px,calc((100svh - var(--chrome))*4/3)))}
+.bezel{width:var(--stage-w);max-width:100%;margin:auto}
+.screen{position:relative;width:100%;aspect-ratio:4/3;background:#000;overflow:hidden;container-type:inline-size}
+#canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block;background:#000;outline:none;touch-action:none}
+body[data-phase="running"] #canvas{cursor:none}
+body.pixel #canvas{image-rendering:pixelated}
+.side{display:none}
+.game-note{text-align:center;font:12px/2 var(--ui);color:var(--dusk-dim);margin:18px auto 0}
+.play-reference{padding-top:24px;padding-bottom:50px}
+.reference-fold{border-bottom:1px solid var(--rule);padding:22px 0}
+.reference-fold>summary{display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;list-style:none;font:27px var(--book)}
+.reference-fold>summary::after{content:"+";font:22px var(--ui)}
+.reference-fold[open]>summary::after{content:"−"}
+.reference-fold>summary>span{margin-left:auto;color:var(--ink-dim);font:11px var(--ui)}
+.reference-fold>summary::-webkit-details-marker{display:none}
+.reference-fold>.section-intro{margin-bottom:30px}
+.help-grid{display:grid;grid-template-columns:1fr 1fr;gap:30px 60px;padding:34px 0}
+.help-grid h3{font-size:22px;margin-bottom:12px}
+.help-grid p{font-size:14px;color:var(--ink-dim)}
+.data-settings{font-size:13px}
+.data-settings p{margin:20px 0 12px}
+.data-settings summary{cursor:pointer}
+.credits-section{padding-top:90px;padding-bottom:95px}
+.team-photo{max-width:1040px;margin:0 auto 64px}
+.team-photo img{mix-blend-mode:multiply}
+.credits-intro{display:flex;gap:40px;justify-content:space-between;align-items:baseline;padding-top:28px;border-top:1px solid var(--rule);margin-bottom:35px}
+.credits-intro h3{font-size:30px;white-space:nowrap}
+.credits-intro p{font:12px/1.8 var(--ui);color:var(--ink-dim);max-width:340px}
+.credits-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:36px 32px}
+.credit dt{font:600 10px/1.6 var(--ui);letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px;color:var(--ink-dim)}
+.credit dd{font:17px/1.75 var(--book);margin:0}
+.preservation-section{padding:90px 0;background:#eeefea}
+.preservation-grid{display:grid;grid-template-columns:1fr 1fr;gap:10%}
+.preservation-copy>p:not(.source-note){font:18px/1.85 var(--book);margin-bottom:24px}
+.technical-note{margin-top:28px;font:12px/1.8 var(--ui);color:var(--ink-dim)}
+.technical-note summary{cursor:pointer}
+.technical-note p{margin-top:14px}
+.foot{display:grid;grid-template-columns:1fr 1.3fr auto;gap:40px;align-items:start;padding-top:45px;padding-bottom:45px}
+.foot p{font:11px/1.9 var(--ui);color:var(--ink-dim)}
+.back-top{font:11px var(--ui)}
+.notice{padding:18px var(--gutter);font:13px/1.8 var(--ui);background:#e9ebe3;color:var(--ink)}
+.notice.phone{display:none}
+code{font: .85em var(--mono)}
+.fine{font:12px/1.8 var(--ui);color:var(--text-dim);margin-top:24px}
+#log{display:none;position:fixed;inset:auto 0 0;max-height:32vh;overflow:auto;z-index:90;margin:0;padding:12px;font:11px/1.4 var(--mono);background:#000e;color:#eee;white-space:pre-wrap}
+body.debug #log{display:block}
 
 /* Start screen: the game's own letterbox. Black bars above and below a picture band; the lower
  * bar is the control strip (progress, the play button, errors). Sized in cqw so it scales with the stage. */
@@ -115,31 +141,9 @@ body.pixel #canvas { image-rendering: crisp-edges; image-rendering: pixelated; }
 .band { position: relative; display: flex; align-items: flex-end; min-height: 0; overflow: hidden; }
 /* The picture: a frame of the game when the deployment provides one (package.py --poster sets
  * --poster through ui.js), otherwise the level's sky at dusk. No drawing stands in for the game. */
-.poster {
-  position: absolute; inset: 0;
-  background:
-    var(--poster, radial-gradient(60% 34% at 68% 100%, rgba(255, 226, 170, .85), rgba(255, 226, 170, 0) 70%)) center / cover no-repeat,
-    linear-gradient(180deg, #141a44 0%, #2a479a 42%, #7db9ea 74%, #f0cf9b 94%, #e9a763 100%);
-}
+.poster { position:absolute; inset:0; background:var(--poster, url("manual/flight.jpg")) center/cover no-repeat; opacity:.65; }
 .poster.photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, .7) 100%); }
-body[data-phase="error"] .poster { filter: saturate(.3) brightness(.5); }
-.title-block { position: relative; padding: 0 1.4em 1em; color: #fff; font-family: var(--book); text-shadow: 0 1px 2px rgba(5, 8, 30, .9), 0 2px 22px rgba(5, 8, 30, .7); }
-#title { margin: 0; font-size: 4.3em; line-height: 1; font-weight: 400; letter-spacing: -.012em; }
-.sub { margin: .5em 0 0; font-size: 1.15em; max-width: 30em; }
-.panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 1.6em; align-items: center; padding: 1em 1.4em 1.1em; background: #000; color: var(--dusk-ink); }
-.panel > * { grid-column: 1 / -1; }
-.panel > #bar, .panel > #progress-text, .panel > #status { grid-column: 1; }
-.panel > .cta { grid-column: 2; grid-row: 1 / span 3; }
-#bar { height: .32em; background: rgba(255, 255, 255, .16); overflow: hidden; }
-#bar > i { display: block; height: 100%; width: 0; background: var(--sky); transition: width .15s linear; }
-#bar.done > i { background: var(--ok); }
-#progress-text { display: flex; justify-content: space-between; gap: 12px; margin-top: .4em; color: var(--dusk-dim); font-size: .85em; font-variant-numeric: tabular-nums; min-height: 1.4em; }
-#status { margin: .15em 0 0; min-height: 1.45em; }
-.cta {
-  display: flex; align-items: center; justify-content: center; gap: .55em; min-width: 9.5em; padding: .85em 1.5em;
-  font: 700 1.2em/1 var(--ui); color: #24100a; cursor: pointer; background: var(--ember); border: 0; border-radius: 3px;
-  transition: background .15s;
-}
+body[data-phase="error"] .poster { position:absolute; inset:0; background:var(--poster, url("manual/flight.jpg")) center/cover no-repeat; opacity:.65; }
 .cta:hover:not(:disabled) { background: var(--ember-hi); }
 .cta:disabled { background: rgba(255, 255, 255, .14); color: var(--dusk-dim); cursor: default; }
 #hint { display: flex; flex-wrap: wrap; gap: .3em 1.2em; margin-top: .9em; padding-top: .8em; border-top: 1px solid var(--dusk-line); font-size: .85em; color: var(--dusk-dim); }
@@ -255,91 +259,56 @@ dialog::backdrop { background: rgba(6, 8, 20, .8); }
 .krow dd { margin: 0 0 0 auto; text-align: right; color: var(--text-dim); font: .86rem var(--ui); }
 .krow dd s { text-decoration: none; margin: 0 .05em; }
 
-/* ---- the booklet ------------------------------------------------------------------------------- */
-.wrap { max-width: 1120px; margin: 0 auto; padding: 0 var(--gutter); }
-/* each section: its heading in the margin column, its matter beside it */
-.block { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px 48px; padding: clamp(30px, 5vw, 60px) 0; border-top: 1px solid var(--rule); }
-.wrap > .block:first-child { border-top: 0; padding-top: 8px; }
-@media (min-width: 900px) { .block { grid-template-columns: 250px minmax(0, 1fr); } .block > * { grid-column: 2; } .block > .block-head { grid-column: 1; grid-row: 1 / span 9; } }
-.block-head h2 { margin: 0; font: 400 clamp(1.7rem, 3vw, 2.15rem)/1.15 var(--book); letter-spacing: -.01em; }
-.lead { margin: 0 0 6px; max-width: 38em; }
-.cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: start; }
-.prose p { margin: 0 0 1em; max-width: 38em; }
-.h-small { margin: 1.4em 0 .3em; font: italic 400 1.25rem/1.3 var(--book); }
-.plain { margin: 0 0 1em; padding-left: 1.1em; max-width: 38em; }
-.plain li { margin: .35em 0; }
-.facts { margin: 0; max-width: 38em; }
-.facts div { display: grid; grid-template-columns: 11em minmax(0, 1fr); gap: 12px; padding: 6px 0; border-top: 1px solid var(--rule); }
-.facts dt { color: var(--ink-dim); }
-.facts dd { margin: 0; }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 40px; }
-.card-s { padding: 12px 0 10px; border-top: 1px solid var(--rule); }
-.card-s h3 { margin: 0 0 2px; font: italic 400 1.25rem/1.3 var(--book); }
-.card-s p { margin: 0; }
-.fine { color: var(--text-dim); font-size: .88rem; margin: 10px 0 0; max-width: 46em; }
-/* the port's five steps are a real sequence, so they are numbered */
-.pipeline { list-style: none; margin: 0; padding: 0; max-width: 38em; }
-.pipeline li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr); padding: 7px 0; border-top: 1px solid var(--rule); }
-.pipeline .step { grid-row: span 2; font-size: 1.7rem; line-height: 1.2; color: var(--ink-dim); }
-.pipeline span:not(.step) { color: var(--ink-dim); font-size: .92rem; }
-.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 10px; }
-.shots[hidden] { display: none; }
-.shots figure { margin: 0; }
-.shots img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
-.shots figcaption { margin-top: 4px; font-size: .82rem; color: var(--ink-dim); }
-.faq { max-width: 44em; }
-.faq details { border-top: 1px solid var(--rule); }
-.faq details:first-child { border-top: 0; }
-.faq summary { cursor: pointer; padding: 11px 0; font-weight: 700; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
-.faq summary::-webkit-details-marker { display: none; }
-.faq summary::after { content: "+"; font: 400 1.3em/1 var(--ui); transition: transform .2s; }
-.faq details[open] summary::after { transform: rotate(45deg); }
-.faq details > p { margin: 0 0 14px; }
 
-.notice { display: none; align-items: flex-start; gap: 12px; margin: 0; padding: 12px var(--gutter); font: .92rem/1.5 var(--ui); background: var(--ember); color: #24100a; }
-.notice .ico { margin-top: 3px; }
-
-.foot { padding: 34px 0 44px; background: var(--dusk); color: var(--text-dim); font-size: .92rem; }
-.foot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 28px; }
-.foot h2 { margin: 0 0 6px; font: italic 400 1.25rem/1.3 var(--book); color: var(--text); }
-.foot p { margin: 0 0 .8em; }
-.foot b { color: var(--text); }
-.foot code { background: rgba(255, 255, 255, .09); }
-
-#log { display: none; position: fixed; left: 0; right: 0; bottom: 0; max-height: 32vh; overflow: auto; z-index: 90; margin: 0; padding: 8px 10px; font: 11px/1.35 var(--mono); white-space: pre-wrap; background: rgba(0, 0, 0, .85); color: #b8c0d4; }
-body.debug #log { display: block; }
-
-/* ---- small screens ----------------------------------------------------------------------------- */
-@media (max-width: 1199px) { .side { display: none; } }
-@media (max-width: 1100px) {
-  .tool .lbl { display: none; }
-  .tool { padding: .45em .55em; }
+.side{display:none}
+.cta{border-radius:0;color:#222321}
+#overlay kbd,.keyhint kbd{--key-bg:#30332e;--key-edge:#626a5c}
+.title-block{text-shadow:0 2px 16px #000}
+.toolbar{flex-wrap:wrap}
+.toolbar .state{flex-basis:100%;font-size:11px}
+.toolbar .tools{flex:1;justify-content:center}
+dialog{--text:var(--ink);--text-dim:var(--ink-dim);--rule:#d9dad4;--key-bg:#f0f0eb;--key-ink:#222321;--key-edge:#a7aaa1;font-family:var(--ui)}
+.dlg-note{margin:12px 0 24px}
+.tool .lbl{font-size:11px}
+.player:fullscreen .toolbar{--text-dim:#eee}
+@media(min-width:1700px){.hero{min-height:760px}}
+@media(max-width:1100px){
+  .hero{gap:5%;padding-top:65px;min-height:540px}.hero h1{font-size:58px}
+  .top nav{gap:22px}.brand-note{display:none}.credits-grid{grid-template-columns:repeat(3,1fr)}
+  .hero-intro{font-size:18px}.hero-actions{gap:18px}
+  .story-layout,.split-heading{gap:8%}.tool .lbl{display:none}.vol input{width:60px}
 }
-@media (max-width: 760px) {
-  :root { --header-h: 48px; }
-  body { font-size: 16px; }
-  .top nav a:nth-child(n+4) { display: none; }
-  .notice { display: flex; }
-  .vol input { display: none; }
-  #overlay { font-size: clamp(9px, 2.7cqw, 14px); }
-  #title { font-size: 3.3em; }
-  .soundnote, #hint, .letter { display: none; }
-  .tools { gap: 4px; }
-  .play { padding-bottom: 120px; }
+@media(max-width:760px){
+  :root{--header-h:64px;--gutter:24px;--chrome:200px}
+  .top nav a:not(.nav-play){display:none}.top .nav-play{font-size:11px;padding:8px 12px}
+  .nav-play span{margin-left:10px}.brand{font-size:19px}
+  .hero{grid-template-columns:1fr;gap:42px;padding-top:48px;padding-bottom:40px}
+  .hero h1{font-size:clamp(49px,10vw,72px)}.hero .eyebrow{margin-bottom:22px}
+  .hero-description{max-width:420px}.hero-actions{margin-top:25px}
+  .cover{margin:0}.edition-line{font-size:9px;letter-spacing:.06em}
+  .edition-line>span:last-child{white-space:nowrap}
+  .story-section,.credits-section{padding-top:62px;padding-bottom:60px}
+  .section-heading{margin-bottom:36px}.section-intro{font-size:15px}
+  .story-layout{grid-template-columns:1fr;gap:40px}.chapter{padding-left:23px}
+  .story-art{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:end}
+  .duncan-art,.child-art{width:100%;margin:0}.child-art{width:90%;justify-self:end}
+  .world-section{padding:60px 0}.split-heading{grid-template-columns:1fr;gap:24px}
+  .art-grid{gap:30px 16px}.art-wide img{aspect-ratio:1.836}
+  figcaption{font-size:10px;gap:8px}
+  .play{padding-top:56px}.game-heading{margin-bottom:34px}
+  #overlay{font-size:clamp(10px,2.7cqw,14px)}#title{font-size:3.3em}
+  .soundnote,#hint,.letter{display:none}
+  .tools{gap:4px}.tool{padding:.5em .65em}.vol input{display:none}
+  .notice.phone{display:block}.play-reference{padding-bottom:0}
+  .reference-fold>summary{font-size:22px}.reference-fold>summary>span{font-size:10px}
+  .help-grid{grid-template-columns:1fr;gap:26px}
+  .credits-grid{grid-template-columns:1fr 1fr;gap:30px 22px}.credit dd{font-size:16px}
+  .credits-intro{display:block;margin-bottom:30px}.credits-intro h3{margin-bottom:12px}
+  .team-photo{margin-bottom:35px}.credits-intro p{max-width:none}
+  .preservation-section{padding:58px 0}.preservation-grid{grid-template-columns:1fr;gap:34px}
+  .foot{grid-template-columns:1fr;gap:22px}
 }
-@media (max-width: 520px) {
-  .state { display: none; }
-  .toolbar { justify-content: center; }
-  .top nav { display: none; }
-}
-body.touch .notice { display: flex; }
-@media (max-height: 640px) and (min-width: 761px) { :root { --chrome: 164px; } }
-
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  *, *::before, *::after { animation: none !important; transition: none !important; }
-}
-@media (forced-colors: active) {
-  .cta, .btn, .tool { border: 1px solid ButtonText; }
-  #bar > i { background: Highlight; }
-}
+@media(max-width:380px){.hero-actions{gap:16px}.button-dark{gap:20px}.edition-line{flex-wrap:wrap}.art-grid{grid-template-columns:1fr}.credit dd{font-size:15px}}
+body.touch .notice.phone{display:block}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
+@media(forced-colors:active){.button-dark,.cta,.btn,.tool{border:1px solid ButtonText}#bar>i{background:Highlight}}

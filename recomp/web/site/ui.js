@@ -308,6 +308,7 @@ el.reload.addEventListener('click', () => location.reload());
 /* ---- scale mode: fit (smooth) or pixel-perfect (whole multiples of 640 x 480) ----------------- */
 const GAME_W = 640;
 let pixel = localStorage.getItem('dreams.scale') === 'pixel';
+page.nativeResolution = () => pixel;   // pixel-perfect shows the game's own 640 x 480 pixels
 // Pixel-perfect: nearest-neighbour sampling, and a whole multiple of 640 device pixels when that
 // does not shrink the picture below 75% of what fits; otherwise the fitted size, still sharp.
 function fit() {
@@ -328,6 +329,7 @@ el.scale.addEventListener('click', () => {
   pixel = !pixel;
   localStorage.setItem('dreams.scale', pixel ? 'pixel' : 'fit');
   fit();
+  page.updateView();
   if (page.phase === 'running') el.canvas.focus();
 });
 new ResizeObserver(() => { if (pixel) fit(); }).observe(document.documentElement);

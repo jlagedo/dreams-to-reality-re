@@ -45,6 +45,39 @@ EM_JS(void, wd_web_present_js, (int cmd), {
 });
 static void wd_web_present(void) { wd_web_present_js(WD_WEB_CALL_HANDLER); }
 
+/* ---- the drawing buffer's size ----
+ * The page owns the display size and asks for the drawing buffer it wants: the
+ * canvas's size in device pixels, or 640x480 for pixel-perfect. It calls
+ * Module._wd_web_view_size(w, h) on the main thread; the guest thread applies
+ * it at its next pump (wd_web_view_pump) with SDL_SetWindowSize, and the direct
+ * renderer follows the window's pixel size (render_live.cpp resize). Width and
+ * height share one word, so a pump never sees a new width with an old height. */
+#define WD_WEB_VIEW_MAX 4096
+static uint32_t g_view, g_view_applied;   /* w << 16 | h; 0 until the page asks */
+
+EMSCRIPTEN_KEEPALIVE void wd_web_view_size(int w, int h) {
+    int m = w > h ? w : h;
+    if (m > WD_WEB_VIEW_MAX) { w = w * WD_WEB_VIEW_MAX / m; h = h * WD_WEB_VIEW_MAX / m; }
+    if (w < 64 || h < 64) return;
+    __atomic_store_n(&g_view, (uint32_t)w << 16 | (uint32_t)h, __ATOMIC_RELAXED);
+}
+int wd_web_view(int* w, int* h) {
+    uint32_t v = __atomic_load_n(&g_view, __ATOMIC_RELAXED);
+    if (!v) return 0;
+    *w = (int)(v >> 16);
+    *h = (int)(v & 0xFFFF);
+    return 1;
+}
+void wd_web_view_pump(SDL_Window* window) {
+    int w, h;
+    if (!wd_web_view(&w, &h)) return;
+    uint32_t v = (uint32_t)w << 16 | (uint32_t)h;
+    if (v == g_view_applied) return;
+    g_view_applied = v;
+    if (!SDL_SetWindowSize(window, w, h)) fprintf(stderr, "[web] canvas %dx%d: %s\n", w, h, SDL_GetError());
+    else fprintf(stderr, "[web] canvas %dx%d\n", w, h);
+}
+
 #ifdef WD_WEB_CAPTURE
 /* ---- frame capture for the verification tools ----
  * recomp/windream/verify/render_web_capture.py takes the browser's own frame

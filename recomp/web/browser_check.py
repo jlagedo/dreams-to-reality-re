@@ -486,6 +486,11 @@ def run_design_checks(
         wait_phase(page, ["ready", "error"], 60)
         page.wait_for_timeout(400)
         page.screenshot(path=str(out / f"d-{tag}-2-ready.png"))
+        # The tribute opens with the manual; assess the playable section after
+        # navigating to it, just as the page's Play links do.
+        page.locator("#player").evaluate(
+            "el => el.scrollIntoView({block: 'start', behavior: 'instant'})"
+        )
         geo = page.evaluate(
             """() => { const r = document.getElementById('stage').getBoundingClientRect();
               const b = document.getElementById('hud').getBoundingClientRect();

@@ -3,18 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#12162e">
-<meta name="description" content="An unofficial, in-browser preservation demo of Dreams to Reality (Cryo Interactive, 1997): the original Windows game statically recompiled to WebAssembly and WebGL 2.">
-<title>Dreams to Reality: browser demo</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' fill='none' stroke='%23e8762b' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='4.5' fill='%2386d5bf'/%3E%3C/svg%3E">
-<!-- Presentation lives in site/ (style.css, ui.js); behaviour in loader.js. Notes: NOTES-design.md. -->
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#fafaf8">
+<meta name="description" content="A tribute to Dreams to Reality, the 1997 adventure by Cryo Interactive. Discover the original manual’s story and artwork, meet its creators, and play the browser demo.">
+<title>Dreams to Reality — A tribute to the dreamers</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23222321'/%3E%3Ctext x='7' y='25' font-family='Georgia' font-size='28' fill='%23fafaf8'%3ED%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="site/style.css">
 </head>
 <body data-phase="init">
 <a class="skip" href="#player">Skip to the game</a>
-
-<!-- Icons: one inline sprite, no external requests (the page is COEP require-corp). -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
     <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
@@ -28,21 +25,55 @@
   </defs>
 </svg>
 
+
 <header class="top">
-  <a class="brand" href="#player" aria-label="Dreams to Reality, browser demo">Dreams to Reality</a>
-  <nav aria-label="Sections">
-    <a href="#player">Play</a><a href="#game">The game</a><a href="#controls">Controls</a><a href="#tips">Tips</a><a href="#port">This port</a><a href="#faq">Questions</a>
-  </nav>
+  <a class="brand" href="#home">Dreams <em>to reality</em><span class="brand-note">A tribute</span></a>
+  <nav aria-label="Main navigation"><a href="#story">The story</a><a href="#world">The world</a><a href="#credits">The creators</a><a href="https://github.com/jlagedo/dreams-to-reality-re" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a><a class="nav-play" href="#play-section">Play the demo <span aria-hidden="true">↗</span></a></nav>
 </header>
+<main id="home">
+<section class="hero wrap" aria-labelledby="tribute-title">
+  <div class="hero-copy">
+    <p class="eyebrow">Cryo Interactive / 1997</p>
+    <h1 id="tribute-title">A world worth<br><em>dreaming of.</em></h1>
+    <p class="hero-intro">For the floating islands. The impossible journeys.<br class="desktop-break"> And the people who imagined them.</p>
+    <p class="hero-description">A tribute to <i>Dreams to Reality</i>, told through the words, pictures and people of its original manual.</p>
+    <div class="hero-actions"><a class="button-dark" href="#play-section">Play the demo <span aria-hidden="true">↗</span></a><a class="text-link" href="#story">Explore the story <span aria-hidden="true">↓</span></a></div>
+  </div>
+  <figure class="cover">
+    <a href="site/manual/cover.jpg" target="_blank" rel="noopener" aria-label="Enlarge the original manual cover"><img src="site/manual/cover.jpg" fetchpriority="high" alt="The original Dreams to Reality cover: stone heads beside dark water, a forest and a luminous green sky." width="799" height="432"></a>
+    <figcaption><span>From the original manual</span><span>Cryo Interactive © 1997</span></figcaption>
+  </figure>
+</section>
+<div class="edition-line wrap"><span>An adventure between two worlds</span><span>Windows · DOS · 3dfx</span></div>
 
-<main>
+<section class="story-section wrap" id="story" aria-labelledby="story-heading">
+  <div class="section-heading"><p class="eyebrow">01 / The legend</p><h2 id="story-heading">Before the dream,<br>there was a legend.</h2><p class="section-intro">A well between worlds. Five priests. A boy who found his way through.</p></div>
+  <div class="story-layout">
+    <div class="story-text">
+      <article class="chapter"><p class="chapter-date">Ancient Egypt</p><h3>The Blue Water</h3><p>Five high priests discover the Blue Water: the earthly reflection of the Well of Dreams. Every dream passes through this link between the waking world and the world of dreams.</p><p>Through secret rituals, the priests learn to enter its waters and understand the passage of time. They build the first pyramid around the well. But one of them conceals his journeys from the others.</p><p>When his betrayal is revealed, the remaining priests shatter the Harmony and seal the well. Trapped within it, neither living nor dead, he gathers the fragments of nightmares into a new power: the Will.</p></article>
+      <article class="chapter"><p class="chapter-date">1988</p><h3>A child crosses over</h3><p>A boy dives into a lake and discovers the Blue Water. On his return, witnesses calling themselves “the Organisation” question him about his journey.</p><p>The men disappear, officially drowned. In the world of dreams, they turn discovery into experiment—and the dream becomes their laboratory.</p></article>
+      <article class="chapter"><p class="chapter-date">1998</p><h3>His name is Duncan</h3><p>Ten years have passed. The child has grown, but his fate is still bound to the Blue Water. The passage opens to him a second time.</p><p class="story-ending">The legend begins.</p></article>
+      <p class="source-note">An English adaptation of “El fantástico mito de Duncan”, original Spanish manual, pp. 4–5. The dates belong to the game’s story.</p>
+    </div>
+    <div class="story-art">
+<figure class="manual-art duncan-art"><a href="site/manual/duncan.jpg" target="_blank" rel="noopener" aria-label="Enlarge: Original illustration of Duncan holding a curved bow"><img src="site/manual/duncan.jpg" alt="Original illustration of Duncan holding a curved bow" loading="lazy" decoding="async" width="956" height="1288"></a><figcaption>Duncan / Manual, p. 7<span aria-hidden="true">↗</span></figcaption></figure><figure class="manual-art child-art"><a href="site/manual/young-duncan.jpg" target="_blank" rel="noopener" aria-label="Enlarge: Original illustration of Duncan as a child, wearing a cap and holding a toy"><img src="site/manual/young-duncan.jpg" alt="Original illustration of Duncan as a child, wearing a cap and holding a toy" loading="lazy" decoding="async" width="818" height="1210"></a><figcaption>Before the journey / Manual, p. 5<span aria-hidden="true">↗</span></figcaption></figure>
+    </div>
+  </div>
+</section>
 
-<noscript><p class="notice" style="margin:1rem">This demo runs the game in your browser and needs JavaScript. Please enable it and reload.</p></noscript>
-
-<p class="notice phone" role="note"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-keys"/></svg>
-  <span><b>Best on a desktop or laptop with a keyboard.</b> The game is played with the arrow keys, Ctrl, Alt and Space; touch controls are not supported. You can still read about it below.</span></p>
-
-<section class="play" aria-label="The game">
+<section class="world-section" id="world" aria-labelledby="world-heading">
+  <div class="wrap">
+    <div class="section-heading split-heading"><div><p class="eyebrow">02 / The universe</p><h2 id="world-heading">The places we<br>leave in our sleep.</h2></div><p>In the manual’s universe, the dreams of living beings become places. Duncan travels through this shared world: on foot, through the air, and into the unknown.</p></div>
+    <div class="art-grid">
+<figure class="manual-art art-wide"><a href="site/manual/forest.jpg" target="_blank" rel="noopener" aria-label="Enlarge: A dream landscape of enormous roots and bridges, reproduced from the manual"><img src="site/manual/forest.jpg" alt="A dream landscape of enormous roots and bridges, reproduced from the manual" loading="lazy" decoding="async" width="2000" height="1125"></a><figcaption>A path through the dream / Manual, p. 8<span aria-hidden="true">↗</span></figcaption></figure><figure class="manual-art "><a href="site/manual/stone-heads.jpg" target="_blank" rel="noopener" aria-label="Enlarge: Stone figures emerging from a shadowy dream landscape"><img src="site/manual/stone-heads.jpg" alt="Stone figures emerging from a shadowy dream landscape" loading="lazy" decoding="async" width="2000" height="1120"></a><figcaption>Familiar faces, unfamiliar worlds / Manual, p. 16<span aria-hidden="true">↗</span></figcaption></figure><figure class="manual-art "><a href="site/manual/chamber.jpg" target="_blank" rel="noopener" aria-label="Enlarge: A surreal chamber with diamond-patterned walls and floating faces"><img src="site/manual/chamber.jpg" alt="A surreal chamber with diamond-patterned walls and floating faces" loading="lazy" decoding="async" width="2000" height="1102"></a><figcaption>A room beyond reason / Manual, p. 14<span aria-hidden="true">↗</span></figcaption></figure>
+    </div>
+    <p class="source-note">Original illustrations and game imagery reproduced from the manual. Captions are written for this tribute. Select an image to see it larger.</p>
+  </div>
+</section>
+<noscript><p class="notice">The tribute can be read without JavaScript. Enable JavaScript to play the browser demo.</p></noscript>
+<p class="notice phone" role="note">The demo needs a desktop or laptop with a keyboard. The story, artwork and credits are here to explore on any screen.</p>
+<section class="play" id="play-section" aria-labelledby="play-heading">
+<div class="section-heading game-heading"><p class="eyebrow">03 / The adventure continues</p><h2 id="play-heading">Enter the dream.</h2><p>A little of that world, here in your browser.</p></div>
   <div class="play-grid">
 
     <div class="player" id="player" tabindex="-1">
@@ -56,8 +87,8 @@
             <div class="band">
               <div class="poster" id="poster" aria-hidden="true"></div>
               <div class="title-block">
-                <h1 id="title">Dreams to Reality</h1>
-                <p class="sub">The 1997 adventure across the dream islands, running in this tab.</p>
+                <h3 id="title">Dreams to Reality</h3>
+                <p class="sub">Walk. Fly. Find your way.</p>
               </div>
             </div>
 
@@ -75,7 +106,7 @@
                   <span><kbd>Ctrl</kbd> jump</span><span><kbd>Alt</kbd> punch</span><span><kbd>Esc</kbd> menu</span>
                   <span><kbd>?</kbd> all controls</span>
                 </div>
-                <p class="soundnote" id="soundnote">Sound starts when you press play. The first visit downloads the demo data once; it is kept in your browser afterwards.</p>
+                <p class="soundnote" id="soundnote">A keyboard is needed to play. Sound begins when you press play; your progress stays in this browser.</p>
                 <p class="tip" id="tip" aria-hidden="true"></p>
 
                 <details id="filebox" hidden><summary id="filesum">Files</summary><ul id="files"></ul></details>
@@ -130,36 +161,14 @@
       <p class="fine">Press <kbd>?</kbd> for every control: magic, cameras, the menu and the gamepad.</p>
     </aside>
   </div>
-  <pre id="log"></pre>
+  <p class="game-note">Arrows to move &nbsp;·&nbsp; Ctrl to jump &nbsp;·&nbsp; Alt to act &nbsp;·&nbsp; Esc for the menu<br><a href="#controls">All controls</a> &nbsp;·&nbsp; <a href="#questions">Help playing</a></p><pre id="log"></pre>
 </section>
 
-<div class="wrap">
 
-<section id="game" class="block">
-  <header class="block-head"><h2>A dream world, seen from behind your hero</h2></header>
-  <div class="cols">
-    <div class="prose">
-      <p><em>Dreams to Reality</em> is a third-person 3D adventure from <b>Cryo Interactive</b>, released in 1997 for Windows 95, DOS and 3dfx graphics cards. You guide <b>Duncan</b>, the "chosen one" a voice tells you that you are at the start, across floating dream islands: an overgrown stone temple in the clouds, an island of giant stone heads, a hammam, a cinema, a factory, a house of spiders, a shark arena and many more. The game ships about 95 distinct scenes.</p>
-      <p>You run, jump, fly, swim and ride a surfboard or motorcycle. You fight with kicks and punches, a sword and a crystal bow, and you spend <b>manna</b>, your magical energy, on spells and abilities. Thirty items are tracked in the menu: fourteen spells and abilities (fire ball, healing, shield, invisibility, speed, resurrection and others) and sixteen objects, such as a key, letters, a record player and a lollipop. Characters talk to you in voiced, captioned dialogue, and what they say matters for the riddles.</p>
-      <p>The game saves by itself each time you enter a new level. There is no manual save.</p>
-    </div>
-    <dl class="facts">
-      <div><dt>Made by</dt><dd>Cryo Interactive (&copy; 1997)</dd></div>
-      <div><dt>Original builds</dt><dd>Windows 95 (DirectDraw), DOS, 3dfx (Glide)</dd></div>
-      <div><dt>This demo</dt><dd>The Windows build, recompiled</dd></div>
-      <div><dt>Native resolution</dt><dd>640 &times; 480 (4:3)</dd></div>
-      <div><dt>Camera</dt><dd>Behind the character, several presets</dd></div>
-      <div><dt>Controls</dt><dd>Keyboard (the Windows build also reads a joypad)</dd></div>
-    </dl>
-  </div>
-  <div class="shots" id="shots" hidden aria-label="Screenshots"></div>
-</section>
-
-<section id="controls" class="block">
-  <header class="block-head"><h2>Controls</h2></header>
-  <p class="lead">The game is played entirely from the keyboard: there is no mouse input at all. Click the game once so it has the keyboard. These are the original game's controls (from its README).</p>
-
-  <div class="controls-grid" id="controls-src">
+<div class="wrap play-reference">
+<details id="controls" class="reference-fold"><summary>Find your way <span>Keyboard controls</span></summary>
+<p class="section-intro">Click the game to give it the keyboard. Press <kbd>?</kbd> for help, or <kbd>Shift</kbd> + <kbd>Tab</kbd> to return to the page.</p>
+<div class="controls-grid" id="controls-src">
     <section class="kgroup"><h3>Move</h3><dl>
       <div class="krow"><dt>Run</dt><dd><kbd class="arr">&uarr;</kbd></dd></div>
       <div class="krow"><dt>Walk</dt><dd><kbd>Alt</kbd></dd></div>
@@ -211,91 +220,61 @@
     </dl></section>
   </div>
   <p class="fine" id="controls-notes">Sources: the game's <code>README.TXT</code> (movement, combat, magic, cameras, <kbd>F10</kbd>, <kbd>J</kbd>, <kbd>K</kbd>), its code (<kbd>Tab</kbd> spells page, <kbd>Ctrl</kbd>+<kbd>S</kbd> shadows) and the port's pad layout. <kbd>F1</kbd> to <kbd>F6</kbd> change the original's internal resolution; the browser sizes the picture for you, so leave them alone. On macOS, <kbd>Ctrl</kbd>+arrows are Mission Control shortcuts: turn them off in System Settings, Keyboard, Shortcuts, or the game will not see them.</p>
+
+</details>
+<details id="questions" class="reference-fold"><summary>A little help <span>Playing in your browser</span></summary>
+<div class="help-grid">
+<div><h3>Returning to the game</h3><p>Click the picture to take control. Use the toolbar’s Menu button if Esc leaves fullscreen in your browser.</p></div>
+<div><h3>Your progress</h3><p>The game saves on level entry. Your save stays in this browser on this site; clearing site data removes it.</p></div>
+<div><h3>About this demo</h3><p>This is a small playable part of the original game. The original CD music is not included. Sound begins after you press play.</p></div>
+<div><h3>If something goes wrong</h3><p>Try reloading, or use a current desktop browser with hardware acceleration. The game needs WebGL 2 and WebAssembly threads.</p></div>
+</div>
+<details class="data-settings"><summary>Browser storage settings</summary><p>Remove the downloaded demo and your saved game from this browser.</p><button id="clear-data" type="button" class="btn">Delete cached data and my save</button></details>
+</details>
+</div>
+
+<section class="credits-section wrap" id="credits" aria-labelledby="credits-heading">
+  <div class="section-heading"><p class="eyebrow">04 / The creators</p><h2 id="credits-heading">Every dream<br>starts with someone.</h2><p class="section-intro">To the people who gave this world its places, its characters, its voice and its life.</p></div>
+<figure class="manual-art team-photo"><a href="site/manual/team.jpg" target="_blank" rel="noopener" aria-label="Enlarge: The original development team photographed together, as reproduced in the game manual"><img src="site/manual/team.jpg" alt="The original development team photographed together, as reproduced in the game manual" loading="lazy" decoding="async" width="1813" height="1212"></a><figcaption>The team / Original manual, p. 28<span aria-hidden="true">↗</span></figcaption></figure>
+  <div class="credits-intro"><h3>The original team</h3><p>As credited in the 1997 manual. Role headings translated into English; original credit groupings preserved.</p></div>
+  <dl class="credits-grid">
+<div class="credit"><dt>Producer</dt><dd>Rémi Herbulot</dd></div>
+<div class="credit"><dt>Authors</dt><dd>Hatem Benabdallah<br>Emmanuel Chriqui<br>Olivier Denis<br>Yann Mallard</dd></div>
+<div class="credit"><dt>Art direction</dt><dd>Yann Mallard<br>Hatem Benabdallah</dd></div>
+<div class="credit"><dt>Programming</dt><dd>Emmanuel Chriqui<br>Olivier Denis</dd></div>
+<div class="credit"><dt>Graphic design</dt><dd>Thierry Doizon</dd></div>
+<div class="credit"><dt>Lead artists</dt><dd>Florence Lesaffre<br>Laurent Bretonnière<br>Eddy Neveu<br>Martial Brard</dd></div>
+<div class="credit"><dt>Animation</dt><dd>Sébastien Bertin<br>François Hommet</dd></div>
+<div class="credit"><dt>Artists</dt><dd>Isabelle Ramnou<br>Olivier Venet<br>Grégory Leborgne<br>Christian Farcy</dd></div>
+<div class="credit"><dt>Music</dt><dd>Eric Los</dd></div>
+<div class="credit"><dt>Interface programming</dt><dd>Frédéric Mouveaux</dd></div>
+<div class="credit"><dt>Advisor</dt><dd>Laurent Jorda</dd></div>
+<div class="credit"><dt>Research &amp; development</dt><dd>Benoît Hozjan<br>Olivier Nemoz<br>Hubert Nguyen<br>Pascal Urro</dd></div>
+<div class="credit"><dt>Production assistant</dt><dd>Stéphane Castaing</dd></div>
+<div class="credit"><dt>Dialogue</dt><dd>Johan Robson</dd></div>
+<div class="credit"><dt>Voice direction</dt><dd>Johan Robson<br>Christian Stonner</dd></div>
+<div class="credit"><dt>Recording studio</dt><dd>Scott Production</dd></div>
+<div class="credit"><dt>Voices</dt><dd>Karen Strasman<br>Christian Erickson<br>David Gasman<br>Paul Bandey<br>Richard Temple</dd></div>
+<div class="credit"><dt>Sound post-production</dt><dd>Studio Son Cryo: Jean-Marc Delon<br>Shooting Star</dd></div>
+<div class="credit"><dt>Sound unit direction</dt><dd>Stéphane Castaing</dd></div>
+<div class="credit"><dt>Publishing direction</dt><dd>Patrice Rullier<br>Tuyen Nguyen<br>Christine Bohec</dd></div>
+<div class="credit"><dt>Marketing</dt><dd>Thomas Kleingartner<br>Andreas Stock<br>Guillaume Lairan</dd></div>
+<div class="credit"><dt>Sales</dt><dd>Alain Coutand<br>Patrick Benoit<br>Benoît Faure</dd></div>
+<div class="credit"><dt>Preparation</dt><dd>Eliane Fiolet</dd></div>
+<div class="credit"><dt>Manufacturing</dt><dd>Carine Lapoumeroulie</dd></div>
+<div class="credit"><dt>Production</dt><dd>Rémi Herbulot<br>Jean Martial Lefranc<br>Philippe Ulrich</dd></div>
+  </dl>
+  <p class="source-note">Source: Spanish manual, pp. 29–30. <a href="site/manual/credits-29.jpg" target="_blank" rel="noopener">View the development credits ↗</a> <a href="site/manual/credits-30.jpg" target="_blank" rel="noopener">View the sound &amp; production credits ↗</a></p>
 </section>
 
-<section id="tips" class="block">
-  <header class="block-head"><h2>Tips</h2></header>
-  <div class="cards">
-    <article class="card-s"><h3>Look after your manna</h3><p>Flying and magic cost manna. The small flying blue bubbles refill a lot of it. Watch the gauge, especially in flight: some places need more than others.</p></article>
-    <article class="card-s"><h3>Trust your shadow</h3><p>When you jump, the shadow you throw shows where you will land. The original game is unforgiving about falls.</p></article>
-    <article class="card-s"><h3>Read the dialogue</h3><p>Conversations hold the answers to the riddles. Picking fights with people who are not attacking you wastes life energy and can cost you information.</p></article>
-    <article class="card-s"><h3>Use magic on purpose</h3><p>The sword and the bow can become your standard weapons if you spend manna carefully. Some weapons suit close combat, others a distance.</p></article>
-    <article class="card-s"><h3>Explore everything</h3><p>Spells, bonuses and secret passages are hidden in the levels. Try the other camera presets with <kbd>Alt</kbd>+<kbd>5</kbd> to <kbd>0</kbd> when the view is in the way.</p></article>
-    <article class="card-s"><h3>In the browser</h3><p>The game autosaves on each new level and your save stays in this browser. Click the game if the keys stop working. The original resets its options on every run.</p></article>
-  </div>
-  <p class="fine">Hints adapted from the original game's README.</p>
-</section>
-
-<section id="port" class="block">
-  <header class="block-head"><h2>Not an emulator: the original program, translated</h2></header>
-  <div class="cols">
-    <div class="prose">
-      <p>This is an <b>unofficial fan preservation project</b>. It has no connection with Cryo Interactive or any rights holder. It exists so that a 1997 game keeps being playable, and so that its code can be studied.</p>
-      <p>The page runs the game's own Windows program, not a remake. The executable was <b>statically recompiled</b>: its x86 machine code was lifted ahead of time into C, then compiled to <b>WebAssembly</b> together with a small hand-written runtime that provides the Windows services the game expects (files, threads, windows, input, sound) on top of SDL3. There is no CPU emulator at run time.</p>
-      <p>The picture is drawn by a <b>WebGL 2</b> renderer written to reproduce the look of the 3dfx build (filtered textures, Gouraud shading) at the game's 4:3 frame, scaled to fit your window. Sound goes through Web Audio. Your autosave is kept in the browser's IndexedDB.</p>
-      <h3 class="h-small">What is different from the 1997 game</h3>
-      <ul class="plain">
-        <li><b>It is a demo.</b> The data is a small cut of the game, downloaded once (the files and size are shown on the start screen) and cached by your browser. The full game is not here.</li>
-        <li><b>No CD.</b> The original read its levels from the discs and played music from the CD's audio tracks. Here, only what is in the demo pack exists, so music may be missing.</li>
-        <li><b>No installation</b> and nothing runs outside the browser tab. It needs a current desktop browser with WebGL 2 and cross-origin isolation (threads).</li>
-        <li><b>Window size and fullscreen</b> are handled by the page, with a smooth or pixel-perfect scale. The original window sizes (<kbd>F1</kbd> to <kbd>F6</kbd>) are not needed.</li>
-      </ul>
-      <p class="fine">Rights: the repository ships no game data. Whoever hosts this page is responsible for having the right to distribute the demo content it loads.</p>
-    </div>
-    <ol class="pipeline" aria-label="How the port is built">
-      <li><span class="step">1</span><b>Retail Windows executable</b><span>machine code, as shipped</span></li>
-      <li><span class="step">2</span><b>Lifted to C</b><span>ahead of time, function by function</span></li>
-      <li><span class="step">3</span><b>Compiled to WebAssembly</b><span>with threads, via Emscripten</span></li>
-      <li><span class="step">4</span><b>Host runtime on SDL3</b><span>Windows API, files, input, audio</span></li>
-      <li><span class="step">5</span><b>WebGL 2 renderer</b><span>draws the 3D scene on your GPU</span></li>
-    </ol>
-  </div>
-</section>
-
-<section id="faq" class="block">
-  <header class="block-head"><h2>Questions</h2></header>
-  <div class="faq">
-    <details><summary>The keys do nothing, or the page scrolls.</summary><p>Click the game once: keys only go to it while it has focus. If the picture shows "Click to take control", click it. Press <kbd>?</kbd> for the key list.</p></details>
-    <details><summary>Esc leaves fullscreen instead of opening the game's menu.</summary><p>Chrome and Edge let the game keep <kbd>Esc</kbd> in fullscreen. Other browsers reserve it: use the toolbar's <b>Menu</b> button, which sends <kbd>Esc</kbd> to the game.</p></details>
-    <details><summary>Is my progress saved?</summary><p>Yes. The game autosaves each time you enter a new level, and the page keeps that save in your browser's storage on this site. It is not uploaded anywhere. Clearing site data removes it.</p></details>
-    <details><summary>Why is there no music, or no voice?</summary><p>The demo contains only a slice of the game's data. The original played music from the CD's audio tracks, which are not part of the demo. Check that the speaker button is not muted and that the browser tab is not muted.</p></details>
-    <details><summary>Why is the picture 4:3 with black bars?</summary><p>The game renders at 640 &times; 480. The page keeps that shape instead of stretching it. <b>Pixel-perfect</b> in the toolbar uses whole-number sizes with sharp pixels; the default fills the space smoothly. Inside the picture, the game's own cinematic bars are part of the design.</p></details>
-    <details><summary>Which browsers work?</summary><p>A recent Chrome, Edge or Firefox on a desktop or laptop, with hardware acceleration on. It needs WebGL 2, WebAssembly threads (a cross-origin isolated page) and enough memory for the demo data. Phones and tablets without a keyboard cannot play it.</p></details>
-    <details><summary>It says the page is not cross-origin isolated.</summary><p>The game uses threads, which browsers allow only on pages served with two security headers. A correctly deployed copy of this page sends them. If you are running a copy yourself, <code>recomp/web/package.py</code> writes the headers file for Cloudflare Pages and <code>serve.py</code> serves it locally.</p></details>
-    <details><summary>The game stops or crashes.</summary><p>Reload; your autosave is kept. If it repeats, open the page with <code>?debug</code> to see the log, and use "Copy technical details" in the error box when reporting it.</p></details>
-    <details><summary>Can I remove the downloaded data and my save?</summary>
-      <p>Your browser's site-data settings can do it, or use the button here. It deletes the cached demo data and the saved game, then reloads.</p>
-      <p><button id="clear-data" type="button" class="btn">Delete cached data and my save</button></p></details>
-    <details><summary>Is this official?</summary><p>No. It is a fan preservation project. See below for credits and the legal note.</p></details>
+<section class="preservation-section" id="preservation" aria-labelledby="preservation-heading">
+  <div class="wrap preservation-grid">
+    <div><p class="eyebrow">05 / Still dreaming</p><h2 id="preservation-heading">A place to<br>come back to.</h2><p class="section-intro"><a class="text-link" href="https://github.com/jlagedo/dreams-to-reality-re" target="_blank" rel="noopener">View the project on GitHub <span aria-hidden="true">↗</span></a></p></div>
+    <div class="preservation-copy"><p>Some worlds stay with us long after we leave them. This tribute brings together a piece of <i>Dreams to Reality</i>, its original artwork and the names of the people who made it.</p><p>The browser demo runs the original Windows program, recompiled for today’s browsers with a new host runtime and renderer. The story, characters, artwork and music belong to the original creators.</p><a class="text-link" href="site/manual/original-manual-es.pdf" target="_blank" rel="noopener">Read the original manual <span aria-hidden="true">↗</span></a><p class="source-note">Spanish edition · 33 PDF pages · 11.3 MB<br>Story adapted from pp. 4–7; imagery and credits attributed throughout.</p><details class="technical-note"><summary>About the browser port</summary><p>The Windows executable was lifted to C with pcrecomp, compiled to WebAssembly with Emscripten, and connected to an SDL3 host runtime and a WebGL 2 renderer built on sokol_gfx. The demo preserves browser saves with IndexedDB.</p></details></div>
   </div>
 </section>
-
-</div><!-- .wrap -->
 </main>
-
-<footer class="foot">
-  <div class="wrap">
-    <div class="foot-grid">
-      <div>
-        <h2>Credits</h2>
-        <p><b>Dreams to Reality</b> &copy; 1997 Cryo Interactive. Game design, art, music and code by its original authors; this port adds none of that.</p>
-        <p>Port: static recompilation, host runtime and renderer by the people behind this repository. Built with Emscripten, SDL3 and sokol_gfx; the lifter is <code>pcrecomp</code> (sp00nznet).</p>
-      </div>
-      <div>
-        <h2>Legal</h2>
-        <p>Dreams to Reality, Cryo and all related names, characters and artwork are trademarks or copyrights of their respective owners. This is an unofficial, non-commercial project and is not affiliated with, endorsed or sponsored by any of them.</p>
-        <p>The game's data in the demo is the property of its rights holders. The person who deploys this page is responsible for having the right to distribute it; if you are a rights holder with a concern, contact the site's owner.</p>
-      </div>
-      <div>
-        <h2>On this page</h2>
-        <p>No tracking, no cookies, no third-party requests. The demo data and your save stay in your browser.</p>
-        <p><a href="#player">Back to the game</a></p>
-      </div>
-    </div>
-  </div>
-</footer>
-
-<!-- config.js (written by package.py) may set DREAMS_DEMO_BASE, DREAMS_ENGINE_BASE, DREAMS_POSTER and DREAMS_SHOTS -->
+<footer class="foot wrap"><a class="brand" href="#home">Dreams <em>to reality</em></a><p>An unofficial fan tribute.<br>Dreams to Reality © 1997 Cryo Interactive. Original artwork and game material belong to their respective rights holders.</p><a href="#home" class="back-top">Back to the beginning ↑</a></footer>
 <script src="config.js"></script>
 <script src="loader.js"></script>
 <script src="site/ui.js"></script>

@@ -53,6 +53,11 @@ const page = window.dreamsPage = {
   // Presentation hooks. site/ui.js replaces captureKeys: false hands the keys back to the browser
   // (a dialog is open, the canvas is not focused). Events: document 'dreams:phase', 'dreams:error'.
   captureKeys: () => true,
+  // true asks the engine for the game's own 640 x 480 drawing buffer instead of the canvas's device
+  // pixels (site/ui.js: pixel-perfect); call page.updateView() after it changes.
+  nativeResolution: () => false,
+  updateView: () => updateView(),
+  view: null,             // [w, h] of the drawing buffer last asked of the engine
   setVolume: (v) => setVolume(v),
   toggleMute: () => { audio.muted = !audio.muted; applyMute(); },
   toggleFullscreen: () => toggleFullscreen(),
@@ -559,6 +564,7 @@ async function startGame() {
       },
     });
     page.Module = M;
+    updateView();
     // An engine without onDreamsStatus support still starts: assume it runs.
     setTimeout(() => { if (page.phase === 'starting' && !gotStatus) markRunning('timeout'); }, 4000);
   } catch (e) {
@@ -575,6 +581,38 @@ function userStart() {
   else { setStatus('Waiting for the download to finish, then the game starts...'); el.play.disabled = true; }
 }
 el.play.addEventListener('click', userStart);
+
+/* ---- the engine's drawing buffer ------------------------------------------ */
+
+// The engine draws the 3D scene at its drawing buffer's size and the page shows that buffer at the
+// canvas's CSS size, so the buffer follows the canvas in device pixels (Module._wd_web_view_size,
+// host/web/web_glue.c; the engine caps it at 4096). Without it the game draws 640 x 480 and the
+// browser stretches it.
+// (ResizeObserver's device-pixel-content-box is not used: headless Chrome reports it in CSS pixels
+// under an emulated device scale factor.)
+function updateView() {
+  const M = page.Module;
+  if (!M || typeof M._wd_web_view_size !== 'function') return;
+  let w = 640, h = 480;
+  if (!page.nativeResolution()) {
+    const r = el.canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    w = Math.round(r.width * dpr); h = Math.round(r.height * dpr);
+  }
+  if (w < 64 || h < 64) return;                                       // not laid out
+  if (page.view && page.view[0] === w && page.view[1] === h) return;
+  page.view = [w, h];
+  M._wd_web_view_size(w, h);
+  log('drawing buffer', w + 'x' + h);
+}
+if (window.ResizeObserver) new ResizeObserver(() => updateView()).observe(el.canvas);
+// Zoom and moving to another screen change the device pixel ratio, not always the CSS size.
+(function watchRatio() {
+  if (!window.matchMedia) return;
+  matchMedia('(resolution: ' + (window.devicePixelRatio || 1) + 'dppx)').addEventListener('change', () => {
+    updateView();
+    watchRatio();
+  }, { once: true });
+})();
 
 /* ---- input, fullscreen ---------------------------------------------------- */
 

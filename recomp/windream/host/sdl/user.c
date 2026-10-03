@@ -56,6 +56,7 @@
 #include "host.h"
 #ifdef __EMSCRIPTEN__
 #include <emscripten/threading.h>
+void wd_web_view_pump(SDL_Window* window);   /* web/web_glue.c */
 #endif
 #include "render_live.h"
 
@@ -438,6 +439,7 @@ void host_pump(void) {
     /* The page's key, mouse and focus events are proxied to this thread and wait
      * in its queue; a busy guest loop (no Sleep) would never run them. */
     emscripten_current_thread_process_queued_calls();
+    if (g_window && !g_destroyed) wd_web_view_pump(g_window);
 #endif
     if (!SDL_WasInit(SDL_INIT_EVENTS)) return;
     display_script_pump();
@@ -588,7 +590,15 @@ void imp_CreateWindowExA(void) {  /* (exStyle, cls, name, style, x, y, w, h, par
             script_error("WD_WIDTH/WD_HEIGHT");
         width = w; height = h;
     }
-    g_window = SDL_CreateWindow(title, width, height, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | wd_render_window_flags());
+#ifdef __EMSCRIPTEN__
+    /* The page sizes the canvas (web_glue.c wd_web_view_pump); a resizable
+     * window would also have SDL set it to its CSS size on every page resize. */
+    if (!ew) wd_web_view(&width, &height);
+    const SDL_WindowFlags resizable = 0;
+#else
+    const SDL_WindowFlags resizable = SDL_WINDOW_RESIZABLE;
+#endif
+    g_window = SDL_CreateWindow(title, width, height, SDL_WINDOW_HIDDEN | resizable | wd_render_window_flags());
     g_renderer = g_window && !wd_render_requested() ? SDL_CreateRenderer(g_window, NULL) : NULL;
     if (!g_window || (wd_render_requested() ? !wd_render_open(g_window) : !g_renderer)) {
         fprintf(stderr, "[user] SDL window: %s\n", SDL_GetError());

@@ -122,6 +122,7 @@ recomp_func_t wd_com_lookup(uint32_t va);
 void     wd_web_status(const char* kind, const char* text);
 void     wd_web_boot_note(const char* rel, int ok);   /* every guest open: the unattended-boot state machine */
 int      wd_web_boot_key(int vk);                    /* 1 while the host presses this key itself */
+int      wd_web_view(int* w, int* h);                /* the drawing-buffer size the page asked for; 0 before it asks */
 #else
 #define  wd_web_status(kind, text) ((void)0)
 #define  wd_web_boot_note(rel, ok) ((void)0)

@@ -22,6 +22,10 @@ Without it the page has no game images, only original CSS and SVG art.
 a file under out/, never committed); it is copied to site/poster.jpg. Without it
 the start screen shows a plain dusk sky.
 
+--manual DIR adds the tribute's artwork and source PDF, prepared with
+manual_assets.py. Defaults to out/recomp/web/manual. These are game-derived
+assets and must remain outside the repository's tracked sources.
+
 --demo-url leaves the pack out of dist and points the page at that base URL
 (an R2 bucket, a CDN). The page fetches it with CORS, so the host must send
 Access-Control-Allow-Origin; see recomp/README.md, "Browser build". The pack
@@ -206,6 +210,12 @@ def main() -> int:
         default=None,
         help="a frame of the game for the start screen (game-derived; optional)",
     )
+    ap.add_argument(
+        "--manual",
+        type=Path,
+        default=OUT / "manual",
+        help="tribute artwork prepared by manual_assets.py (game-derived)",
+    )
     args = ap.parse_args()
 
     out = args.out.resolve()
@@ -219,6 +229,11 @@ def main() -> int:
     shutil.copytree(
         SITE_DIR, out / "site", ignore=shutil.ignore_patterns("shots", "poster.*", "*.md")
     )
+    if args.manual.is_dir():
+        shutil.copytree(args.manual.resolve(), out / "site" / "manual")
+        print(f"tribute artwork: {args.manual} (game-derived, not for the repository)")
+    else:
+        print("WARNING: tribute artwork missing; run manual_assets.py MANUAL.pdf first")
     copy_engine(args.engine.resolve(), out)
 
     demo_local = False
