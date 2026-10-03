@@ -4,10 +4,12 @@ Status: **Draft. Part A (knowledge) is complete to the level of static
 analysis of all six July and October builds plus the banks and discs. Part B
 (restoration) is designed, not started; phase 0 is what spec 005 already
 runs (keypad 5, host mouse, one inserted draw call). Owner decisions of
-2026-10-03: the editor is for players too (modding) and always available in
-our builds, Page Up opens it as in July, the July menu is bundled with the
-release, copy/paste on Ctrl+1..4 / Ctrl+Shift+1..4, and one milestone covers
-every phase.**
+2026-10-03: the port gets two launch modes, retail (default) and dev; dev
+mode is a game option that turns on Cryo's in-game developer tools,
+including the editor, and plays from a local copy of the discs where edits
+land as they did for the developers; Page Up opens the editor; the July menu
+is bundled with the release; copy/paste on Ctrl+1..4 / Ctrl+Shift+1..4; one
+milestone covers every phase.**
 Date: 2026-10-03
 Depends on: [000 the recomp](../000-the-recomp/spec.md),
 [005 retail debug tools](../005-debug-tools/spec.md),
@@ -31,9 +33,12 @@ spec does two things:
   inference, how the team used it.
 - **Part B** specifies how the recomp brings the complete editor back on
   top of the retail code: the July menu, working file pickers, a project
-  bank, saving and export. It ships to players as a modding tool: the
-  release package is our binary plus bundled resources, and the player
-  supplies only the disc images.
+  bank, saving and export. It ships to players in a **dev mode** chosen in
+  the launcher, next to the default **retail mode**: dev mode turns on
+  Cryo's in-game developer tools and plays from a local copy of the discs,
+  as the developers' game ran from its hard-disk tree. The release package
+  is our binary plus bundled resources, and the player supplies only the
+  disc images.
 
 Boundary for Part B, from [AGENTS.md](../../../AGENTS.md) and spec 005:
 
@@ -53,11 +58,15 @@ Boundary for Part B, from [AGENTS.md](../../../AGENTS.md) and spec 005:
   distribute the binary and anything necessary to make it work"; the player
   provides only the disc images). This extends spec 007, whose port reads
   all game data from the player's images.
-- Nothing is written to a disc image or to the install tree. Banks and lists
-  go under `out/` (development) or the user-data directory of spec 007.
-- The editor is a player feature, so it may not depend on the development
-  control channel (`WD_DEVTOOLS`); tests drive it through that channel, but
-  the editor code itself builds without it.
+- Nothing is written to a disc image or to the retail install tree. Dev
+  mode writes only inside its own folder in the user-data directory of spec
+  007.
+- Dev mode is a game option for Cryo's own tools, not our development
+  harness. The harness (the control channel `WD_DEVTOOLS`, the `dreams-game`
+  MCP tool, `run.py` options such as `--poke`, trace and audit builds) stays
+  exactly as it is in every mode: a build-time option, absent from release
+  builds as `release.py` checks today. Tests drive dev mode through the
+  harness, but the dev-mode code builds and runs without it.
 
 Out of scope: the DOS builds of the recomp (there are none), editing model
 or scene geometry (the editor never did), and a new editor UI. The aim is
@@ -816,7 +825,12 @@ the functions stayed because Watcom links whole objects.
 
 | Question | Decision | Why |
 |---|---|---|
-| Who it is for | **Players too, as a modding tool** (owner, 2026-10-03). Always built in and always available: no build switch, no setting to enable it | Owner decision |
+| Two modes | **Retail mode (default) and dev mode, chosen in the launcher** (owner, 2026-10-03). The same release binary holds both; no build switch. Retail mode is the shipped game with our visual improvements (renderer, smooth motion, camera smoothing) and none of the host bindings we added for Cryo's tools. Dev mode turns everything on | Owner decision. Supersedes the earlier "always available, no setting" row |
+| What dev mode turns on | Cryo's in-game developer tools, which the game already contains and the port only reconnects: the editor (Page Up), the Frame Rate / Mem 3DTR readout, the object HUD, the collision view, the Δt step pin and TGA capture, the demo recorder; and the host bindings that reach them because retail removed their keys (keypad 1–5, Page Up, the editor's mouse feed, the inserted editor call, the key translation of phase 2) | Owner decision: "a game option to enable the in-game developer tools" |
+| Our harness | **Untouched and the same in every mode** (owner, 2026-10-03): the control channel, the MCP tool and the `run.py` options stay a build-time development option, absent from release builds | Owner decision: "not our work to build it" |
+| Dev mode data | **A local copy of both discs in the user-data folder** (owner, 2026-10-03). The first dev-mode launch copies everything from the two images into it; each later launch checks that the copy was initialized and, if so, copies nothing and plays from that folder. The folder is the game's data tree, like the developers' `C:\DREAMS\DREAMS`: edits and everything the game writes land in it as they are | Owner decision. The July builds have no disc logic at all (no `1CD.ID`, `2CD.ID`, `HD.ID`, `FULL.ID`, `LEVEL.ID` or `ListL` strings): the developers' game read one data tree, which `STATUS.ME` places at `C:\DREAMS\DREAMS\DATA` **[verified]** |
+| Music in dev mode | **None, as in the developers' build** (owner, 2026-10-03) | Owner decision. The July DOS `ACD_Init_` (`0x42600`) is `xor eax, eax; ret`: the message manager stores 0 and never sets its audio-CD flag, so that build plays no CD music while the rest of `ACD.C` (Miles redbook) is intact **[verified in code]**. Track numbers were assigned late: 24 of 138 projects in July, 127 of 150 in October **[verified in data]** |
+| How it is distributed | The release package is the binary plus a `resources\` folder; the player supplies only the two disc images (owner, 2026-10-03) | Owner decision |
 | How it is distributed | The release package is the binary plus a `resources\` folder; the player supplies only the two disc images (owner, 2026-10-03) | Owner decision |
 | Where the menu comes from | Extracted at build time from the July demo `DREAMS.EXE` (SHA-256 checked) into `out/recomp/windream/editor/`, bundled as a resource in the release package, never committed. `release.py` fails if the resource is missing or its hash differs; a development build without the demo keeps the retail two-node tree | Owner decision; no game data in the repository |
 | Milestone | **One milestone, every phase (1–6)** (owner, 2026-10-03) | Owner decision |
@@ -824,15 +838,15 @@ the functions stayed because Watcom links whole objects.
 | Bindings | A committed table mapping each July value symbol (+offset) to a retail address, with the retail reader that proves it; leaves without a proven binding are left out | AGENTS.md: no field bound on a label alone |
 | Picker lists | Host replacements of the page and list functions (the stride is compiled in), registered through the replacement table | Bigger buffers cannot fix `base + i` |
 | Project bank | A host bank of 150 unpacked records in guest memory; `_LoadSaveSceneSPtr` points into it; the bank is recompressed into `_RLE_SAVES` so the retail `DDAT_LoadRecord` serves edited records | Keeps level transitions retail |
-| Where files go | The user-data directory of spec 007 in release builds, `out/recomp/windream/run*/editor/` in development (`DREAMS.DAT`, `EDITOR.DAT`, `listL*.txt`, `data\tga\`); never the disc or install | Spec 007 user data rules |
+| Where files go | Into the dev-mode folder, in place: `DREAMS.DAT` and `EDITOR.DAT` at its root, `DATA\TGA\` captures, `DATA\REPLAY.BIN`, saves in `DATA\GAME\`, `LISTL*.TXT`; never a disc image or the retail install | Follows from the dev-mode data decision |
 | Call site | Keep candidate 1 (`0x41743a`) | Fits every constraint; candidate 2 is equal and unproven |
 | Copy and paste keys | **Ctrl+1..4 copy, Ctrl+Shift+1..4 paste** for project, objet, link, box (owner, 2026-10-03); letters and digits keep their July meaning | Owner decision; the July punctuation keys are unreachable from Windows keys |
 | Keyboard | Host translation of those keys to the DOS codes while the editor is on | The punctuation cases are compiled into `sceneKeyboard_` |
-| Toggle | **Page Up** (owner, 2026-10-03), chosen over the DOS `!`; keypad 5 stays as an alias. The host handles the key itself and does not pass it to the game, as it already does for keypad 5 | Owner decision. Page Up is what the only Windows build with a toggle used: the July Windows hotkey handler (`0x4139a6`) tests code 0x21, which is VK_PRIOR. `!` was the developers' key in the DOS build (character 0x21, one unshifted key on AZERTY), but the Windows game reads key codes, not characters, and on QWERTY `!` is Shift+1, whose code 0x31 opens the intro HNM picker in `sceneKeyboard_`. Page Up is one physical key on every layout. Swallowing it matters: `sceneKeyboard_` reads 0x21 as "paste link", so in July one press toggled the editor and pasted a link; paste link moves to Ctrl+Shift+3. The only other retail reader of Page Up is `CAM_TickFree` (held state at `0x40b456`), which returns early while the editor flag is set and whose mode nothing in retail switches on |
+| Toggle | **Page Up** (owner, 2026-10-03), chosen over the DOS `!`; keypad 5 stays as an alias. In dev mode the host handles the key itself and does not pass it to the game, as it already does for keypad 5; in retail mode Page Up reaches the game unchanged | Owner decision. Page Up is what the only Windows build with a toggle used: the July Windows hotkey handler (`0x4139a6`) tests code 0x21, which is VK_PRIOR. `!` was the developers' key in the DOS build (character 0x21, one unshifted key on AZERTY), but the Windows game reads key codes, not characters, and on QWERTY `!` is Shift+1, whose code 0x31 opens the intro HNM picker in `sceneKeyboard_`. Page Up is one physical key on every layout. Swallowing it matters: `sceneKeyboard_` reads 0x21 as "paste link", so in July one press toggled the editor and pasted a link; paste link moves to Ctrl+Shift+3. The only other retail reader of Page Up is `CAM_TickFree` (held state at `0x40b456`), which returns early while the editor flag is set and whose mode nothing in retail switches on |
 | Toggle at any width | **Page Up opens the editor at every resolution**, even when the layout is cut off (owner, 2026-10-03). The July toggle acted only at a width of 640 (`_ScreenXRes`); the port drops that condition | Owner decision. The layout is drawn for 640 (rows 10 px apart, sliders at label x+180, values at x+380), so narrower frames clip the deeper levels |
 | Save on toggle | **Each Page Up press runs the retail autosave** (owner, 2026-10-03, option A), the routine `GAME_StartLevel` calls on level entry (`0x439341` with the current project, from `0x42f1d7`), before the flag changes | Owner decision. July saved `data\game.dat` with `CTRL_SaveGame_` (`0x106d6` in `DreamsKey_`), the same function as a menu slot, but nothing in the demo loads that path: the only `CTRL_LoadGame_` call (`0x49e1f`) uses `data\game\game%d.dat`. Retail has no `data\game.dat` string; its saves are `GAME_SaveGame` (`0x40f542`, `game<n>.dat`) and `GAME_SaveIndex` (`0x40f202`). The autosave gives a restore point the Load menu can open, which a July-style file would not. How the autosave picks its slot is not traced |
-| How players use edits | **Proposed:** a mod bank in user data (`mods\<name>\DREAMS.DAT`), chosen in the launcher; the game reads it instead of the disc's bank; disc files untouched | Open |
-| One bank or two | **Proposed:** one bank based on disc 1 (the later snapshot), used for both discs' levels | Open: retail reads each disc's own bank (six records differ) |
+| How edits are played | In dev mode, by the folder itself: the editor's save overwrites the folder's `DREAMS.DAT` (and writes `EDITOR.DAT` beside it), and the next dev-mode launch plays it, as July's `LoadDiskScene_` loaded `editor.dat` at every start and New Game and `SaveDiskScene_` wrote it back. Retail mode always plays the discs. No separate mod system | Follows from the dev-mode data decision; an earlier mods proposal was never approved and is withdrawn |
+| Which `DREAMS.DAT` the folder gets | **Open.** One folder holds one bank, but the discs differ in six records (`docs/research/disc-layout.md` leaves the merge unresolved). Disc 1's is the later snapshot (file-formats.md) | Open |
 | Runtime fields in exports | **Proposed:** keep them, as the retail bank did (BOX `+0xf8`, spent spawn markers) | Open |
 
 ### Files the editor needs
@@ -855,21 +869,60 @@ editor draws or lists at run time comes from the player's discs.
 ## B2. Phases
 
 The phases are steps inside one milestone (owner decision): the editor
-ships when phases 1–6 all pass. Each phase's acceptance checks run through
-the control channel (`run.py --ctl`, `recomp/windream/debug/wdctl.py`,
-`game_nav.py`); tests skip without the build, the discs or, from phase 1,
-the July demo.
+ships when every phase passes. Phase M (modes and the dev folder) comes
+first because the others build on it; the rest keep their numbers. Each
+phase's acceptance checks run through the control channel (`run.py --ctl`,
+`recomp/windream/debug/wdctl.py`, `game_nav.py`); tests skip without the
+build, the discs or, from phase 1, the July demo.
 
 ### Phase 0 — baseline (done, spec 005)
 
 Keypad 5 sets `0x4a477c`; `wd_editor_frame` (`lift.py` `CALLS` at
 `0x41743a`) calls `0x44d46d` through `guest_call_regs`; `mouse_post`
 posts `0x34`–`0x38` into `0x626f70` while the handler is `GAME_TickFrame`
-or `CTRL_Dispatcher`.
+or `CTRL_Dispatcher`. Today these, and keypad 1–4, are active in every
+build; phase M confines them to dev mode.
 
 Acceptance (to automate): with keypad 5 on in Project 0, the screen shows
 "Dreams Editor" and "Exit To DOS"; a click on "Exit To DOS" sets
 `0x4a4780`; `ShowLink_` draws LINK0's box.
+
+### Phase M — retail mode, dev mode and the dev folder
+
+1. **The option.** The launcher (spec 007) gets a mode choice, retail by
+   default, stored in `dreams.ini`; the port reads it at start and the mode
+   holds for the session.
+2. **Retail mode.** Every host binding added for Cryo's tools is inert:
+   keypad 1–5, Page Up as a toggle, the key translation of phase 2, the
+   editor's mouse feed (`mouse_post`), the inserted editor call
+   (`wd_editor_frame` returns at once). Keys reach the game as retail
+   delivers them. Cryo's debug flags stay at their retail values (never
+   written). The visual improvements follow their own settings. Data come
+   from the disc images, with CD music, exactly as spec 007.
+3. **Dev mode, first launch.** The port copies everything from the two
+   images into its folder in the user-data directory, merging the discs
+   with the rules of `docs/research/disc-layout.md` (170 shared names, 10
+   differing files; which `DREAMS.DAT` is kept is open, B1). When the copy
+   is complete it records that the folder is initialized.
+4. **Dev mode, later launches.** The port finds the initialized folder,
+   copies nothing, and serves the folder as the game's data tree: it is the
+   CD root of both discs (both disc IDs visible, so no swap prompt) and the
+   install root (saves in `DATA\GAME`, `LEVEL.ID`, `LISTL*.TXT`). The images
+   are not read.
+5. **No music in dev mode.** The host makes the game's opening of the MCI
+   `cdaudio` device fail (`CD_OpenAudio` `0x4042f1`), so the game never
+   reaches its "Audio CD Is On" path, as the July DOS build never did. To
+   trace before building: that every retail music path checks that state
+   and the game plays on silently.
+6. **Cryo's tools on.** The bindings of point 2 are live, and the editor's
+   saves land in the folder (phase 5).
+
+Acceptance: in retail mode keypad 1–5 and Page Up change no guest memory
+and no `0x34`–`0x38` event is posted; the first dev-mode launch creates and
+marks the folder; a second launch opens no file from the images (the
+channel's `open` and `disc` events) and plays; no `cd` event occurs in dev
+mode; a save made in dev mode is in the folder's `DATA\GAME` after a
+restart.
 
 ### Phase 1 — the July menu
 
@@ -914,7 +967,7 @@ While `0x4a477c` is set, the host translates keys to the codes
 as they are; Ctrl+1..4 to the copy codes and Ctrl+Shift+1..4 to the paste
 codes for project, objet, link and box (`0x3f`/`0x2e`, `0x2f`/`0xf5`,
 `0x3a`/`0x21`, `0x25`/`0xe6`; owner decision); Space and Esc unchanged.
-Page Up sets or clears `0x4a477c` while the game frame handler runs
+All of this is dev mode only (phase M). Page Up sets or clears `0x4a477c` while the game frame handler runs
 (`0x626f74` = `GAME_TickFrame`) and is never passed to the game, so it
 cannot also paste a link. It works at every resolution, and before
 changing the flag it runs the retail autosave (`0x439341`, with the current
@@ -934,7 +987,7 @@ Host replacements for `0x4486bd`, `0x4487ed`, `0x4488bf`, `0x448937`,
 `0x4489ab` (fillers) and for the list parts of the picker pages
 `0x44902b`, `0x4492d1`, `0x449577`, `0x44a6e4`, `0x44a990`. The replacements
 keep the pages' screen layout and hit tests (A5.1), read names from the
-mounted data roots (disc library and install, spec 007) with the July
+dev-mode folder (phase M) with the July
 patterns, keep 8.3 names and 13-byte semantics, and write the chosen name
 into the same target field as the original. The replacement table is
 render-owned today (`render_boundary.cpp`); this phase generalizes it or
@@ -947,8 +1000,8 @@ buffers changes (memory diff of `0x661e18`–`0x661e40` before and after).
 ### Phase 4 — the project bank
 
 A host bank of 150 × 0x2200 bytes (1.3 MB) in guest memory, unpacked at
-run time, not by a build step: the bank must come from the player's disc
-(or the active mod), which the build never sees, and unpacking 138 KB of
+run time, not by a build step: the bank must come from the dev-mode
+folder, which the build never sees, and unpacking 138 KB of
 zero-run RLE takes milliseconds. The host does it the first time the editor
 opens, from the `DREAMS.DAT` the game itself mounted (`_RLE_SAVES`
 `0x633c14`, already in memory after `DDAT_Load`), so it edits exactly the
@@ -979,15 +1032,14 @@ through an exit and back: the change persists; Project Delete clears
 A host `SaveDiskScene_` (`0x44900a`, called by `GAME_Shutdown`) and an
 editor key (F10 while `0x4a477c` is set, translated before the retail F10
 key help) write, when the bank is dirty (`0x661da4`): `EDITOR.DAT` (raw)
-and `DREAMS.DAT` (compressed) into the active mod's directory under user
-data (release) or the run's `editor/` directory (development). Playing a
-mod (the proposed launcher choice) mounts its `DREAMS.DAT` in place of the
-disc's through the host file layer; the disc stays untouched.
+and `DREAMS.DAT` (compressed) into the dev-mode folder's root, overwriting
+its `DREAMS.DAT` in place as July's `SaveDiskScene_` did. The next
+dev-mode launch plays it. The disc images are never touched.
 
-Acceptance: with no edit, the written `DREAMS.DAT` equals the mounted
-disc's byte for byte (the compressor and index format are exact); after
-one edit, only that record's bytes and the later offsets differ; the
-patched bank loads in a fresh run through `bank_patch.py`-style data roots.
+Acceptance: with no edit, the written `DREAMS.DAT` equals the one the
+folder started with, byte for byte (the compressor and index format are
+exact); after one edit, only that record's bytes and the later offsets
+differ; a restart in dev mode plays the edited level.
 
 ### Phase 6 — mastering lists and capture (optional)
 
@@ -995,7 +1047,7 @@ patched bank loads in a fresh run through `bank_patch.py`-style data roots.
   reimplementation or a repository tool next to `bank_patch.py`; the
   originals walk `0x659044`) and write `listL*.txt`, `copyL*.bat`. Acceptance:
   on the unedited disc 1 bank the lists equal the shipped `LISTL*.TXT`.
-- TGA capture: create `data\tga` in the sandbox before the first write
+- TGA capture: create `data\tga` in the dev-mode folder before the first write
   (the retail writer does not check `fopen`); keys `6`/`7` translated while
   the editor is on. Acceptance: one capture writes `<scn>_0000.tga` of the
   game frame.
@@ -1009,22 +1061,26 @@ patched bank loads in a fresh run through `bank_patch.py`-style data roots.
 | The 16-slot BOX search writes into LINKADVENT slots | the phase 4 replacements cap at 12; the BOX search (`0x44baed`) is replaced or guarded |
 | LINKADVENT indexes are list positions | phase 1 shows slot indexes; keep the July semantics until the engine's reading is traced, and document it |
 | Editor mode pins actors and disables exits; a session saved in that state | saves come from the working records, not from actor state; runtime-written BOX `+0xf8` is cleared before export (or kept, matching retail; decide when phase 5 is built) |
-| `!`/Page Up paste-and-toggle clash | the host consumes Page Up as the toggle and never passes it to the game; paste link is Ctrl+Shift+3 |
+| `!`/Page Up paste-and-toggle clash | in dev mode the host consumes Page Up as the toggle and never passes it to the game; paste link is Ctrl+Shift+3 |
 | Fonts and layout below 640 pixels wide | accepted (owner decision): the editor opens at any width and may be cut off |
 | The toggle's autosave pushes out a player's save | trace the autosave's slot choice before phase 2 is built |
 | A release without the menu resource, or with one from another build of the demo | `release.py` checks the resource's presence and the source hash; the host validates the file before installing nodes |
-| A player's edited bank breaks a save or a level | mods live in their own directory; the disc bank stays the default; a broken mod is dropped by deselecting it in the launcher |
+| A player's edits break a level or a save | edits stay inside the dev-mode folder; retail mode always plays the untouched discs. How a player restores the folder is open |
+| The first dev-mode launch is interrupted or runs out of space | the folder counts as initialized only once the copy is complete (about 480 MB merged, `disc-layout.md`); how a partial copy is detected and resumed is open |
+| A music path assumes the CD device opened | trace it before phase M point 5 is built |
 
 ## B4. Verification plan
 
 | Check | Phase | How |
 |---|---|---|
+| Retail mode is clean | M | keypad 1–5 and Page Up change no guest memory; no `0x34`–`0x38` event posted |
+| Dev folder set up once, then used | M | first launch creates and marks the folder; second launch: no `open` or `disc` event on an image, no `cd` event |
 | Panel and exit node | 0 | screenshot + `0x4a4780` after a scripted click |
 | Root rows and a captured position | 1 | control channel: keypad 5, mouse script, read `0x65fb04+0xb4` |
 | Binding table proof | 1 | test reads `bindings.tsv` and checks each retail reader address against the lifted code |
 | Create and reload an OBJET | 2–3 | `game_nav` to Project 0, keys, wait on `_SemaImportNewScene`, read the OBJET slot |
 | Persistence across a level exit | 4 | edit, save, `complete_level_triggers`, return, read the field |
-| Byte-identical export | 5 | write `DREAMS.DAT` with no edits, compare with the disc |
+| Byte-identical export | 5 | write `DREAMS.DAT` with no edits, compare with the folder's original |
 | `LISTL` round trip | 6 | compare with the shipped lists |
 
 ## B5. Open questions
@@ -1035,9 +1091,10 @@ patched bank loads in a fresh run through `bank_patch.py`-style data roots.
 - Whether the July Glide build already read `+0x1c0..+0x1cc` as fog.
 - The October developers' menu (values beyond July ranges): only its
   labels' absence is known.
-- Owner decisions still open (proposals in B1): how players pick and play
-  a mod bank; one bank for both discs or one per disc; whether exports keep
-  runtime-written fields.
+- Owner decisions still open: which disc's `DREAMS.DAT` the dev folder
+  keeps; whether exports keep runtime-written fields (B1 has a proposal);
+  how a player restores the dev folder; how an interrupted first copy is
+  detected and resumed.
 
 ## B6. Work items
 
@@ -1054,9 +1111,12 @@ patched bank loads in a fresh run through `bank_patch.py`-style data roots.
 9. Register the July names of the retail editor functions in
    `re/names/WINDREAM.EXE.tsv` (report C's mapping is the second source).
 10. Release packaging: `resources\editor-tree.json` in `build.py` and
-    `release.py` (fails without it), the mod directory under user data, and
-    editor code that is always compiled in and builds without
-    `WD_DEVTOOLS`.
+    `release.py` (fails without it); dev-mode code always compiled in and
+    independent of `WD_DEVTOOLS`, which `release.py` keeps banning as today.
+11. Phase M: the launcher's mode option, the retail-mode gating of every
+    host binding, the dev-folder copy and merge with its initialized check,
+    serving the folder as CD and install root, and the failed `cdaudio`
+    open in dev mode.
 
 ## File map
 
