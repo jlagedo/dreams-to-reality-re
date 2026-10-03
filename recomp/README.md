@@ -541,7 +541,27 @@ manual extractions retain that image when `--box` is omitted.
 controls overlay and in-game key handling are described in
 `recomp/web/NOTES-design.md`.
 
-### Deploy on Cloudflare Pages
+### Publish with the Cloudflare CLI
+
+The tribute is hosted at **https://dreams.lagedo.dev/** as the assets-only
+Worker `dreams-to-reality`. Use the authenticated `cf` CLI (currently tested
+with 1.0.0-beta.12). Package the release engine, then deploy:
+
+```sh
+uv run python recomp/web/package.py --engine out/recomp/windream/build-web-release
+uv run python recomp/web/deploy.py
+```
+
+`deploy.py` copies the packaged site into cf's prebuilt output under
+`out/recomp/web/cloudflare/.cloudflare/output/v0/` and invokes
+`cf deploy --prebuilt` there. The custom-domain configuration provisions
+`dreams.lagedo.dev`, its proxied DNS record and HTTPS certificate. The
+existing `_headers` rules supply the isolation headers needed by the game.
+It uploads the local release and game-derived data, which remain under `out/`.
+Use `--prepare-only` to generate output without publishing, or `--name`,
+`--domain` and `--account-id` to select a different deployment target.
+
+### Legacy Cloudflare Pages hosting
 
 Deploy the release engine, not the development one: `--web-release` builds
 `out/recomp/windream/build-web-release` at Release (-O3) and leaves out the
