@@ -10,6 +10,7 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <SDL3/SDL_timer.h>
@@ -44,12 +45,94 @@ EM_JS(void, wd_web_present_js, (int cmd), {
 });
 static void wd_web_present(void) { wd_web_present_js(WD_WEB_CALL_HANDLER); }
 
+#ifdef WD_WEB_CAPTURE
+/* ---- frame capture for the verification tools ----
+ * recomp/windream/verify/render_web_capture.py takes the browser's own frame
+ * the way render_parity.py takes the Windows build's, in the same order: the
+ * scene inputs of a 3D frame, that frame as presented, then the committed guest
+ * memory. The page calls Module._wd_web_capture(); the guest thread works
+ * through it at its presents, so the game does not advance in between:
+ *   1 asked  -> arm the scene capture of the next 3D frame (/capture/frame.wds)
+ *   2 armed  -> at the present of the frame whose scene was captured: read its
+ *               pixels before the swap (/capture/frame.rgba: width, height,
+ *               RGBA rows top first), swap, then write memory (/capture/frame.wdmi)
+ *   3 done, 4 failed (Module._wd_web_capture_state()). Off with WD_WEB_CAPTURE=OFF. */
+#include <sys/stat.h>
+#include <GLES3/gl3.h>
+#include "render_live.h"
+
+static volatile int g_capture;
+
+EMSCRIPTEN_KEEPALIVE int wd_web_capture(void) {
+    if (g_capture == 1 || g_capture == 2) return 0;
+    g_capture = 1;
+    return 1;
+}
+EMSCRIPTEN_KEEPALIVE int wd_web_capture_state(void) { return g_capture; }
+
+static int capture_pixels(SDL_Window* window) {
+    int w = 0, h = 0;
+    if (!SDL_GetWindowSizeInPixels(window, &w, &h) || w <= 0 || h <= 0) return 0;
+    size_t row = (size_t)w * 4;
+    uint8_t* pixels = malloc(row * (size_t)h + row);
+    if (!pixels) return 0;
+    /* sokol caches GL state: put back what is changed for the read. */
+    GLint previous = 0, alignment = 4;
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previous);
+    glGetIntegerv(GL_PACK_ALIGNMENT, &alignment);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    glPixelStorei(GL_PACK_ALIGNMENT, alignment);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)previous);
+    uint8_t* spare = pixels + row * (size_t)h;
+    for (int y = 0; y < h / 2; y++) {   /* GL rows are bottom first */
+        memcpy(spare, pixels + row * y, row);
+        memcpy(pixels + row * y, pixels + row * (h - 1 - y), row);
+        memcpy(pixels + row * (h - 1 - y), spare, row);
+    }
+    FILE* f = fopen("/capture/frame.rgba", "wb");
+    uint32_t size[2] = { (uint32_t)w, (uint32_t)h };
+    int ok = f && fwrite(size, sizeof size, 1, f) == 1 && fwrite(pixels, row, (size_t)h, f) == (size_t)h;
+    if (f) ok = fclose(f) == 0 && ok;
+    free(pixels);
+    return ok;
+}
+
+/* Before the swap: returns 1 when this present ends the captured frame. */
+static int capture_before_swap(SDL_Window* window) {
+    if (g_capture == 1) {
+        if (!wd_render_requested()) { g_capture = 4; return 0; }
+        mkdir("/capture", 0777);
+        wd_render_scene_capture_next("/capture/frame.wds");
+        g_capture = 2;
+        return 0;
+    }
+    if (g_capture != 2 || wd_render_scene_capture_pending()) return 0;
+    if (!capture_pixels(window)) { g_capture = 4; return 0; }
+    return 1;
+}
+static void capture_after_swap(void) {
+    uint32_t runs = 0, bytes = 0;
+    int ok = vm_write_image("/capture/frame.wdmi", wd_render_scene_capture_root(), &runs, &bytes);
+    fprintf(stderr, "[web] capture: frame, scene and memory (%u runs, %u bytes)%s\n", runs, bytes,
+            ok ? "" : " FAILED");
+    g_capture = ok ? 3 : 4;
+}
+#endif
+
 /* Every SDL_GL_SwapWindow (the direct renderer's present and SDL_Renderer's
  * own) goes through here: the linker wraps the symbol (CMakeLists.txt). */
 extern bool __real_SDL_GL_SwapWindow(SDL_Window* window);
 bool __wrap_SDL_GL_SwapWindow(SDL_Window* window) {
+#ifdef WD_WEB_CAPTURE
+    int captured = capture_before_swap(window);
+#endif
     bool ok = __real_SDL_GL_SwapWindow(window);
     wd_web_present();
+#ifdef WD_WEB_CAPTURE
+    if (captured) capture_after_swap();
+#endif
     return ok;
 }
 

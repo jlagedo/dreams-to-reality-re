@@ -565,6 +565,11 @@ uv run --with playwright --with pillow pytest tests/recomp/test_render_parity.py
   project and, at paused frames, writes through the control channel the scene
   inputs the renderer was about to draw (`scene_capture`, a `.wds` file), the
   guest's committed memory (`memory_dump`, a `.wdmi` file) and a screenshot.
+  It pauses before arming the scene request, then uses a screenshot request to
+  advance one presentation. The scene and PNG share that presentation; memory
+  is dumped afterward while paused. A `.capture.json` records the frame, render
+  root, file hashes and capturing executable. Missing requested shots fail the
+  capture command rather than producing a successful partial corpus.
 - **build**: `verify/native/render_parity.cpp`, the production scene adapter
   and renderer behind `od::GraphicsBackend`, for Windows (D3D11) and for the
   browser (WebGL2).
@@ -574,12 +579,79 @@ uv run --with playwright --with pillow pytest tests/recomp/test_render_parity.py
   frames; a pixel fails beyond `--tolerance` (2), a case beyond `--budget`
   (0.2% of the pixels). Failing or differing cases get an image in `report/`:
   Windows, browser, difference.
+  Reports record the thresholds, input/output hashes, replay executable hashes
+  and source contents at comparison time. Existing cases without capture records
+  remain usable, with their capture provenance unknown. Browser execution errors
+  fail pytest; only explicit missing prerequisites or missing Chrome skip it.
 
 Everything is under `out/recomp/render-parity/` (game-derived). It covers the
 3D scene pass of a display frame. It does not cover the 2D interface, captions
 and movies, the shadow and thumbnail passes, or the lifted game code itself:
 a difference in what the game computes shows up as different inputs, which
 this test takes from Windows.
+The live scene also includes host-owned palettes and fog that a plain memory
+replay omits. Scene inputs precede submission/callback effects, and the memory
+dump follows presentation. Agreement between backends for either input kind
+does not establish agreement between those two inputs or with the saved PNG.
+
+### The browser's own frames
+
+`recomp/windream/verify/render_web_capture.py` takes frames from the browser
+build itself, with nobody playing: the demo pack with a `DREAMS.DAT` whose slot
+0 is the project (`bank_patch.Bank.copy`), packaged and served as for a deploy,
+the page with `?autostart` in Chrome on the GPU. After the level's autosave the
+page asks the engine for a frame (`Module._wd_web_capture()`, compiled in with
+CMake `WD_WEB_CAPTURE`, on by default): the scene inputs, the frame as
+presented and the committed guest memory, in render_parity's order.
+
+```sh
+uv run --with unicorn --with pillow --with playwright \
+    python recomp/windream/verify/render_web_capture.py all --project 46
+```
+
+`analyze` runs the pose sweep below on the browser's memory, compares the level
+with the Windows build's memory image of the same project node by node, and
+the live frame with its own scene inputs replayed on D3D11 and WebGL2 (inside
+the camera's viewport). Output: `out/recomp/web-capture/`.
+
+`spawns --count 16` starts both builds at spawn points spread over the level's
+floors (`Bank.set_spawn`, at the record's height over its floor), one browser
+session and one Windows run (control channel) each, and checks every pair.
+Its last step, also `same-camera` alone, sets the browser's camera in both
+memory images (the builds' cameras turn at their own pace) and compares what
+retail draws in each, face by face, and the two frames: a level face drawn by
+one build only, or a region dark in the browser and lit on Windows, is game
+state that differs. Faces of nodes whose transform differs between the two
+(actors at their own animation phase) are counted apart.
+
+### Camera-pose sweep against retail
+
+`recomp/windream/verify/render_pose_sweep.py` takes those memory images to
+camera poses nobody played: it writes a pose into the image, runs retail's
+`REND_DrawScene` on Unicorn and takes the faces retail draws (the visible lists
+after `REND_CullFaces`, plus `REND_ClipFaceNear`), and compares them with the
+faces the direct renderer keeps for the same memory (the native adapter, then
+its far flag, Glide's types, the near clip, the GPU back-face test and the
+viewport, on the CPU):
+
+```sh
+uv run --with unicorn --with pillow python recomp/windream/verify/render_pose_sweep.py \
+    out/recomp/render-parity/cases/p046-0.wdmi --poses 300
+uv run --with unicorn --with pillow --with playwright python recomp/windream/verify/render_pose_sweep.py \
+    out/recomp/render-parity/cases/p046-0.wdmi --poses 40 --browser 40
+uv run --with unicorn --with pillow pytest tests/recomp/test_render_pose_sweep.py
+```
+
+Poses stand over the level's horizontal faces that have a roof, at the
+captured camera's height, in eight directions and four pitches. A face retail
+draws that direct drops is reported with the stage that dropped it and its
+pixels in the 3D viewport; a pose fails at `--fail-pixels` (64). `--browser N`
+runs the first N posed images through the parity harness above (wasm32 scene
+bytes and WebGL2 pixels against Windows). Reports and images are under
+`out/recomp/pose-sweep/<image>/`. The adapter sees node transforms composed for
+the pose's camera; a live capture that reads the previous frame's is not
+modelled. It compares which faces are drawn, not their colours: a surface drawn
+black (palette, shade, fog) passes.
 
 ## Layout
 

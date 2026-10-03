@@ -82,6 +82,16 @@ until `dreams.dat` is opened again (New game). Driven by file opens, not time. I
 nothing is pressed (the player skips it). `WD_WEB_AUTOSKIP=0` turns it off. The page needs to
 send no key.
 
+## Frame capture (WD_WEB_CAPTURE)
+
+`Module._wd_web_capture()` asks the guest thread for one frame: at its presents
+(`__wrap_SDL_GL_SwapWindow`) it arms the next 3D frame's scene capture, reads
+that frame's pixels before the swap, then writes the committed guest memory
+(`vm_write_image`): `/capture/frame.{wds,rgba,wdmi}`.
+`Module._wd_web_capture_state()` is 3 when done, 4 on failure. Used by
+`recomp/windream/verify/render_web_capture.py`; CMake `WD_WEB_CAPTURE=OFF` leaves
+it out of a public build.
+
 ## Things found on the way (for whoever touches the host)
 
 - Page events (keys, mouse, focus) reach the guest thread through its proxy queue, which only runs

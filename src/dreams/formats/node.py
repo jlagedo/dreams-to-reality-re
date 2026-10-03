@@ -29,14 +29,17 @@ Verified: ``+0xd4 == 40`` and the ``+0x9c`` identity hold for **2,248** nodes
 across 95 scenes and **1,886** nodes across 159 models; the sphere centre
 equals the centroid of the vertices read at ``+0xf4`` in every one.
 
-The world transform composes parent-first, with a single arithmetic shift::
+Retail hierarchy transforms compose parent-first::
 
-    R_world = (R_parent @ R_child) >> 15
-    T_world = ((R_parent @ T_child) >> 15) + T_parent
+    R_composed = (R_parent @ R_child) >> 15
+    T_composed = trunc_toward_zero((R_parent @ T_child) / 32768) + T_parent
 
-Both the order and the ``sar 0xf`` rounding come from ``FUN_0045b86c`` and
-``FUN_0047e498`` in ``WINDREAM.EXE``. Python's ``>>`` on ints floors, which is
-what ``sar`` does, so the shift transcribes directly.
+Rotation uses 32-bit integer sums and ``sar 0xf`` in ``MATH_MulMat3``
+(``0x45b86c``). Render translation uses x87 arithmetic and ``__CHP``
+(``0x45943e``) truncation toward zero before the parent add. The camera inverse
+instead negates a floor-shifted product. These rounding rules are distinct.
+The inspection helper below uses floor shifts for both rotation and translation;
+its world transforms are not a byte-exact oracle for retail camera-space feedback.
 """
 
 from __future__ import annotations
@@ -167,13 +170,13 @@ def _apply(m, v):
 
 
 def world_transforms(nodes: list[Node]) -> dict[int, tuple[list, list]]:
-    """Compose every node's world transform by walking parent links.
+    """Compose inspection world transforms using floor shifts at each parent.
 
     Parent pointers are used rather than first-child/next-sibling: both are
     present, but the forward links are sparse in these files while the parent
     link resolves for every non-root node. Across 159 models this yields at
-    most **2 roots per model** - two because most ``.DAN`` files carry two
-    copies of the model.
+    most **2 roots per model**. Separate roots can be texture groups over one
+    mesh; they do not establish that the archive carries duplicate models.
     """
     by_address = {nd.address: nd for nd in nodes}
     world: dict[int, tuple[list, list]] = {}

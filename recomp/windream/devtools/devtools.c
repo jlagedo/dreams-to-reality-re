@@ -543,8 +543,10 @@ static void cmd_screenshot(const Request* r) {
 /* Render parity captures (recomp/windream/verify/render_parity.py): the scene
  * inputs of the next display 3D frame as a .wds file, and the guest's committed
  * memory: "WDM2", the render root of the last scene capture, then runs of
- * { va, bytes, data }. Both are written by the guest thread, so with the game
- * paused they describe the same frame. */
+ * { va, bytes, data }. Both are written by the guest thread. A paused memory
+ * dump describes state at that command, not the earlier scene-capture instant;
+ * it excludes host palettes/fog and GPU resources. The parity client arms the
+ * scene while paused and screenshots one present before dumping memory. */
 static void cmd_scene_capture(const Request* r) {
     const char* path = arg_text(r, "path");
     if (!path || !path[0]) { reply_error(r->connection, r->id, "scene_capture needs \"path\""); return; }
@@ -555,28 +557,11 @@ static void cmd_scene_capture(const Request* r) {
 static void cmd_memory_dump(const Request* r) {
     const char* path = arg_text(r, "path");
     if (!path || !path[0]) { reply_error(r->connection, r->id, "memory_dump needs \"path\""); return; }
-    SDL_IOStream* io = SDL_IOFromFile(path, "wb");
-    if (!io) { reply_error(r->connection, r->id, "cannot create the dump file"); return; }
-    uint32_t runs = 0, total = 0, va = 0x10000u;
-    uint32_t root = wd_render_scene_capture_root();
-    int ok = SDL_WriteIO(io, "WDM2", 4) == 4 && SDL_WriteIO(io, &root, 4) == 4;
-    while (ok && va < WD_ARENA_SIZE) {
-        uint32_t base = 0, bytes = 0;
-        uint32_t state = vm_state(va, &base, &bytes);
-        if (!bytes) break;
-        uint32_t end = base + bytes;
-        if (state == W32_MEM_COMMIT) {
-            uint32_t head[2] = { va, end - va };
-            ok = SDL_WriteIO(io, head, sizeof head) == sizeof head &&
-                 SDL_WriteIO(io, wd_host_range(va, end - va, 0), end - va) == end - va;
-            runs++;
-            total += end - va;
-        }
-        if (end <= va) break;
-        va = end;
+    uint32_t runs = 0, total = 0;
+    if (!vm_write_image(path, wd_render_scene_capture_root(), &runs, &total)) {
+        reply_error(r->connection, r->id, "writing the dump failed");
+        return;
     }
-    ok = SDL_CloseIO(io) && ok;
-    if (!ok) { reply_error(r->connection, r->id, "writing the dump failed"); return; }
     JsonOut o;
     reply_begin(&o, r->id);
     jo_int(&o, "runs", runs);

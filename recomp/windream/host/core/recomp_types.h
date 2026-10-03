@@ -850,6 +850,41 @@ static inline double fp_round_cw(double v, uint16_t cw) {
 }
 #define fp_to_int(v) fp_round_cw((v), _fpu_cw)
 
+/* fist/fistp of a NaN, an infinity or a value outside the destination's range
+ * stores the "integer indefinite" (0x8000, 0x80000000, 0x8000000000000000;
+ * invalid operation is masked in the control word). A C cast is undefined
+ * there, and the targets disagree: x86-64 cvttsd2si happens to give the same
+ * 0x80000000, wasm's i32.trunc_sat gives 0 for NaN and 0x7FFFFFFF above the
+ * range. Retail meets it in collision (Projection_On_Line_ 0x45DE54 divides by
+ * an edge's squared length), and the browser build threw the player out of
+ * the level. lift.py routes every fistp through these, with the instruction's
+ * address for the log: the first few per translation unit go to stderr. */
+static inline void fp_fist_invalid(uint32_t va, double v, int bits) {
+    static int logged;
+    if (logged < 4) {
+        logged++;
+        fprintf(stderr, "[fpu] fistp m%d of %g at 0x%08X: integer indefinite\n", bits, v, va);
+    }
+}
+static inline int16_t fp_to_i16(double v, uint16_t cw, uint32_t va) {
+    double r = fp_round_cw(v, cw);
+    if (r >= -32768.0 && r <= 32767.0) return (int16_t)r;
+    fp_fist_invalid(va, v, 16);
+    return INT16_MIN;
+}
+static inline int32_t fp_to_i32(double v, uint16_t cw, uint32_t va) {
+    double r = fp_round_cw(v, cw);
+    if (r >= -2147483648.0 && r <= 2147483647.0) return (int32_t)r;
+    fp_fist_invalid(va, v, 32);
+    return INT32_MIN;
+}
+static inline int64_t fp_to_i64(double v, uint16_t cw, uint32_t va) {
+    double r = fp_round_cw(v, cw);
+    if (r >= -9223372036854775808.0 && r < 9223372036854775808.0) return (int64_t)r;
+    fp_fist_invalid(va, v, 64);
+    return INT64_MIN;
+}
+
 /* The 80-bit extended format, for `fld/fstp xword`. The model's stack is
  * double, so a load rounds to double and a store widens. The CRT keeps 2*pi
  * and friends as xword constants; a load that pushed 0.0 made sin/cos reduce

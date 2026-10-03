@@ -93,6 +93,10 @@ const char* vm_describe(uint32_t va);                 /* for crash reports */
  * A snapshot: another thread may change it afterwards. */
 uint32_t vm_state(uint32_t va, uint32_t* run_base, uint32_t* run_bytes);
 void     vm_dump(FILE* out);                          /* reservations and page runs, as text */
+/* The committed guest memory as a memory image: "WDM2", root (the render
+ * root, for the readers in verify/), then runs of { u32 va, u32 bytes, data }.
+ * Returns 0 on a write error; runs and bytes may be NULL. */
+int      vm_write_image(const char* path, uint32_t root, uint32_t* runs, uint32_t* bytes);
 
 /* threads.c: the main thread's stack and TIB, and guest handles (small
  * numbers; each owns a host object of one kind) */

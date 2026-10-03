@@ -202,6 +202,13 @@ if(EMSCRIPTEN)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_wd_libpthread})
     target_compile_definitions(windream_recomp PRIVATE WD_WEB WD_WEB_EXE_NAME="${WD_WEB_EXE}"
         WD_WEB_CALL_HANDLER=${WD_WEB_CALL_HANDLER})
+    # Frame capture for verify/render_web_capture.py (host/web/web_glue.c): the
+    # page can ask for a frame's scene, pixels and guest memory. A test aid;
+    # turn it off for a public build.
+    option(WD_WEB_CAPTURE "browser build: frame capture for the verification tools" ON)
+    if(WD_WEB_CAPTURE)
+        target_compile_definitions(windream_recomp PRIVATE WD_WEB_CAPTURE)
+    endif()
     set_target_properties(windream_recomp PROPERTIES OUTPUT_NAME dreams SUFFIX .js LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/host/web/pre.js)
     target_link_options(windream_recomp PRIVATE
         -pthread -sPROXY_TO_PTHREAD -sOFFSCREENCANVAS_SUPPORT

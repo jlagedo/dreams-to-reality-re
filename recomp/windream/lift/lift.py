@@ -248,6 +248,27 @@ class WinDreamLifter(Lifter):
                 )
                 for ln in super().lift_instruction(insn)
             ]
+        if m in ("fist", "fistp"):
+            # A NaN or out-of-range value stores the integer indefinite; lift32's
+            # C cast is undefined there and wasm saturates it (NaN -> 0), which
+            # put the player outside the level in the browser after a contact
+            # in Projection_On_Line_ (0x45DE54). fp_to_i* in recomp_types.h.
+            va = f"0x{insn.address:08X}u"
+            casts = {
+                "(int16_t)fp_to_int(": "fp_to_i16(",
+                "(uint32_t)(int32_t)fp_to_int(": "(uint32_t)fp_to_i32(",
+                "(int64_t)fp_to_int(": "fp_to_i64(",
+            }
+            out = []
+            for ln in super().lift_instruction(insn):
+                for old, new in casts.items():
+                    if old in ln:
+                        head, rest = ln.split(old, 1)
+                        src, tail = rest.split(");", 1)
+                        ln = f"{head}{new}{src}, _fpu_cw, {va});{tail}"
+                        break
+                out.append(ln)
+            return out
         base = Lifter._string_cmp_base(insn, m)
         if base and m.split()[0] in ("rep", "repe", "repz", "repne", "repnz", base):
             return self._string_cmp(insn, m, base)

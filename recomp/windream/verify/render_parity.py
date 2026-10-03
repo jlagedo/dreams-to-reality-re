@@ -1,6 +1,5 @@
 # ruff: noqa: E501
-"""Render parity: the browser build's 3D frame against the Windows build's, from
-the same guest state.
+"""Render parity: Windows and browser replay of the same recorded 3D input.
 
 Nobody plays: the inputs are taken from the Windows build at frozen frames and
 replayed through the production scene adapter and renderer by one program,
@@ -10,7 +9,8 @@ built for Windows (D3D11) and for the browser (WebGL2).
               in slot 0), and at a few paused frames write through the control
               channel: <case>.wds, the scene inputs the renderer was about to
               draw, <case>.wdmi, the guest's committed memory, and <case>.png,
-              the frame the game showed
+              the frame the game showed. Scene and screenshot share a present;
+              memory is dumped afterward, while still paused.
     build     the replay program, native and Emscripten
     run       replay every case natively and in Chrome, then compare:
                 data    a memory image goes through the adapter's capture on
@@ -30,6 +30,11 @@ diff images in report/. Exit status 1 when a case fails.
 A pixel fails when a channel differs by more than --tolerance (default 2: the
 two GPUs' rounding); a case fails when more than --budget of its pixels do
 (default 0.2%), when its data differs, or when either side cannot draw it.
+
+This checks backend agreement, not retail fidelity or gameplay equivalence.
+Scene replay includes live host palettes and fog; plain-memory replay does not.
+The scene inputs precede submission/callback effects, whereas memory is read
+after presentation. Those two input kinds are not equivalent scene snapshots.
 """
 
 from __future__ import annotations
@@ -46,7 +51,9 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 REPO = Path(__file__).resolve().parents[3]
 WINDREAM = REPO / "recomp" / "windream"
@@ -66,6 +73,70 @@ WIDTH, HEIGHT = 640, 480
 # ---- capture (Windows build, control channel) ----
 
 
+def capture_frame(
+    ctl, scene: Path, memory: Path, screenshot: Path, *, attempts: int = 30, steps: int = 6
+) -> dict | None:
+    """Leave the game paused after a scene, its present, and a memory dump.
+
+    A paused screenshot request advances exactly one frame and saves that
+    present. Arm the scene request only after pausing, then use the screenshot
+    as the step: a separate step/screenshot sequence would advance another frame.
+    Dialogue may suppress 3D; discard any capture made during a retry's free run.
+    """
+    for _ in range(attempts):
+        ctl.pause()
+        scene.unlink(missing_ok=True)
+        ctl.call("scene_capture", path=str(scene))
+        for _ in range(steps):
+            screenshot.unlink(missing_ok=True)
+            shot = ctl.screenshot(screenshot)
+            if not scene.is_file():
+                continue
+            dump = ctl.call("memory_dump", path=str(memory), timeout=120)
+            status = ctl.status()
+            if (
+                dump["scene_pending"]
+                or not status["paused"]
+                or dump["frame"] != shot["frame"]
+                or status["frame"] != shot["frame"]
+            ):
+                raise RuntimeError("scene capture did not finish at one paused presentation")
+            with scene.open("rb") as source:
+                header = source.read(20)
+            with memory.open("rb") as source:
+                memory_header = source.read(8)
+            if (
+                len(header) != 20
+                or not header.startswith(b"WDS")
+                or len(memory_header) != 8
+                or memory_header[:4] != b"WDM2"
+            ):
+                raise RuntimeError("invalid scene or memory capture header")
+            root = struct.unpack_from("<I", header, 16)[0]
+            if root != struct.unpack_from("<I", memory_header, 4)[0]:
+                raise RuntimeError("scene and memory capture have different render roots")
+            return {
+                "frame": shot["frame"],
+                "root": root,
+                "memory_bytes": dump["bytes"],
+                "screenshot": {key: shot[key] for key in ("width", "height", "format")},
+                "stages": {
+                    "scene": "inputs retained for this draw, before submission",
+                    "screenshot": "the same presentation",
+                    "memory": "after presentation, paused; no host/GPU resources",
+                },
+            }
+        ctl.resume()
+        ctl.wait(ms=1000)
+    return None
+
+
+def fingerprint(path: Path) -> dict:
+    with path.open("rb") as source:
+        digest = hashlib.file_digest(source, "sha256").hexdigest()
+    return {"bytes": path.stat().st_size, "sha256": digest}
+
+
 def capture(projects: list[int], shots: int, settle_ms: int) -> int:
     import bank_patch
     import game_nav
@@ -78,9 +149,9 @@ def capture(projects: list[int], shots: int, settle_ms: int) -> int:
         scene = bank.parsed(project).scene
         if project:
             bank.copy(project, 0)
-        tag = f"parity-{project}"
+        tag = f"parity-{project}-{uuid4().hex[:8]}"
         run_dir = recomp_env.out_dir("windream") / f"run-{tag}"
-        shutil.rmtree(run_dir, ignore_errors=True)
+        run_dir.mkdir(parents=True, exist_ok=False)
         bank.write(run_dir / "sandbox")
         print(f"project {project} ({scene})", flush=True)
         game = wdctl.start_game(tag=tag, headless=True, args=["--renderer", "direct"])
@@ -93,29 +164,21 @@ def capture(projects: list[int], shots: int, settle_ms: int) -> int:
                 wds, wdmi = CASES / f"{name}.wds", CASES / f"{name}.wdmi"
                 for path in (wds, wdmi):
                     path.unlink(missing_ok=True)
-                # The game draws no 3D frame while a dialogue line is up (it keeps
-                # the last one): try for a while, letting the game run in between.
-                ctl.call("scene_capture", path=str(wds))
-                for _ in range(30):
-                    ctl.pause()
-                    for _ in range(6):
-                        ctl.step(1)
-                        if wds.is_file():
-                            break
-                    if wds.is_file():
-                        break
-                    ctl.resume()
-                    ctl.wait(ms=1000)
-                if not wds.is_file():
-                    print(f"  {name}: no 3D frame in 30 s, skipped")
+                png = CASES / f"{name}.png"
+                evidence = capture_frame(ctl, wds, wdmi, png)
+                if evidence is None:
+                    print(f"  {name}: no 3D frame after 30 capture attempts, skipped")
                     print("    " + " | ".join(game.stderr_text.splitlines()[-3:]))
                     ctl.resume()
                     break
-                dump = ctl.call("memory_dump", path=str(wdmi), timeout=120)
-                ctl.screenshot(CASES / f"{name}.png")
+                executable = Path(game.process.args[0]).resolve()
+                evidence["host_executable"] = {"path": str(executable), **fingerprint(executable)}
+                evidence["files"] = {path.name: fingerprint(path) for path in (wds, wdmi, png)}
+                wds.with_suffix(".capture.json").write_text(json.dumps(evidence, indent=2) + "\n")
                 ctl.resume()
                 print(
-                    f"  {name}: scene {wds.stat().st_size:,} bytes, memory {dump['bytes']:,} bytes"
+                    f"  {name}: frame {evidence['frame']}, scene {wds.stat().st_size:,} bytes, "
+                    f"memory {evidence['memory_bytes']:,} bytes"
                 )
                 made += 1
                 # another view for the next shot: turn, then walk
@@ -125,8 +188,9 @@ def capture(projects: list[int], shots: int, settle_ms: int) -> int:
             print(f"  project {project}: {error}")
         finally:
             game.close(remove=True)
-    print(f"{made} cases in {CASES}")
-    return 0 if made else 1
+    expected = len(projects) * shots
+    print(f"{made}/{expected} requested cases in {CASES}")
+    return 0 if made == expected and made else 1
 
 
 # ---- build ----
@@ -179,13 +243,13 @@ def out_name(path: Path) -> str:
     return f"{path.stem}.{'memory' if path.suffix == '.wdmi' else 'scene'}"
 
 
-def run_native(inputs: list[Path]) -> dict[str, str]:
+def run_native(inputs: list[Path], out: Path | None = None) -> dict[str, str]:
     exe = (
         OUT
         / "build-native"
         / ("wd_render_parity.exe" if sys.platform == "win32" else "wd_render_parity")
     )
-    out = OUT / "native"
+    out = out or OUT / "native"
     shutil.rmtree(out, ignore_errors=True)
     out.mkdir(parents=True)
     errors = {}
@@ -219,10 +283,26 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
-def run_web(inputs: list[Path], swiftshader: bool, headed: bool) -> tuple[dict[str, str], str]:
+class BrowserUnavailable(RuntimeError):
+    """Playwright explicitly reports that the requested Chrome is not installed."""
+
+
+def launch_browser(chromium, *, headless: bool, args: list[str]):
+    try:
+        return chromium.launch(headless=headless, args=args, channel="chrome")
+    except Exception as error:
+        if "Chromium distribution 'chrome' is not found" in str(error):
+            raise BrowserUnavailable(str(error)) from error
+        raise
+
+
+def run_web(
+    inputs: list[Path], swiftshader: bool, headed: bool, out: Path | None = None
+) -> tuple[dict[str, str], str]:
+    """The page fetches each input from /cases/<name>, served from CASES."""
     from playwright.sync_api import sync_playwright
 
-    out = OUT / "web"
+    out = out or OUT / "web"
     shutil.rmtree(out, ignore_errors=True)
     out.mkdir(parents=True)
     handler = functools.partial(Handler, directory=str(OUT / "build-web"))
@@ -236,7 +316,7 @@ def run_web(inputs: list[Path], swiftshader: bool, headed: bool) -> tuple[dict[s
     gpu = "?"
     try:
         with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=not headed, args=chrome_args, channel="chrome")
+            browser = launch_browser(pw.chromium, headless=not headed, args=chrome_args)
             page = browser.new_page(viewport={"width": 700, "height": 620})
             console: list[str] = []
             page.on("console", lambda m: console.append(m.text))
@@ -360,6 +440,8 @@ def compare(inputs, native_errors, web_errors, tolerance: int, budget: float) ->
             row["data_sha256"] = hashlib.sha256(a).hexdigest()[:16]
         frame_a = read_rgba(native.parent / (name + ".rgba"))
         frame_b = read_rgba(web.parent / (name + ".rgba"))
+        row["native_rgba_sha256"] = hashlib.sha256(frame_a).hexdigest()
+        row["web_rgba_sha256"] = hashlib.sha256(frame_b).hexdigest()
         row.update(pixel_stats(frame_a, frame_b, tolerance))
         row["blank"] = blank(frame_a) or blank(frame_b)
         row["ok"] = (
@@ -372,6 +454,70 @@ def compare(inputs, native_errors, web_errors, tolerance: int, budget: float) ->
     return rows
 
 
+def write_report(
+    inputs: list[Path], rows: list[dict], gpu: str, *, tolerance: int, budget: float
+) -> None:
+    """Tie a comparison to its bytes, binaries and current source contents.
+
+    Source fingerprints record the checkout at comparison time, not proof that
+    an existing executable was compiled from it. Capture sidecars, when present,
+    identify the separate game executable that produced the recorded inputs.
+    """
+    source_files = {
+        Path(__file__),
+        WINDREAM / "verify/native/render_parity.cpp",
+        REPO / "recomp/recomp_env.py",
+        WINDREAM / "web_build.py",
+    }
+    for directory in (SOURCE, WINDREAM / "host/render", REPO / "recomp/render"):
+        source_files.update(
+            path
+            for path in directory.rglob("*")
+            if path.is_file()
+            and path.suffix in {".c", ".cpp", ".h", ".mm", ".glsl", ".cmake", ".txt", ".html"}
+        )
+    binaries = [
+        OUT / "build-native" / recomp_env.exe_name("wd_render_parity"),
+        OUT / "build-web/wd_render_parity.wasm",
+        OUT / "build-web/wd_render_parity.js",
+    ]
+    captures = {}
+    capture_validation = {}
+    for path in inputs:
+        sidecar = path.with_suffix(".capture.json")
+        if sidecar.is_file():
+            record = json.loads(sidecar.read_text())
+            captures[sidecar.name] = record
+            mismatched = [
+                name
+                for name, expected in record["files"].items()
+                if not (sidecar.parent / name).is_file()
+                or fingerprint(sidecar.parent / name) != expected
+            ]
+            capture_validation[sidecar.name] = {
+                "files_match": not mismatched,
+                "mismatched_files": mismatched,
+            }
+    report = {
+        "created_utc": datetime.now(UTC).isoformat(),
+        "gpu": gpu,
+        "scope": "D3D11/WebGL2 backend agreement for each recorded input; "
+        "not retail fidelity or gameplay equivalence",
+        "tolerance": tolerance,
+        "budget": budget,
+        "size": [WIDTH, HEIGHT],
+        "inputs": {str(path): fingerprint(path) for path in inputs},
+        "capture_records": captures,
+        "capture_record_validation": capture_validation,
+        "binaries": {str(path): fingerprint(path) if path.is_file() else None for path in binaries},
+        "sources_at_comparison": {
+            path.relative_to(REPO).as_posix(): fingerprint(path) for path in sorted(source_files)
+        },
+        "cases": rows,
+    }
+    (OUT / "report.json").write_text(json.dumps(report, indent=2) + "\n")
+
+
 def run(swiftshader: bool, headed: bool, tolerance: int, budget: float) -> int:
     inputs = case_inputs()
     if not inputs:
@@ -381,7 +527,7 @@ def run(swiftshader: bool, headed: bool, tolerance: int, budget: float) -> int:
     native_errors = run_native(inputs)
     web_errors, gpu = run_web(inputs, swiftshader, headed)
     rows = compare(inputs, native_errors, web_errors, tolerance, budget)
-    (OUT / "report.json").write_text(json.dumps({"gpu": gpu, "cases": rows}, indent=1))
+    write_report(inputs, rows, gpu, tolerance=tolerance, budget=budget)
     print(f"browser GPU: {gpu}")
     for row in rows:
         if "error" in row:
