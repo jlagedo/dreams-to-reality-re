@@ -1,5 +1,13 @@
 # July 1997 demo: the surviving editor and original engine types
 
+Follow-up (2026-10-03): [cryo-editor.md](cryo-editor.md) describes the whole
+editor (layout, keys, record lifecycle, wiring, July→October changes,
+workflow). Two corrections to this page: the extracted trees show no field
+for the LINKADVENT leaves because the extraction script omitted that working
+record (`_CurrentSceneLinkAdventureS`), not because the binary lacks them;
+and the Windows "Page Up" toggle is the DOS character `!` (0x21) kept as a
+virtual-key code.
+
 Date: 2026-09-29. Sources: the four executables in
 `E:\dev_game\DREAMS_ISOS\DREAMS_WIP_PCJ\DREAMS`, imported into the separate
 Ghidra project `ghidra/wip/dreams-july-1997.gpr`. This is static binary analysis;
