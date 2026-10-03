@@ -823,6 +823,26 @@ the functions stayed because Watcom links whole objects.
 
 ## B1. Decisions
 
+### The data principle
+
+The goal is to reactivate the editor using every piece that survives; any
+data comes from the final retail build or is derived from it, and the
+gaps are filled (owner, 2026-10-03). Four rules apply it (owner,
+2026-10-03, as recommended):
+
+1. **Retail code defines meaning.** A field means what the final retail
+   code does with it: the Windows build the port runs, and the retail DOS
+   Glide build for fog, which the port's renderer reproduces from the
+   record (`render_live.cpp` runs `SCENE_SetFog` from the hook at
+   `0x41f9ba`) **[verified in code]**.
+2. **The final bank defines the values in use**: disc 1's `DREAMS.DAT`.
+3. **July supplies the tool's shape, only where retail kept nothing**: the
+   menu structure, labels, slider and position-capture flags. It never
+   overrides rules 1 and 2.
+4. **We fill the gaps**: whatever retail reads or the final bank uses that
+   July lacks gets an entry in July's style, derived from its retail
+   reader, and marked as ours in this spec.
+
 | Question | Decision | Why |
 |---|---|---|
 | Two modes | **Retail mode (default) and dev mode, chosen in the launcher** (owner, 2026-10-03). The same release binary holds both; no build switch. Retail mode is the shipped game with our visual improvements (renderer, smooth motion, camera smoothing) and none of the host bindings we added for Cryo's tools. Dev mode turns everything on | Owner decision. Supersedes the earlier "always available, no setting" row |
@@ -831,11 +851,10 @@ the functions stayed because Watcom links whole objects.
 | Dev mode data | **A local copy of both discs in the user-data folder** (owner, 2026-10-03). The first dev-mode launch copies everything from the two images into it; each later launch checks that the copy was initialized and, if so, copies nothing and plays from that folder. The folder is the game's data tree, like the developers' `C:\DREAMS\DREAMS`: edits and everything the game writes land in it as they are | Owner decision. The July builds have no disc logic at all (no `1CD.ID`, `2CD.ID`, `HD.ID`, `FULL.ID`, `LEVEL.ID` or `ListL` strings): the developers' game read one data tree, which `STATUS.ME` places at `C:\DREAMS\DREAMS\DATA` **[verified]** |
 | Music in dev mode | **None, as in the developers' build** (owner, 2026-10-03) | Owner decision. The July DOS `ACD_Init_` (`0x42600`) is `xor eax, eax; ret`: the message manager stores 0 and never sets its audio-CD flag, so that build plays no CD music while the rest of `ACD.C` (Miles redbook) is intact **[verified in code]**. Track numbers were assigned late: 24 of 138 projects in July, 127 of 150 in October **[verified in data]** |
 | How it is distributed | The release package is the binary plus a `resources\` folder; the player supplies only the two disc images (owner, 2026-10-03) | Owner decision |
-| How it is distributed | The release package is the binary plus a `resources\` folder; the player supplies only the two disc images (owner, 2026-10-03) | Owner decision |
-| Where the menu comes from | Extracted at build time from the July demo `DREAMS.EXE` (SHA-256 checked) into `out/recomp/windream/editor/`, bundled as a resource in the release package, never committed. `release.py` fails if the resource is missing or its hash differs; a development build without the demo keeps the retail two-node tree | Owner decision; no game data in the repository |
+| Where the menu comes from | Extracted at build time from the July demo `DREAMS.EXE` (SHA-256 checked) into `out/recomp/windream/editor/`, bundled as a resource in the release package, never committed. `release.py` fails if the resource is missing or its hash differs; a development build without the demo keeps the retail two-node tree. The July tree is a **template** checked entry by entry against retail, with retail-only fields added (phase 1, option C) | Owner decision; no game data in the repository; data principle rule 3 |
 | Milestone | **One milestone, every phase (1–6)** (owner, 2026-10-03) | Owner decision |
 | How nodes reach the guest | Host-built 0x40-byte nodes in `shim_alloc` memory; the retail root `0x4a47c4` gets its child pointers (four empty slots plus the exit node), a data write | The retail walker and leaf editor take any tree; no instruction changes |
-| Bindings | A committed table mapping each July value symbol (+offset) to a retail address, with the retail reader that proves it; leaves without a proven binding are left out | AGENTS.md: no field bound on a label alone |
+| Bindings | A committed table mapping each July value symbol (+offset) to a retail address, with the retail reader that proves it; each entry kept, relabelled, widened, marked "no effect" or hidden by the rules of phase 1 (option C, owner, 2026-10-03) | AGENTS.md: no field bound on a label alone; data principle rules 1–3 |
 | Picker lists | Host replacements of the page and list functions (the stride is compiled in), registered through the replacement table | Bigger buffers cannot fix `base + i` |
 | Project bank | A host bank of 150 unpacked records in guest memory; `_LoadSaveSceneSPtr` points into it; the bank is recompressed into `_RLE_SAVES` so the retail `DDAT_LoadRecord` serves edited records | Keeps level transitions retail |
 | Where files go | Into the dev-mode folder, in place: `DREAMS.DAT` and `EDITOR.DAT` at its root, `DATA\TGA\` captures, `DATA\REPLAY.BIN`, saves in `DATA\GAME\`, `LISTL*.TXT`; never a disc image or the retail install | Follows from the dev-mode data decision |
@@ -846,7 +865,8 @@ the functions stayed because Watcom links whole objects.
 | Toggle at any width | **Page Up opens the editor at every resolution**, even when the layout is cut off (owner, 2026-10-03). The July toggle acted only at a width of 640 (`_ScreenXRes`); the port drops that condition | Owner decision. The layout is drawn for 640 (rows 10 px apart, sliders at label x+180, values at x+380), so narrower frames clip the deeper levels |
 | Save on toggle | **Each Page Up press runs the retail autosave** (owner, 2026-10-03, option A), the routine `GAME_StartLevel` calls on level entry (`0x439341` with the current project, from `0x42f1d7`), before the flag changes | Owner decision. July saved `data\game.dat` with `CTRL_SaveGame_` (`0x106d6` in `DreamsKey_`), the same function as a menu slot, but nothing in the demo loads that path: the only `CTRL_LoadGame_` call (`0x49e1f`) uses `data\game\game%d.dat`. Retail has no `data\game.dat` string; its saves are `GAME_SaveGame` (`0x40f542`, `game<n>.dat`) and `GAME_SaveIndex` (`0x40f202`). The autosave gives a restore point the Load menu can open, which a July-style file would not. How the autosave picks its slot is not traced |
 | How edits are played | In dev mode, by the folder itself: the editor's save overwrites the folder's `DREAMS.DAT` (and writes `EDITOR.DAT` beside it), and the next dev-mode launch plays it, as July's `LoadDiskScene_` loaded `editor.dat` at every start and New Game and `SaveDiskScene_` wrote it back. Retail mode always plays the discs. No separate mod system | Follows from the dev-mode data decision; an earlier mods proposal was never approved and is withdrawn |
-| Which `DREAMS.DAT` the folder gets | **Open.** One folder holds one bank, but the discs differ in six records (`docs/research/disc-layout.md` leaves the merge unresolved). Disc 1's is the later snapshot (file-formats.md) | Open |
+| Which `DREAMS.DAT` the folder gets | **Disc 1's** (owner, 2026-10-03), the final retail bank | Data principle rule 2. Disc 1's file is dated 1997-10-29, the day `WINDREAM.EXE` was linked; disc 2's 1997-10-08. In 5 of the 6 differing records (P31, P41, P55, P69, P75, P87) disc 2 keeps the value both July banks share and disc 1 changes it **[verified in data]**. It is also what a normal session plays: `DDAT_Load` reads the bank only at start (`GAME_Init`, `BOOT_Run`), never at a swap, so a game started with disc 1 uses disc 1's records for every level **[verified in code]**. Five of the six differing projects are disc-1 levels (groups 1–2); P75 (`E08_END`, group 4) differs only in magic regeneration (6 against 0). Dropped with disc 2's bank: P69 `LINKADVENT2` (dialogue 177, which `DIALOG.DRD`'s 178 entries hold), deleted on disc 1 |
+| Merging the two discs | **The newer copy of each differing file wins** (owner, 2026-10-03). Of the 10 files that differ (`disc-layout.md`), disc 1's is newer for `DREAMS.DAT` (10-29 / 10-08), `DATA\HNM\INTRO.HNM` (10-08, full 38 MB intro / 09-30, 1.7 MB), `DATA\ICONE\ICONES.BF` (09-10, 372,358 bytes / 08-03, 440,029) and `DATA\HD.ID` (09-18 / 09-01); disc 2's for `DATA\UNIVBE\UVCONFIG.EXE` (DOS only, never read by the port); the rest are junk (`DESCRIPT.ION`, `ANTI-VIR.DAT`, `SETUP.GID`) | Data principle. This **changes** `disc-layout.md`'s "keep disc 2 — larger" for `ICONES.BF`: disc 2's larger bank is the older generation, the same size as the `ICONES.BAK` backup disc 2 also carries **[verified in data: sizes and dates]** |
 | Runtime fields in exports | **Proposed:** keep them, as the retail bank did (BOX `+0xf8`, spent spawn markers) | Open |
 
 ### Files the editor needs
@@ -900,10 +920,10 @@ Acceptance (to automate): with keypad 5 on in Project 0, the screen shows
    written). The visual improvements follow their own settings. Data come
    from the disc images, with CD music, exactly as spec 007.
 3. **Dev mode, first launch.** The port copies everything from the two
-   images into its folder in the user-data directory, merging the discs
-   with the rules of `docs/research/disc-layout.md` (170 shared names, 10
-   differing files; which `DREAMS.DAT` is kept is open, B1). When the copy
-   is complete it records that the folder is initialized.
+   images into its folder in the user-data directory, merging the discs by
+   the "newer copy wins" rule of B1 (170 shared names, 10 differing files;
+   disc 1's `DREAMS.DAT`). When the copy is complete it records that the
+   folder is initialized.
 4. **Dev mode, later launches.** The port finds the initialized folder,
    copies nothing, and serves the folder as the game's data tree: it is the
    CD root of both discs (both disc IDs visible, so no swap prompt) and the
@@ -938,11 +958,40 @@ restart.
 2. **Bind.** A committed table `recomp/windream/editor/bindings.tsv`: July
    value symbol and offset → retail address → evidence (retail reader
    address). Working-record leaves translate by base (A3); `_Sema*` by
-   `+0x3df34c`; engine globals one by one. Leaves whose retail meaning
-   changed (header `+0x140`, `+0x144`, `+0x1c0..+0x1cc`) are relabelled from
-   the retail reader (`ENT_LoadObject` `0x41d974`, camera collision
-   `0x409d8c`, Glide fog) or dropped; the July range is widened where the
-   shipped bank exceeds it.
+   `+0x3df34c`; engine globals one by one. Each July entry is then treated
+   by these rules (option C, owner, 2026-10-03):
+
+   | Case | Rule | Examples |
+   |---|---|---|
+   | Retail reads the field, meaning unchanged | keep the July label verbatim | almost all of the 193 record leaves |
+   | Retail meaning changed | our label, from the retail reader | `+0x140` "Camera Combat Angle" → player speed (v/64, `ENT_LoadObject` `0x41d974`); `+0x144` "Camera Combat back" → camera collision off (`0x409d8c`, `0x40a988`); `+0x1c0..+0x1cc` "Particle Four" → fog R, G, B, density (moved next to Fluid and Light); LINKADVENT "Time Cut" → dialogue ID; condition `0x100` "Src SYM END" → source at its initial life |
+   | The final bank holds values outside the July range | widen the range to cover them | oxygen `+0x114` up to 10000 (July 0..100), fog density up to 75 (0..32), dialogue up to 177 (`DIALOG.DRD` has 178 entries; July 0..127 or 0..64), BOX intensity down to −600 (0..1000) |
+   | The bank sets the field, no retail code reads it | keep, labelled "no effect", so the data stays editable | `+0x13c` "Bruit pas", `+0x1f4` "Perso Integration", action `0x10` "Flag Ele Src KILL" |
+   | No retail reader and never set in the bank | hide | `+0xac` "Sphere move", LINKADVENT source box `+0x10` |
+   | Bound to an engine global (camera constants, particle attractor 0, contact plane, animated-material switches) | keep only where the retail global is found and means the same | "Debug" → `_MaxiLoad`: retail reused that address (`0x49d9f4`) for an Options toggle, so it is dropped unless proven the same |
+
+   A slider maps 128 pixels onto its range, so a widened range moves in
+   coarser steps (oxygen 0..10000: about 78 per pixel); position capture
+   with `0` is unaffected. Accepted.
+
+   **Gap entries** (data principle rule 4), for what the final bank uses and
+   the July menu lacks:
+
+   | Field | Retail meaning | Entry |
+   |---|---|---|
+   | Header `+0x1f8` | save mode on level entry: 0 autosave, 1 autosave and clear hotkeys, 2 no save, 3 no save and no restore (`GAME_StartLevel` `0x42f1c9`, `SCENE_RestoreLevelState` `0x41b2b2`) | slider 0..3 |
+   | Header `+0x1fc` | chapter and disc group 0..4 (`SCENE_GetLevelNumber` `0x41ad77`, `CD_PrepareLevel`, the `LISTL` lists) | slider 0..4 |
+   | Header `+0x140`, `+0x144` | player speed; camera collision switch | the relabelled July entries above |
+   | Header `+0x1c0..+0x1cc` | Glide fog colour and density | the relabelled July entries above |
+   | LINK `+0x18` bit `0x80` | any actor may take the exit | flag toggle |
+   | LINKADVENT condition `0x2000` | the player does not hold the destination object | flag toggle |
+   | LINKADVENT action `0x40000` | the player takes damage | flag toggle |
+
+   No entry for fields the engine writes during play (BOX `+0xf8`, spent
+   spawn points). The node format allows five children per entry, so new
+   entries go into new nested groups as Cryo did ("Flags 2...", "Misc Scene
+   2..."): for example "Misc Scene 3..." for `+0x1f8` and `+0x1fc`, and an
+   extra flag group for the new event bits.
 3. **Install.** At game start (after `GAME_Init`), the host allocates the
    nodes in guest memory, writes labels, child pointers, value pointers and
    parameters, and points the retail root's children at the July branches
@@ -1091,10 +1140,9 @@ differ; a restart in dev mode plays the edited level.
 - Whether the July Glide build already read `+0x1c0..+0x1cc` as fog.
 - The October developers' menu (values beyond July ranges): only its
   labels' absence is known.
-- Owner decisions still open: which disc's `DREAMS.DAT` the dev folder
-  keeps; whether exports keep runtime-written fields (B1 has a proposal);
-  how a player restores the dev folder; how an interrupted first copy is
-  detected and resumed.
+- Owner decisions still open: whether exports keep runtime-written fields
+  (B1 has a proposal); how a player restores the dev folder; how an
+  interrupted first copy is detected and resumed.
 
 ## B6. Work items
 
