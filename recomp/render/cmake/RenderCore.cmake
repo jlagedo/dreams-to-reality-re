@@ -33,6 +33,17 @@ target_compile_definitions(ODRender PRIVATE ${OD_SOKOL_BACKEND})
 
 add_library(ODGraphics STATIC ${OD_BACKEND_SOURCE})
 target_link_libraries(ODGraphics PUBLIC ODRender SDL3::SDL3-static)
+if(EMSCRIPTEN)
+    # Browser: sokol_gfx runs on WebGL2 (GLES3), SDL3 is the pthreads build.
+    # Whatever links ODGraphics gets these; see recomp/web/NOTES-gl.md.
+    target_compile_options(ODRender PUBLIC -pthread)
+    target_compile_options(ODGraphics PUBLIC -pthread)
+    target_link_options(ODGraphics INTERFACE -pthread -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2)
+    # Add these to an executable whose guest/main loop runs on a pthread
+    # (-sPROXY_TO_PTHREAD): the canvas goes to that thread as an OffscreenCanvas
+    # and JSPI lets SDL_GL_SwapWindow yield to the browser so the frame shows.
+    set(OD_WEB_PTHREAD_CANVAS_LINK_OPTIONS -sOFFSCREENCANVAS_SUPPORT -sJSPI)
+endif()
 if(WIN32)
     target_link_libraries(ODGraphics PRIVATE d3d11 dxgi)
 elseif(APPLE)

@@ -349,6 +349,23 @@ void files_init(const char* exe) {
     }
     g_folds[MAX_ROOTS] = folds_case(g_sandbox);
     fprintf(stderr, "[files] write sandbox: %s\n", g_sandbox);
+#ifdef __EMSCRIPTEN__
+    /* The game only opens these markers (CD_FindDrive, CD_FindCacheDrive,
+     * CD_GetDiscNumber, CD_PromptSwap): the one tree stands for both discs and
+     * the install, so they exist whether or not the pack ships them. */
+    static const char* const markers[] = { "DATA/1CD.ID", "DATA/2CD.ID", "DATA/HD.ID" };
+    for (int i = 0; i < 3; i++) {
+        char path[HOST_PATH];
+        SDL_snprintf(path, sizeof path, "%s/%s", g_sandbox, markers[i]);
+        if (path_type(path, NULL) != SDL_PATHTYPE_NONE) continue;
+        SDL_snprintf(path, sizeof path, "%s/DATA", g_sandbox);
+        SDL_CreateDirectory(path);
+        SDL_snprintf(path, sizeof path, "%s/%s", g_sandbox, markers[i]);
+        SDL_IOStream* io = SDL_IOFromFile(path, "wb");
+        if (io) SDL_CloseIO(io);
+        fprintf(stderr, "[files] marker %s created\n", markers[i]);
+    }
+#endif
 }
 static int root_folds(const char* root) {
     if (g_walk) return 0;
@@ -378,6 +395,14 @@ static int guest_rel(uint32_t va, char* rel) {
     }
     size_t used = 0;
     rel[0] = 0;
+#ifdef __EMSCRIPTEN__
+    /* The browser's one tree is both the CD root and the install root:
+     * CRYO\DREAMS\x is x (the pack's paths are relative to /dreams). */
+    if (n >= 2 && !SDL_strcasecmp(seg[0], "CRYO") && !SDL_strcasecmp(seg[1], "DREAMS")) {
+        for (int i = 0; i + 2 < n; i++) seg[i] = seg[i + 2];
+        n -= 2;
+    }
+#endif
     for (int i = 0; i < n; i++) {
         size_t len = strlen(seg[i]);
         if (used + (i ? 1 : 0) + len >= W32_MAX_PATH) { rel[0] = 0; return 0; }
@@ -448,6 +473,15 @@ static SDL_PathType resolve_read_disc(const char* rel, char* out, SDL_PathInfo* 
 static SDL_PathType resolve_read(const char* rel, char* out, SDL_PathInfo* info, uint32_t* error, DiscHit* hit) {
     if (hit) hit->disc = 0;
     if (g_disc[1]) return resolve_read_disc(rel, out, info, error, hit);
+#ifdef __EMSCRIPTEN__
+    /* DATA\FULL.ID would switch the game to its copy-to-hard-disk mode, which
+     * purges and refills DATA\3DC in the one tree that is both CD and install. */
+    if (!SDL_strcasecmp(rel, "DATA\\FULL.ID") && !SDL_getenv("WD_WEB_FULL_ID")) {
+        SDL_snprintf(out, HOST_PATH, "%s/%s", g_sandbox, "DATA/FULL.ID");
+        if (error) *error = W32_ERROR_FILE_NOT_FOUND;
+        return SDL_PATHTYPE_NONE;
+    }
+#endif
     SDL_PathType type = locate(g_sandbox, rel, out, info, error);
     for (int i = 0; type == SDL_PATHTYPE_NONE && i < g_nroots; i++)
         type = locate(g_roots[i], rel, out, info, error);
@@ -586,6 +620,7 @@ void imp_CreateFileA(void) {  /* (name, access, share, sa, disposition, flags, t
         fprintf(stderr, "[files] open %s \"%s\" -> %s%s\n", write ? "W" : "R", rel, host, failed ? " (FAILED)" : "");
     }
     wd_devtools_file_open(rel, host, write, !failed);
+    if (!write) wd_web_boot_note(rel, !failed);
     RET(gh); STDRET(7);
 }
 void imp_ReadFile(void) {  /* (h, buf, n, *read, overlapped) */

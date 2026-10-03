@@ -850,6 +850,41 @@ static inline double fp_round_cw(double v, uint16_t cw) {
 }
 #define fp_to_int(v) fp_round_cw((v), _fpu_cw)
 
+/* fist/fistp of a NaN, an infinity or a value outside the destination's range
+ * stores the "integer indefinite" (0x8000, 0x80000000, 0x8000000000000000;
+ * invalid operation is masked in the control word). A C cast is undefined
+ * there, and the targets disagree: x86-64 cvttsd2si happens to give the same
+ * 0x80000000, wasm's i32.trunc_sat gives 0 for NaN and 0x7FFFFFFF above the
+ * range. Retail meets it in collision (Projection_On_Line_ 0x45DE54 divides by
+ * an edge's squared length), and the browser build threw the player out of
+ * the level. lift.py routes every fistp through these, with the instruction's
+ * address for the log: the first few per translation unit go to stderr. */
+static inline void fp_fist_invalid(uint32_t va, double v, int bits) {
+    static int logged;
+    if (logged < 4) {
+        logged++;
+        fprintf(stderr, "[fpu] fistp m%d of %g at 0x%08X: integer indefinite\n", bits, v, va);
+    }
+}
+static inline int16_t fp_to_i16(double v, uint16_t cw, uint32_t va) {
+    double r = fp_round_cw(v, cw);
+    if (r >= -32768.0 && r <= 32767.0) return (int16_t)r;
+    fp_fist_invalid(va, v, 16);
+    return INT16_MIN;
+}
+static inline int32_t fp_to_i32(double v, uint16_t cw, uint32_t va) {
+    double r = fp_round_cw(v, cw);
+    if (r >= -2147483648.0 && r <= 2147483647.0) return (int32_t)r;
+    fp_fist_invalid(va, v, 32);
+    return INT32_MIN;
+}
+static inline int64_t fp_to_i64(double v, uint16_t cw, uint32_t va) {
+    double r = fp_round_cw(v, cw);
+    if (r >= -9223372036854775808.0 && r < 9223372036854775808.0) return (int64_t)r;
+    fp_fist_invalid(va, v, 64);
+    return INT64_MIN;
+}
+
 /* The 80-bit extended format, for `fld/fstp xword`. The model's stack is
  * double, so a load rounds to double and a store widens. The CRT keeps 2*pi
  * and friends as xword constants; a load that pushed 0.0 made sin/cos reduce
@@ -1000,6 +1035,39 @@ recomp_func_t recomp_lookup_import(uint32_t va);    /* import bridges */
     else { fprintf(stderr, "ITAIL: unresolved VA 0x%08X from 0x%08X\n", _va, g_cur_func); } \
 } while(0)
 
+/* Jump to a fragment: a piece of a function that the lifter emitted as a body
+ * of its own because a jump enters it from outside (lift.py marks these
+ * targets; their bodies start with RECOMP_ENTER_FRAGMENT). RECOMP_ITAIL would
+ * call it, so a loop whose back edge crosses fragments (PHYS_SweepCollider:
+ * 0x40CB1D <-> 0x40CE6B, one pass per collider step) nests two host frames per
+ * pass and overflows the host stack on a long sweep; the browser's stack is
+ * small enough for that to happen in play. Here the first jump runs a loop
+ * instead: it arms the fragment it calls, and an armed fragment's own jump to a
+ * fragment only records the target and returns to that loop. The host stack
+ * stays flat; the guest state is the same as with nested calls. Only fragments
+ * read the arming, at their entry, so calls and host code never see it. */
+extern RECOMP_TLS uint32_t g_tail_armed, g_tail_pending;
+#define RECOMP_ITAIL_FRAGMENT(target_va) do { \
+    if (_tail_driven) { g_tail_pending = (uint32_t)(target_va); break; } \
+    uint32_t _va = (uint32_t)(target_va); \
+    RECOMP_REGS_OUT(); \
+    do { \
+        g_icall_trace[g_icall_trace_idx & (ICALL_TRACE_SIZE-1)] = _va; \
+        g_icall_from[g_icall_trace_idx & (ICALL_TRACE_SIZE-1)] = g_cur_func; \
+        g_icall_trace_idx++; \
+        g_icall_count++; \
+        recomp_func_t _fn = recomp_lookup(_va); \
+        if (!_fn) { fprintf(stderr, "ITAIL: fragment 0x%08X is not lifted (from 0x%08X)\n", _va, g_cur_func); break; } \
+        g_tail_pending = 0; \
+        g_tail_armed = 1; \
+        _fn(); \
+        g_tail_armed = 0; \
+        _va = g_tail_pending; \
+    } while (_va); \
+    g_tail_pending = 0; \
+    RECOMP_REGS_IN(); \
+} while(0)
+
 /* ============================================================
  * Optional function-entry tracer (enable with -DRECOMP_TRACE).
  *
@@ -1016,14 +1084,14 @@ recomp_func_t recomp_lookup_import(uint32_t va);    /* import bridges */
 extern uint32_t g_enter_trace[RECOMP_ENTER_SIZE];
 extern uint32_t g_enter_idx;
 void recomp_trace_enter(uint32_t va);
-#define RECOMP_ENTER(va) uint32_t _entry_esp = esp; do { g_cur_func = (va); recomp_trace_enter(va); } while (0)
+#define RECOMP_ENTER(va) uint32_t _entry_esp = esp; const int _tail_driven = 0; do { (void)_tail_driven; g_cur_func = (va); recomp_trace_enter(va); } while (0)
 #else
-#define RECOMP_ENTER(va) uint32_t _entry_esp = esp; (g_cur_func = (va))
+#define RECOMP_ENTER(va) uint32_t _entry_esp = esp; const int _tail_driven = 0; ((void)_tail_driven, g_cur_func = (va))
 #endif
 #ifdef RECOMP_TRACE
-#define RECOMP_ENTER_FRAGMENT(va) uint32_t _entry_esp = 0xFFFFFFFFu; do { g_cur_func = (va); recomp_trace_enter(va); } while (0)
+#define RECOMP_ENTER_FRAGMENT(va) uint32_t _entry_esp = 0xFFFFFFFFu; const int _tail_driven = (int)g_tail_armed; do { g_tail_armed = 0; g_cur_func = (va); recomp_trace_enter(va); } while (0)
 #else
-#define RECOMP_ENTER_FRAGMENT(va) uint32_t _entry_esp = 0xFFFFFFFFu; (g_cur_func = (va))
+#define RECOMP_ENTER_FRAGMENT(va) uint32_t _entry_esp = 0xFFFFFFFFu; const int _tail_driven = (int)g_tail_armed; (g_tail_armed = 0, g_cur_func = (va))
 #endif
 /* Always-callable trace dump (no-op unless RECOMP_TRACE). */
 void recomp_dump_trace(const char* why);

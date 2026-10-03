@@ -1,0 +1,345 @@
+/* Dreams to Reality, browser demo: presentation. System fonts only; no external requests.
+ * The page is two places: the dream (dusk, the game and its toolbar) and, past the dawn line,
+ * reality (a sandstone page set like the booklet in the game's box). Tokens are the :root block.
+ * Notes: recomp/web/NOTES-design.md. */
+
+:root {
+  /* the dream: dusk over the islands */
+  --dusk: #12162e;
+  --dusk-deep: #0a0d1e;
+  --dusk-line: rgba(190, 205, 255, .18);
+  --dusk-ink: #eef0f8;
+  --dusk-dim: #a9b2cf;            /* 7.4:1 on --dusk */
+  /* reality: the sandstone of the first level, and ink */
+  --sand: #dfc391;
+  --sand-hi: #ecd8ae;
+  --sand-line: rgba(42, 28, 17, .22);
+  --ink: #2a1c11;
+  --ink-dim: #5b4630;             /* 5.6:1 on --sand */
+  /* from the game: the sky, Duncan's jade skin and orange trousers, the gauge's red */
+  --sky: #7db9ea;
+  --jade: #1e6f60;                /* links on sand, 4.6:1 */
+  --jade-hi: #86d5bf;             /* links on dusk */
+  --ember: #e8762b;
+  --ember-hi: #f79a4e;
+  --life: #e5484d;
+  --ok: #7ad6a0;
+  --bad: #ff8d8d;
+  /* type: one book face for everything that is read, the system face for controls */
+  --book: "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", P052, Georgia, serif;
+  --ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+  /* layout */
+  --header-h: 52px;
+  --bezel: 0px;
+  --tool-h: 52px;
+  --chrome: 176px;                /* header + toolbar + paddings the stage shares the viewport with */
+  --gutter: clamp(14px, 3vw, 36px);
+  /* key caps and hairlines take their colours from where they sit (sand by default) */
+  --key-bg: var(--sand-hi);
+  --key-ink: var(--ink);
+  --key-edge: rgba(42, 28, 17, .55);
+  --rule: var(--sand-line);
+  --text: var(--ink);
+  --text-dim: var(--ink-dim);
+  --link: var(--jade);
+}
+.top, .play, .foot {
+  --key-bg: #262d52;
+  --key-ink: var(--dusk-ink);
+  --key-edge: rgba(190, 205, 255, .4);
+  --rule: var(--dusk-line);
+  --text: var(--dusk-ink);
+  --text-dim: var(--dusk-dim);
+  --link: var(--jade-hi);
+}
+/* the controls dialog sits inside .play but is a page of the booklet */
+dialog {
+  --key-bg: var(--sand-hi);
+  --key-ink: var(--ink);
+  --key-edge: rgba(42, 28, 17, .55);
+  --rule: var(--sand-line);
+  --text: var(--ink);
+  --text-dim: var(--ink-dim);
+  --link: var(--jade);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-h) + 12px); -webkit-text-size-adjust: 100%; }
+body { margin: 0; min-height: 100vh; background: var(--sand); color: var(--ink); font: 17px/1.65 var(--book); overflow-x: hidden; }
+a { color: var(--link); text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+b { font-weight: 700; }
+code { font-family: var(--mono); font-size: .82em; background: rgba(42, 28, 17, .09); padding: .1em .35em; border-radius: 3px; }
+:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+canvas:focus-visible { outline: none; }
+.skip { position: fixed; left: 12px; top: -60px; z-index: 100; background: var(--sand-hi); color: var(--ink); padding: 8px 14px; transition: top .15s; }
+.skip:focus { top: 10px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---- header ------------------------------------------------------------------------------------ */
+.top {
+  position: sticky; top: 0; z-index: 30; height: var(--header-h);
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 var(--gutter);
+  background: var(--dusk); color: var(--text); border-bottom: 1px solid var(--rule);
+}
+.brand { color: inherit; text-decoration: none; font-size: 1.2rem; white-space: nowrap; }
+.top nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; font: .9rem var(--ui); }
+.top nav a { color: var(--text-dim); text-decoration: none; padding: 6px 10px; white-space: nowrap; }
+.top nav a:hover { color: var(--text); text-decoration: underline; }
+
+/* ---- the game ---------------------------------------------------------------------------------- */
+/* The dusk ends in a dawn: the one decorated edge of the page, where the dream meets the booklet. */
+.play {
+  color: var(--text);
+  padding: clamp(10px, 2vh, 20px) var(--gutter) 0;
+  background: linear-gradient(180deg, var(--dusk) 0, var(--dusk) calc(100% - 150px), #2b3a78 calc(100% - 96px), #6f9fd6 calc(100% - 46px), #f2c98f calc(100% - 12px), var(--sand) 100%);
+  padding-bottom: 168px;
+}
+.play-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; max-width: 1760px; margin: 0 auto; align-items: start; }
+@media (min-width: 1200px) { .play-grid { grid-template-columns: minmax(0, 1fr) 300px; } }
+.player { container-type: inline-size; min-width: 0; outline: none; }
+.player { --stage-w: min(100cqw - 2 * var(--bezel), max(340px, calc((100svh - var(--chrome)) * 4 / 3))); }
+.bezel { width: var(--stage-w); max-width: 100%; margin: 0 auto; }
+.screen { position: relative; width: var(--stage-w); aspect-ratio: 4 / 3; background: #000; overflow: hidden; container-type: inline-size; box-shadow: 0 0 0 1px var(--rule), 0 24px 70px rgba(0, 0, 0, .5); }
+/* The engine owns the canvas pixel size (SDL may also write an inline CSS size): the stage decides the display size. */
+#canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; background: #000; outline: none; touch-action: none; }
+body[data-phase="running"] #canvas { cursor: none; }
+body.pixel #canvas { image-rendering: crisp-edges; image-rendering: pixelated; }
+
+/* Start screen: the game's own letterbox. Black bars above and below a picture band; the lower
+ * bar is the control strip (progress, the play button, errors). Sized in cqw so it scales with the stage. */
+#overlay { position: absolute; inset: 0; z-index: 10; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: #000; transition: opacity .45s ease, visibility 0s; font: clamp(11px, 1.95cqw, 17px)/1.45 var(--ui); }
+#overlay.hidden { opacity: 0; pointer-events: none; visibility: hidden; transition: opacity .45s ease, visibility 0s .45s; }
+.letter { margin: 0; padding: .7em 1.4em; display: flex; justify-content: space-between; gap: 1em; color: var(--dusk-dim); font-size: .85em; background: #000; }
+.band { position: relative; display: flex; align-items: flex-end; min-height: 0; overflow: hidden; }
+/* The picture: a frame of the game when the deployment provides one (package.py --poster sets
+ * --poster through ui.js), otherwise the level's sky at dusk. No drawing stands in for the game. */
+.poster {
+  position: absolute; inset: 0;
+  background:
+    var(--poster, radial-gradient(60% 34% at 68% 100%, rgba(255, 226, 170, .85), rgba(255, 226, 170, 0) 70%)) center / cover no-repeat,
+    linear-gradient(180deg, #141a44 0%, #2a479a 42%, #7db9ea 74%, #f0cf9b 94%, #e9a763 100%);
+}
+.poster.photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, .7) 100%); }
+body[data-phase="error"] .poster { filter: saturate(.3) brightness(.5); }
+.title-block { position: relative; padding: 0 1.4em 1em; color: #fff; font-family: var(--book); text-shadow: 0 1px 2px rgba(5, 8, 30, .9), 0 2px 22px rgba(5, 8, 30, .7); }
+#title { margin: 0; font-size: 4.3em; line-height: 1; font-weight: 400; letter-spacing: -.012em; }
+.sub { margin: .5em 0 0; font-size: 1.15em; max-width: 30em; }
+.panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 1.6em; align-items: center; padding: 1em 1.4em 1.1em; background: #000; color: var(--dusk-ink); }
+.panel > * { grid-column: 1 / -1; }
+.panel > #bar, .panel > #progress-text, .panel > #status { grid-column: 1; }
+.panel > .cta { grid-column: 2; grid-row: 1 / span 3; }
+#bar { height: .32em; background: rgba(255, 255, 255, .16); overflow: hidden; }
+#bar > i { display: block; height: 100%; width: 0; background: var(--sky); transition: width .15s linear; }
+#bar.done > i { background: var(--ok); }
+#progress-text { display: flex; justify-content: space-between; gap: 12px; margin-top: .4em; color: var(--dusk-dim); font-size: .85em; font-variant-numeric: tabular-nums; min-height: 1.4em; }
+#status { margin: .15em 0 0; min-height: 1.45em; }
+.cta {
+  display: flex; align-items: center; justify-content: center; gap: .55em; min-width: 9.5em; padding: .85em 1.5em;
+  font: 700 1.2em/1 var(--ui); color: #24100a; cursor: pointer; background: var(--ember); border: 0; border-radius: 3px;
+  transition: background .15s;
+}
+.cta:hover:not(:disabled) { background: var(--ember-hi); }
+.cta:disabled { background: rgba(255, 255, 255, .14); color: var(--dusk-dim); cursor: default; }
+#hint { display: flex; flex-wrap: wrap; gap: .3em 1.2em; margin-top: .9em; padding-top: .8em; border-top: 1px solid var(--dusk-line); font-size: .85em; color: var(--dusk-dim); }
+#hint:empty { display: none; }
+#hint span { display: inline-flex; align-items: center; gap: .3em; white-space: nowrap; }
+.soundnote { margin: .6em 0 0; font-size: .8em; color: var(--dusk-dim); }
+.tip { margin: .35em 0 0; font-size: .8em; color: var(--dusk-ink); min-height: 1.4em; }
+.tip:empty { display: none; }
+.tip.fade { animation: fadein .8s ease; }
+@keyframes fadein { from { opacity: 0; } }
+details#filebox { margin-top: .5em; color: var(--dusk-dim); font-size: .82em; }
+details#filebox summary { cursor: pointer; }
+#files { margin: .4em 0 0; padding: 0; list-style: none; max-height: 5.6em; overflow: auto; font: .95em var(--mono); font-variant-numeric: tabular-nums; }
+#files li { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; }
+#files li.ok { color: var(--dusk-ink); }
+#files li.ok::before { content: "\2713"; color: var(--ok); margin-right: .5em; }
+#files li > span:first-child { margin-right: auto; }
+#error { display: none; }
+#error.show { display: block; }
+#error h2 { margin: 0 0 .4em; font: 700 1.2em/1.3 var(--ui); color: var(--bad); }
+#error-help { font-size: .92em; }
+#error-help p { margin: .3em 0; }
+#error-help ul { margin: .3em 0 .5em; padding-left: 1.3em; }
+#error-text { margin: .6em 0; padding: .6em .8em; max-height: 6.5em; overflow: auto; font: .8em/1.4 var(--mono); white-space: pre-wrap; word-break: break-word; background: #17100f; border-left: 3px solid var(--life); color: #ffd6d6; }
+.error-actions { display: flex; flex-wrap: wrap; gap: .5em; }
+/* what the control strip shows in each state */
+body[data-phase="checking"] #hint, body[data-phase="manifest"] #hint,
+body[data-phase="ready"] #bar, body[data-phase="ended"] #bar, body[data-phase="ended"] #progress-text, body[data-phase="ended"] #filebox,
+body[data-phase="starting"] .soundnote, body[data-phase="running"] .soundnote, body[data-phase="ended"] .soundnote,
+body[data-phase="error"] .soundnote, body[data-phase="error"] .tip, body[data-phase="error"] .cta, body[data-phase="error"] #filebox,
+body[data-phase="error"] #bar, body[data-phase="error"] #progress-text, body[data-phase="error"] #status, body[data-phase="error"] #hint { display: none; }
+body[data-phase="error"] .title-block { display: none; }
+
+.btn, .tool { font: inherit; font-family: var(--ui); color: inherit; background: transparent; border: 1px solid var(--rule); border-radius: 3px; padding: .45em .9em; cursor: pointer; transition: background .15s, border-color .15s; }
+.btn { font-size: .9em; font-weight: 600; border-color: currentColor; }
+.btn:hover, .tool:hover { background: rgba(128, 128, 128, .2); }
+#error .btn:first-child { background: var(--ember); border-color: var(--ember); color: #24100a; }
+
+kbd {
+  display: inline-block; min-width: 1.8em; padding: .1em .45em .16em; margin: 0 .1em; text-align: center; vertical-align: .08em;
+  font: 600 .76em/1.3 var(--ui); color: var(--key-ink); background: var(--key-bg);
+  border: 1px solid var(--key-edge); border-bottom-width: 2px; border-radius: 3px; white-space: nowrap;
+}
+kbd.pb { border-radius: 99px; }
+#overlay kbd { --key-bg: #262d52; --key-ink: var(--dusk-ink); --key-edge: rgba(190, 205, 255, .4); }
+
+/* veil: the game runs but the keyboard is elsewhere */
+#veil { position: absolute; inset: 0; z-index: 8; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .2em; font: clamp(12px, 2.2cqw, 20px) var(--ui); color: #fff; cursor: pointer; border: 0; background: rgba(5, 8, 22, .72); }
+#veil[hidden] { display: none; }
+#veil .ico { width: 2.2em; height: 2.2em; margin-bottom: .3em; }
+#veil .v-title { font: 400 1.7em/1.2 var(--book); }
+#veil .v-sub { font-size: .85em; color: var(--dusk-dim); max-width: 26em; text-align: center; }
+.keyhint { position: absolute; right: 10px; bottom: 10px; z-index: 6; margin: 0; padding: 4px 10px; font: 12px var(--ui); color: var(--dusk-ink); background: rgba(5, 8, 22, .7); opacity: 0; pointer-events: none; transition: opacity .5s; }
+.keyhint.show { opacity: 1; }
+.keyhint kbd { --key-bg: #262d52; --key-ink: var(--dusk-ink); --key-edge: rgba(190, 205, 255, .4); }
+
+/* toolbar under the stage */
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: var(--tool-h); padding: 8px 0; font: .86rem var(--ui); }
+.state { flex: 1 1 0; display: flex; align-items: center; gap: .6em; margin: 0; min-width: 0; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.state .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
+body[data-phase="downloading"] .state .dot, body[data-phase="manifest"] .state .dot, body[data-phase="starting"] .state .dot { background: var(--sky); animation: blink 1.1s ease-in-out infinite; }
+body[data-phase="ready"] .state .dot { background: var(--ember); }
+body[data-phase="running"] .state .dot { background: var(--ok); }
+body[data-phase="error"] .state .dot { background: var(--bad); }
+@keyframes blink { 50% { opacity: .25; } }
+.tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.tool { display: inline-flex; align-items: center; gap: .45em; padding: .4em .7em; font-size: .85rem; }
+.tool .ico, .cta .ico, .notice .ico, #veil .ico { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.cta .ico { width: 1.05em; height: 1.05em; }
+.tool[aria-pressed="true"] { border-color: var(--jade-hi); color: var(--jade-hi); }
+#mute[aria-pressed="true"] { border-color: var(--life); color: #ffc9cb; }
+#mute .i-off, #mute[aria-pressed="true"] .i-on { display: none; }
+#mute[aria-pressed="true"] .i-off { display: block; }
+[data-needs-game] { opacity: .45; }
+body[data-phase="running"] [data-needs-game] { opacity: 1; }
+.vol { display: inline-flex; align-items: center; gap: 4px; }
+.vol input { width: 84px; accent-color: var(--jade-hi); }
+body:not([data-phase="running"]) #reload { display: none; }
+
+/* fullscreen: the stage fills the screen, the toolbar floats and hides when idle */
+.player:fullscreen { display: grid; place-items: center; background: #000; --stage-w: min(100vw, 133.333vh); }
+.player:fullscreen .bezel { width: var(--stage-w); position: relative; }
+.player:fullscreen .screen { box-shadow: none; }
+.player:fullscreen .toolbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 20; padding: 10px 14px; background: linear-gradient(0deg, rgba(0, 0, 0, .78), transparent); transition: opacity .3s; }
+.player:fullscreen.idle .toolbar { opacity: 0; pointer-events: none; }
+.player:fullscreen.idle #canvas { cursor: none; }
+
+/* quick controls beside the stage (wide screens): only what fits beside it, never a clipped
+ * scrolling box. Moving and fighting are shown; the ? key has the whole list. */
+.side { font-size: .92rem; min-width: 0; }
+.side h2 { margin: 0 0 4px; font: 400 1.5rem/1.2 var(--book); }
+.side .controls-grid { display: block; columns: auto; }
+.side .kgroup { margin-bottom: 14px; }
+.side .kgroup:nth-of-type(n+3) { display: none; }
+.side .krow { padding: 3px 0; font-size: .9rem; }
+.side .fine { margin: 0; }
+
+/* controls dialog: a page of the booklet over the game */
+dialog { width: min(1000px, calc(100vw - 28px)); max-height: calc(100vh - 28px); overflow: auto; padding: 22px 28px 26px; color: var(--ink); border: 0; border-radius: 2px; background: var(--sand); box-shadow: 0 40px 120px rgba(0, 0, 0, .7); }
+dialog::backdrop { background: rgba(6, 8, 20, .8); }
+.dlg-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.dlg-head h2 { margin: 0; font: 400 2rem/1.2 var(--book); }
+.dlg-note { margin: 2px 0 16px; color: var(--ink-dim); font-size: .95rem; }
+
+/* controls: one source (#controls-src), cloned to the side panel and the dialog */
+.controls-grid { columns: 3 250px; column-gap: 40px; }
+.kgroup { margin: 0 0 22px; break-inside: avoid; }
+.kgroup h3 { margin: 0 0 2px; font: italic 400 1.25rem/1.3 var(--book); }
+.kgroup h3 small { font: .8rem var(--ui); color: var(--text-dim); margin-left: .4em; }
+.kgroup dl { margin: 0; }
+.krow { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 5px 0; border-top: 1px solid var(--rule); font-size: .95rem; }
+.krow dt { color: var(--text); }
+.krow dd { margin: 0 0 0 auto; text-align: right; color: var(--text-dim); font: .86rem var(--ui); }
+.krow dd s { text-decoration: none; margin: 0 .05em; }
+
+/* ---- the booklet ------------------------------------------------------------------------------- */
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 var(--gutter); }
+/* each section: its heading in the margin column, its matter beside it */
+.block { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px 48px; padding: clamp(30px, 5vw, 60px) 0; border-top: 1px solid var(--rule); }
+.wrap > .block:first-child { border-top: 0; padding-top: 8px; }
+@media (min-width: 900px) { .block { grid-template-columns: 250px minmax(0, 1fr); } .block > * { grid-column: 2; } .block > .block-head { grid-column: 1; grid-row: 1 / span 9; } }
+.block-head h2 { margin: 0; font: 400 clamp(1.7rem, 3vw, 2.15rem)/1.15 var(--book); letter-spacing: -.01em; }
+.lead { margin: 0 0 6px; max-width: 38em; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: start; }
+.prose p { margin: 0 0 1em; max-width: 38em; }
+.h-small { margin: 1.4em 0 .3em; font: italic 400 1.25rem/1.3 var(--book); }
+.plain { margin: 0 0 1em; padding-left: 1.1em; max-width: 38em; }
+.plain li { margin: .35em 0; }
+.facts { margin: 0; max-width: 38em; }
+.facts div { display: grid; grid-template-columns: 11em minmax(0, 1fr); gap: 12px; padding: 6px 0; border-top: 1px solid var(--rule); }
+.facts dt { color: var(--ink-dim); }
+.facts dd { margin: 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 40px; }
+.card-s { padding: 12px 0 10px; border-top: 1px solid var(--rule); }
+.card-s h3 { margin: 0 0 2px; font: italic 400 1.25rem/1.3 var(--book); }
+.card-s p { margin: 0; }
+.fine { color: var(--text-dim); font-size: .88rem; margin: 10px 0 0; max-width: 46em; }
+/* the port's five steps are a real sequence, so they are numbered */
+.pipeline { list-style: none; margin: 0; padding: 0; max-width: 38em; }
+.pipeline li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr); padding: 7px 0; border-top: 1px solid var(--rule); }
+.pipeline .step { grid-row: span 2; font-size: 1.7rem; line-height: 1.2; color: var(--ink-dim); }
+.pipeline span:not(.step) { color: var(--ink-dim); font-size: .92rem; }
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 10px; }
+.shots[hidden] { display: none; }
+.shots figure { margin: 0; }
+.shots img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.shots figcaption { margin-top: 4px; font-size: .82rem; color: var(--ink-dim); }
+.faq { max-width: 44em; }
+.faq details { border-top: 1px solid var(--rule); }
+.faq details:first-child { border-top: 0; }
+.faq summary { cursor: pointer; padding: 11px 0; font-weight: 700; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; font: 400 1.3em/1 var(--ui); transition: transform .2s; }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq details > p { margin: 0 0 14px; }
+
+.notice { display: none; align-items: flex-start; gap: 12px; margin: 0; padding: 12px var(--gutter); font: .92rem/1.5 var(--ui); background: var(--ember); color: #24100a; }
+.notice .ico { margin-top: 3px; }
+
+.foot { padding: 34px 0 44px; background: var(--dusk); color: var(--text-dim); font-size: .92rem; }
+.foot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 28px; }
+.foot h2 { margin: 0 0 6px; font: italic 400 1.25rem/1.3 var(--book); color: var(--text); }
+.foot p { margin: 0 0 .8em; }
+.foot b { color: var(--text); }
+.foot code { background: rgba(255, 255, 255, .09); }
+
+#log { display: none; position: fixed; left: 0; right: 0; bottom: 0; max-height: 32vh; overflow: auto; z-index: 90; margin: 0; padding: 8px 10px; font: 11px/1.35 var(--mono); white-space: pre-wrap; background: rgba(0, 0, 0, .85); color: #b8c0d4; }
+body.debug #log { display: block; }
+
+/* ---- small screens ----------------------------------------------------------------------------- */
+@media (max-width: 1199px) { .side { display: none; } }
+@media (max-width: 1100px) {
+  .tool .lbl { display: none; }
+  .tool { padding: .45em .55em; }
+}
+@media (max-width: 760px) {
+  :root { --header-h: 48px; }
+  body { font-size: 16px; }
+  .top nav a:nth-child(n+4) { display: none; }
+  .notice { display: flex; }
+  .vol input { display: none; }
+  #overlay { font-size: clamp(9px, 2.7cqw, 14px); }
+  #title { font-size: 3.3em; }
+  .soundnote, #hint, .letter { display: none; }
+  .tools { gap: 4px; }
+  .play { padding-bottom: 120px; }
+}
+@media (max-width: 520px) {
+  .state { display: none; }
+  .toolbar { justify-content: center; }
+  .top nav { display: none; }
+}
+body.touch .notice { display: flex; }
+@media (max-height: 640px) and (min-width: 761px) { :root { --chrome: 164px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+@media (forced-colors: active) {
+  .cta, .btn, .tool { border: 1px solid ButtonText; }
+  #bar > i { background: Highlight; }
+}

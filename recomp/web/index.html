@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#12162e">
+<meta name="description" content="An unofficial, in-browser preservation demo of Dreams to Reality (Cryo Interactive, 1997): the original Windows game statically recompiled to WebAssembly and WebGL 2.">
+<title>Dreams to Reality: browser demo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' fill='none' stroke='%23e8762b' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='4.5' fill='%2386d5bf'/%3E%3C/svg%3E">
+<!-- Presentation lives in site/ (style.css, ui.js); behaviour in loader.js. Notes: NOTES-design.md. -->
+<link rel="stylesheet" href="site/style.css">
+</head>
+<body data-phase="init">
+<a class="skip" href="#player">Skip to the game</a>
+
+<!-- Icons: one inline sprite, no external requests (the page is COEP require-corp). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-keys" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></symbol>
+    <symbol id="i-pixel" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></symbol>
+    <symbol id="i-vol" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></symbol>
+    <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></symbol>
+    <symbol id="i-reload" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><path d="M12 3v8M12 11l-3-3M12 11l3-3"/><rect x="5" y="14" width="14" height="6" rx="2"/></symbol>
+  </defs>
+</svg>
+
+<header class="top">
+  <a class="brand" href="#player" aria-label="Dreams to Reality, browser demo">Dreams to Reality</a>
+  <nav aria-label="Sections">
+    <a href="#player">Play</a><a href="#game">The game</a><a href="#controls">Controls</a><a href="#tips">Tips</a><a href="#port">This port</a><a href="#faq">Questions</a>
+  </nav>
+</header>
+
+<main>
+
+<noscript><p class="notice" style="margin:1rem">This demo runs the game in your browser and needs JavaScript. Please enable it and reload.</p></noscript>
+
+<p class="notice phone" role="note"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-keys"/></svg>
+  <span><b>Best on a desktop or laptop with a keyboard.</b> The game is played with the arrow keys, Ctrl, Alt and Space; touch controls are not supported. You can still read about it below.</span></p>
+
+<section class="play" aria-label="The game">
+  <div class="play-grid">
+
+    <div class="player" id="player" tabindex="-1">
+      <div class="bezel">
+        <div class="screen" id="stage">
+          <canvas id="canvas" tabindex="0" aria-label="Dreams to Reality game screen. Keyboard controls: press question mark for the list."></canvas>
+
+          <!-- Start screen (letterbox): loading, ready, ended and error states. loader.js toggles .hidden once the game runs. -->
+          <div id="overlay" role="region" aria-label="Start screen">
+            <p class="letter"><span>Cryo Interactive, 1997</span><span>Browser demo</span></p>
+            <div class="band">
+              <div class="poster" id="poster" aria-hidden="true"></div>
+              <div class="title-block">
+                <h1 id="title">Dreams to Reality</h1>
+                <p class="sub">The 1997 adventure across the dream islands, running in this tab.</p>
+              </div>
+            </div>
+
+              <div class="panel">
+                <div id="bar" role="progressbar" aria-label="Download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
+                <div id="progress-text"><span id="bytes">&nbsp;</span><span id="rate"></span></div>
+                <p id="status" role="status">Starting...</p>
+
+                <button id="play" type="button" class="cta" disabled>
+                  <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none"/></svg>
+                  <span class="lbl" id="play-label">Play demo</span>
+                </button>
+                <div id="hint">
+                  <span><kbd class="arr">&uarr;</kbd><kbd class="arr">&larr;</kbd><kbd class="arr">&darr;</kbd><kbd class="arr">&rarr;</kbd> move</span>
+                  <span><kbd>Ctrl</kbd> jump</span><span><kbd>Alt</kbd> punch</span><span><kbd>Esc</kbd> menu</span>
+                  <span><kbd>?</kbd> all controls</span>
+                </div>
+                <p class="soundnote" id="soundnote">Sound starts when you press play. The first visit downloads the demo data once; it is kept in your browser afterwards.</p>
+                <p class="tip" id="tip" aria-hidden="true"></p>
+
+                <details id="filebox" hidden><summary id="filesum">Files</summary><ul id="files"></ul></details>
+
+                <div id="error" role="alert">
+                  <h2 id="error-title"></h2>
+                  <div id="error-help"></div>
+                  <pre id="error-text"></pre>
+                  <div class="error-actions">
+                    <button id="retry" type="button" class="btn">Try again</button>
+                    <button id="clear-retry" type="button" class="btn">Clear downloaded data and retry</button>
+                    <button id="copylog" type="button" class="btn">Copy technical details</button>
+                  </div>
+                </div>
+              </div>
+          </div>
+
+          <!-- Shown while the game runs but the keyboard is not going to it. -->
+          <button id="veil" type="button" hidden>
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-hand"/></svg>
+            <span class="v-title" id="veil-title">Click to take control</span>
+            <span class="v-sub" id="veil-sub">The game has paused. Your keys are going to the page.</span>
+          </button>
+          <p id="keyhint" class="keyhint" aria-hidden="true">Press <kbd>?</kbd> for controls</p>
+        </div>
+
+        <div id="hud" class="toolbar" role="toolbar" aria-label="Game toolbar">
+          <p class="state" id="state"><span class="dot" aria-hidden="true"></span><span id="state-text">Starting</span></p>
+          <div class="tools">
+            <button id="esc" type="button" class="tool" data-needs-game title="Open the game's menu (the Esc key)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg><span class="lbl">Menu</span></button>
+            <button id="help" type="button" class="tool" title="Controls (the ? key)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-keys"/></svg><span class="lbl">Controls</span></button>
+            <button id="scale" type="button" class="tool" aria-pressed="false" title="Pixel-perfect scaling: whole-number sizes, sharp pixels"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pixel"/></svg><span class="lbl">Pixel-perfect</span></button>
+            <span class="vol"><button id="mute" type="button" class="tool" aria-pressed="false" title="Mute"><svg class="ico i-on" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-vol"/></svg><svg class="ico i-off" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-mute"/></svg><span class="lbl">Mute</span></button>
+              <input id="volume" type="range" min="0" max="100" step="5" value="100" aria-label="Volume"></span>
+            <button id="fs" type="button" class="tool" aria-pressed="false" title="Fullscreen"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-full"/></svg><span class="lbl">Fullscreen</span></button>
+            <button id="reload" type="button" class="tool" title="Reload the game (your autosave is kept)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-reload"/></svg><span class="lbl">Reload</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls overlay: opened by the ? key or the Controls button. Filled from #controls by ui.js. -->
+      <dialog id="controls-dialog" aria-labelledby="controls-dialog-title">
+        <div class="dlg-head"><h2 id="controls-dialog-title">Controls</h2><button type="button" class="btn" id="controls-close">Close <kbd>Esc</kbd></button></div>
+        <p class="dlg-note">The game keeps running behind this window, but your keys do not reach it while it is open.</p>
+        <div class="dlg-body" id="controls-dialog-body"></div>
+      </dialog>
+    </div>
+
+    <aside class="side" aria-label="Quick controls">
+      <h2>Controls</h2>
+      <div id="side-controls"></div>
+      <p class="fine">Press <kbd>?</kbd> for every control: magic, cameras, the menu and the gamepad.</p>
+    </aside>
+  </div>
+  <pre id="log"></pre>
+</section>
+
+<div class="wrap">
+
+<section id="game" class="block">
+  <header class="block-head"><h2>A dream world, seen from behind your hero</h2></header>
+  <div class="cols">
+    <div class="prose">
+      <p><em>Dreams to Reality</em> is a third-person 3D adventure from <b>Cryo Interactive</b>, released in 1997 for Windows 95, DOS and 3dfx graphics cards. You guide <b>Duncan</b>, the "chosen one" a voice tells you that you are at the start, across floating dream islands: an overgrown stone temple in the clouds, an island of giant stone heads, a hammam, a cinema, a factory, a house of spiders, a shark arena and many more. The game ships about 95 distinct scenes.</p>
+      <p>You run, jump, fly, swim and ride a surfboard or motorcycle. You fight with kicks and punches, a sword and a crystal bow, and you spend <b>manna</b>, your magical energy, on spells and abilities. Thirty items are tracked in the menu: fourteen spells and abilities (fire ball, healing, shield, invisibility, speed, resurrection and others) and sixteen objects, such as a key, letters, a record player and a lollipop. Characters talk to you in voiced, captioned dialogue, and what they say matters for the riddles.</p>
+      <p>The game saves by itself each time you enter a new level. There is no manual save.</p>
+    </div>
+    <dl class="facts">
+      <div><dt>Made by</dt><dd>Cryo Interactive (&copy; 1997)</dd></div>
+      <div><dt>Original builds</dt><dd>Windows 95 (DirectDraw), DOS, 3dfx (Glide)</dd></div>
+      <div><dt>This demo</dt><dd>The Windows build, recompiled</dd></div>
+      <div><dt>Native resolution</dt><dd>640 &times; 480 (4:3)</dd></div>
+      <div><dt>Camera</dt><dd>Behind the character, several presets</dd></div>
+      <div><dt>Controls</dt><dd>Keyboard (the Windows build also reads a joypad)</dd></div>
+    </dl>
+  </div>
+  <div class="shots" id="shots" hidden aria-label="Screenshots"></div>
+</section>
+
+<section id="controls" class="block">
+  <header class="block-head"><h2>Controls</h2></header>
+  <p class="lead">The game is played entirely from the keyboard: there is no mouse input at all. Click the game once so it has the keyboard. These are the original game's controls (from its README).</p>
+
+  <div class="controls-grid" id="controls-src">
+    <section class="kgroup"><h3>Move</h3><dl>
+      <div class="krow"><dt>Run</dt><dd><kbd class="arr">&uarr;</kbd></dd></div>
+      <div class="krow"><dt>Walk</dt><dd><kbd>Alt</kbd></dd></div>
+      <div class="krow"><dt>Backwards</dt><dd><kbd class="arr">&darr;</kbd></dd></div>
+      <div class="krow"><dt>Fast backwards</dt><dd><kbd class="arr">&darr;</kbd><s>+</s><kbd>Ctrl</kbd></dd></div>
+      <div class="krow"><dt>Jump</dt><dd><kbd>Ctrl</kbd></dd></div>
+      <div class="krow"><dt>Long jump</dt><dd><kbd>Ctrl</kbd><s>+</s><kbd class="arr">&uarr;</kbd></dd></div>
+      <div class="krow"><dt>Take off</dt><dd><kbd class="arr">&uarr;</kbd><s>+</s><kbd>Alt</kbd></dd></div>
+      <div class="krow"><dt>Fly or swim</dt><dd>hold <kbd>Alt</kbd><s>+</s>arrows</dd></div>
+      <div class="krow"><dt>Surf, motorcycle</dt><dd>arrows</dd></div>
+    </dl></section>
+    <section class="kgroup"><h3>Fight</h3><dl>
+      <div class="krow"><dt>Combat mode</dt><dd><kbd>Space</kbd></dd></div>
+      <div class="krow"><dt>Kick</dt><dd><kbd>Ctrl</kbd></dd></div>
+      <div class="krow"><dt>Lift-kick</dt><dd><kbd class="arr">&uarr;</kbd><s>+</s><kbd>Ctrl</kbd></dd></div>
+      <div class="krow"><dt>Punch</dt><dd><kbd>Alt</kbd></dd></div>
+      <div class="krow"><dt>Combo</dt><dd>tap <kbd>Ctrl</kbd> or <kbd>Alt</kbd> quickly</dd></div>
+      <div class="krow"><dt>Defend</dt><dd><kbd class="arr">&darr;</kbd></dd></div>
+    </dl></section>
+    <section class="kgroup"><h3>Magic</h3><dl>
+      <div class="krow"><dt>Pre-select a spell</dt><dd><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></dd></div>
+      <div class="krow"><dt>Swing sword, shoot arrow</dt><dd><kbd>Alt</kbd></dd></div>
+      <div class="krow"><dt>Spells page</dt><dd><kbd>Tab</kbd></dd></div>
+      <div class="krow note"><dt>Take a spirit</dt><dd>walk your clone into the character</dd></div>
+    </dl></section>
+    <section class="kgroup"><h3>Game</h3><dl>
+      <div class="krow"><dt>Menu (spells, items, load)</dt><dd><kbd>Esc</kbd></dd></div>
+      <div class="krow"><dt>Cameras</dt><dd><kbd>Alt</kbd><s>+</s><kbd>5</kbd> to <kbd>0</kbd></dd></div>
+      <div class="krow"><dt>Original control screen</dt><dd><kbd>F10</kbd></dd></div>
+      <div class="krow"><dt>Real or 2D shadow</dt><dd><kbd>Ctrl</kbd><s>+</s><kbd>S</kbd></dd></div>
+      <div class="krow"><dt>Keyboard, joypad mode</dt><dd><kbd>K</kbd> <kbd>J</kbd></dd></div>
+      <div class="krow note"><dt>Number keys</dt><dd>top row, not the keypad</dd></div>
+    </dl></section>
+    <section class="kgroup"><h3>This page</h3><dl>
+      <div class="krow"><dt>Show these controls</dt><dd><kbd>?</kbd></dd></div>
+      <div class="krow"><dt>Leave the game</dt><dd><kbd>Shift</kbd><s>+</s><kbd>Tab</kbd></dd></div>
+      <div class="krow"><dt>Back to the game</dt><dd><kbd>Esc</kbd> or a click</dd></div>
+      <div class="krow"><dt>Fullscreen</dt><dd><kbd>F11</kbd> or the toolbar</dd></div>
+    </dl></section>
+    <section class="kgroup pad"><h3>Gamepad <small>(experimental)</small></h3><dl>
+      <div class="krow"><dt>Move</dt><dd>left stick or d-pad = arrows</dd></div>
+      <div class="krow"><dt>Jump, kick</dt><dd><kbd class="pb">A</kbd> = <kbd>Ctrl</kbd></dd></div>
+      <div class="krow"><dt>Punch, walk, fly</dt><dd><kbd class="pb">X</kbd> = <kbd>Alt</kbd></dd></div>
+      <div class="krow"><dt>Combat mode</dt><dd><kbd class="pb">Y</kbd> = <kbd>Space</kbd></dd></div>
+      <div class="krow"><dt>Defend</dt><dd><kbd class="pb">B</kbd> = <kbd class="arr">&darr;</kbd></dd></div>
+      <div class="krow"><dt>Spells 1, 2, 3</dt><dd><kbd class="pb">LB</kbd> <kbd class="pb">RB</kbd> <kbd class="pb">LT</kbd></dd></div>
+      <div class="krow"><dt>Menu</dt><dd><kbd class="pb">Start</kbd> = <kbd>Esc</kbd></dd></div>
+      <div class="krow"><dt>Confirm</dt><dd><kbd class="pb">Back</kbd> = <kbd>Enter</kbd></dd></div>
+    </dl></section>
+  </div>
+  <p class="fine" id="controls-notes">Sources: the game's <code>README.TXT</code> (movement, combat, magic, cameras, <kbd>F10</kbd>, <kbd>J</kbd>, <kbd>K</kbd>), its code (<kbd>Tab</kbd> spells page, <kbd>Ctrl</kbd>+<kbd>S</kbd> shadows) and the port's pad layout. <kbd>F1</kbd> to <kbd>F6</kbd> change the original's internal resolution; the browser sizes the picture for you, so leave them alone. On macOS, <kbd>Ctrl</kbd>+arrows are Mission Control shortcuts: turn them off in System Settings, Keyboard, Shortcuts, or the game will not see them.</p>
+</section>
+
+<section id="tips" class="block">
+  <header class="block-head"><h2>Tips</h2></header>
+  <div class="cards">
+    <article class="card-s"><h3>Look after your manna</h3><p>Flying and magic cost manna. The small flying blue bubbles refill a lot of it. Watch the gauge, especially in flight: some places need more than others.</p></article>
+    <article class="card-s"><h3>Trust your shadow</h3><p>When you jump, the shadow you throw shows where you will land. The original game is unforgiving about falls.</p></article>
+    <article class="card-s"><h3>Read the dialogue</h3><p>Conversations hold the answers to the riddles. Picking fights with people who are not attacking you wastes life energy and can cost you information.</p></article>
+    <article class="card-s"><h3>Use magic on purpose</h3><p>The sword and the bow can become your standard weapons if you spend manna carefully. Some weapons suit close combat, others a distance.</p></article>
+    <article class="card-s"><h3>Explore everything</h3><p>Spells, bonuses and secret passages are hidden in the levels. Try the other camera presets with <kbd>Alt</kbd>+<kbd>5</kbd> to <kbd>0</kbd> when the view is in the way.</p></article>
+    <article class="card-s"><h3>In the browser</h3><p>The game autosaves on each new level and your save stays in this browser. Click the game if the keys stop working. The original resets its options on every run.</p></article>
+  </div>
+  <p class="fine">Hints adapted from the original game's README.</p>
+</section>
+
+<section id="port" class="block">
+  <header class="block-head"><h2>Not an emulator: the original program, translated</h2></header>
+  <div class="cols">
+    <div class="prose">
+      <p>This is an <b>unofficial fan preservation project</b>. It has no connection with Cryo Interactive or any rights holder. It exists so that a 1997 game keeps being playable, and so that its code can be studied.</p>
+      <p>The page runs the game's own Windows program, not a remake. The executable was <b>statically recompiled</b>: its x86 machine code was lifted ahead of time into C, then compiled to <b>WebAssembly</b> together with a small hand-written runtime that provides the Windows services the game expects (files, threads, windows, input, sound) on top of SDL3. There is no CPU emulator at run time.</p>
+      <p>The picture is drawn by a <b>WebGL 2</b> renderer written to reproduce the look of the 3dfx build (filtered textures, Gouraud shading) at the game's 4:3 frame, scaled to fit your window. Sound goes through Web Audio. Your autosave is kept in the browser's IndexedDB.</p>
+      <h3 class="h-small">What is different from the 1997 game</h3>
+      <ul class="plain">
+        <li><b>It is a demo.</b> The data is a small cut of the game, downloaded once (the files and size are shown on the start screen) and cached by your browser. The full game is not here.</li>
+        <li><b>No CD.</b> The original read its levels from the discs and played music from the CD's audio tracks. Here, only what is in the demo pack exists, so music may be missing.</li>
+        <li><b>No installation</b> and nothing runs outside the browser tab. It needs a current desktop browser with WebGL 2 and cross-origin isolation (threads).</li>
+        <li><b>Window size and fullscreen</b> are handled by the page, with a smooth or pixel-perfect scale. The original window sizes (<kbd>F1</kbd> to <kbd>F6</kbd>) are not needed.</li>
+      </ul>
+      <p class="fine">Rights: the repository ships no game data. Whoever hosts this page is responsible for having the right to distribute the demo content it loads.</p>
+    </div>
+    <ol class="pipeline" aria-label="How the port is built">
+      <li><span class="step">1</span><b>Retail Windows executable</b><span>machine code, as shipped</span></li>
+      <li><span class="step">2</span><b>Lifted to C</b><span>ahead of time, function by function</span></li>
+      <li><span class="step">3</span><b>Compiled to WebAssembly</b><span>with threads, via Emscripten</span></li>
+      <li><span class="step">4</span><b>Host runtime on SDL3</b><span>Windows API, files, input, audio</span></li>
+      <li><span class="step">5</span><b>WebGL 2 renderer</b><span>draws the 3D scene on your GPU</span></li>
+    </ol>
+  </div>
+</section>
+
+<section id="faq" class="block">
+  <header class="block-head"><h2>Questions</h2></header>
+  <div class="faq">
+    <details><summary>The keys do nothing, or the page scrolls.</summary><p>Click the game once: keys only go to it while it has focus. If the picture shows "Click to take control", click it. Press <kbd>?</kbd> for the key list.</p></details>
+    <details><summary>Esc leaves fullscreen instead of opening the game's menu.</summary><p>Chrome and Edge let the game keep <kbd>Esc</kbd> in fullscreen. Other browsers reserve it: use the toolbar's <b>Menu</b> button, which sends <kbd>Esc</kbd> to the game.</p></details>
+    <details><summary>Is my progress saved?</summary><p>Yes. The game autosaves each time you enter a new level, and the page keeps that save in your browser's storage on this site. It is not uploaded anywhere. Clearing site data removes it.</p></details>
+    <details><summary>Why is there no music, or no voice?</summary><p>The demo contains only a slice of the game's data. The original played music from the CD's audio tracks, which are not part of the demo. Check that the speaker button is not muted and that the browser tab is not muted.</p></details>
+    <details><summary>Why is the picture 4:3 with black bars?</summary><p>The game renders at 640 &times; 480. The page keeps that shape instead of stretching it. <b>Pixel-perfect</b> in the toolbar uses whole-number sizes with sharp pixels; the default fills the space smoothly. Inside the picture, the game's own cinematic bars are part of the design.</p></details>
+    <details><summary>Which browsers work?</summary><p>A recent Chrome, Edge or Firefox on a desktop or laptop, with hardware acceleration on. It needs WebGL 2, WebAssembly threads (a cross-origin isolated page) and enough memory for the demo data. Phones and tablets without a keyboard cannot play it.</p></details>
+    <details><summary>It says the page is not cross-origin isolated.</summary><p>The game uses threads, which browsers allow only on pages served with two security headers. A correctly deployed copy of this page sends them. If you are running a copy yourself, <code>recomp/web/package.py</code> writes the headers file for Cloudflare Pages and <code>serve.py</code> serves it locally.</p></details>
+    <details><summary>The game stops or crashes.</summary><p>Reload; your autosave is kept. If it repeats, open the page with <code>?debug</code> to see the log, and use "Copy technical details" in the error box when reporting it.</p></details>
+    <details><summary>Can I remove the downloaded data and my save?</summary>
+      <p>Your browser's site-data settings can do it, or use the button here. It deletes the cached demo data and the saved game, then reloads.</p>
+      <p><button id="clear-data" type="button" class="btn">Delete cached data and my save</button></p></details>
+    <details><summary>Is this official?</summary><p>No. It is a fan preservation project. See below for credits and the legal note.</p></details>
+  </div>
+</section>
+
+</div><!-- .wrap -->
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <h2>Credits</h2>
+        <p><b>Dreams to Reality</b> &copy; 1997 Cryo Interactive. Game design, art, music and code by its original authors; this port adds none of that.</p>
+        <p>Port: static recompilation, host runtime and renderer by the people behind this repository. Built with Emscripten, SDL3 and sokol_gfx; the lifter is <code>pcrecomp</code> (sp00nznet).</p>
+      </div>
+      <div>
+        <h2>Legal</h2>
+        <p>Dreams to Reality, Cryo and all related names, characters and artwork are trademarks or copyrights of their respective owners. This is an unofficial, non-commercial project and is not affiliated with, endorsed or sponsored by any of them.</p>
+        <p>The game's data in the demo is the property of its rights holders. The person who deploys this page is responsible for having the right to distribute it; if you are a rights holder with a concern, contact the site's owner.</p>
+      </div>
+      <div>
+        <h2>On this page</h2>
+        <p>No tracking, no cookies, no third-party requests. The demo data and your save stay in your browser.</p>
+        <p><a href="#player">Back to the game</a></p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- config.js (written by package.py) may set DREAMS_DEMO_BASE, DREAMS_ENGINE_BASE, DREAMS_POSTER and DREAMS_SHOTS -->
+<script src="config.js"></script>
+<script src="loader.js"></script>
+<script src="site/ui.js"></script>
+</body>
+</html>

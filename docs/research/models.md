@@ -82,15 +82,24 @@ which are exactly `+0x90` and `+0x94` of this header.
 ## World transforms
 
 ```
-R_world = (R_parent @ R_child) >> 15
-T_world = ((R_parent @ T_child) >> 15) + T_parent
+R_composed = (R_parent @ R_local) >> 15
+T_composed = trunc_toward_zero((R_parent @ T_local) / 32768) + T_parent
 ```
 
-Order and rounding both come from `WINDREAM.EXE` — the multiply in
-`MATH_MulMat3` (`0x45b86c`) and the parent add in `REND_DrawObject` (`0x47e498`). The shift is `sar 0xf`:
-sum the three products, then **one** arithmetic shift, with no `+0x4000` bias.
-Python's `>>` on ints floors, which is what `sar` does, so it transcribes
-directly.
+The two rounding operations are different in `WINDREAM.EXE`. Rotation
+composition in `MATH_MulMat3` (`0x45b86c`) sums 32-bit integer products, then
+uses **one** `sar 0xf`, with no `+0x4000` bias. Translation composition in
+`REND_DrawObject` (`0x47e498`) and the retained `Update_Obj_` (`0x47e634`)
+uses x87 products and the double scale `1/32768`, calls `__CHP` (`0x45943e`)
+to truncate toward zero, stores the integer and only then adds the parent's
+translation. For example, `-0.2183` becomes `0` here, while `>> 15` floors a
+corresponding negative integer numerator to `-1`.
+
+The camera's inverse translation is a separate operation: it negates the
+floor-shifted product. Do not apply the render helper's truncation rule to it.
+In the game the hierarchy root is the camera, so the composed fields are in
+camera space. The Python inspection helper in `dreams.formats.node` still uses
+floor shifts for translation; it is not a byte-exact oracle for retail feedback.
 
 Composition walks **parent** links. Both directions are present, but the
 forward links are sparse in these files while the parent link resolves for

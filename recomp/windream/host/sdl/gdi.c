@@ -174,7 +174,13 @@ static void present_hook(const Dib* d) {
         last = SDL_GetTicksNS();
     }
     g_presents++;
-    if (g_presents == 1) fprintf(stderr, "[gdi] first present at %u ms\n", host_elapsed_ms());
+    if (g_presents == 1) {
+        fprintf(stderr, "[gdi] first present at %u ms\n", host_elapsed_ms());
+        wd_web_status("running", "first frame");
+    }
+#ifdef __EMSCRIPTEN__
+    if (g_presents % 100 == 0) fprintf(stderr, "[gdi] %u presents at %u ms\n", g_presents, host_elapsed_ms());
+#endif
     for (int i = 0; i < nsnaps; i++) if (snaps[i] == g_presents) snap(d, NULL);
     if (every && host_elapsed_ms() >= next) { snap(d, NULL); next = host_elapsed_ms() + every; }
     { const char* shot = wd_devtools_frame(d->w, d->h); if (shot) snap(d, shot); }

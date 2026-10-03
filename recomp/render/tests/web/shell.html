@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ODRender WebGL2 check</title>
+<style>body{margin:0;background:#222;color:#ddd;font:12px monospace}canvas{display:block}pre{margin:4px}</style></head>
+<body>
+<canvas id="canvas" width="640" height="480" tabindex="0"></canvas>
+<pre id="log"></pre>
+<script>
+var logEl = document.getElementById('log');
+window.odResult = null;
+var Module = {
+  canvas: document.getElementById('canvas'),
+  print: function (t) { console.log(t); logEl.textContent += t + "\n"; },
+  printErr: function (t) { console.log('ERR ' + t); logEl.textContent += 'ERR ' + t + "\n"; },
+  onFrameDone: function (code, text) { window.odResult = {kind: 'frame', code: code, text: text}; console.log('FRAME_DONE ' + code + ' ' + text); },
+  onGpuTestsDone: function (code, text) { window.odResult = {kind: 'tests', code: code, text: text}; console.log('GPU_TESTS_DONE ' + code + ' ' + text); },
+};
+</script>
+{{{ SCRIPT }}}
+</body></html>

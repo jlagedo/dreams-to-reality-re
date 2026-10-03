@@ -540,6 +540,36 @@ static void cmd_screenshot(const Request* r) {
     if (g_paused) { g_step_left = 1; g_paused = 0; }   /* nothing is presented while paused: step one frame for it */
 }
 
+/* Render parity captures (recomp/windream/verify/render_parity.py): the scene
+ * inputs of the next display 3D frame as a .wds file, and the guest's committed
+ * memory: "WDM2", the render root of the last scene capture, then runs of
+ * { va, bytes, data }. Both are written by the guest thread. A paused memory
+ * dump describes state at that command, not the earlier scene-capture instant;
+ * it excludes host palettes/fog and GPU resources. The parity client arms the
+ * scene while paused and screenshots one present before dumping memory. */
+static void cmd_scene_capture(const Request* r) {
+    const char* path = arg_text(r, "path");
+    if (!path || !path[0]) { reply_error(r->connection, r->id, "scene_capture needs \"path\""); return; }
+    if (!wd_render_requested()) { reply_error(r->connection, r->id, "scene_capture needs the direct renderer"); return; }
+    wd_render_scene_capture_next(path);
+    reply_ok(r->connection, r->id);
+}
+static void cmd_memory_dump(const Request* r) {
+    const char* path = arg_text(r, "path");
+    if (!path || !path[0]) { reply_error(r->connection, r->id, "memory_dump needs \"path\""); return; }
+    uint32_t runs = 0, total = 0;
+    if (!vm_write_image(path, wd_render_scene_capture_root(), &runs, &total)) {
+        reply_error(r->connection, r->id, "writing the dump failed");
+        return;
+    }
+    JsonOut o;
+    reply_begin(&o, r->id);
+    jo_int(&o, "runs", runs);
+    jo_int(&o, "bytes", total);
+    jo_int(&o, "scene_pending", wd_render_scene_capture_pending());
+    reply_end(&o, r->connection);
+}
+
 static void cmd_step(const Request* r) {
     uint32_t frames = 1;
     if (arg_u32(r, "frames", &frames) < 0) return;
@@ -630,6 +660,8 @@ static void run_command(const Request* r, const char* cmd) {
     else if (!strcmp(cmd, "pause")) { g_paused = 1; g_step_left = 0; reply_ok(r->connection, r->id); }
     else if (!strcmp(cmd, "resume")) { g_paused = 0; g_step_left = 0; reply_ok(r->connection, r->id); }
     else if (!strcmp(cmd, "step")) cmd_step(r);
+    else if (!strcmp(cmd, "scene_capture")) cmd_scene_capture(r);
+    else if (!strcmp(cmd, "memory_dump")) cmd_memory_dump(r);
     else if (!strcmp(cmd, "log")) cmd_log(r);
     else if (!strcmp(cmd, "audio_dump")) cmd_audio_dump(r);
     else if (!strcmp(cmd, "audio_dump_stop")) cmd_audio_dump_stop(r);

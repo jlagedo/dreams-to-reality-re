@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef __EMSCRIPTEN__
+void wd_web_status(const char* kind, const char* text);
+#endif
 static wd_render_fatal_hook report_hook, notify_hook;
 
 void wd_render_fatal_hooks(wd_render_fatal_hook report, wd_render_fatal_hook notify) {
@@ -31,6 +34,9 @@ void wd_render_fatal(const char *message) {
         if (notify_hook)
             notify_hook(message);
     }
+#ifdef __EMSCRIPTEN__
+    wd_web_status("fatal", message);
+#endif
     abort();
 }
 void wd_render_fatalf(const char *format, ...) {

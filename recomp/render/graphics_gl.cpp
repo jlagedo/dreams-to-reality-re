@@ -1,73 +1,82 @@
 #include "render/graphics_backend.h"
 
 #include <cstdint>
+#include <cstring>
 #include <new>
 #include <vector>
+
+#ifdef __EMSCRIPTEN__
+#include <GLES3/gl3.h>
+#include <emscripten/html5_webgl.h>
+#endif
 
 namespace od {
 namespace {
 
+// The few GL entry points the readbacks (capture, read_image) call. Everything
+// else goes through sokol_gfx, which owns the context's state. WebGL2 (GLES3)
+// links them directly; desktop GL gets them from the context, which is how a
+// loader would, because only GL 1.1 symbols are exported by the system library.
+// The names and values are the OpenGL 3.0 / GLES 3.0 ones.
+struct GLApi {
+    using Enum = unsigned int;
+    using Uint = unsigned int;
+    using Int = int;
+    using Sizei = int;
+    void (*GenFramebuffers)(Sizei, Uint*) = nullptr;
+    void (*DeleteFramebuffers)(Sizei, const Uint*) = nullptr;
+    void (*BindFramebuffer)(Enum, Uint) = nullptr;
+    void (*FramebufferTexture2D)(Enum, Enum, Enum, Uint, Int) = nullptr;
+    Enum (*CheckFramebufferStatus)(Enum) = nullptr;
+    void (*ReadBuffer)(Enum) = nullptr;
+    void (*ReadPixels)(Int, Int, Sizei, Sizei, Enum, Enum, void*) = nullptr;
+    void (*GetIntegerv)(Enum, Int*) = nullptr;
+    void (*PixelStorei)(Enum, Int) = nullptr;
+    Enum (*GetError)() = nullptr;
+    bool loaded = false;
+
+    static constexpr Enum FRAMEBUFFER = 0x8D40, READ_FRAMEBUFFER = 0x8CA8,
+                          COLOR_ATTACHMENT0 = 0x8CE0, FRAMEBUFFER_COMPLETE = 0x8CD5,
+                          FRAMEBUFFER_BINDING = 0x8CA6, READ_FRAMEBUFFER_BINDING = 0x8CAA,
+                          READ_BUFFER = 0x0C02, BACK = 0x0405, TEXTURE_2D = 0x0DE1,
+                          RGBA = 0x1908, UNSIGNED_BYTE = 0x1401, PACK_ALIGNMENT = 0x0D05,
+                          NO_ERROR_ = 0;
+
+    bool load() {
+        if (loaded) return true;
+#ifdef __EMSCRIPTEN__
+        GenFramebuffers = glGenFramebuffers;
+        DeleteFramebuffers = glDeleteFramebuffers;
+        BindFramebuffer = glBindFramebuffer;
+        FramebufferTexture2D = glFramebufferTexture2D;
+        CheckFramebufferStatus = glCheckFramebufferStatus;
+        ReadBuffer = glReadBuffer;
+        ReadPixels = glReadPixels;
+        GetIntegerv = glGetIntegerv;
+        PixelStorei = glPixelStorei;
+        GetError = glGetError;
+#else
+#define OD_GL(name)                                                                  \
+    name = reinterpret_cast<decltype(name)>(SDL_GL_GetProcAddress("gl" #name));      \
+    if (!name) return false;
+        OD_GL(GenFramebuffers) OD_GL(DeleteFramebuffers) OD_GL(BindFramebuffer)
+        OD_GL(FramebufferTexture2D) OD_GL(CheckFramebufferStatus) OD_GL(ReadBuffer)
+        OD_GL(ReadPixels) OD_GL(GetIntegerv) OD_GL(PixelStorei) OD_GL(GetError)
+#undef OD_GL
+#endif
+        loaded = true;
+        return true;
+    }
+};
+
 struct GLState {
     SDL_Window* window = nullptr;
     SDL_GLContext context = nullptr;
+    GLApi gl;
 };
-
-// The few GL calls the readbacks need, resolved through SDL at first use so no
-// GL header or loader is involved (sokol loads its own). The names and values
-// are the OpenGL 3.0 core ones; the context is 4.1 core (configure_window).
-using GLenum = unsigned int;
-using GLuint = unsigned int;
-using GLint = int;
-using GLsizei = int;
-constexpr GLenum kReadFramebuffer = 0x8CA8;
-constexpr GLenum kReadFramebufferBinding = 0x8CAA;
-constexpr GLenum kColorAttachment0 = 0x8CE0;
-constexpr GLenum kFramebufferComplete = 0x8CD5;
-constexpr GLenum kTexture2D = 0x0DE1;
-constexpr GLenum kRGBA = 0x1908;
-constexpr GLenum kUnsignedByte = 0x1401;
-constexpr GLenum kPackAlignment = 0x0D05;
-constexpr GLenum kBack = 0x0405;
-constexpr GLenum kReadBuffer = 0x0C02;
-
-struct GLReadback {
-    void (*genFramebuffers)(GLsizei, GLuint*) = nullptr;
-    void (*deleteFramebuffers)(GLsizei, const GLuint*) = nullptr;
-    void (*bindFramebuffer)(GLenum, GLuint) = nullptr;
-    void (*framebufferTexture2D)(GLenum, GLenum, GLenum, GLuint, GLint) = nullptr;
-    GLenum (*checkFramebufferStatus)(GLenum) = nullptr;
-    void (*readBuffer)(GLenum) = nullptr;
-    void (*readPixels)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void*) = nullptr;
-    void (*pixelStorei)(GLenum, GLint) = nullptr;
-    void (*getIntegerv)(GLenum, GLint*) = nullptr;
-    GLenum (*getError)() = nullptr;
-    bool loaded = false;
-
-    template <typename F>
-    static bool load(F& slot, const char* name) {
-        slot = reinterpret_cast<F>(SDL_GL_GetProcAddress(name));
-        return slot != nullptr;
-    }
-
-    bool ensure(std::string& error) {
-        if (loaded) return true;
-        loaded = load(genFramebuffers, "glGenFramebuffers") &&
-                 load(deleteFramebuffers, "glDeleteFramebuffers") &&
-                 load(bindFramebuffer, "glBindFramebuffer") &&
-                 load(framebufferTexture2D, "glFramebufferTexture2D") &&
-                 load(checkFramebufferStatus, "glCheckFramebufferStatus") &&
-                 load(readBuffer, "glReadBuffer") && load(readPixels, "glReadPixels") &&
-                 load(pixelStorei, "glPixelStorei") && load(getIntegerv, "glGetIntegerv") &&
-                 load(getError, "glGetError");
-        if (!loaded) error = "OpenGL readback entry points are missing";
-        return loaded;
-    }
-};
-
-GLReadback g_gl;
 
 // GL stores a framebuffer bottom row first; the D3D11 backend hands out rows
-// top first, so every readback is reversed into that order.
+// top first, so a framebuffer readback is reversed into that order.
 void flip_rows(std::vector<uint8_t>& rgba, int width, int height) {
     const size_t pitch = size_t(width) * 4;
     std::vector<uint8_t> row(pitch);
@@ -86,6 +95,8 @@ SDL_WindowFlags GraphicsBackend::window_flags() { return SDL_WINDOW_OPENGL; }
 
 bool GraphicsBackend::configure_window(std::string& error) {
 #ifdef __EMSCRIPTEN__
+    // WebGL2 is GLES 3.0. The page's canvas has no depth or stencil: the
+    // renderer draws into its own targets and only blits colour to the canvas.
     const int profile = SDL_GL_CONTEXT_PROFILE_ES;
     const int major = 3;
     const int minor = 0;
@@ -135,6 +146,16 @@ sg_environment GraphicsBackend::environment() const {
 }
 
 FrameState GraphicsBackend::acquire(SDL_Window* window, sg_swapchain& out, std::string& error) {
+#ifdef __EMSCRIPTEN__
+    // A WebGL context can be lost at any time (GPU reset, the browser
+    // reclaiming it). sokol_gfx cannot rebuild its resources in place, so this
+    // is a fatal, reported failure instead of a silent black canvas; the page
+    // decides whether to reload.
+    if (emscripten_is_webgl_context_lost(emscripten_webgl_get_current_context())) {
+        error = "the WebGL context was lost";
+        return FrameState::failed;
+    }
+#endif
     int width = 0;
     int height = 0;
     if (!SDL_GetWindowSizeInPixels(window, &width, &height)) {
@@ -152,32 +173,38 @@ FrameState GraphicsBackend::acquire(SDL_Window* window, sg_swapchain& out, std::
 }
 
 // The frame is complete and not yet presented (wd_render_capture runs while a
-// present is pending), so the back buffer holds it.
+// present is pending), so the back buffer holds it. The browser build takes
+// its frames in host/web/web_glue.c instead, before the canvas is handed over.
 bool GraphicsBackend::capture(const std::string& png_path, std::string& error) {
     auto* state = static_cast<GLState*>(state_);
-    if (!state || !g_gl.ensure(error)) return false;
+    if (!state) return false;
+    if (!state->gl.load()) {
+        error = "OpenGL readback entry points are missing";
+        return false;
+    }
+    GLApi& gl = state->gl;
     int width = 0;
     int height = 0;
     if (!SDL_GetWindowSizeInPixels(state->window, &width, &height) || width < 1 || height < 1) {
         error = std::string("OpenGL frame capture has no drawable: ") + SDL_GetError();
         return false;
     }
-    GLint read_fbo = 0;
-    GLint read_buffer = 0;
-    g_gl.getIntegerv(kReadFramebufferBinding, &read_fbo);
-    g_gl.getIntegerv(kReadBuffer, &read_buffer);
-    g_gl.bindFramebuffer(kReadFramebuffer, 0);
-    g_gl.readBuffer(kBack);
-    g_gl.pixelStorei(kPackAlignment, 1);
-    while (g_gl.getError() != 0) {
+    GLApi::Int read_fbo = 0;
+    GLApi::Int read_buffer = 0;
+    gl.GetIntegerv(GLApi::READ_FRAMEBUFFER_BINDING, &read_fbo);
+    gl.GetIntegerv(GLApi::READ_BUFFER, &read_buffer);
+    gl.BindFramebuffer(GLApi::READ_FRAMEBUFFER, 0);
+    gl.ReadBuffer(GLApi::BACK);
+    gl.PixelStorei(GLApi::PACK_ALIGNMENT, 1);
+    while (gl.GetError() != GLApi::NO_ERROR_) {
     }
     std::vector<uint8_t> rgba(size_t(width) * height * 4u);
-    g_gl.readPixels(0, 0, width, height, kRGBA, kUnsignedByte, rgba.data());
-    const GLenum status = g_gl.getError();
-    g_gl.bindFramebuffer(kReadFramebuffer, GLuint(read_fbo));
-    if (read_fbo != 0) g_gl.readBuffer(GLenum(read_buffer));
+    gl.ReadPixels(0, 0, width, height, GLApi::RGBA, GLApi::UNSIGNED_BYTE, rgba.data());
+    const GLApi::Enum status = gl.GetError();
+    gl.BindFramebuffer(GLApi::READ_FRAMEBUFFER, GLApi::Uint(read_fbo));
+    if (read_fbo != 0) gl.ReadBuffer(GLApi::Enum(read_buffer));
     sg_reset_state_cache();
-    if (status != 0) {
+    if (status != GLApi::NO_ERROR_) {
         error = "OpenGL frame capture failed: glReadPixels error " + std::to_string(status);
         return false;
     }
@@ -205,9 +232,14 @@ bool GraphicsBackend::present(std::string& error) {
     return true;
 }
 
-// A sokol render-target texture, read through a framebuffer of its own. The
-// renderer draws into GL textures bottom row first and flips when it samples
-// them (direct.glsl operation.w), so the rows are reversed here as in capture.
+// Explicit CPU export of an RGBA8 image region, as the D3D11 backend does it:
+// rgba[row * width + col] is R | G << 8 | B << 16 | A << 24 and row 0 is the
+// logical top. Textures made from uploads are stored top row first. The
+// renderer's own targets are drawn with GL's origin at the bottom (the shaders
+// flip the sampling to compensate, `flip` in direct.cpp), so their rows are
+// turned over here and callers see the same orientation as on D3D11.
+// ReadPixels waits for the GPU; WebGL2 has no other synchronous download, so
+// this is for tests, thumbnails and captures, never for a frame.
 bool GraphicsBackend::read_image(sg_image image, int x, int y, int width, int height,
                                  std::vector<uint32_t>& rgba, std::string& error) {
     auto* state = static_cast<GLState*>(state_);
@@ -216,53 +248,55 @@ bool GraphicsBackend::read_image(sg_image image, int x, int y, int width, int he
         error = "invalid GPU export request";
         return false;
     }
-    const sg_image_desc desc = sg_query_image_desc(image);
-    if (desc.pixel_format != SG_PIXELFORMAT_RGBA8 || desc.sample_count != 1 ||
-        x + width > desc.width || y + height > desc.height) {
+    const int image_width = sg_query_image_width(image);
+    const int image_height = sg_query_image_height(image);
+    if (sg_query_image_pixelformat(image) != SG_PIXELFORMAT_RGBA8 ||
+        sg_query_image_sample_count(image) != 1 || uint64_t(x) + width > uint64_t(image_width) ||
+        uint64_t(y) + height > uint64_t(image_height)) {
         error = "GPU export requires an in-bounds single-sample RGBA8 region";
         return false;
     }
-    const sg_gl_image_info info = sg_gl_query_image_info(image);
-    const GLuint texture = info.tex[info.active_slot];
-    if (!texture || info.tex_target != kTexture2D) {
-        error = "GPU export needs a 2D OpenGL texture";
+    if (!state->gl.load()) {
+        error = "OpenGL framebuffer functions are unavailable for GPU export";
         return false;
     }
-    if (!g_gl.ensure(error)) return false;
-    GLint read_fbo = 0;
-    g_gl.getIntegerv(kReadFramebufferBinding, &read_fbo);
-    GLuint fbo = 0;
-    g_gl.genFramebuffers(1, &fbo);
-    g_gl.bindFramebuffer(kReadFramebuffer, fbo);
-    g_gl.framebufferTexture2D(kReadFramebuffer, kColorAttachment0, kTexture2D, texture, 0);
-    bool ok = g_gl.checkFramebufferStatus(kReadFramebuffer) == kFramebufferComplete;
-    std::vector<uint8_t> bytes;
-    if (ok) {
-        g_gl.readBuffer(kColorAttachment0);
-        g_gl.pixelStorei(kPackAlignment, 1);
-        while (g_gl.getError() != 0) {
-        }
-        bytes.resize(size_t(width) * height * 4u);
-        // Rows are reversed below, so the region is read from the matching
-        // bottom-up position.
-        const int gl_y = desc.height - (y + height);
-        g_gl.readPixels(x, gl_y, width, height, kRGBA, kUnsignedByte, bytes.data());
-        ok = g_gl.getError() == 0;
-        if (!ok) error = "OpenGL image export failed: glReadPixels";
-    } else {
-        error = "OpenGL image export: the texture does not attach to a framebuffer";
+    GLApi& gl = state->gl;
+    const sg_gl_image_info info = sg_gl_query_image_info(image);
+    const GLApi::Uint texture = info.tex[info.active_slot];
+    if (!texture || info.tex_target != GLApi::TEXTURE_2D) {
+        error = "GPU export requires a 2D texture";
+        return false;
     }
-    g_gl.bindFramebuffer(kReadFramebuffer, GLuint(read_fbo));
-    g_gl.deleteFramebuffers(1, &fbo);
+    const bool target_rows_flipped = sg_query_image_usage(image).color_attachment;
+    const int first_row = target_rows_flipped ? image_height - y - height : y;
+    GLApi::Int previous = 0;
+    gl.GetIntegerv(GLApi::FRAMEBUFFER_BINDING, &previous);
+    GLApi::Uint framebuffer = 0;
+    gl.GenFramebuffers(1, &framebuffer);
+    gl.BindFramebuffer(GLApi::FRAMEBUFFER, framebuffer);
+    gl.FramebufferTexture2D(GLApi::FRAMEBUFFER, GLApi::COLOR_ATTACHMENT0, GLApi::TEXTURE_2D,
+                            texture, 0);
+    bool ok = gl.CheckFramebufferStatus(GLApi::FRAMEBUFFER) == GLApi::FRAMEBUFFER_COMPLETE;
+    std::vector<uint32_t> rows;
+    if (ok) {
+        rows.resize(size_t(width) * height);
+        gl.PixelStorei(GLApi::PACK_ALIGNMENT, 4);
+        gl.ReadPixels(x, first_row, width, height, GLApi::RGBA, GLApi::UNSIGNED_BYTE, rows.data());
+        ok = gl.GetError() == GLApi::NO_ERROR_;
+    }
+    gl.BindFramebuffer(GLApi::FRAMEBUFFER, GLApi::Uint(previous));
+    gl.DeleteFramebuffers(1, &framebuffer);
     sg_reset_state_cache();
-    if (!ok) return false;
+    if (!ok) {
+        error = "GPU export readback failed";
+        return false;
+    }
     ++downloads_;
-    flip_rows(bytes, width, height);
     rgba.resize(size_t(width) * height);
-    for (size_t i = 0; i < rgba.size(); ++i) {
-        const uint8_t* p = bytes.data() + i * 4;
-        rgba[i] = uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 |
-                  uint32_t(p[3]) << 24;
+    for (int row = 0; row < height; ++row) {
+        const int source_row = target_rows_flipped ? height - 1 - row : row;
+        std::memcpy(rgba.data() + size_t(row) * width, rows.data() + size_t(source_row) * width,
+                    size_t(width) * sizeof(uint32_t));
     }
     return true;
 }

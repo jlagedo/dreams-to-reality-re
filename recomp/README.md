@@ -447,6 +447,212 @@ with nav.wdctl.start_game(tag="play", headless=True) as game:
 `AGENTS.md`, "Checking a change in the running game", maps each need to its
 tool and test file.
 
+## Browser build
+
+The game also runs in a browser: the lifted C and the host runtime built for
+WebAssembly (Emscripten, pthreads), the renderer on WebGL 2, and a small web
+shell that fetches a demo pack of game data and starts the game. No disc is
+needed; the pack is a few files assembled by the demo stream
+(`recomp/web/demo/`). Contract between the pieces: `recomp/web/CONTRACT.md`;
+what the shell expects of the engine build: `recomp/web/NOTES-page.md`.
+
+```powershell
+. ./recomp/web-env.ps1                           # Emscripten, CMake, Ninja (see "Browser tool environment")
+# engine: out/recomp/windream/build-web/dreams.{js,wasm}   (WASM stream)
+# pack:   out/recomp/web/demo/manifest.json + chunks       (DEMO stream)
+python recomp/web/package.py                     # -> out/recomp/web/dist (page, engine, pack, _headers)
+python recomp/web/serve.py                       # http://127.0.0.1:8765/ with the same headers as Pages
+```
+
+The page starts the download as soon as it loads and shows its progress; the
+click on "Click to play" unlocks audio and starts the game (`?autostart` skips
+the click). The shell is `recomp/web/index.html` and `loader.js`, with no
+framework and no build step. It checks cross-origin isolation and says what is
+missing when `SharedArrayBuffer` is not available; fetches `manifest.json`
+(`?demo=<manifest or base url>`, else `window.DREAMS_DEMO_BASE`, else `demo/`),
+downloads the chunks four at a time, checks each file's sha256 and keeps it in
+the Cache API keyed by the manifest, so a reload starts without a download. In
+`preRun` it writes the files under `/dreams`, sets `WD_INSTALL_ROOT`, mounts
+IDBFS at `/dreams/DATA/GAME` for saves and syncs it every 5 seconds and on
+`pagehide`. Game keys are not passed on to the browser (no scrolling, no menu
+bar on Alt); the HUD has mute and fullscreen (the page asks for Keyboard Lock
+so that Esc, the game's menu key, does not leave fullscreen). `?debug` shows
+the log; `window.dreamsPage` holds the state.
+
+The page's look, copy, controls overlay and in-game key handling (`site/style.css`, `site/ui.js`) are described in `recomp/web/NOTES-design.md`.
+
+### Deploy on Cloudflare Pages
+
+```sh
+wrangler pages deploy out/recomp/web/dist --project-name <name>
+```
+
+`package.py` writes the `_headers` file Pages needs:
+
+| Path | Headers |
+|---|---|
+| everything | `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp` (threads need both), `Cross-Origin-Resource-Policy: same-origin` |
+| `/`, `index.html`, `loader.js`, `config.js` | `Cache-Control: no-cache` |
+| `dreams.js`, `dreams.wasm` | `max-age=0, must-revalidate`; `Content-Type: application/wasm` for the wasm |
+| `demo/*` | `max-age=31536000, immutable` (the page requests `<chunk>?v=<manifest hash>`, so a new pack has new URLs); `demo/manifest.json` is `no-cache` |
+
+Pages rejects any file over 25 MiB and more than 20000 files; `package.py`
+warns for both. The demo chunks are at most 20 MiB each. Pages adds the headers
+of all matching rules, which is why Cache-Control is only set in specific rules
+and detached (`! Cache-Control`) for the manifest. `serve.py` reads the same
+`_headers` file, so what it serves is what Pages will send; it also supports
+Range, `--gzip`, and `--cors` (to play an asset host, see below).
+
+### Pack on R2 (or any other host)
+
+If the pack is too big for Pages or should be shared between deploys, leave it
+out of the folder and point the page at the bucket:
+
+```sh
+python recomp/web/package.py --demo-url https://pack.example.com/dreams-demo/
+wrangler pages deploy out/recomp/web/dist
+# upload out/recomp/web/demo/* to that URL, for example with rclone, or per file:
+wrangler r2 object put <bucket>/dreams-demo/manifest.json --file out/recomp/web/demo/manifest.json
+```
+
+The page is cross-origin isolated (COEP `require-corp`), so the bucket must let
+it read the assets: put a CORS rule on the bucket allowing `GET` from the page's
+origin (`Access-Control-Allow-Origin: https://<your pages domain>`, or `*`),
+and, for assets that are embedded rather than fetched, serve
+`Cross-Origin-Resource-Policy: cross-origin`. The loader fetches in CORS mode,
+so the CORS header is what matters; give the bucket's custom domain a cache
+rule for long caching of the chunks and no caching of `manifest.json`. The
+engine itself (`dreams.js`, `dreams.wasm`, workers) stays on the page's origin:
+workers must load from it. `serve.py out/recomp/web/demo --port 8766 --cors`
+plays the bucket locally: open
+`http://127.0.0.1:8765/?demo=http://127.0.0.1:8766/manifest.json`.
+
+The owner who deploys a pack is responsible for having the right to
+redistribute the game data in it: the repository ships none, and `out/` is
+never committed.
+
+### Checking the shell
+
+```sh
+uv run --with playwright python -m playwright install chromium     # once
+uv run --with playwright python recomp/web/browser_check.py            # real build if built, else the mock
+uv run --with playwright python recomp/web/browser_check.py --real --run-seconds 20
+uv run --with playwright pytest tests/recomp/test_web_page.py          # skips without Playwright, a browser or the mock
+python recomp/web/mock/build_mock.py                                   # mock engine (emcc) and fake pack, under out/recomp/web/mock
+```
+
+`browser_check.py` packages, serves and opens the page in headless Chromium and
+checks: cross-origin isolation, progress and sha256 verification, the files in
+`/dreams`, the game starting, a pthread running (mock), keys not reaching the
+browser, mute, saves surviving a reload (IDBFS), the cache serving a reload
+without requests, a damaged chunk and a missing COOP/COEP being reported
+clearly, and a pack on another origin. The mock (`recomp/web/mock/`) is a
+real Emscripten module that lists `/dreams` on the canvas; screenshots go to
+`out/recomp/web/check/`.
+
+### Render parity with the Windows build
+
+`recomp/windream/verify/render_parity.py` compares the browser's 3D frame with
+the Windows build's from the same guest state, without anyone playing:
+
+```sh
+uv run --with playwright --with pillow python recomp/windream/verify/render_parity.py all
+uv run python recomp/windream/verify/render_parity.py capture --projects 0,62 --shots 4
+uv run --with playwright --with pillow pytest tests/recomp/test_render_parity.py
+```
+
+- **capture** (Windows build, needs the discs): starts the game in each demo
+  project and, at paused frames, writes through the control channel the scene
+  inputs the renderer was about to draw (`scene_capture`, a `.wds` file), the
+  guest's committed memory (`memory_dump`, a `.wdmi` file) and a screenshot.
+  It pauses before arming the scene request, then uses a screenshot request to
+  advance one presentation. The scene and PNG share that presentation; memory
+  is dumped afterward while paused. A `.capture.json` records the frame, render
+  root, file hashes and capturing executable. Missing requested shots fail the
+  capture command rather than producing a successful partial corpus.
+- **build**: `verify/native/render_parity.cpp`, the production scene adapter
+  and renderer behind `od::GraphicsBackend`, for Windows (D3D11) and for the
+  browser (WebGL2).
+- **run**: every case on both, then two comparisons. Data: the adapter
+  captures the scene from the memory image on both hosts and the two snapshots
+  must be the same bytes (a 64-bit host against wasm32). Pixels: the 640x480
+  frames; a pixel fails beyond `--tolerance` (2), a case beyond `--budget`
+  (0.2% of the pixels). Failing or differing cases get an image in `report/`:
+  Windows, browser, difference.
+  Reports record the thresholds, input/output hashes, replay executable hashes
+  and source contents at comparison time. Existing cases without capture records
+  remain usable, with their capture provenance unknown. Browser execution errors
+  fail pytest; only explicit missing prerequisites or missing Chrome skip it.
+
+Everything is under `out/recomp/render-parity/` (game-derived). It covers the
+3D scene pass of a display frame. It does not cover the 2D interface, captions
+and movies, the shadow and thumbnail passes, or the lifted game code itself:
+a difference in what the game computes shows up as different inputs, which
+this test takes from Windows.
+The live scene also includes host-owned palettes and fog that a plain memory
+replay omits. Scene inputs precede submission/callback effects, and the memory
+dump follows presentation. Agreement between backends for either input kind
+does not establish agreement between those two inputs or with the saved PNG.
+
+### The browser's own frames
+
+`recomp/windream/verify/render_web_capture.py` takes frames from the browser
+build itself, with nobody playing: the demo pack with a `DREAMS.DAT` whose slot
+0 is the project (`bank_patch.Bank.copy`), packaged and served as for a deploy,
+the page with `?autostart` in Chrome on the GPU. After the level's autosave the
+page asks the engine for a frame (`Module._wd_web_capture()`, compiled in with
+CMake `WD_WEB_CAPTURE`, on by default): the scene inputs, the frame as
+presented and the committed guest memory, in render_parity's order.
+
+```sh
+uv run --with unicorn --with pillow --with playwright \
+    python recomp/windream/verify/render_web_capture.py all --project 46
+```
+
+`analyze` runs the pose sweep below on the browser's memory, compares the level
+with the Windows build's memory image of the same project node by node, and
+the live frame with its own scene inputs replayed on D3D11 and WebGL2 (inside
+the camera's viewport). Output: `out/recomp/web-capture/`.
+
+`spawns --count 16` starts both builds at spawn points spread over the level's
+floors (`Bank.set_spawn`, at the record's height over its floor), one browser
+session and one Windows run (control channel) each, and checks every pair.
+Its last step, also `same-camera` alone, sets the browser's camera in both
+memory images (the builds' cameras turn at their own pace) and compares what
+retail draws in each, face by face, and the two frames: a level face drawn by
+one build only, or a region dark in the browser and lit on Windows, is game
+state that differs. Faces of nodes whose transform differs between the two
+(actors at their own animation phase) are counted apart.
+
+### Camera-pose sweep against retail
+
+`recomp/windream/verify/render_pose_sweep.py` takes those memory images to
+camera poses nobody played: it writes a pose into the image, runs retail's
+`REND_DrawScene` on Unicorn and takes the faces retail draws (the visible lists
+after `REND_CullFaces`, plus `REND_ClipFaceNear`), and compares them with the
+faces the direct renderer keeps for the same memory (the native adapter, then
+its far flag, Glide's types, the near clip, the GPU back-face test and the
+viewport, on the CPU):
+
+```sh
+uv run --with unicorn --with pillow python recomp/windream/verify/render_pose_sweep.py \
+    out/recomp/render-parity/cases/p046-0.wdmi --poses 300
+uv run --with unicorn --with pillow --with playwright python recomp/windream/verify/render_pose_sweep.py \
+    out/recomp/render-parity/cases/p046-0.wdmi --poses 40 --browser 40
+uv run --with unicorn --with pillow pytest tests/recomp/test_render_pose_sweep.py
+```
+
+Poses stand over the level's horizontal faces that have a roof, at the
+captured camera's height, in eight directions and four pitches. A face retail
+draws that direct drops is reported with the stage that dropped it and its
+pixels in the 3D viewport; a pose fails at `--fail-pixels` (64). `--browser N`
+runs the first N posed images through the parity harness above (wasm32 scene
+bytes and WebGL2 pixels against Windows). Reports and images are under
+`out/recomp/pose-sweep/<image>/`. The adapter sees node transforms composed for
+the pose's camera; a live capture that reads the previous frame's is not
+modelled. It compares which faces are drawn, not their colours: a surface drawn
+black (palette, shade, fog) passes.
+
 ## Layout
 
 | Path | What |
@@ -467,6 +673,7 @@ tool and test file.
 | `windream/host/hooks/` | `phys_hook.c` collision hooks |
 | `windream/verify/` | Renderer verification: retail-x86 oracles (`render_*_smoke.py`), live isolated runs (`render_*_live_smoke.py`, project and thumbnail smokes), `render_acceptance.py`, `render_content_inventory.py`, `direct_render_validate.py`, `test_render_codegen.py`, and the dump reader `mdmp.py`; and `kernel_bridge_smoke.py`, the retail-x86 oracle for the KERNEL32 bridges. The scripts import each other by name, so they share one directory; their C/C++ sources are in `native/` |
 | `windream/debug/` | Collision and dump tools: the collision invariant, Unicorn replay of one `PHYS_SweepAxis` call, `x86dis.py`, `flag_hunt.py` (unwritten debug flags, address-copy scan); `wdctl.py`, the client of the development control channel; `wd_mcp.py`, its MCP server |
+| `web/` | The browser build's web shell: `index.html`, `loader.js`, `package.py` (-> `out/recomp/web/dist` with the Cloudflare `_headers`), `serve.py`, `browser_check.py`, the mock engine in `mock/`; `demo/` builds the demo pack. See "Browser build" |
 | `windream/CMakeLists.txt`, `build.py`, `run.py` | Build (Ninja; clang-cl on Windows, gcc or clang elsewhere) and sandboxed run (scripted keys, snapshots, fps cap, window, pad and dump modes) |
 | `render/` | GPU renderer: `ODRender` (sokol_gfx core: `direct.*`, shadows, fog) and `ODGraphics` (SDL3 backends for D3D11, Metal, OpenGL); pinned dependencies and shader generation in `cmake/`; tests in `tests/` |
 | `difftest/` | `difftest.py` (compile with Watcom, bounds with Ghidra cached per source/flags/compiler, lift, build, run, diff), `wat.py`, the test programs `t_core.c` and `t_switch.c`, `gen_insn.py` (generates `t_insn.c` into the work root), `coverage.py`, `flagdiff.py`, `consumers.py`, `map2bounds.py` |

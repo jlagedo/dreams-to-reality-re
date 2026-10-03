@@ -338,13 +338,22 @@ void log_sokol(const char *, uint32_t level, uint32_t, const char *message, uint
 }
 } // namespace
 
+// The next display-size 3D frame writes its scene inputs to path (render parity
+// captures: recomp/windream/verify/render_parity.py). Guest thread only.
+static std::string capture_request;
+static uint32_t capture_root;
+void wd_render_scene_capture_next(const char *path) { capture_request = path ? path : ""; }
+int wd_render_scene_capture_pending(void) { return capture_request.empty() ? 0 : 1; }
+uint32_t wd_render_scene_capture_root(void) { return capture_root; } // of the last capture
+
 int wd_render_requested(void) {
     static int requested = -1;
     if (requested < 0) {
         const char *mode = std::getenv("WD_RENDERER");
         if (!mode || !*mode) {
-            // Unset: direct on Windows, software where the GPU path is untested.
-#ifdef _WIN32
+            // Unset: direct on Windows and in the browser (WebGL2), software
+            // elsewhere (the GPU path has not been run there).
+#if defined(_WIN32) || defined(__EMSCRIPTEN__)
             requested = 1;
 #else
             requested = 0;
@@ -833,6 +842,17 @@ void wd_render_scene(uint32_t root, uint32_t destination, int main_frame, uint32
         return;
     }
     resize(*surface);
+    if (!capture_request.empty() && !thumbnail && word(0x661ebc) >= 320) {
+        // Development control channel ("scene_capture"): the inputs of this
+        // display frame, as the renderer is about to draw them. Not only the
+        // main frame: during dialogue the game draws through its second entry
+        // (0x4593aa), whose root is not the dword at 0x661ee8.
+        require(wd::write_scene(scene, capture_request.c_str(), error), error);
+        capture_root = root;
+        std::fprintf(stderr, "[render-capture] scene inputs written to %s\n",
+                     capture_request.c_str());
+        capture_request.clear();
+    }
     const char *capture = std::getenv("WD_SCENE_CAPTURE");
     if (!state.captured_scene && main_frame && capture && *capture) {
         require(wd::write_scene(scene, capture, error), error);

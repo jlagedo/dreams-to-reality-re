@@ -86,6 +86,32 @@ uint32_t vm_state(uint32_t va, uint32_t* run_base, uint32_t* run_bytes) {
 
 void vm_dump(FILE* out) { vm_impl_dump(out); }
 
+int vm_write_image(const char* path, uint32_t root, uint32_t* runs_out, uint32_t* bytes_out) {
+    FILE* f = fopen(path, "wb");
+    if (!f) return 0;
+    uint32_t runs = 0, total = 0, va = 0x10000u;
+    int ok = fwrite("WDM2", 1, 4, f) == 4 && fwrite(&root, 4, 1, f) == 1;
+    while (ok && va < WD_ARENA_SIZE) {
+        uint32_t base = 0, bytes = 0;
+        uint32_t state = vm_state(va, &base, &bytes);
+        if (!bytes) break;
+        uint32_t end = base + bytes;
+        if (state == W32_MEM_COMMIT) {
+            uint32_t head[2] = { va, end - va };
+            ok = fwrite(head, sizeof head, 1, f) == 1 &&
+                 fwrite(wd_host_range(va, end - va, 0), 1, end - va, f) == end - va;
+            runs++;
+            total += end - va;
+        }
+        if (end <= va) break;
+        va = end;
+    }
+    ok = fclose(f) == 0 && ok;
+    if (runs_out) *runs_out = runs;
+    if (bytes_out) *bytes_out = total;
+    return ok;
+}
+
 /* ---- the guest's imports ---- */
 void imp_VirtualAlloc(void) { RET(vm_alloc(ARG(0), ARG(1), ARG(2), ARG(3))); STDRET(4); }
 void imp_VirtualFree(void)  { RET(vm_free(ARG(0), ARG(1), ARG(2))); STDRET(3); }

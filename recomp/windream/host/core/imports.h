@@ -47,7 +47,11 @@ static inline void* wd_host_range(uint32_t va, size_t bytes, int write) {
 #define WD_STACK_SIZE   0x00200000u
 #define WD_IMAGE_BASE   0x00400000u   /* WINDREAM.EXE                          */
 #define WD_HEAP_BASE    0x01000000u   /* VirtualAlloc / shim allocations       */
+#ifdef __EMSCRIPTEN__
+#define WD_HEAP_SIZE    0x18000000u   /* 384 MB: wasm32 memory is one buffer, the guest uses about 32 MB at the menu */
+#else
 #define WD_HEAP_SIZE    0x30000000u   /* 768 MB                                */
+#endif
 #define WD_ARENA_SIZE   (WD_HEAP_BASE + WD_HEAP_SIZE)
 
 /* runtime.c */
@@ -89,6 +93,10 @@ const char* vm_describe(uint32_t va);                 /* for crash reports */
  * A snapshot: another thread may change it afterwards. */
 uint32_t vm_state(uint32_t va, uint32_t* run_base, uint32_t* run_bytes);
 void     vm_dump(FILE* out);                          /* reservations and page runs, as text */
+/* The committed guest memory as a memory image: "WDM2", root (the render
+ * root, for the readers in verify/), then runs of { u32 va, u32 bytes, data }.
+ * Returns 0 on a write error; runs and bytes may be NULL. */
+int      vm_write_image(const char* path, uint32_t root, uint32_t* runs, uint32_t* bytes);
 
 /* threads.c: the main thread's stack and TIB, and guest handles (small
  * numbers; each owns a host object of one kind) */
@@ -107,6 +115,18 @@ uint32_t guest_call_regs(uint32_t va, uint32_t eax, uint32_t edx, uint32_t ebx, 
 #define WD_COM_BASE 0xCD000000u                        /* synthetic COM method VAs */
 uint32_t wd_com_vtable(const recomp_func_t* fns, int n);
 recomp_func_t wd_com_lookup(uint32_t va);
+
+/* web/web_glue.c (the browser build only; a no-op elsewhere): tell the page.
+ * kind is "boot", "running" or "fatal" (Module.onDreamsStatus(kind, text)). */
+#ifdef __EMSCRIPTEN__
+void     wd_web_status(const char* kind, const char* text);
+void     wd_web_boot_note(const char* rel, int ok);   /* every guest open: the unattended-boot state machine */
+int      wd_web_boot_key(int vk);                    /* 1 while the host presses this key itself */
+#else
+#define  wd_web_status(kind, text) ((void)0)
+#define  wd_web_boot_note(rel, ok) ((void)0)
+#define  wd_web_boot_key(vk) 0
+#endif
 
 /* user.c (host.h has the SDL side) */
 void     host_init(void);

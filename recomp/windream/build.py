@@ -7,7 +7,12 @@ gen_imports.py). Build: DREAMS_OUT/recomp/windream/build (build-trace with
 than the default ledger; off Windows each name ends in -linux or -darwin, and
 only the ledger exists); one unoptimized development build, see CMakeLists.txt.
 
+--web builds the browser version with Emscripten instead (web_build.py):
+out/recomp/windream/build-web/dreams.{js,wasm}; --web-opt picks a CMake build
+type for it (Release, MinSizeRel, ...).
+
 usage: uv run python recomp/windream/build.py [--trace] [--render-audit] [--vm win32|ledger|shadow]
+       uv run python recomp/windream/build.py --web [--web-opt Release]
 """
 
 import argparse
@@ -28,8 +33,39 @@ def main() -> int:
         default=recomp_env.VM_DEFAULT,
         help="virtual memory implementation (host/vm/vm_impl.h)",
     )
+    ap.add_argument(
+        "--web", action="store_true", help="browser build with Emscripten (build-web/dreams.js)"
+    )
+    ap.add_argument(
+        "--web-opt",
+        default="",
+        help="CMake build type of the --web build (default: development, -O1; Release is -O3)",
+    )
+    ap.add_argument(
+        "--web-gen",
+        help="lifted sources of another program for --web (default: out/recomp/windream/gen)",
+    )
+    ap.add_argument(
+        "--web-exe", default="GDIDREAM.EXE", help="the guest EXE's name in /dreams (--web)"
+    )
+    ap.add_argument(
+        "--web-name",
+        default="build-web",
+        help="build directory name under out/recomp/windream (--web)",
+    )
     args = ap.parse_args()
     out = recomp_env.out_dir("windream")
+    if args.web:
+        import web_build
+
+        gen = Path(args.web_gen).resolve() if args.web_gen else out / "gen"
+        rc, build = web_build.configure_and_build(
+            gen, optimize=args.web_opt, exe=args.web_exe, name=args.web_name
+        )
+        if rc == 0:
+            for name in ("dreams.js", "dreams.wasm"):
+                print(f"{build / name}  {(build / name).stat().st_size:,} bytes")
+        return rc
     build = recomp_env.build_dir(out, trace=args.trace, render_audit=args.render_audit, vm=args.vm)
     rc = recomp_env.configure_and_build(
         build, out / "gen", trace=args.trace, render_audit=args.render_audit, vm=args.vm

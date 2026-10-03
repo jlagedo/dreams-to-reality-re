@@ -25,6 +25,9 @@
 #include <SDL3/SDL_main.h>
 #include "launcher.h"
 #endif
+#ifdef __EMSCRIPTEN__
+void wd_web_args_to_env(int argc, char** argv);   /* web/web_glue.c */
+#endif
 #ifdef WD_GUI_LOG
 #include <direct.h>
 #include <io.h>
@@ -42,6 +45,7 @@ RECOMP_TLS uint16_t g_seg_cs, g_seg_ds, g_seg_es, g_seg_fs, g_seg_gs, g_seg_ss;
 RECOMP_TLS uint32_t g_fs_base, g_gs_base;
 RECOMP_TLS uint64_t g_mm[8];
 RECOMP_TLS uint32_t g_cur_func;
+RECOMP_TLS uint32_t g_tail_armed, g_tail_pending;   /* RECOMP_ITAIL_FRAGMENT */
 
 ptrdiff_t g_mem_base;
 uint32_t g_icall_trace[ICALL_TRACE_SIZE];
@@ -278,11 +282,36 @@ static int apply_pokes(void) {
  * name the discs. Returns 0 to go on (*exe NULL: the disc's; *options: the
  * index of the first option), else the exit code. */
 static const char* exe_argument(int argc, char** argv) {
-    return argc >= 2 && strncmp(argv[1], "--", 2) ? argv[1] : NULL;
+    if (argc < 2 || !strncmp(argv[1], "--", 2)) return NULL;
+#ifdef __EMSCRIPTEN__
+    if (strchr(argv[1], '=')) return NULL;   /* a WD_NAME=VALUE option of the page (web_glue.c) */
+#endif
+    return argv[1];
 }
+#ifdef __EMSCRIPTEN__
+/* The browser build (CONTRACT.md): the page puts the game's files in the
+ * Emscripten FS under the install root (WD_INSTALL_ROOT, default /dreams), the
+ * program is the EXE there (WD_WEB_EXE_NAME, set by CMake: GDIDREAM.EXE for the
+ * retail build), saves go to the same tree (the write root is the install root
+ * itself, so DATA/GAME is where the page may mount IDBFS), and there is no
+ * launcher and no disc mode. */
+#ifndef WD_WEB_EXE_NAME
+#define WD_WEB_EXE_NAME "GDIDREAM.EXE"
+#endif
+static char g_web_exe[512];
+static const char* web_exe(void) {
+    const char* root = getenv("WD_INSTALL_ROOT");
+    snprintf(g_web_exe, sizeof g_web_exe, "%s/%s", root && *root ? root : "/dreams", WD_WEB_EXE_NAME);
+    if (!getenv("WD_WRITE_ROOT") && !getenv("WD_DATA_DIR")) setenv("WD_WRITE_ROOT", root && *root ? root : "/dreams", 1);
+    return g_web_exe;
+}
+#endif
 static int choose_exe(int argc, char** argv, const char** exe, int* options) {
     *exe = exe_argument(argc, argv);
     *options = *exe ? 2 : 1;
+#ifdef __EMSCRIPTEN__
+    if (!*exe) { *exe = web_exe(); return 0; }
+#endif
     int discs = files_open_discs();
     if (discs < 0) return 1;
     if (*exe || discs) return 0;
@@ -395,6 +424,11 @@ static int launch(int argc, char** argv) {
 int main(int argc, char** argv) {
     const char* exe;
     int options, run = 0;
+#ifdef __EMSCRIPTEN__
+    wd_web_args_to_env(argc, argv);
+    wd_web_status("boot", "starting");
+    run = 1;
+#endif
 #ifdef WD_WITH_LAUNCHER
     if (launcher_wanted(argc, argv)) {
         int code = launch(argc, argv);
@@ -412,7 +446,10 @@ int main(int argc, char** argv) {
     }
     recomp_install_crash_handler();
     recomp_set_region_describer(region);
-    if (!setup(exe) || !apply_pokes()) return 1;
+    if (!setup(exe) || !apply_pokes()) {
+        wd_web_status("fatal", "cannot load the game program (is /dreams filled?)");
+        return 1;
+    }
     /* The PE entry point (WINDREAM: 0x465538), from the mapped headers. */
     uint32_t entry = WD_IMAGE_BASE + WD_HOST_READ32(WD_IMAGE_BASE + WD_HOST_READ32(WD_IMAGE_BASE + 0x3C) + 0x28);
     recomp_func_t entry_fn = recomp_lookup(entry);
@@ -431,5 +468,6 @@ int main(int argc, char** argv) {
     fprintf(stderr, "[*] entry returned, eax=%08X\n", g_eax);
     recomp_trace_flush();
     wd_render_close();
+    wd_web_status("exit", "the program ended");
     return (int)g_eax;
 }
