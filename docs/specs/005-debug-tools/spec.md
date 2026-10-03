@@ -495,16 +495,13 @@ The last run reaches Project 0 and taps Backspace; snapshots land in
    July `WORKS.C` names now map to every retail editor function (101-row
    table in `out/research/editor/reports/C-retail-vs-demo.md`; 73 of them by
    normalized instruction match).
-2. **Editor.** Running in the recomp. Still open: which pages are safe
-   without a file list, each page's fields, the text writers
-   `0x447b72`/`0x447e7c` and the `D:\CD1`/`D:\CD2` copy commands' user,
-   what fills the working BOX record outside the editor, and the gizmo's
-   offset and point list.
-3. **Editor file pickers (on hold).** Either leave them and use the
-   editor for inspection and editing existing fields, or give the picker
-   pages a real file list in the runtime. The 1-byte indexing is compiled
-   into every picker page, so the second means replacing the fillers and the
-   list parts of those pages with runtime code.
+2. **Editor.** Running in the recomp. The open points here (page fields,
+   the text writers, the copy commands, the BOX working copy, the gizmo)
+   are answered by the July demo; restoring the whole editor moved to
+   [spec 008](../008-editor-restoration/spec.md).
+3. **Editor file pickers.** Moved to spec 008, phase 3 (host replacements
+   of the fillers and the list parts of the pages, since the 1-byte
+   indexing is compiled into every picker page).
 4. **Reachability pass.** Find flags whose only writers are dead code, as
    `0x4a477c`'s effectively is: `flag_hunt.py` only lists flags with no
    writer at all.

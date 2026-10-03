@@ -519,9 +519,12 @@ configuration still worked, since the October bank and lists came from it.
 
 ## Bringing it back in the recomp
 
-Spec 005 already runs the retail editor (keypad 5: flag plus a restored
-draw call; mouse events from the host). The July data gives a path to the
-complete tool without changing a retail instruction:
+[Spec 008](../specs/008-editor-restoration/spec.md) turns this into a
+phased plan with decisions and acceptance checks, and also gathers the
+address map and the inferred workflows in detail. In short: spec 005
+already runs the retail editor (keypad 5: flag plus a restored draw call;
+mouse events from the host), and the July data gives a path to the complete
+tool without changing a retail instruction:
 
 1. **Graft the July menu.** The node format is unchanged, the retail tree
    walker (`0x44d346`) and leaf editor (`0x44cd62`) draw any tree, and the
