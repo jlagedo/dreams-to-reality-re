@@ -128,8 +128,9 @@ def compare(a: PE, fa: dict, b: PE, fb: dict):
     ca, cb = a.read(ea, n), b.read(eb, n)
     if not ca or not cb or len(ca) != n or len(cb) != n:
         return False, "read", []
-    ra = {v - ea for v in a.relocs if ea <= v < ea + n}
-    rb = {v - eb for v in b.relocs if eb <= v < eb + n}
+    # A relocated dword that crosses the body's end is compared as plain bytes.
+    ra = {v - ea for v in a.relocs if ea <= v and v + 4 <= ea + n}
+    rb = {v - eb for v in b.relocs if eb <= v and v + 4 <= eb + n}
     if ra != rb:
         return False, "relocs", []
     pairs = []
