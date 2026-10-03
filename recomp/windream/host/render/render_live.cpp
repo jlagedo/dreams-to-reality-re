@@ -117,9 +117,10 @@ void fatal_notify(const char *message) {
         return;
     const std::string text =
         std::string(message) +
-        "\n\nThe direct renderer stopped on a case it does not support. "
-        "Starting the game with --renderer software avoids it.\n\n"
-        "Details are in the log and in direct-fatal.txt.";
+        "\n\nThe GPU renderer stopped on a case it does not support. "
+        "To avoid it, choose Renderer: Original (software) in the launcher "
+        "(run.py: --renderer software).\n\n"
+        "Details are in log.txt and in direct-fatal.txt.";
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Dreams to Reality", text.c_str(), nullptr);
 }
 #endif

@@ -156,6 +156,12 @@ if(WD_RELEASE)
         target_compile_definitions(windream_recomp PRIVATE WD_GUI_LOG)
     endif()
 endif()
+# WD_VERSION (release.py: git describe): the build's name, the log's first
+# line (runtime.c). Empty in a development build.
+set(WD_VERSION "" CACHE STRING "build name for the log, e.g. v0.1.0; empty in development builds")
+if(WD_VERSION)
+    target_compile_definitions(windream_recomp PRIVATE "WD_VERSION=\"${WD_VERSION}\"")
+endif()
 # WD_DEVTOOLS: the development control channel (devtools/, enabled at run time
 # with WD_CTL; recomp/README.md). The host calls it through devtools/devtools.h
 # alone, whose functions are empty without the WD_DEVTOOLS definition, so

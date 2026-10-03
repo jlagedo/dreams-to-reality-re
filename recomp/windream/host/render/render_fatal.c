@@ -24,8 +24,9 @@ void wd_render_fatal(const char *message) {
         if (file) {
             fprintf(file,
                     "The direct renderer stopped on a case it does not support:\n\n  %s\n\n"
-                    "The game state at that moment is in the log (stderr). "
-                    "--renderer software avoids this renderer.\n",
+                    "The game state at that moment is in the log (stderr, log.txt). "
+                    "To avoid this renderer, choose Renderer: Original (software) "
+                    "in the launcher (run.py: --renderer software).\n",
                     message);
             fclose(file);
         }

@@ -229,6 +229,7 @@ def configure_and_build(
     vm: str = VM_DEFAULT,
     release: bool = False,
     optimize: bool = False,
+    version: str = "",
 ) -> int:
     """Configure (from scratch when the build dir belongs to another source
     tree) and build windream_recomp with Ninja: clang-cl on Windows, the
@@ -238,7 +239,9 @@ def configure_and_build(
     CMakeLists.txt (named DreamsToReality; on Windows no console and a log
     file) and, on Windows, the C runtime linked statically. It has the
     development build's compiler flags unless optimize asks for CMake's
-    Release build type, which this project has never verified."""
+    Release build type, which this project has never verified. version
+    (WD_VERSION) names the build in the log's first line; empty for a
+    development build."""
     if vm != "ledger" and sys.platform != "win32":
         sys.exit(f"--vm {vm} is Windows only (host/vm/vm_win32.c); use ledger")
     sdl3 = ensure_sdl3(static_crt=release)
@@ -255,6 +258,7 @@ def configure_and_build(
          *_compilers(cxx=True), f"-DCMAKE_PREFIX_PATH={sdl3}",
          *(["-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded"] if static_crt else []),
          f"-DWD_RELEASE={'ON' if release else 'OFF'}",
+         f"-DWD_VERSION={version}",
          f"-DWD_GEN_DIR={gen}",
          f"-DWD_TRACE={'ON' if trace else 'OFF'}",
          f"-DWD_RENDER_AUDIT={'ON' if render_audit else 'OFF'}",

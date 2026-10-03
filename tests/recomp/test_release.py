@@ -107,6 +107,16 @@ def test_readme_names_what_the_user_needs():
         assert words in release.README
 
 
+def test_readme_and_file_names_carry_the_version(monkeypatch):
+    assert "Version v0.1.0\n" in release.README.format(version="v0.1.0")
+    monkeypatch.setattr(release.sys, "platform", "win32")
+    assert release.release_stem("v0.1.0") == "DreamsToReality-v0.1.0-windows-x64"
+    assert release.release_stem("v0.1.0-3-gabc1234").endswith("-3-gabc1234-windows-x64")
+    for bad in ("", "v0.1 beta", 'v1"', "../v1"):
+        with pytest.raises(ValueError):
+            release.release_stem(bad)
+
+
 @pytest.fixture(scope="module")
 def host():
     build = recomp_env.build_dir(recomp_env.out_dir("windream"))

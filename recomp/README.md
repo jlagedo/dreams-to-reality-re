@@ -241,12 +241,36 @@ argument is opened as UTF-8 through SDL.
 
 `release.py` builds the executable users get, in `out/recomp/windream/build-release`,
 and stages `out/recomp/windream/release/DreamsToReality/` (`DreamsToReality.exe`
-and `README.txt`) and `DreamsToReality-windows-x64.zip` beside it. It fails if
+and `README.txt`) and `DreamsToReality-<version>-windows-x64.zip` beside it. It fails if
 the folder holds any other file or if the executable imports a DLL Windows
 does not ship: the release links the C runtime and SDL3 statically (a second
 SDL3 build, `out/recomp/sdl3/<commit>/install-mt`). The compiler flags are the
 development build's; `--optimize` builds CMake's Release type, which has never
 been verified on the lifted code.
+
+The version is `git describe --tags --always` (`v0.1.0` on the tagged commit,
+`v0.1.0-3-gabc1234` after it) or `--version`. It is compiled in as
+`WD_VERSION`, whose `[*] Dreams to Reality port v0.1.0` line opens the log,
+and it is in `README.txt` and the file names. Beside the zip, release.py keeps
+the build's `DreamsToReality-<version>-windows-x64.pdb`. It is not published. A
+user's machine has no symbols, so its crash report shows `exe+0x...` host
+addresses. This PDB names them and gives a debugger the symbols for the
+user's `crash-<pid>.dmp`.
+
+Publishing a release (the GitHub Releases page; the asset is the zip alone):
+
+```sh
+uv run --with capstone --with pefile python recomp/windream/lift/lift.py   # gen/ from the tagged sources
+uv run --with capstone --with pefile python recomp/windream/lift/gen_imports.py
+git tag -a v0.1.0 -m "Dreams to Reality for Windows 0.1.0"
+uv run --with pefile python recomp/windream/release.py
+uv run --with pefile pytest tests/recomp/test_release.py
+git push origin main v0.1.0
+gh release create v0.1.0 --prerelease --notes-file <notes> out/recomp/windream/release/DreamsToReality-v0.1.0-windows-x64.zip
+```
+
+Before publishing, start the unzipped program with `--play` and both disc
+images, and check `userdata\log.txt`.
 
 The launcher's test-only machinery (the `DREAMS_LAUNCHER_SCRIPT` driver in
 `launcher/testscript.cpp` and the variables `DREAMS_LAUNCHER_HOME`,

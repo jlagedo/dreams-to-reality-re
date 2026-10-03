@@ -361,6 +361,15 @@ static void gui_enter_data_dir(void) {
 #define gui_enter_data_dir() ((void)0)
 #endif
 
+/* The build's name (WD_VERSION, set by release.py), the log's first line, so
+ * a user's log.txt says which release ran. Development builds have none. */
+static void log_version(void) {
+#ifdef WD_VERSION
+    static int done;
+    if (!done++) fprintf(stderr, "[*] Dreams to Reality port %s\n", WD_VERSION);
+#endif
+}
+
 /* ---- launcher ----
  * The launcher does not know the host and the host does not know the launcher.
  * This is the only code that knows both: it runs the launcher when the
@@ -402,7 +411,7 @@ static int launch(int argc, char** argv) {
         _putenv_s(r.vars[i].name, r.vars[i].value);
 #endif
     }
-    if (rc > 0) gui_log_open();
+    if (rc > 0) { gui_log_open(); log_version(); }
     for (int i = 0; rc > 0 && i < r.count; i++) {
         const char* name = r.vars[i].name;
         const char* value = r.vars[i].value;
@@ -437,6 +446,7 @@ int main(int argc, char** argv) {
     }
 #endif
     gui_log_open();
+    log_version();
     int rc = choose_exe(argc, argv, &exe, &options);
     if (rc) return rc;
     for (int i = options; i < argc; i++) {

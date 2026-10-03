@@ -7,20 +7,28 @@ SDL3 linked statically, whose stderr and stdout go to log.txt in the user data
 directory. It has the development build's compiler flags (unoptimized): an
 optimized build of the lifted code has never been verified.
 
-Output: DREAMS_OUT/recomp/windream/release/DreamsToReality/ holding the
-executable and README.txt, and beside it DreamsToReality-<system>.zip. The
-script fails if the folder holds anything else (delete what a test run left
-there), if the executable imports a DLL that Windows does not ship, or if it
-contains the development control channel (recomp/windream/devtools) or the
-launcher's test-only script and environment variables (recomp/launcher/testing.h).
+Version: `git describe --tags --always` (v0.1.0 on a tagged commit), or
+--version. It is compiled in (WD_VERSION; the first line of log.txt), written
+into README.txt and the file names.
 
-usage: uv run --with pefile python recomp/windream/release.py [--optimize]
+Output: DREAMS_OUT/recomp/windream/release/DreamsToReality/ holding the
+executable and README.txt, and beside it DreamsToReality-<version>-<system>.zip
+(what is published) and the build's .pdb under the same name (kept, not
+published: it symbolizes the exe+0x... addresses of a user's crash report and
+crash dump). The script fails if the folder holds anything else (delete what a
+test run left there), if the executable imports a DLL that Windows does not
+ship, or if it contains the development control channel
+(recomp/windream/devtools) or the launcher's test-only script and environment
+variables (recomp/launcher/testing.h).
+
+usage: uv run --with pefile python recomp/windream/release.py [--optimize] [--version V]
 """
 
 import argparse
 import platform
 import re
 import shutil
+import subprocess
 import sys
 import zipfile
 from pathlib import Path
@@ -50,22 +58,46 @@ LAUNCHER_TESTING_MARKER = b"launcher-testing"
 README = """\
 Dreams to Reality - port for modern Windows
 ===========================================
+Version {version}
 
 This is the 1997 Cryo game "Dreams to Reality" (European English edition for
-Windows), recompiled to run on a modern PC. It contains no game data. You need
-your own two game discs as disc images:
+Windows), recompiled to run on a modern PC: the game's program, GDIDREAM.EXE,
+translated to run natively. No game data, music or video is included. You
+need your own two game discs as disc images:
 
     one .cue file with its .bin files for disc 1, and the same for disc 2
 
 The music is CD audio and exists only in such an image. An .iso file also
 works, but then the game has no music.
 
+This is a pre-release: see "If something goes wrong" below.
+
+What you need
+-------------
+- Both discs of the European English Windows release. The launcher checks
+  disc 1 by its program, GDIDREAM.EXE, whose SHA-256 must be
+      b2f053bd26627eb618f034481fbeb49c2287bec834351787385a69d74db05001
+  Other editions (Dutch, Spanish, Turkish, ...) have another program and are
+  refused with "wrong edition".
+- Disc images: a .cue with its .bin files (for example a dump named
+  "Dreams to Reality (Europe) (Disc 1).cue" with one .bin per track), or an
+  .iso without music. CHD, MDF/MDS, NRG, CCD/IMG and CDI images and zip, 7z
+  or rar archives are not read: convert or unpack them to .cue/.bin first.
+  An installed copy (C:\\CRYO\\DREAMS) or a CD in a drive cannot be used.
+- 64-bit Windows 10 or 11. The default renderer, "New (GPU)", needs a
+  Direct3D 11 graphics card; "Original (software)" does not. Nothing else to
+  install.
+
+The program is not signed, so Windows may warn about an unknown publisher:
+choose "More info", then "Run anyway".
+
 First start
 -----------
 1. Unpack this folder anywhere you can write to.
 2. Start DreamsToReality.exe. The launcher window opens.
-3. Under "Discs", choose the .cue file of each disc (in either order). Each
-   row says whether the image was found and is the supported edition.
+3. Under "Discs", choose the .cue file of each disc (in either order), or drop
+   it on the disc's row (not on DreamsToReality.exe). Each row says whether
+   the image was found and is the supported edition.
 4. Change the port settings if you like (renderer, window, keyboard, gamepad).
 5. Press Play.
 
@@ -86,6 +118,7 @@ Beside DreamsToReality.exe:
         CRYO\\DREAMS\\data\\game\\   your saved games
         log.txt                   the log of the last run
         crash-<number>.dmp        written if the game crashes (can be large)
+        direct-fatal.txt          written if the GPU renderer stops
 
 If that folder cannot be written to, both are kept in
 %APPDATA%\\DreamsToReality instead; the launcher shows which is in use.
@@ -95,8 +128,24 @@ In the game
 -----------
 Arrows move, Ctrl jumps or kicks, Alt punches, Space switches to combat,
 1 to 3 select magic, Esc opens the menu, holding F10 shows the controls.
-F11 toggles fullscreen. With a gamepad in "game" mode, press J in the game to
-use it and K to return to the keyboard.
+F11 toggles fullscreen. With the gamepad mode "Game joystick", press J in the
+game to use the pad and K to return to the keyboard; connect the pad before
+you press Play and leave its stick alone while the game starts.
+
+The game saves by itself on every level entry; it has no Save command.
+
+If something goes wrong
+-----------------------
+- The game stops with "The GPU renderer stopped on a case it does not
+  support": choose Renderer: Original (software) in the launcher and play
+  on. In this pre-release the GPU renderer loads every level in automated
+  tests but has seen little real play.
+- Keypad 1 to 5 toggle the original game's hidden debug switches; keypad 5
+  turns off collision and level exits. Press the key again to undo.
+- A frame cap above 30 breaks the original game's physics.
+- To report a problem, open an issue at
+  https://github.com/jlagedo/dreams-to-reality-re/issues and attach
+  userdata\\log.txt (its first line names this version, {version}).
 """
 
 
@@ -168,6 +217,26 @@ def system_name() -> str:
     return f"{sys.platform}-{platform.machine().lower()}"
 
 
+def git_version() -> str:
+    """`git describe --tags --always` of this tree: v0.1.0 on the tagged commit,
+    v0.1.0-3-gabc1234 three commits later. Without --dirty: an edited document
+    does not change the build."""
+    p = subprocess.run(
+        ["git", "describe", "--tags", "--always"],
+        cwd=Path(__file__).resolve().parent, capture_output=True, text=True,
+    )  # fmt: skip
+    if p.returncode or not p.stdout.strip():
+        sys.exit(f"git describe failed ({p.stderr.strip()}); name the build with --version")
+    return p.stdout.strip()
+
+
+def release_stem(version: str) -> str:
+    """The published name without extension: DreamsToReality-v0.1.0-windows-x64."""
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", version):
+        raise ValueError(f"version {version!r}: letters, digits and . _ + - only")
+    return f"{NAME}-{version}-{system_name()}"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument(
@@ -176,10 +245,15 @@ def main() -> int:
         "flags. UNVERIFIED: this project has only ever built and tested the lifted code "
         "unoptimized, and the build takes much longer",
     )  # fmt: skip
+    ap.add_argument("--version", help="the build's name (default: git describe --tags --always)")
     args = ap.parse_args()
+    version = args.version or git_version()
+    stem = release_stem(version)
     out = recomp_env.out_dir("windream")
     build = recomp_env.build_dir(out, release=True)
-    rc = recomp_env.configure_and_build(build, out / "gen", release=True, optimize=args.optimize)
+    rc = recomp_env.configure_and_build(
+        build, out / "gen", release=True, optimize=args.optimize, version=version
+    )
     if rc:
         return rc
     exe_name = recomp_env.exe_name(NAME)
@@ -195,7 +269,8 @@ def main() -> int:
     stage = release / NAME
     stage.mkdir(parents=True, exist_ok=True)
     shutil.copy2(built, stage / exe_name)
-    (stage / "README.txt").write_text(README, encoding="utf-8", newline="\r\n")
+    readme = README.format(version=version)
+    (stage / "README.txt").write_text(readme, encoding="utf-8", newline="\r\n")
     extra = unexpected_files(stage, {exe_name, "README.txt"})
     if extra:
         print(
@@ -204,12 +279,16 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    archive = release / f"{NAME}-{system_name()}.zip"
+    archive = release / f"{stem}.zip"
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for name in (exe_name, "README.txt"):
             z.write(stage / name, f"{NAME}/{name}")
     print(f"{stage / exe_name}  {(stage / exe_name).stat().st_size:,} bytes")
     print(f"{archive}  {archive.stat().st_size:,} bytes")
+    pdb = built.with_suffix(".pdb")
+    if pdb.is_file():  # Windows; keep it to symbolize this version's crash reports
+        shutil.copy2(pdb, release / f"{stem}.pdb")
+        print(f"{release / f'{stem}.pdb'}  kept, not for publishing")
     return 0
 
 

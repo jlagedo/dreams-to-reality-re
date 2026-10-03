@@ -13,10 +13,15 @@ unchanged; only the plumbing under it is new.
 **No game data or game code lives in this repository.** The discs are
 copyrighted. The lifted C, the builds and everything else derived from the
 game are generated locally under `out/` and never committed. Supply your own
-copy of the game.
+copy of the game. The [Windows download](#download-for-windows) contains the
+game's program, recompiled, but no game data: it plays from your own discs
+(see [Legal](#legal)).
 
 ## Status
 
+- A Windows pre-release is on the
+  [Releases page](https://github.com/jlagedo/dreams-to-reality-re/releases)
+  ([Download for Windows](#download-for-windows)).
 - The recompiled game builds and plays on Windows; the original software
   rendering is `run.py --renderer software`.
 - The direct GPU renderer is the default on Windows (software elsewhere) and
@@ -29,6 +34,74 @@ copy of the game.
 - The Win32 layers the game uses (KERNEL32, USER32, GDI32, WinMM, DirectSound)
   run on SDL3. Windows is the tested platform; the Linux build boots to the
   first level; macOS has not been built.
+
+## Download for Windows
+
+The [Releases page](https://github.com/jlagedo/dreams-to-reality-re/releases)
+has `DreamsToReality-<version>-windows-x64.zip`: one program,
+`DreamsToReality.exe`, and a `README.txt`. It contains no game data and plays
+from images of your own two discs.
+
+**Which copy of the game works.** Only the European English Windows release,
+two CDs. The launcher checks disc 1 by the SHA-256 of its `GDIDREAM.EXE`:
+
+```
+b2f053bd26627eb618f034481fbeb49c2287bec834351787385a69d74db05001
+```
+
+The Dutch, Spanish and Turkish discs carry other programs and are refused
+("wrong edition"). Other releases have not been tested; if you have one, an
+issue with the SHA-256 of its `GDIDREAM.EXE` helps. Disc 2 is recognised by
+its `DATA\2CD.ID` file.
+
+**Disc images.**
+
+| You have | Result |
+|---|---|
+| `.cue` with its `.bin` files, one per track (for example a dump named `Dreams to Reality (Europe) (Disc 1).cue`) | Plays, with the CD music |
+| `.iso` | Plays without music: the music is CD audio |
+| CHD, MDF/MDS, NRG, CCD/IMG, CDI, or a zip, 7z or rar archive | Refused: convert or unpack it to `.cue`/`.bin` |
+| An installed copy (`C:\CRYO\DREAMS`) or a CD in a drive | Cannot be used |
+
+To check a dump: the data track (`Track 01`) is 382,134,144 bytes on disc 1
+and 435,646,848 bytes on disc 2.
+
+**PC.** 64-bit Windows 10 or 11. The default renderer, "New (GPU)", needs a
+Direct3D 11 graphics card; "Original (software)" does not. Nothing to install:
+the C runtime and SDL3 are linked in. The program is not signed, so Windows
+SmartScreen may stop the first start: choose "More info", then "Run anyway".
+
+**First start.**
+
+1. Unpack the zip anywhere you can write to.
+2. Start `DreamsToReality.exe`. The launcher opens.
+3. Under Discs, choose the `.cue` of each disc, in either order, or drop it on
+   the disc's row (not on the program). Each row says whether the image is
+   the supported edition.
+4. Change the renderer, window, keyboard or gamepad settings if you like.
+5. Press Play.
+
+The settings stay in `dreams.ini` beside the program; saves, `log.txt` and
+crash dumps go to `userdata\` there, or to `%APPDATA%\DreamsToReality` when
+that folder is not writable. `DreamsToReality.exe --play` starts the game
+without the launcher. Controls, options and file locations are in the zip's
+`README.txt`.
+
+**Known limitations of the pre-release.**
+
+- The GPU renderer loads every level in automated tests but has seen little
+  real play. On a case it does not support it stops with a message; choose
+  Renderer: Original (software) in the launcher and play on.
+- A frame cap above 30 breaks the original game's physics.
+- The game saves by itself on every level entry and has no Save command, as
+  in the original.
+- Keypad 1 to 5 toggle the original game's hidden debug switches; keypad 5
+  turns off collision and level exits. Press the key again to undo.
+- The final level closes the game after its first scene, in every build of
+  the port.
+
+To report a problem, [open an issue](https://github.com/jlagedo/dreams-to-reality-re/issues)
+and attach `userdata\log.txt`: its first line names the version.
 
 ## Quick start
 
@@ -151,18 +224,27 @@ protected for decades yet.
 "Abandonware" describes enforcement behaviour, not ownership, and has no
 standing in law.
 
-What this repo therefore does and does not do:
+What this project therefore does and does not do:
 
 - **Does**: document the game's formats and behaviour, and provide tools that
   operate on a copy you already own. In the EU, the Software Directive
   (2009/24/EC) Art. 5(3) permits studying a program you are licensed to use
   and Art. 6 permits decompilation for interoperability. France implements
   both.
-- **Does not**: include, redistribute or reproduce any Cryo code, asset,
-  binary or disc image. `.gitignore` enforces this.
+- **Does not**: keep any Cryo code, asset, binary or disc image in this git
+  repository. `.gitignore` enforces this.
+- **Release downloads** on the
+  [Releases page](https://github.com/jlagedo/dreams-to-reality-re/releases)
+  are the one exception. The Windows executable contains the game's program,
+  `GDIDREAM.EXE`, recompiled to x64 code. It contains no game data (no levels,
+  textures, models, sound, music or video) and no disc image, and it runs
+  only from images of your own discs of the supported edition.
+
+This project is not affiliated with or endorsed by Microïds or Cryo.
 
 Do not commit lifted or matched C, extracted audio, textures, models,
-executables or disc images, and do not publish a playable build.
+executables or disc images. A playable build is published only as the release
+download that `recomp/windream/release.py` makes, never with game data.
 
 Not legal advice.
 
