@@ -265,7 +265,7 @@ bindings table) **[verified in code]** except `_K_OBJ_TARGET_PAS`
 | `_ParticuleSprite` | 4a2f9c | 0x43ca25, 0x43ca8e | only dead code reads it | hide |
 | `_particule0Immortel` | 4a2fb0 | `CompParticles_` = 0x43cc32 | yes | keep |
 | `_particuleResetNeg` | 4a2fac | 0x43cc32 (0 reloads the level's particles, then 1) | yes | keep |
-| `_K_OBJ_TARGET_MIN` / `MAX`, `_K_OBJ_BACK_MIN` / `MAX`, `_Y_LOW_FOLLOW_OBJ` / `_Y_HIGH_` | 49d1cc / d0, d8 / dc, e4 / e8 | `calc_new_cam_and_target_pos_` = `CAM_UpdateFollowPos` 0x40a866; `CAM_InitCameraParam_` = `CAM_LoadPreset` 0x40b729; `calc_new_walk_parm_` = `CAM_ComputeChasePos` 0x409de2 | **no**: retail reloads them every follow frame (below) | drop |
+| `_K_OBJ_TARGET_MIN` / `MAX`, `_K_OBJ_BACK_MIN` / `MAX`, `_Y_LOW_FOLLOW_OBJ` / `_Y_HIGH_` | 49d1cc / d0, d8 / dc, e4 / e8 | `calc_new_cam_and_target_pos_` = `CAM_UpdateFollowPos` 0x40a866; `CAM_InitCameraParam_` = `CAM_LoadPreset` 0x40b729; `calc_new_walk_parm_` = `CAM_ComputeChasePos` 0x409de2 | **no**: retail reloads them every follow frame (below) | shown, not wired (owner, 2026-10-04) |
 | `_K_OBJ_TARGET_PAS` | 49d1d4 | layout; initial 25 in both | unread | hide |
 | `_K_OBJ_BACK_PAS` | 49d1e0 | the same eye-height formula in both | yes | keep, minimum 1 (ours: 0 divides by zero on the x87 in both builds) |
 | `_SpeedCamera` | 49d1f0 | chase/orbit divisor, rewritten every frame | yes | keep |
@@ -393,6 +393,19 @@ retail `CAM_TickFollow` reloads the six every frame (`CAM_ApplyCloseRange` →
 `+0x120..+0x134` and `+0x1d8` when non-zero, so the Project > Camera leaves
 act live from the next frame and the Option > Camera globals keep no edit
 **[verified in code]**.
+
+**Known not to work: Option > Camera.** The six sliders (Target min and
+max, Back min and max, Y low and high follow) are shown with their July
+labels and July ranges, but each is bound to a host-only cell of its own
+(`shim_alloc`), not to the retail global, so dragging one moves the slider
+and changes nothing in the game (owner, 2026-10-04). Binding them to the
+globals would look broken (the next frame overwrites the value); binding
+them to the camera preset table would change the camera of every level
+without its own values, only on camera preset 0, and only until the game
+restarts. To tune a level's camera, use Project > Camera: retail reads
+those fields every frame and saves them with the level. Each cell starts
+at the retail global's initial value, so the slider shows what the game
+starts with.
 
 ### A4.5 Node format
 
@@ -1169,7 +1182,7 @@ DOS-key bindings, which phases 2 and 7 add.
    | The final bank holds values outside the July range | widen the range to cover them | oxygen `+0x114` up to 10000 (July 0..100), fog density up to 75 (0..32), dialogue up to 177 (`DIALOG.DRD` has 178 entries; July 0..127 or 0..64), BOX intensity down to −600 (0..1000) |
    | The bank sets the field, no retail code reads it | keep, labelled "no effect", so the data stays editable | `+0x13c` "Bruit pas", `+0x1f4` "Perso Integration", action `0x10` "Flag Ele Src KILL" |
    | No retail reader and never set in the bank | hide | `+0xac` "Sphere move", LINKADVENT source box `+0x10` |
-   | Bound to an engine global (camera constants, particle attractor 0, contact plane, animated-material switches) | keep only where the retail global is found and means the same (A3, pinned 2026-10-04): 16 keep, 5 hide, 6 drop | "Debug" → `_MaxiLoad` at `0x49d9f0` is kept (same test in `SCENE_LoadLevel`); the six Option > Camera follow constants are dropped because retail reloads them every frame. **Proposed** (ours, rule 4): rebind those six to the preset row 0 (`0x49d1f8`, `fc`, `200`, `204`, `208`, `20c`), labelled as defaults, which `CAM_LoadPreset` reads every follow frame wherever the level's own field is 0 (0 in 125–127 of 150 levels) |
+   | Bound to an engine global (camera constants, particle attractor 0, contact plane, animated-material switches) | keep only where the retail global is found and means the same (A3, pinned 2026-10-04): 16 keep, 5 hide, 6 shown but not wired | "Debug" → `_MaxiLoad` at `0x49d9f0` is kept (same test in `SCENE_LoadLevel`); the six Option > Camera follow constants are shown with July's labels but bound to host-only cells, because retail reloads the globals every frame (owner, 2026-10-04; A4.4 "Known not to work"). Rebinding them to the camera preset row 0 (`0x49d1f8`…) was considered and declined |
 
    A slider maps 128 pixels onto its range, so a widened range moves in
    coarser steps (oxygen 0..10000: about 78 per pixel); position capture
@@ -1703,8 +1716,6 @@ every editor page and tool works under the direct renderer (owner,
 - Where the main menu can show the save guard's message (phase 7).
 - Whether `VITESSE` or `INVIVIB` can be used up, which would strand a
   returning player even in retail.
-- Owner decision open: the six dropped Option > Camera leaves rebound to
-  the camera preset row 0 as defaults (proposed, phase 1 rules table).
 - Decided in phase D: TGA capture under the direct renderer (a
   `SaveImage_` replacement is proposed) and whether the render classes are
   ported or stay software-only.
