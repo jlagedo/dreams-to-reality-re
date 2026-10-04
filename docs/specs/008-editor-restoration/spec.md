@@ -943,6 +943,8 @@ gaps are filled (owner, 2026-10-03). Four rules apply it (owner,
 | Full bank | **Project Create refuses with an on-screen message when no slot is free**; Delete frees one (2026-10-03, accepted as recommended) | All 150 shipped records are in use (July had 12 free); retail Create with no free slot still clears the live level **[verified in code and data]** |
 | Where files go | Into the developer folder, in place: `DREAMS.DAT` and `EDITOR.DAT` at its root, `DATA\TGA\` captures, `DATA\REPLAY.BIN`, saves in `DATA\GAME\`, the mastering lists of phase 6; never a disc image or the retail install | Follows from the developer-folder decision |
 | Call site | Keep candidate 1 (`0x41743a`) | Fits every constraint; candidate 2 is equal and unproven |
+| Launcher layout | **A mode row at the top of the launcher window**, Play / Develop / Play edits, above the disc setup and always visible; a new **Develop** tab beside Display, Keyboard and Gamepad holds the developer folder's status (size, initialized), the copy's progress, **Reset edits** and the full key list with its clashes (owner, 2026-10-04) | Owner decision |
+| Where the keys are shown | **The launcher's Develop tab and the console window**, which prints the key list when Develop starts; Cryo's in-game F10 key help stays retail (owner, 2026-10-04) | Owner decision; no host-drawn text in the game |
 | Console | **A separate console window** that keypad 9 opens and closes in Develop (a console window on Windows, the terminal on Linux), showing the game's own `printf` diagnostics and the dump helpers' output (owner, 2026-10-03) | No new in-game UI; the output already reaches `stdout.txt` (spec 005) |
 | Keyboard | **DOS keys** (owner, 2026-10-03): in Develop the host reads commands as typed characters, as the DOS build did, and held controls (arrows, Alt, Ctrl, Space, PgUp…) as physical keys. Rules: a key the host consumes as an editor or developer command is hidden from the game (key state and event); while the editor is on, editor commands win over the July developer keys; keypad text is ignored (the keypad stays host keys). Key tables and clashes: phase 2 | Owner decision, superseding Page Up and Ctrl+1..4. The developers worked in DOS (A11.3); the July Windows key map is a translation accident (A5.4) |
 | Toggle | **`!`, read as a character** (one key on AZERTY, Shift+1 on QWERTY); keypad 5 stays as an alias. Consumed by the host, never passed to the game; in Play and Play edits it reaches the game unchanged | Owner decision. It frees PgUp for the free camera, as in DOS. `sceneKeyboard_` reads 0x21 as "paste link", so in July one press toggled the editor and pasted a link; paste link moves to Ctrl+Shift+3 |
@@ -1275,8 +1277,9 @@ camera presets; Alt+X quit; menus: arrows, Return, Esc, Tab, Backspace.
 | `§`, `µ`, `ù` exist only on French layouts | layout | Ctrl+Shift+2, Ctrl+Shift+4; the object page needs AZERTY |
 
 The free camera and the editor do not clash: the camera stops while the
-editor is on (A5.4). All keys and clashes go into the in-game key help and
-the README.
+editor is on (A5.4). All keys and clashes are listed in the launcher's
+Develop tab, printed by the console window when Develop starts, and in the
+README (B1); Cryo's F10 key help stays retail.
 
 Acceptance: `a` creates nothing and `A` (Shift+a) creates `Project<n>` in
 phase 4's bank (or refuses when the bank is full); `Z` then a mesh pick
@@ -1642,7 +1645,8 @@ every editor page and tool works under the direct renderer (owner,
 2. Bindings table with proofs (phase 1, step 2).
 3. Tree extraction and install (phase 1).
 4. DOS-character keys, the consumed-key rules and the developer-key
-   bindings (phase 2), with the in-game key help and the README.
+   bindings (phase 2), with the key list in the launcher's Develop tab,
+   the console window and the README.
 5. Generalized replacement table; picker replacements (phase 3).
 6. Host bank, `_LoadSaveSceneSPtr` binding, recompression (phase 4).
 7. Export and the byte-identity test (phase 5).
