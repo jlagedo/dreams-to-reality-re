@@ -2,7 +2,8 @@
 
 Checked 2026-10-01 against `WINDREAM.EXE` (read-only Ghidra decompilation),
 both discs' `SETUP.INI`, `INST_SON.BAT`, `LISTL*.TXT` and `DREAMS.DAT`, and
-the file log of a recomp run. Function names are in
+the file log of a recomp run; updated 2026-10-03 (the cache purge deletes,
+`FULL.ID` in a single tree, the merged root's disc number). Function names are in
 [`re/names/WINDREAM.EXE.tsv`](../../re/names/WINDREAM.EXE.tsv). Disc contents
 and the merge map are in [disc-layout.md](disc-layout.md); asset lookup inside
 the files is in [asset-access.md](asset-access.md).
@@ -127,11 +128,11 @@ Two consequences:
 the cache copy. `SCENE_LoadLevel` calls it on every level load. **[verified]**
 
 ```
-n = current record +0x1fc            (SCENE_GetLevelNumber)
+n = current record +0x1fc            (SCENE_GetLevelNumber 0x41ad5a)
 if n == 0: return
 stop CD music                        (MGM 0x1f)
 want = (n + 1) >> 1
-have = 1 if <CD>\DATA\1CD.ID opens else 2      (CD_GetDiscNumber)
+have = 1 if <CD>\DATA\1CD.ID opens else 2      (CD_GetDiscNumber 0x4287fa)
 if want != have: CD_PromptSwap(want)
 if full install and LEVEL.ID != n:
     delete LEVEL.ID; CD_PurgeCache
@@ -186,10 +187,10 @@ opens it resumes audio (MGM 0x23).
 ### The full-install cache
 
 - `CD_PurgeCache` (`0x4281d9`) walks `DATA\3DC\*.dsn`, `DATA\3DC\*.dan` and
-  `DATA\ANIM\*.hnm` under the install root and calls `0x477ba8` on each. The
-  registry describes it as deleting them; Ghidra labels that callee `chdir_`,
-  which is a wrong signature match. That it is `remove`/`unlink` is
-  **[unverified]** beyond the registry's review.
+  `DATA\ANIM\*.hnm` under the install root and deletes each: the callee
+  `0x477ba8`, which Ghidra mislabels `chdir_`, is a `jmp 0x487844`, and
+  `0x487844` calls `DeleteFileA` through the import slot `0x49c30c`.
+  **[verified in code]** (2026-10-03)
 - `CD_CopyFileList` (`0x428356`) reads the list with `fscanf`, one path per
   token, and calls `FILE_CopyIfMissing` (`0x428404`) for each. A missing list
   file is not an error.
@@ -265,9 +266,16 @@ Windows, macOS, Linux and the web the host can present all three roots from
 one data set:
 
 - **CD root**: both discs merged (conflicts in [disc-layout.md](disc-layout.md)),
-  with both `1CD.ID` and `2CD.ID` present. By the code above the mounted disc
-  then reads as 1, a level 3 or 4 load enters `CD_PromptSwap(2)`, and its first
-  `fopen` of `2CD.ID` succeeds (seen in the test above). The merged root
+  with both `1CD.ID` and `2CD.ID` present; without `2CD.ID` a level 3 or 4
+  load hangs in the prompt, without `1CD.ID` a level 1 or 2 load does.
+  `CD_GetDiscNumber` (`0x4287fa`) tests `1CD.ID` alone, so the merged root
+  always reads as disc 1: every level 3 or 4 load enters `CD_PromptSwap(2)`,
+  which draws "Please change to CD no 2" and presents it (`VID_Swap`) before
+  its first `fopen` of `2CD.ID` succeeds (seen in the test above). The prompt
+  is therefore on screen for one frame per disc-2 level load, where the real
+  disc 2 shows nothing; avoiding it means answering the disc number from the
+  record's `+0x1fc` (a host replacement of `0x4287fa`). **[verified in code;
+  how long the frame stays visible unverified]** The merged root
   keeps disc 1's `DREAMS.DAT` (2026-10-03): it is the final bank (dated
   1997-10-29, the day `WINDREAM.EXE` was linked; disc 2's is 10-08), and
   since `DDAT_Load` reads the bank only at start, it is also the one a
@@ -277,10 +285,19 @@ one data set:
 - **Install root**: a writable directory for `DATA\GAME` and `LEVEL.ID`, with
   `HD.ID`, `DIALOG.DRD` and `REPLAY.BIN` readable. For animated textures,
   `DATA\ANIM` must resolve under it.
-- **`FULL.ID`**: either way works with a merged view. Without it, level files
-  come from the CD root and nothing is copied. With it, and with the install
-  root showing the same files as the CD root, `FILE_CopyIfMissing` finds every
-  destination present and copies nothing.
+- **`FULL.ID`**: must be hidden when one tree serves as both the CD root and
+  the install root. Without it, level files come from the CD root, nothing is
+  copied, and `LEVEL.ID` and `ListL*.txt` are never opened (`ListL*.txt` are
+  read from the CD root, and only in full-install mode). With it,
+  `CD_PrepareLevel` finds `LEVEL.ID` absent or different on the first level
+  load (absent reads as 0) and runs `CD_PurgeCache` before the copy, which
+  deletes `DATA\3DC\*.dsn`, `*.dan` and `DATA\ANIM\*.hnm` under the install
+  root, that is, in the shared tree. The copy then reads the deleted files as
+  its sources, and `FILE_CopyIfMissing` treats a missing source as success, so
+  the tree loses its level files. **[verified in code; the end state of the
+  load after the purge (fatal error or crash) unverified]** The browser build
+  and disc mode already hide `FULL.ID` (`files.c`). (Corrected 2026-10-03: this
+  entry said either way works.)
 - **Music**: redbook tracks, 11 on disc 1 and 13 on disc 2, selected by track
   number. The host has to pick the track set from the level's disc.
 - **Web**: `ListL<n>.txt` plus `ListL0.txt` is the per-section file set, a

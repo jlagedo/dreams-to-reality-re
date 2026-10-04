@@ -10,11 +10,22 @@
 > source, copy commands, BOX working copy, gizmo offset, key codes); the
 > affected paragraphs are marked "Update 2026-10-03".
 
+> **Note, 2026-10-03 (audit).** Four static audits of the July names, every
+> July and retail trigger, the retail dead code and flags, and the engine
+> library and builds found more tools than this spec listed (free-fly and
+> overhead cameras, a give-all-items flag, the BEN11 collision displays and
+> profiler) and corrected several readings. They are collected in
+> [Developer-tool inventory](#developer-tool-inventory-audit-of-2026-10-03);
+> corrected paragraphs are marked "Audit 2026-10-03". The launch mode that
+> turns these tools on for players, Develop, is defined in
+> [spec 008](../008-editor-restoration/spec.md).
+
 Status: **Three debug views, a step override and the Dreams Editor (noclip,
 menu tree, mouse cursor, record pages) run in the recomp through data pokes,
 keypad toggles and two restored links; the editor's file pickers are broken in
-the retail code; the recorder start and several debug draws stay unreachable**
-Date: 2026-09-29
+the retail code; the recorder start and several debug draws stay unreachable;
+the 2026-10-03 audit inventories every surviving developer tool**
+Date: 2026-09-29; audit 2026-10-03
 Depends on: [000 the recomp](../000-the-recomp/spec.md)
 
 ## Goal and boundary
@@ -50,8 +61,11 @@ tags follow [the docs index](../../README.md#evidence-tags).
 | Editor BOX gizmo | inside the editor draw, before its flag test | working BOX record `+0xec & 1` | runs with the editor draw; the working BOX is empty until an editor page fills it, so the box seen is most likely `ShowLink_`'s exit volume (update 2026-10-03) |
 | Editor TGA frame capture | inside the editor draw | `0x4a4758` (every frame) or `0x4a475c` (once) | keypad 4 with keypad 5; `data\tga` must exist |
 | Demo recorder | per-frame code live, start functions dead | `0x49d34a` = 0 record / 1 play / 2 normal | untested poke |
-| Box wireframes, axis gizmo, post-scene callback | dead | no caller, no pointer | not reachable |
-| DOS 3dfx profiler | calls present in `DREAMSFX.EXE` | unknown gate | not examined |
+| Free-fly and overhead cameras (audit 2026-10-03) | live, message never posted | camera message `0x31` / `0x30` | not yet |
+| Give all items (audit 2026-10-03) | live, flag only ever cleared | `0x49d5e0 != 0` | not yet (a poke) |
+| HUD on/off (audit 2026-10-03) | live, flag stuck at 1 | `0x49d5d4 == 0` hides the HUD | not yet (a poke) |
+| BEN11 debug draws (`Display_*`, `Aff_Box_`, `Display_Frame_`), `New_PreRender_` | dead | no caller, no pointer | not reachable |
+| BEN11 profiler | DOS 3dfx: calls present; Windows: module present, uncalled | DOS: `_rendertype` `0x104f38` | not reachable |
 
 ## How the retail build hides them **[verified]**
 
@@ -59,7 +73,14 @@ tags follow [the docs index](../../README.md#evidence-tags).
   no instruction in the program writes it by address. `flag_hunt.py` (below)
   lists 84 such tested-but-unwritten globals; after removing tables written
   through pointers (the key table, structure fields) and runtime-library
-  state, the four live flags in the summary remain.
+  state, the four live flags in the summary remain. *Audit 2026-10-03:* that
+  count is too low. `flag_hunt.py` counts a clear as a writer and finds only
+  `cmp`/`test` reads, so it misses flags whose only writer clears them
+  (`0x49d5e0`, give all items) and flags read by `mov` then a call
+  (`0x49d5d4`, HUD on/off). The audit lists at least 13 more never-set or
+  stuck flags in game code, 2 more in the library
+  (`out/research/devtools-audit/C/dead_flags.tsv`, local); the inventory below
+  names them. **[verified in code]**
 - The dead features have no caller and no copy of their address anywhere in
   the file, so neither a call nor a function pointer can reach them.
 - Watcom links whole object files, so unused functions in a used `.obj` stay
@@ -81,8 +102,10 @@ object HUD, and before the next `VID_Swap`, so it lands on the finished frame.
 | `Frame Rate` | fps estimate `0x5df480`, from the same 200 Hz measurement as Δt |
 | second number (`%i`) | wall-clock seconds: 200 Hz counter (MGM message `0x11`) / 200 |
 | third number (`%f`) | wall-clock seconds minus simulated seconds: `0x49d5c4` adds Δt/30 every frame, so this is how far the simulation lags real time |
-| `Mem 3DTR` | `0x661e2c − 0x661ee0` |
-| `Mem 3DTR Free` | `0x661e2c − 0x661ee4` |
+| `Mem 3DTR` | `0x661e2c − 0x661ee0` (`_Mem_fin − _Mem_debut`) |
+| `Mem 3DTR Free` | `0x661e2c − 0x661ee4` (`_Mem_fin − _Mem_libre`) |
+
+The July names are from the demo's Watcom debug tables (audit 2026-10-03).
 
 The rows are 6 pixels apart from the object HUD's; with both on they overlap,
 as in the retail layout.
@@ -124,7 +147,8 @@ Two retail pieces combine:
    the object hook, clear the second hook and **skip the flush**. The collector
    records each face's projected corners into arrays at `0x6760e4`/`0x67f0e4`
    (counters `0x6808e4`/`0x6808e8`, reset by `REND_DrawScene`); nothing reads
-   them. No bounds check was seen in the collector. *Update 2026-10-03:* the
+   them. No bounds check was seen in the collector; July's `Build_Generic_`
+   has none either (audit 2026-10-03). *Update 2026-10-03:* the
    flag is `_build_list` of the BEN11 library (`3DC_LIST.C`), never written
    in the July builds either; it is a library debug list, not part of the
    editor.
@@ -133,10 +157,13 @@ With both, the 3D view freezes on the last rasterized frame while the game
 runs on; the HUD and text still update. Holding Backspace adds the collision
 triangles from the current camera each frame, and because nothing clears the
 view they accumulate. The lines trace the ground and the stepped platform of
-Project 0 coarsely. The handle `0x4fbdc8` is offset `+0x350` of the player
-actor `0x4fba78`; that it is the level's `.3DI` collision mesh
-([scene-geometry.md](../../research/scene-geometry.md)) rather than a local subset is
-**[unverified]**, as is whether the tree roots in Project 0 are solid.
+Project 0 coarsely. *Audit 2026-10-03:* the handle `0x4fbdc8` is actor slot
+2 (`0x4fbd48`, the scene object OBJET0) `+0x80`, not the player's `+0x350`:
+the `.3DI` collision-mesh field that `ENT_LoadModel` fills and
+`PHYS_SetLevelMesh` uses, so it is the level's collision mesh
+([scene-geometry.md](../../research/scene-geometry.md)). July reads the same
+field (`0x126088`). **[verified in code]** Whether the tree roots in
+Project 0 are solid is **[unverified]**.
 
 ### Step pinned at 2.0 **[verified]**
 
@@ -165,7 +192,8 @@ handled.
 ### Gameplay hotkeys **[verified in code]**
 
 `GAME_HandleHotkeys` (`0x415aa7`) reads the key table (index = virtual-key)
-and the last key event code `0x626fd8` (message `0x33`):
+and the last key event code `0x626fd8` (message `0x33`). The audit of
+2026-10-03 found no case missing from this table:
 
 | Keys | Effect |
 |---|---|
@@ -181,7 +209,7 @@ and the last key event code `0x626fd8` (message `0x33`):
 | J / K | joystick (input mode 3) / keyboard (mode 0) |
 | P | pause: toggles `0x49da20`, read by `GAME_Tick` and both follow cameras (owner-observed) |
 | Esc / Space | stop a playing video |
-| event code `0x97` | `MENU_OpenObjectPage` |
+| event code `0x97` | `MENU_OpenObjectPage`; unreachable: `INPUT_PostEvents` posts virtual-key codes and VK `0x97` is unassigned. `0x97` is the DOS character `ù` (CP437), July's `MENI` menu key (audit 2026-10-03) |
 
 **Girl Power.** `SCENE_InitLevel` loads the player as `mhe.3dc` with its
 animation set instead of `xh_.3dc` when the flag is set and the project's
@@ -296,7 +324,7 @@ An in-game editor for the `DREAMS.DAT` project graph
 | `GAME_Tick` | skips `ENT_TickTransform` and the `END.DSN` special case; every tick calls `ENT_ResetToSpawn` for actors 2–15 of the table `0x4fb7a8` (stride `0x2d0`; slot 1 at `0x4fba78` is the player) whose `+0xa8` bit 0 is set and `+0xa9` bit `0x40` clear, so NPCs stay pinned at their `OBJET` positions (owner-observed: they snap back and hold one animation) |
 | `ENT_ResetToSpawn` | no random path-point placement; skips a flag test |
 | `ENT_AdaptActorColor` | samples the frame buffer (its pixel reader is a stub) |
-| `0x43cc32` | calls `0x43ca25` (which reaches the stubbed plot `0x40224d`) |
+| `0x43cc32` (`CompParticles_`) | calls `0x43ca25` (`ShowGravityFirst_`, the four attractors; July inlined the same loop in `CompParticles_`), which reaches the stubbed plot `0x40224d` |
 | `DDAT_LoadRecord` | skips a 150-entry loop over `0x633bf4` |
 | `GAME_TickFrame` | hides the Frame Rate readout |
 
@@ -337,8 +365,15 @@ An in-game editor for the `DREAMS.DAT` project graph
   delta and button globals. **[verified in code]** *Update 2026-10-03:* the
   July builds have the producer: DOS `EVM_CollectEvents_` (`int 33h` mouse
   library) and Windows `0x42029a` (`GetCursorPos`, `ScreenToClient`).
+  *Audit 2026-10-03:* there are three decoders, not two: the intro-video
+  handler `0x4339cf` decodes the same events. The commands that enabled mouse
+  events and showed or hid the cursor (MGM 0–3) were removed with the
+  producer.
 - **Stubs.** The rectangle fill `0x402406` used by `0x44cd62` and `0x44d658`
-  is a bare `RET`; `0x44d632` → `0x44d658` has no caller.
+  is a bare `RET`; `0x44d632` → `0x44d658` has no caller. *Audit
+  2026-10-03:* `0x402406` is a single `RET` placed directly before an intact
+  July assembly body at `0x402407`, like the stubs listed under the debug
+  draws below.
 
 ### Where the editor draw was called **[unverified]**
 
@@ -392,6 +427,16 @@ Demo mode `0x49d34a`: 0 records (`DEMO_RecordFrame`, 6,144 frames, then
 (`DEMO_PlayFrame`, `DEMO_StopPlayback`), 2 is normal play and the initial
 value. The start-recording function `0x40db80` and start-playback `0x40dac2`
 (only called from `0x40ee88`) have no reachable caller and no pointer.
+*Audit 2026-10-03:* their July names are `CTRL_RecordReplaySequence_`,
+`CTRL_ReplaySequence_` and `CTRL_LoadReplaySequence_` (from the July
+Windows build and link order). Two more flags belong to the recorder and are
+written only by those dead functions: `0x4a2f05`, which makes `UI_DrawHud`
+draw the joystick and button inputs on screen, and `0x49d33a`, the replay
+frame count `DEMO_PlayFrame` stops at (read from the file by
+`0x40ee88`). `UI_DrawHud` also keeps a blinking REC/PLAY icon driven by
+`0x49d5dc` (`_flagRep`, toggled by `DEMO_RecordFrame`) and the demo mode.
+Writing `0x49d34a` alone is therefore not enough: recording and playback need
+host calls into the start functions. **[verified in code]**
 
 *Update 2026-10-03:* in the July demo the recorder is live: `r` (F3 in the
 Windows build) records, and the title menu and its idle timeout play
@@ -402,28 +447,186 @@ matches its own format.
 
 ### Debug draws with no caller **[verified in code]**
 
-All call the line drawer `0x465c80`; none has a caller or an address copy.
+All call the line drawer `0x465c80` (`C3D_Line_`); none has a caller or an
+address copy. *Audit 2026-10-03:* the names are the BEN11 library's
+(`3DC_COL2.C`, `3DC_COLL.C`, `3DC_MEM.C`, from the July debug tables), and
+none of them had a caller in July either. The direct renderer replaces
+`C3D_Line_` but not the pixel writer `0x465ea4` (`C3D_Pixel_`), so with it
+their lines draw and their dots do not.
 
 | Function | What it draws |
 |---|---|
-| `0x46115c` (from `0x4614b0`), `0x461334` | 12 edges each: boxes, next to `PHYS_UpdateNodeBoxes` (`0x4610e8`) **[box reading unverified]** |
-| `0x458434` | axis gizmo: `(framebuffer, position, 3×3 matrix)`, three 100-unit axes in `0xf800`, `0x1fe0`, `0x00ff` with white end dots (`0x465ea4`) |
-| `0x45842c` | setter of the post-scene callback `0x4aa704`, which `REND_DrawFrame`/`Ex` call when non-null; the gizmo's arguments do not fit that call |
-| `0x45e950` (from `0x45ea00`, `0x45f104`, `0x45f264`) | not examined |
+| `0x46115c` `Aff_Box_` (from `0x461334` `Display_Box_`, from `0x4614b0` `Display_Boxes_`) | 12 edges each: the oriented collision boxes whose corners `PHYS_UpdateNodeBoxes` (`0x4610e8`) refreshes every frame; `Display_Boxes_` also prints a count. Whether any shipped model has boxes is **[unverified]** (`Enable_Box_`, `Check_Collision_` have no caller) |
+| `0x458434` `Display_Frame_` | axis gizmo: `(framebuffer, position, 3×3 matrix)`, three 100-unit axes in `0xf800`, `0x1fe0`, `0x00ff` with white end dots (`0x465ea4`); July repeated the draw once per light, retail drops that loop |
+| `0x45842c` `New_PreRender_` | setter of the post-scene callback `0x4aa704` (`_PreRender`), which `REND_DrawFrame`/`Ex` call when non-null; the gizmo's arguments do not fit that call |
+| `0x45e950` `Display_Line_` (from `0x45ea00` `Display_Collision_Sphere_`, `0x45f104` `Display_Overlap_Sphere_`, `0x45f264` `Display_Face_`) | a world-space line through the camera. `Display_Collision_Sphere_` draws a collider's centre, then for each triangle it touches three lines across the triangle's bounding box and a line from the centre to the contact point; `Display_Overlap_Sphere_` the centre and its candidate pairs; `Display_Face_` one triangle. The collider record comes from `PHYS_GetCollider` (`0x45f638`); which record is the player's is **[unverified]** |
+| `0x45e8e8` `Display_Pixel_` | a world-space point (the centre dots above) |
 | `0x41b9d5` (from `0x41bacb`, `0x41bed6` via the editor's `0x44c440`/`0x44c51f`) | editor helper lines |
 
 Other bare-`RET` stubs: `0x4020a8`/`0x4020ce` (the pixel reads of
 `ENT_AdaptActorColor`), `0x40224d` (plots from `0x43ca8e`, no caller),
-`0x44d920`.
+`0x44d920`. *Audit 2026-10-03:* `0x4020a8`, `0x4020ce`, `0x40224d` and
+`0x402406` are each a single `RET` placed directly before an intact July
+assembly body (`_GetXYColor`, `_PutXYColor`, `_PutSpriteL16` and the
+routine at `0x402407`). The bodies load a selector into `FS`, which
+suggests the Windows port disabled DOS-only code this way; a host
+replacement could supply them. **[verified in code; the reason
+unverified]**
 
-### DOS 3dfx profiler **[verified in code; gate unknown]**
+### BEN11 profiler **[verified in code]**
 
 `DREAMSFX.EXE` has eight timer slots (`0x967c4` start, `0x9680c` stop,
 `0x9677c` reset, `0x96748` calibration) around `REND_DrawFrame`/`Ex`, the
 renderer init `0x70d04`, `0x6a770`–`0x6a964`, `0x7480c` and `0x757a4`. The
 bar graph `0x96920` and `"%4.1f"` fps text `0x969b8` are in
 `REND_DrawFrame`'s call list (feature export), while its decompiled C omits
-them; the condition is not traced.
+them.
+
+*Audit 2026-10-03:* the gate is the BEN11 flag `_rendertype` (`0x104f38` in
+retail `DREAMSFX.EXE`), tested at `0x73899` and `0x73984` and never written;
+the same flag drives the per-scanline span and edge meters (`0x83fc3`,
+`0x84319`). Poking it to 1 under DOSBox should show both. The module is
+`3DC_PROF.C`: eight timer banks of which July uses four (whole frame, 3D
+render, animation, collision).
+
+It is not DOS-only. In July the profiler was wired into the DOS software and
+Windows builds and absent from the Glide build. Retail `WINDREAM.EXE` keeps
+the whole module, uncalled: 11 functions at `0x4995e4`–`0x4998e0`, banks at
+`0x68117c` (16 bytes each), current bank `0x6811fc`, reference time
+`0x681200`, the stacked frame-time bar `Display_Info_Timer_` (`0x4997f8`,
+top scanline) and the fps text `info_timer_text_` (`0x499874`, through
+`C3D_Print_` `0x4655b0`). The per-scanline meters are compiled out of the
+Windows build. Three things stop a direct reconnection: `cpu_init_lib_`
+waits on the VGA status port in `vbl_` (`0x48a62f`), and the lifter turns
+`in al, dx` into a no-op, so it never returns; starting a bank twice calls
+`getch_`, a pause trap; and both displays write pixels, which the direct
+renderer does not show. A host overlay timing the same four stages is the
+practical route (inventory below).
+
+## Developer-tool inventory (audit of 2026-10-03)
+
+Four static audits, none yet run in the game: the July demo's names and
+source modules (A), every July and retail trigger: keys, messages, command
+line, environment, files (B), the retail dead code and flags (C), and the
+BEN11 engine library, renderers and build differences (D). Their tables are
+local and game-derived: `out/research/devtools-audit/A`–`D/`.
+
+- **Counts.** 551 of the 2,065 retail functions are dead (356 with no caller
+  and no stored address, 195 reached only from dead code): 158 game code
+  (20 developer tools, 61 cut features, 77 unclear), 93 editor, 300 library
+  (138 BEN11, 52 Watcom runtime, 107 unused import thunks, 3 codec). No game
+  function is kept alive only by a pointer in data. **[verified in code]**
+- **No switch outside the game.** No build reads a developer option from the
+  command line, the environment or a config file: both `WinMain`s ignore
+  `lpCmdLine`, the DOS `main`s ignore `argv`, and only middleware and the
+  Watcom runtime call `getenv`. **[verified in code]**
+- **Develop mode.** [Spec 008](../008-editor-restoration/spec.md) defines
+  three launch modes, Play, Develop and Play edits; Develop turns the tools
+  below on. Its keys are read as typed DOS characters, as the July DOS build
+  read them; the full key plan and the clash rules are in spec 008, phase 2.
+  Keypad 1–5 stay as in [Recomp support](#recomp-support); keypad 6–9 take
+  the tools with no July key, as below (2026-10-03).
+
+### Tier 1: Cryo's tools, cheap to reconnect
+
+| Tool | July trigger | Retail address and state | Reconnect | Develop key | Direct renderer |
+|---|---|---|---|---|---|
+| Free-fly camera | `-` (DOS char `0x2d`; the July Windows build read it as Insert) → camera message `0x31` | `CAM_ToggleFree` `0x40b386`, `CAM_TickFree` `0x40b429` (camera mode 7) live; no code posts `0x31` | host calls `CAM_PostMessage` (`0x409998`) with `0x31` | `-` | yes |
+| Overhead camera | `9` → `0x30` | `CAM_ToggleOverhead` `0x40b274` (mode 6, eye 1,500 units above the player) live; no sender | same call with `0x30` | `9` | yes |
+| Frame Rate / Mem 3DTR | `8` | `0x49d5c0`, live | flag | `8`, keypad 1 | yes (game text) |
+| Object HUD | F1 held | `0x49d5d0`, live; retail F1 sets the resolution | flag | keypad 2 | yes |
+| Collision view | — | byte `0x4ac8c8` plus Backspace held | flag | keypad 3, Backspace | software frame only |
+| HUD on/off | `A` | `0x49d5d4` (`_FlagAfficheInterface`), initial 1, never written | write 0 | `A` | yes |
+| TGA capture, Δt 2.0 | `6` every frame, `7` once | `0x4a4758`, `0x4a475c`; the writer runs in the editor draw | flags; the inserted call must run the draw every frame in Develop mode (the draw tests the flags itself) | `6`, `7` | the writer reads the software frame buffer **[unverified with direct]** |
+| Demo recorder | `r` (F3 in July Windows) | start functions `0x40db80`, `0x40dac2`, `0x40ee88` uncalled; flags `0x49d34a`, `0x4a2f05`, `0x49d33a`, `0x49d5dc` (Demo recorder start, above) | host calls into the start functions | `r` | yes |
+| Give all items | none, in July either | `0x49d5e0` (`_flagImportAllObjects`); while non-zero `GAME_TickFrame` (`0x4170e4`) adds one item per frame through `ENT_AddInventoryItem` (`0x42a182`), 14 names at `0x49db12` (feu, arc, epee, guerison, bouclier, connaiss, temps, spirit, holo, resurec, invivib, mine, shaman, vitesse), then clears it at `0x417121`, its only write; `MENJ_Dispatcher` shortens the pick-up wait while it is set | write 1 | keypad 6 | yes |
+| Dialogue test | `D` (plays entry 0) | `MENJ_Dispatcher` handles message `0x40` from the HUD queue `[0x626f2c]`, live | host calls `MGM_PostMessage` (`0x43b31a`) with (`[0x626f2c]`, `0x40`, id, 0) | `D` | yes |
+| Replay level movie | `H` (the project's movie, `+0x3c`) | the same sequence runs at level entry (`0x416015`) | host call | `H` | yes |
+| Console log | always on | the game's own `printf`: `Nom: %s` (archive entries), `map %s not used`, `No 3di file`, `ATTENTION Problème de hiérarchie !!!`, `Heap overflow`, `Erreur liberation`, `Error SprSet %d`, `Pb de scanline qui recule`, `Sound Is On`; it already reaches `run/stdout.txt` **[verified in data]** | host shows it | keypad 9 | n/a |
+
+The free camera turns with the mouse deltas (`0x4a3154`/`0x4a3158`) and flies
+forward or back on button word `0x4a315c` 1 or 2; held PgUp, PgDn, Home and
+End scale its speed by ½, ¼, 2 and 4 (key table `0x6308d8` + VK). It starts
+300 units from the actor while the player keeps playing; any `0x2b` post
+(a hit, a trigger, a level start) returns the camera to follow. It does
+nothing while the editor flag is set: July's `CAM_MoveMouse_` tests `_editor`
+first, because both use the mouse. July DOS read the speed keys by scan code
+(`_tab_active_scankey + 0x49`, `0x51`, `0x47`, `0x4f`) and the trigger by
+character, so they never clashed; the July Windows port read the old
+character codes as virtual keys, which made `!` (the editor toggle, `0x21`)
+Page Up. **[verified in code]** Whether giving items the player already
+holds is safe is **[unverified]**.
+
+### Tier 2: engine-library views that need a host hook
+
+| Tool | Retail | Reconnect | Develop key | Direct renderer |
+|---|---|---|---|---|
+| Collision sphere, overlap and face displays | `Display_Collision_Sphere_` `0x45ea00`, `Display_Overlap_Sphere_` `0x45f104`, `Display_Face_` `0x45f264` (debug draws, above) | a host call after the frame for each collider (`PHYS_GetCollider` `0x45f638`) | keypad 7 | lines yes, centre dots no |
+| Oriented-box wireframes | `Aff_Box_`, `Display_Box_`, `Display_Boxes_` | the same hook | keypad 7 | yes (lines) |
+| Collision counters | `_Add_OverlapCount` `0x4aa9c4`, `_Remove_OverlapCount` `0x4aa9c8`, `_OverlapCount` `0x4aa9cc`, `_debug_count` `0x4aa9d0`: counted in `PHYS_AddCandidate`/`PHYS_RemoveCandidate`, reset in `PHYS_UpdateCollider` (`0x45f4b8`), never read; `_flag4` `0x4ac8d7`, never set, only adjusts `_debug_count` | host overlay reads them | keypad 8 | n/a |
+| Memory totals | `MemoryUsed_` `0x424d7b` (`_heapwalk_` sum of used blocks), `MMS_GetFreeSpace_` `0x43b1fd`, `Get_Free_Memory_`; uncalled | host overlay calls them | keypad 8 | n/a |
+| Profiler | `3DC_PROF.C` (BEN11 profiler, above) | host reimplementation: time frame, 3D render, animation and collision and draw the bar itself | keypad 8 | host-drawn |
+| Dump helpers | `Scan_Mem_` `0x458384` (3D arena block chain), `PrintMisEntry_` `0x43afcd` (archive directory), `Mat_Print_` `0x45bbd4`, `Vect_Print_` `0x45bc04`; `0x47b304` prints projected vertices outside the view (July `Check_Project_Verts_` by its strings, **[unverified]**); all uncalled, all print to stdout | host calls, output to the console | console (keypad 9) | n/a |
+
+The two audits disagree on whether `_debug_count` is ever reset
+**[unverified]**.
+
+### Tier 3: software renderer only, or low value
+
+| Tool | Retail | Notes |
+|---|---|---|
+| Render classes `e f l v` | July `Comp3dEngineClavier_` is gone; its target `Change_Object_Classes_` = `MDL_ReplaceMaterial` (`0x4577cc`) is live; the scene handle is `[0x4fbdbc]` (actor slot 2 `+0x74`, written by `ENT_LoadModel`) | `l` 3→6, `e` 6→3, `f` 3→`0x1c` (`BT_Mapping_Flat_`), `v` `0x1c`→3, over every face of the level; Develop keys `e f l v` under the software renderer only; whether the direct renderer handles classes 6 and `0x1c` is **[unverified]** |
+| Background clear colour | `0x4ac744`, setter `Set_BackGrd_Color_` (`0x4583c0`) uncalled | shows holes in the level; software renderer only; no key planned |
+| Title-screen attract demo | July alternated `REPLAY.BIN` and `s81b_hi.ubb` after about 12 s idle; retail still counts idle steps (`0x626f04`) but nothing tests the count; the loader `0x40ee88` is uncalled | needs a new recording (the shipped `REPLAY.BIN` is in a stale format) |
+| Stuck option flags | `0x4a0f68`–`0x4a0f74` (map-animation enables, initial 1, never written; July "Option > Map Anim" leaves by data order **[unverified]**), `0x4a2fb0` (particle defaults, initial 1) | leads for spec 008's engine-global bindings |
+
+### Not reconnecting
+
+- **CPU-load bars** (editor `0x44d658`): `_CpuDisk` `0x49d1a4` and `_CpuHnm`
+  `0x49d1ac` are never written in any build, `_CpuVideo`'s producer `0x4040c8`
+  is uncalled, and the bar fill is the bare `RET` at `0x402406`.
+- **Render statistics** and the **per-scanline meters**: compiled out of
+  the Windows build (only the collector indices `0x6808e4`/`0x6808e8`
+  remain); the meters survive in retail `DREAMSFX.EXE` behind `_rendertype`.
+- **`GENETIC.C`**: an R&D genetic-classifier AI with its own test harness
+  (`GEN_TestPop_`), dead in every build.
+- **`FLU_*`** (`MENU.C`, `0x4398be`): a ripple-filter test over `menu.tga`
+  with a console key loop (`kbhit_`/`getch_`, `pix.raw`), dead in every build.
+- **`MENG`, `MENM`, `MENI`** (July `*`, `M`, `ù`): prototype gameplay menus
+  (icon ring, spells, inventory), not developer tools; their strings are
+  gone from retail.
+- **DOS-only tracing and memory reports**: Miles `MSS_DEBUG`/`MSS_SYS_DEBUG`,
+  Glide `GDBG_LEVEL`/`GDBG_FILE`, `printmemory_` and `ErreurExit_` (DPMI);
+  CryoLib's debug switches exist only in `CRYO.DLL`.
+- **`3DC_Z.C`**: pre-rendered Z-buffer backgrounds, a cut feature.
+
+### Triggers with no retail sender **[verified in code]**
+
+- **Camera messages** (`CAM_CompCameraPos`, 19 call sites): only `0x2b` and
+  `0x2d` are posted. No sender for `0x2c` (fixed camera), `0x2e` (entity
+  pair), `0x2f` (ride look), `0x30` (overhead), `0x31` (free).
+- **`MGM_SendMessage`** (76 call sites, all with constant numbers): no sender
+  for 6, 7, 8, 9, `0xb`, `0x10`, `0x13`, `0x14`, `0x15`, `0x1d`, `0x20`,
+  `0x21`, `0x24`, `0x25`. These are plumbing (joystick POV on/off, sound
+  shutdown, CD close and door, a countdown that posts event `0x3c`, which no
+  handler takes, two stubs); 7 is the only route to `JOY_EnablePov`, so
+  joystick event `0x39`'s decoder cases are dead.
+- **Events**: `0x3c` and `0x3d` are never forwarded; the mouse events
+  `0x34`–`0x38` have no producer (above); hotkey code `0x97` is unreachable
+  (Gameplay hotkeys).
+
+### Cut gameplay features (not developer tools)
+
+A July 3D inventory ring (about 20 `INV_*` functions, July key `I`) and its
+stat page `INV_PutStat_`; the old HUD `PutScreenInfo_` with its life, mana
+and oxygen bars; a water-distortion effect (`0x423ca7`, `0x423dc8`); a
+retail-only table of per-level node overrides keyed by level name
+(`0x41ce67`); `clonePLayer_`; the camera-path follower `compCameraPath2_`;
+unused AI tactics; the motion-blur and smooth-blur filters; the magic bar;
+and the in-game Save page opener `0x4313b5` (`MENU_InitSaveSlotSelect(1)`,
+then `MENU_RunGameMenu`), the twin of the `L` load page, which Develop
+reconnects as its save-anywhere (spec 008, B1; its typed-title entry is
+still to trace).
 
 ## Recomp support
 
@@ -448,6 +651,15 @@ inserted runtime call.
 | keypad 4 | `0x4a4758` step 2.0 | off | off |
 | keypad 5 | `0x4a477c` editor flag, which also enables the editor draw (F1–F6 clear it) | off | off |
 
+*Audit 2026-10-03:* each keypad key toggles its flag (`debug_toggle`); the
+same toggles are reachable from a `WD_KEYS` script naming virtual keys
+`0x61`–`0x65`. The keypad toggles, `mouse_post` and `wd_editor_frame` are
+compiled into every build, release included: none is behind `WD_DEVTOOLS`,
+and `mouse_post` posts `0x34`–`0x38` whenever the handler is
+`GAME_TickFrame` or `CTRL_Dispatcher`, editor on or not, so the mouse steers
+in normal play. Spec 008, phase M, confines them to Develop mode.
+**[verified in code]**
+
 - Mouse (`host/sdl/user.c`, `mouse_post`): the runtime supplies the missing
   producer. SDL motion and left/right buttons, mapped to game-frame
   coordinates, are posted as `0x34`–`0x38` into the standing handler's queue
@@ -468,7 +680,9 @@ inserted runtime call.
   before an instruction like `PROBES`, but may run guest code.
 - Editor keys also reach the game's own hotkeys (`L`, `J`, `K`, `P`, digits).
   Picker pages and record creation hit the retail picker defect above; `Q`
-  and confirming a project reload the level.
+  and confirming a project reload the level. Spec 008, phase 2, replaces this
+  with DOS-character keys and rules for each clash (the editor wins while it
+  is on; keys the host consumes are hidden from the game).
 
 Pokes of code bytes have no effect in the recomp: instruction operands are
 compiled into the lifted C, except the self-modifying sites `lift.py` lists.
@@ -504,21 +718,42 @@ The last run reaches Project 0 and taps Backspace; snapshots land in
    indexing is compiled into every picker page).
 4. **Reachability pass.** Find flags whose only writers are dead code, as
    `0x4a477c`'s effectively is: `flag_hunt.py` only lists flags with no
-   writer at all.
+   writer at all. *Audit 2026-10-03:* done by hand
+   (`out/research/devtools-audit/C/dead_flags.tsv`); left: teach
+   `flag_hunt.py` to ignore writes of 0 and to follow `mov` reads.
 5. **Demo recorder.** Poke `0x49d34a=0` at start and check that a
    `data\replay.bin` appears in the sandbox after 6,144 frames; playback needs
-   the loading done by the dead `0x40dac2`.
+   the loading done by the dead `0x40dac2`. *Audit 2026-10-03:* recording
+   also needs `0x40db80` called (it sets the input display `0x4a2f05`), and
+   playback the frame count `0x49d33a` that only `0x40ee88` reads in.
 6. **Collision view over the live scene.** Draw the retail wireframe again
    after `REND_DrawFrame` in a visible colour. This needs a host hook, so it
    leaves the pokes-only boundary; opt-in only.
 7. **DOS profiler.** Trace its gate in `DREAMSFX.EXE` and try it under DOSBox
-   Staging.
+   Staging. *Audit 2026-10-03:* the gate is `_rendertype` (`0x104f38`); left:
+   poke it under DOSBox and capture the bars and scanline meters.
 8. **OpenDreams.** Carry the readout, object HUD and collision view into the
    runtime's debug overlay as retail-derived views (north-star.md).
+9. **Developer tools for Develop mode.** Reconnect the inventory's tiers 1
+   and 2 under the launch mode and keys of spec 008 (cameras, HUD off, give
+   all items, dialogue test, level movie, recorder, console, collision
+   displays, host profiler overlay).
 
 ## Open questions
 
-- Is `0x4fbdc8` (player actor `+0x350`) always the level's `.3DI` mesh?
+- ~~Is `0x4fbdc8` (player actor `+0x350`) always the level's `.3DI` mesh?~~
+  It is actor slot 2 `+0x80`, the scene object's `.3DI` collision-mesh field
+  (answered by the audit, 2026-10-03).
+- ~~What did the July keys `9`, `-` and `D` do?~~ Overhead camera, free-fly
+  camera, dialogue entry 0 (answered by the audit, 2026-10-03).
+- Is giving all items safe when the player already holds some
+  (`0x49d5e0`)?
+- What are the never-written flags `0x4a2ecd` (`UI_DrawHud` draws the
+  `infosne` icon when set), `0x49d2c8` (stuck at 1; `CAM_ApplyLookAt` takes a
+  branch only then), `0x49d9f0` (stuck at 1; `SCENE_LoadLevel` runs a
+  16-entry loop over project `+0x6c0`) and `0x4a1577` (`MENU_RunGameMenu`
+  calls `VID_SetResolution` when it is 1; nothing sets 1)?
+- Is `_debug_count` (`0x4aa9d0`) reset with the other collision counters?
 - ~~Did the developers' build read the mouse through Windows messages or
   DOS `int 33h`?~~ Both: the July DOS build through an `int 33h` library,
   the July Windows build with `GetCursorPos`. The cursor is
