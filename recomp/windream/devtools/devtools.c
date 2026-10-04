@@ -79,7 +79,7 @@ static int g_disc_seen;           /* the active disc at the last open */
 static struct { int track, disc; uint32_t mode; } g_cd = { 0, 0, W32_MCI_MODE_STOP };
 
 /* ---- answers that wait ---- */
-enum { PEND_WAIT = 1, PEND_UNTIL, PEND_STEP, PEND_SHOT };
+enum { PEND_WAIT = 1, PEND_UNTIL, PEND_STEP, PEND_SHOT, PEND_OVERLAY };
 enum { COND_MEM = 1, COND_OPENED, COND_DISC, COND_CD_TRACK, COND_FRAME };
 typedef struct {
     int kind;                     /* 0: free */
@@ -422,6 +422,161 @@ static void cmd_key(const Request* r) {
     reply_end(&o, r->connection);
 }
 
+/* `type`: a key as a person presses it, through the host's own key path
+ * (host_pump, and in Develop dev_keys.c), which `key` bypasses: SDL key events
+ * (the modifiers first), the text the key types if given, and the release
+ * after `ms`. Names are SDL's scan-code names ("A", "1", "Keypad 2", "F10",
+ * "Space", "Escape"); `mods` is any of shift, ctrl, alt joined by '+'. The
+ * text is what the layout would type: the host never derives it. */
+#define TYPED 16
+static struct { int on; uint32_t at; SDL_Scancode sc; SDL_Keymod mod; } g_typed[TYPED];
+static char g_typed_text[TYPED][32];   /* a pushed text event points here until it is read */
+static int g_typed_text_next;
+
+static void push_key(SDL_Scancode sc, SDL_Keymod mod, int down) {
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+    e.key.timestamp = SDL_GetTicksNS();
+    e.key.windowID = host_window() ? SDL_GetWindowID(host_window()) : 0;
+    e.key.scancode = sc;
+    e.key.key = SDL_GetKeyFromScancode(sc, mod, true);
+    e.key.mod = mod;
+    e.key.down = down != 0;
+    SDL_PushEvent(&e);
+}
+static const struct { SDL_Keymod mod; SDL_Scancode sc; } g_mod_keys[] = {
+    {SDL_KMOD_LCTRL, SDL_SCANCODE_LCTRL}, {SDL_KMOD_LSHIFT, SDL_SCANCODE_LSHIFT}, {SDL_KMOD_LALT, SDL_SCANCODE_LALT},
+};
+static void push_release(int i) {
+    push_key(g_typed[i].sc, g_typed[i].mod, 0);
+    SDL_Keymod held = g_typed[i].mod;
+    for (size_t m = 0; m < sizeof g_mod_keys / sizeof g_mod_keys[0]; m++)
+        if (held & g_mod_keys[m].mod) { held &= (SDL_Keymod)~g_mod_keys[m].mod; push_key(g_mod_keys[m].sc, held, 0); }
+    g_typed[i].on = 0;
+}
+
+static void cmd_type(const Request* r) {
+    const char* name = arg_text(r, "key");
+    const char* mods = arg_text(r, "mods");
+    const char* text = arg_text(r, "text");
+    uint32_t ms = TAP_MS;
+    if (arg_u32(r, "ms", &ms) < 0) return;
+    SDL_Scancode sc = name ? SDL_GetScancodeFromName(name) : SDL_SCANCODE_UNKNOWN;
+    if (sc == SDL_SCANCODE_UNKNOWN) { reply_error(r->connection, r->id, "unknown scan-code name \"%s\" (SDL's names)", name ? name : ""); return; }
+    SDL_Keymod mod = 0;
+    for (const char* m = mods ? mods : ""; *m;) {
+        size_t n = strcspn(m, "+");
+        if (n == 5 && !SDL_strncasecmp(m, "shift", 5)) mod |= SDL_KMOD_LSHIFT;
+        else if (n == 4 && !SDL_strncasecmp(m, "ctrl", 4)) mod |= SDL_KMOD_LCTRL;
+        else if (n == 3 && !SDL_strncasecmp(m, "alt", 3)) mod |= SDL_KMOD_LALT;
+        else { reply_error(r->connection, r->id, "\"mods\": %.*s is not shift, ctrl or alt", (int)n, m); return; }
+        m += n + (m[n] == '+');
+    }
+    if (text && strlen(text) >= sizeof g_typed_text[0]) { reply_error(r->connection, r->id, "\"text\" is too long"); return; }
+    int slot = -1;
+    for (int i = 0; i < TYPED && slot < 0; i++)
+        if (!g_typed[i].on) slot = i;
+    if (slot < 0) { reply_error(r->connection, r->id, "too many typed keys are held (%d)", TYPED); return; }
+    SDL_Keymod held = 0;
+    for (size_t m = 0; m < sizeof g_mod_keys / sizeof g_mod_keys[0]; m++)
+        if (mod & g_mod_keys[m].mod) { held |= g_mod_keys[m].mod; push_key(g_mod_keys[m].sc, held, 1); }
+    push_key(sc, mod, 1);
+    if (text && *text) {
+        char* pooled = g_typed_text[g_typed_text_next++ % TYPED];
+        SDL_strlcpy(pooled, text, sizeof g_typed_text[0]);
+        SDL_Event t;
+        SDL_zero(t);
+        t.type = SDL_EVENT_TEXT_INPUT;
+        t.text.timestamp = SDL_GetTicksNS();
+        t.text.windowID = host_window() ? SDL_GetWindowID(host_window()) : 0;
+        t.text.text = pooled;
+        SDL_PushEvent(&t);
+    }
+    g_typed[slot].on = 1;
+    g_typed[slot].at = host_elapsed_ms() + ms;
+    g_typed[slot].sc = sc;
+    g_typed[slot].mod = mod;
+    JsonOut o;
+    reply_begin(&o, r->id);
+    jo_int(&o, "scancode", (int64_t)sc);
+    reply_end(&o, r->connection);
+}
+
+/* `mouse`: the pointer as a person moves and clicks it, through the host's
+ * own mouse path (SDL events: host_pump, and in Develop the editor's mouse
+ * feed). `x`, `y` are game pixels, mapped to the window through the software
+ * renderer's presentation; with "client": 1 they are window pixels as given
+ * (the direct renderer, which has no SDL renderer to map through). `action`
+ * is move, down, up or click (down, the release after `ms`, 150); `button`
+ * left (default) or right. A button event also moves the pointer there.
+ * `dx`, `dy` (32-bit two's complement) give a move relative deltas, as a mouse
+ * in relative mode reports them (the free camera, spec 008 phase 7). */
+static struct { int on; uint32_t at; float x, y; uint8_t button; } g_click;
+
+static float g_rel_x, g_rel_y;   /* the next motion's deltas */
+
+static void push_mouse(float x, float y, uint8_t button, int kind) {   /* kind 0 motion, 1 down, 2 up */
+    SDL_Event e;
+    SDL_zero(e);
+    uint32_t window = host_window() ? SDL_GetWindowID(host_window()) : 0;
+    if (!kind) {
+        e.type = SDL_EVENT_MOUSE_MOTION;
+        e.motion.timestamp = SDL_GetTicksNS();
+        e.motion.windowID = window;
+        e.motion.x = x; e.motion.y = y;
+        e.motion.xrel = g_rel_x; e.motion.yrel = g_rel_y;
+        g_rel_x = g_rel_y = 0;
+    } else {
+        e.type = kind == 1 ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
+        e.button.timestamp = SDL_GetTicksNS();
+        e.button.windowID = window;
+        e.button.button = button;
+        e.button.down = kind == 1;
+        e.button.clicks = 1;
+        e.button.x = x; e.button.y = y;
+    }
+    SDL_PushEvent(&e);
+}
+
+static void cmd_mouse(const Request* r) {
+    const char* action = arg_text(r, "action");
+    const char* button = arg_text(r, "button");
+    uint32_t x = 0, y = 0, client = 0, ms = TAP_MS, dx = 0, dy = 0;
+    if (!need_u32(r, "x", &x) || !need_u32(r, "y", &y) || arg_u32(r, "client", &client) < 0 || arg_u32(r, "ms", &ms) < 0 ||
+        arg_u32(r, "dx", &dx) < 0 || arg_u32(r, "dy", &dy) < 0) return;
+    if (!action) action = "click";
+    uint8_t b = !button || !strcmp(button, "left") ? SDL_BUTTON_LEFT : !strcmp(button, "right") ? SDL_BUTTON_RIGHT : 0;
+    if (!b) { reply_error(r->connection, r->id, "\"button\" must be left or right"); return; }
+    float wx = (float)x, wy = (float)y;
+    if (!client) {
+        SDL_Renderer* renderer = host_renderer();
+        if (!renderer || !SDL_RenderCoordinatesToWindow(renderer, (float)x + 0.5f, (float)y + 0.5f, &wx, &wy)) {
+            reply_error(r->connection, r->id, "no SDL renderer to map game pixels (direct renderer?): pass \"client\": 1 and window pixels");
+            return;
+        }
+    }
+    if (!strcmp(action, "move")) {
+        g_rel_x = (float)(int32_t)dx; g_rel_y = (float)(int32_t)dy;
+        push_mouse(wx, wy, b, 0);
+    }
+    else if (!strcmp(action, "down")) { push_mouse(wx, wy, b, 0); push_mouse(wx, wy, b, 1); }
+    else if (!strcmp(action, "up")) { push_mouse(wx, wy, b, 0); push_mouse(wx, wy, b, 2); }
+    else if (!strcmp(action, "click")) {
+        if (g_click.on) { reply_error(r->connection, r->id, "a click is still held"); return; }
+        push_mouse(wx, wy, b, 0);
+        push_mouse(wx, wy, b, 1);
+        g_click.on = 1;
+        g_click.at = host_elapsed_ms() + ms;
+        g_click.x = wx; g_click.y = wy; g_click.button = b;
+    } else { reply_error(r->connection, r->id, "\"action\" must be move, down, up or click"); return; }
+    JsonOut o;
+    reply_begin(&o, r->id);
+    jo_int(&o, "window_x", (int64_t)wx);
+    jo_int(&o, "window_y", (int64_t)wy);
+    reply_end(&o, r->connection);
+}
+
 static void cmd_wait(const Request* r) {
     uint32_t frames = 0, ms = 0;
     int has_frames = arg_u32(r, "frames", &frames), has_ms = arg_u32(r, "ms", &ms);
@@ -544,6 +699,73 @@ static void cmd_screenshot(const Request* r) {
     g_shot = SHOT_WANTED;
     p->kind = PEND_SHOT;
     if (g_paused) { g_step_left = 1; g_paused = 0; }   /* nothing is presented while paused: step one frame for it */
+}
+
+/* overlay_shot (spec 008 phase D): the game frame of one gameplay frame just
+ * before Develop's overlays (the editor's call, the tools; user.c
+ * wd_editor_frame) and just after them, as 24-bit BMPs: the guest frame under
+ * the software renderer, the GPU frame read back under the direct one. Their
+ * difference is exactly what the overlays drew. Answers once both are
+ * written; fails after 120 frames without a gameplay frame. */
+enum { OV_IDLE, OV_WANTED, OV_BEFORE, OV_TAKEN, OV_FAILED };
+static volatile int g_ov;
+static char g_ov_path[2][W32_MAX_PATH];
+
+static int write_bmp(const char* path, const uint16_t* px, int w, int h, int rgb555) {
+    SDL_IOStream* f = SDL_IOFromFile(path, "wb");
+    if (!f) return 0;
+    int row = (w * 3 + 3) & ~3;
+    uint32_t size = 54u + (uint32_t)row * (uint32_t)h;
+    uint8_t head[54] = {'B', 'M'};
+    uint32_t fields[] = {size, 0, 54, 40, (uint32_t)w, (uint32_t)h};
+    for (int i = 0; i < 6; i++) memcpy(head + 2 + 4 * i, &fields[i], 4);
+    head[26] = 1; head[28] = 24;
+    int ok = SDL_WriteIO(f, head, sizeof head) == sizeof head;
+    uint8_t* line = (uint8_t*)calloc((size_t)row, 1);
+    for (int y = h - 1; ok && line && y >= 0; y--) {
+        for (int x = 0; x < w; x++) {
+            uint16_t c = px[(size_t)y * (size_t)w + x];
+            int r = rgb555 ? (c >> 10) & 31 : c >> 11, g = rgb555 ? ((c >> 5) & 31) << 1 | 1 : (c >> 5) & 63, b = c & 31;
+            line[x * 3 + 0] = (uint8_t)(b << 3 | b >> 2);
+            line[x * 3 + 1] = (uint8_t)(g << 2 | g >> 4);
+            line[x * 3 + 2] = (uint8_t)(r << 3 | r >> 2);
+        }
+        ok = SDL_WriteIO(f, line, (size_t)row) == (size_t)row;
+    }
+    free(line);
+    return SDL_CloseIO(f) && ok && line;
+}
+
+void wd_devtools_overlay(int after) {
+    if (!g_on || !(after ? g_ov == OV_BEFORE : g_ov == OV_WANTED)) return;
+    uint32_t fb = WD_HOST_READ32(0x005E549Cu);
+    int w = (int)WD_HOST_READ32(0x0049D9FCu), h = (int)WD_HOST_READ32(0x0049DA00u);
+    int rgb555 = WD_HOST_READ32(0x0049DA1Cu) == 1;
+    if (!fb || w <= 0 || h <= 0 || w > 4096 || h > 4096) { g_ov = OV_FAILED; return; }
+    uint16_t* px = (uint16_t*)malloc((size_t)w * (size_t)h * 2u);
+    int ok = px != NULL;
+    if (ok && wd_render_requested() && wd_render_surface_owned(fb)) ok = wd_render_read_frame(fb, px, w, h);
+    else if (ok) memcpy(px, wd_host_range(fb, (size_t)w * (size_t)h * 2u, 0), (size_t)w * (size_t)h * 2u);
+    ok = ok && write_bmp(g_ov_path[after ? 1 : 0], px, w, h, rgb555);
+    free(px);
+    g_ov = !ok ? OV_FAILED : after ? OV_TAKEN : OV_BEFORE;
+}
+
+static void cmd_overlay_shot(const Request* r) {
+    const char* before = arg_text(r, "before");
+    const char* after = arg_text(r, "after");
+    if (!before || !after || !before[0] || !after[0] || strlen(before) >= sizeof g_ov_path[0] ||
+        strlen(after) >= sizeof g_ov_path[1]) { reply_error(r->connection, r->id, "overlay_shot needs \"before\" and \"after\""); return; }
+    if (pending_has(PEND_OVERLAY)) { reply_error(r->connection, r->id, "an overlay shot is already waiting"); return; }
+    Pending* p = pending_new(r);
+    if (!p) return;
+    SDL_strlcpy(g_ov_path[0], before, sizeof g_ov_path[0]);
+    SDL_strlcpy(g_ov_path[1], after, sizeof g_ov_path[1]);
+    g_ov = OV_WANTED;
+    p->kind = PEND_OVERLAY;
+    p->has_frames = 1;
+    p->frames = 120;
+    if (g_paused) { g_step_left = 1; g_paused = 0; }   /* the overlays run inside a frame: step one */
 }
 
 /* Render parity captures (recomp/windream/verify/render_parity.py): the scene
@@ -712,6 +934,8 @@ static void run_command(const Request* r, const char* cmd) {
     if (!strcmp(cmd, "ping")) cmd_ping(r);
     else if (!strcmp(cmd, "status")) cmd_status(r);
     else if (!strcmp(cmd, "key")) cmd_key(r);
+    else if (!strcmp(cmd, "type")) cmd_type(r);
+    else if (!strcmp(cmd, "mouse")) cmd_mouse(r);
     else if (!strcmp(cmd, "wait")) cmd_wait(r);
     else if (!strcmp(cmd, "wait_until")) cmd_wait_until(r);
     else if (!strcmp(cmd, "read")) cmd_read(r);
@@ -728,6 +952,7 @@ static void run_command(const Request* r, const char* cmd) {
     else if (!strcmp(cmd, "audio_dump_stop")) cmd_audio_dump_stop(r);
     else if (!strcmp(cmd, "trace")) cmd_trace(r);
     else if (!strcmp(cmd, "display_shot")) cmd_display_shot(r);
+    else if (!strcmp(cmd, "overlay_shot")) cmd_overlay_shot(r);
     else if (!strcmp(cmd, "quit")) cmd_quit(r);
     else reply_error(r->connection, r->id, "unknown command \"%s\"", cmd);
 }
@@ -774,7 +999,10 @@ static void finish_pending(void) {
         if (p->kind == PEND_WAIT) done = limit;
         else if (p->kind == PEND_STEP) done = !g_step_left;
         else if (p->kind == PEND_SHOT) done = g_shot == SHOT_TAKEN;
-        else if (!(done = condition(p, &seen))) failed = limit;
+        else if (p->kind == PEND_OVERLAY) {
+            done = g_ov == OV_TAKEN;
+            failed = g_ov == OV_FAILED ? 3 : (!done && limit);
+        } else if (!(done = condition(p, &seen))) failed = limit;
         if (done) {
             reply_begin(&o, p->id);   /* takes the same lock again: SDL mutexes are recursive */
             jo_int(&o, "waited_frames", frames);
@@ -799,8 +1027,15 @@ static void finish_pending(void) {
             jo_str(&o, "format", direct ? "png" : "bmp", 0);
             if (!SDL_GetPathInfo(g_shot_path, NULL)) { free(o.text); done = 0; failed = 2; }
         }
+        if (done && p->kind == PEND_OVERLAY) {
+            g_ov = OV_IDLE;
+            jo_str(&o, "before", g_ov_path[0], 0);
+            jo_str(&o, "after", g_ov_path[1], 0);
+        }
         if (done) reply_end(&o, p->connection);
         if (failed == 1) reply_error(p->connection, p->id, "timeout after %u frames (%u ms)", frames, ms);
+        if (failed == 3) reply_error(p->connection, p->id, "overlay_shot: the frame could not be read or written");
+        if (failed && p->kind == PEND_OVERLAY) g_ov = OV_IDLE;
         if (failed == 2) reply_error(p->connection, p->id, "the host's snapshot did not write %s", g_shot_path);
         if (done || failed) {
             SDL_LockMutex(g_events_lock);
@@ -834,6 +1069,12 @@ static void service(void) {
     for (int vk = 0; vk < 256; vk++)
         if (g_tap[vk].on && (int32_t)((g_tap[vk].by_frame ? g_frames : now) - g_tap[vk].at) >= 0)
             g_tap[vk].on = g_key[vk] = 0;
+    for (int i = 0; i < TYPED; i++)
+        if (g_typed[i].on && (int32_t)(now - g_typed[i].at) >= 0) push_release(i);
+    if (g_click.on && (int32_t)(now - g_click.at) >= 0) {
+        push_mouse(g_click.x, g_click.y, g_click.button, 2);
+        g_click.on = 0;
+    }
     finish_pending();
 }
 

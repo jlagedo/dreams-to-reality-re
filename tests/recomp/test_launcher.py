@@ -362,8 +362,8 @@ def test_develop_makes_the_developer_folder_once_and_plays_from_it(demo, home, t
     tree = Path(developer(home))
     assert pairs["WD_MODE"] == "dev" and pairs["WD_TREE"] == developer(home)
     assert "WD_DISC1" not in pairs and "WD_DISC2" not in pairs  # Develop plays the folder only
-    # The software renderer until the direct renderer is ported, whatever [port] renderer says.
-    assert pairs.get("WD_RENDERER") == ("software" if sys.platform == "win32" else None)
+    # The renderer setting, as in Play (spec 008 phase D): unset here, the host's default.
+    assert "WD_RENDERER" not in pairs
     # Both discs as one tree, and the marker written last.
     assert (tree / "GDIDREAM.EXE").read_bytes() == (d1 / "GDIDREAM.EXE").read_bytes()
     assert (tree / "DATA" / "1CD.ID").is_file() and (tree / "DATA" / "2CD.ID").is_file()

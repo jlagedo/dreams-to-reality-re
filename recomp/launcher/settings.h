@@ -119,8 +119,7 @@ std::string keyboard_conflict(const PortSettings& s);
 
 using VarList = std::vector<std::pair<std::string, std::string>>;
 // The port's WD_* pairs (not the paths), leaving out whatever is at the host's default.
-// Develop runs on the software renderer until the direct renderer is ported (spec 008
-// phase D), whatever `gpu` says: WD_RENDERER=software where the host's default is direct.
+// Every mode, Develop included, takes `gpu` (spec 008 phase D).
 void emit_port_vars(const PortSettings& s, VarList& out);
 
 #endif

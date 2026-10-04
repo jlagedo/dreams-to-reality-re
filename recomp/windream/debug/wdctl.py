@@ -21,6 +21,7 @@ As a command line, against a game started with `run.py ... --ctl`:
 
     uv run python recomp/windream/debug/wdctl.py --run-dir out/recomp/windream/run-NAME status
     ... key ESC                    tap; `key ESC down`, `key ESC up` hold and release
+    ... type A A shift             a typed key through the host's key path (KEY [TEXT [MODS]])
     ... wait frames 25             or: wait ms 1000
     ... wait_until opened H18ANGKR.DSN [--since SEQ] [--timeout-ms N] [--timeout-frames N]
                                    --since: the "seq" the key before it answered
@@ -29,6 +30,7 @@ As a command line, against a game started with `run.py ... --ctl`:
     ... wait_until disc 2          also: cd_track N, frame N
     ... read 0x661e04 4            read32 ADDR, read_cstr ADDR, write ADDR HEX, write32 ADDR VALUE
     ... screenshot out/tmp/x.bmp   the next frame (while paused: steps one frame)
+    ... overlay_shot A.bmp B.bmp   Develop: the frame before and after the editor and tools
     ... pause | resume | step [N]
     ... log [SINCE]
     ... audio_dump out/tmp/x.wav   then: audio_dump_stop
@@ -176,6 +178,45 @@ class Ctl:
     def tap(self, name: str, frames: int | None = None, ms: int | None = None) -> dict:
         return self.key(name, "tap", frames, ms)
 
+    def type(
+        self, key: str, text: str | None = None, mods: str | None = None, ms: int | None = None
+    ) -> dict:
+        """A key as a person presses it, through the host's own key path (SDL
+        events; `key` above bypasses it): `key` an SDL scan-code name ("A",
+        "1", "Keypad 2", "F10", "Space", "Escape"), `text` the character the
+        layout types, if any, `mods` "shift", "ctrl", "alt" joined by '+',
+        held `ms` (150). In Develop this is what the DOS keys read."""
+        return self.call("type", key=key, text=text, mods=mods, ms=ms)
+
+    def mouse(
+        self,
+        x: int,
+        y: int,
+        action: str = "click",
+        button: str = "left",
+        ms: int | None = None,
+        client: bool = False,
+        dx: int | None = None,
+        dy: int | None = None,
+    ) -> dict:
+        """The pointer through the host's own mouse path (SDL events): `x`, `y` in
+        game pixels (mapped through the software renderer; `client` True takes
+        window pixels, for the direct renderer), `action` move, down, up or
+        click (held `ms`, 150), `button` left or right. In Develop this is the
+        editor's cursor and buttons. `dx`, `dy` give a move relative deltas, as a
+        mouse in relative mode reports them (Develop's free camera)."""
+        rel = {k: v & 0xFFFFFFFF for k, v in (("dx", dx), ("dy", dy)) if v is not None}
+        return self.call(
+            "mouse",
+            x=x,
+            y=y,
+            action=action,
+            button=button,
+            ms=ms,
+            client=1 if client else None,
+            **rel,
+        )
+
     def key_down(self, name: str) -> dict:
         return self.key(name, "down")
 
@@ -259,6 +300,16 @@ class Ctl:
         target = Path(path).resolve()
         target.parent.mkdir(parents=True, exist_ok=True)
         return self.call("screenshot", path=str(target))
+
+    def overlay_shot(self, before: str | Path, after: str | Path) -> dict:
+        """Develop, in a level: the game frame of the next gameplay frame just before
+        the editor's call and the tools' overlays and just after them, as 24-bit
+        BMPs (the GPU frame read back under the direct renderer). Their difference
+        is what the overlays drew (spec 008 phase D). While paused, steps one frame."""
+        paths = [Path(p).resolve() for p in (before, after)]
+        for path in paths:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        return self.call("overlay_shot", before=str(paths[0]), after=str(paths[1]))
 
     def pause(self) -> dict:
         return self.call("pause")
@@ -506,6 +557,12 @@ def run_cli(ctl: Ctl, command: str, rest: list[str], options: argparse.Namespace
         return ctl.key(rest[0], rest[1] if len(rest) > 1 else "tap")
     if command == "tap":
         return ctl.tap(rest[0])
+    if command == "type":  # type KEY [TEXT [MODS]]
+        text, mods = (rest[1:] + [None, None])[:2]
+        return ctl.type(rest[0], text, mods)
+    if command == "mouse":  # mouse X Y [ACTION [BUTTON]]
+        action, button = (rest[2:] + ["click", "left"])[:2]
+        return ctl.mouse(_number(rest[0]), _number(rest[1]), action, button)
     if command == "wait":
         return ctl.wait(**{rest[0]: _number(rest[1])})
     if command == "wait_until":
@@ -530,6 +587,8 @@ def run_cli(ctl: Ctl, command: str, rest: list[str], options: argparse.Namespace
         return ctl.write32(_number(rest[0]), _number(rest[1]))
     if command == "screenshot":
         return ctl.screenshot(rest[0])
+    if command == "overlay_shot":
+        return ctl.overlay_shot(rest[0], rest[1])
     if command == "step":
         return ctl.step(_number(rest[0]) if rest else 1)
     if command == "log":

@@ -67,6 +67,7 @@ int      files_open_discs(void);                      /* 1 disc mode (WD_DISC1, 
 void     host_mode_install(void);                     /* launch_mode.c: the current launch mode's replacements, after wd_render_install */
 const char* files_tree(void);                         /* WD_TREE (tree mode: one tree is CD root, install root and write root), or NULL */
 void*    files_disc_read(int disc, const char* path, size_t* size);   /* a whole file of disc 1 or 2, malloc'd; NULL if absent */
+void*    files_read_guest(uint32_t path_va, size_t* size);   /* the file a guest path names, read as CreateFileA would open it, malloc'd; NULL if absent */
 struct Disc* files_active_disc(int* number, void (*on_switch)(void)); /* NULL in legacy mode; on_switch: called after each change */
 void     files_init(const char* exe);                 /* exe: the legacy read root's file; unused in disc mode */
 void     files_release(int kind, void* host);         /* drop a reference to an HK_FILE or HK_FIND object */

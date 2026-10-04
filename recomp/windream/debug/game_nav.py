@@ -135,12 +135,18 @@ def game_menu_is_open(ctl):
 
 def open_game_menu(ctl):
     """ESC opens the in-game menu; while a dialogue runs, ESC ends a line of it
-    instead, so it is pressed until the menu's loop is seen running."""
+    instead, so it is pressed until the menu's loop is seen running. The menu
+    starts some frames after the press (about 12 in project 116 after a link,
+    0.9 s at a headless direct game's 13 frames/s): a second ESC in that time
+    cancels it, so each press waits up to 30 frames for the menu first."""
     for _ in range(12):
         if game_menu_is_open(ctl):
             return
         ctl.tap("ESC")
-        ctl.wait(ms=300)
+        for _ in range(6):
+            ctl.wait(frames=5)
+            if game_menu_is_open(ctl):
+                return
     raise NavError("ESC never opened the in-game menu")
 
 
@@ -239,3 +245,56 @@ def assert_level_files_come_from(events, disc):
         else:
             below_install = event["path"].upper().startswith("CRYO\\DREAMS\\")
             assert stem in found or below_install, f"not found on disc {disc}: {event}"
+
+
+# ---- the Dreams Editor's picker pages (Develop, spec 008 phase 3) ----
+#
+# Every page is one template (host/sdl/editor_pickers.c): eight rows of names at
+# x 80, y 50 + 10 k (game pixels), UP at y 40, DOWN at 130, EXIT at 150, the
+# title line at 20. Its hit tests read the mouse's y raised by 6 inside the
+# editor (WorksEdit_ 0x44d46d), so on screen row k answers at y 44 + 10 k ..
+# 53 + 10 k; the points below sit inside each zone. Only the held left button
+# counts, and a held scroll button steps once per frame.
+PAGE_ROW_Y = 52  # + 10 k: row k
+PAGE_UP_Y, PAGE_DOWN_Y, PAGE_CONFIRM_Y, PAGE_EXIT_Y = 39, 129, 15, 149
+
+
+def page_click(ctl, y, x=80):
+    """One click on the open page at game y, held for exactly one frame. A step
+    pauses the game at the first pump after a frame is presented, before the
+    next frame's tick reads its messages (a bare pause may land in a pump after
+    this frame's editor call, so the press and the release would reach the same
+    tick); then the press is let through for one frame and the release for the
+    next."""
+    ctl.pause()
+    try:
+        ctl.step(1)
+        ctl.mouse(x, y, "down")
+        ctl.step(1)
+        ctl.mouse(x, y, "up")
+        ctl.step(1)
+    finally:
+        ctl.resume()
+    ctl.wait(frames=3)
+
+
+def page_choose(ctl, names, start_va, sel_va, wanted, confirm="space"):
+    """Scroll the open page until the row named `wanted` shows, click it, and
+    confirm with Space (or the title line, confirm="click"). `names` is the
+    page's list in order (the host table, read by the caller)."""
+    row = names.index(wanted)
+    for _ in range(64):
+        start = ctl.read32(start_va)
+        if start <= row < start + 8:
+            break
+        page_click(ctl, PAGE_DOWN_Y if row >= start + 8 else PAGE_UP_Y)
+    else:
+        raise AssertionError(f"row {row} ({wanted}) never came into view")
+    page_click(ctl, PAGE_ROW_Y + 10 * (row - ctl.read32(start_va)))
+    assert ctl.read32(sel_va) == row, (ctl.read32(sel_va), row)
+    if confirm == "click":
+        page_click(ctl, PAGE_CONFIRM_Y)
+    else:
+        ctl.type("Space", " ", None, 150)
+        ctl.wait(ms=400)
+        ctl.wait(frames=3)

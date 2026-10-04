@@ -518,6 +518,24 @@ whose meaning is **[unverified]**; several slots alias the same record.
 So `ALPHABET`/`ALPHABE2` are bitmap fonts (64 glyphs each) and
 `PARTICLE`/`PARTICL2` are particle sprite sheets.
 
+How the July DOS blitter `_ZoomSpriteL16` (`0x1ca86`) reads them, with the
+file loaded by `LoadFileSpr_` (which multiplies the 256 palette dwords by 4)
+**[verified in code]** (spec 008 phase 1, where the port draws the editor's
+sliders this way):
+
+- Dword `0x400` is a header, not a record pointer; dword `0x404` (0 in
+  `ALPHABE2.SPR`) allows mirrored drawing. Record `n` is at `0x400 +
+  dword[0x408 + 4n]`, so pointer slot `k` of the table above is record
+  `k - 2`. A sprite is named by a 16-bit code whose high byte is `n`; a
+  negative code draws the record of its negation mirrored when `0x404` is
+  set.
+- Record `+0x08`, `+0x0C` are the hotspot: the sprite is drawn with that
+  pixel at the given position, mirrored or not.
+- Palette dwords convert to RGB565 as byte 2 → red, byte 1 → green, byte 0
+  → blue (so the bytes are B, G, R, X); index 0 is transparent.
+- `ALPHABE2.SPR` records `0x94` (17 × 2, hotspot 0,1) and `0x98` (7 × 11,
+  hotspot 3,10) are the editor's slider track segment and knob.
+
 #### `DATA\FONT\` — `HI320` / `HI480` / `HI640` (3 files)
 
 These are **256-character, 8-bit indexed bitmap fonts**. **[verified]** 3/3 by

@@ -122,8 +122,7 @@ typedef struct {
  *   WD_PAD WD_DEADZONE WD_PAD_DIRECTION WD_KEYMAP WD_PADMAP
  * Launch modes (docs/specs/008-editor-restoration/spec.md, phase M; dreams.ini [port] mode =
  * retail | dev | edited): Play gives WD_DISC1 WD_DISC2; Develop gives WD_MODE=dev and
- * WD_TREE (the data directory's "developer" folder) and WD_RENDERER=software where the
- * host's default is direct, and no discs; Play edits gives WD_MODE=edited, WD_TREE and the
+ * WD_TREE (the data directory's "developer" folder) and no discs; Play edits gives WD_MODE=edited, WD_TREE and the
  * discs when both are valid (CD audio). Develop's first Play (and --play) copies both discs
  * into the developer folder first (disc_copy_merged), then writes its marker; an
  * interrupted copy resumes. Play edits needs that folder.

@@ -255,6 +255,9 @@ bool reset_edits(const Model& m, std::string* err) {
         std::string target = with_separator(m.developer_dir()) + "DREAMS.DAT";
         if (f && disc_file_read(f, 0, data.data(), data.size()) == (int64_t)data.size())
             ok = SDL_SaveFile(target.c_str(), data.data(), data.size());
+        // EDITOR.DAT is the editor's raw copy of the bank it wrote (spec 008 phase 5); no
+        // game reads it, and after a reset it would no longer match DREAMS.DAT.
+        if (ok) SDL_RemovePath((with_separator(m.developer_dir()) + "EDITOR.DAT").c_str());
         if (!ok) std::snprintf(msg, sizeof msg, "cannot copy disc 1's DREAMS.DAT to %s", target.c_str());
         disc_file_close(f);
     } else if (d1) {

@@ -654,6 +654,31 @@ void imp_CreateFileA(void) {  /* (name, access, share, sa, disposition, flags, t
     if (!write) wd_web_boot_note(rel, !failed);
     RET(gh); STDRET(7);
 }
+/* The whole file a guest path names, resolved for reading as CreateFileA
+ * resolves it (sandbox, then the read roots or the discs), in a malloc'd
+ * block; NULL if it is missing or unreadable. Reported to the control
+ * channel's event log as a read. The save guard's look at a save before
+ * GAME_LoadGame overwrites anything (save_guard.c). */
+void* files_read_guest(uint32_t path_va, size_t* size) {
+    char rel[W32_MAX_PATH], host[HOST_PATH];
+    DiscHit hit = { 0 };
+    void* data = NULL;
+    *size = 0;
+    if (!guest_rel(path_va, rel)) return NULL;
+    if (resolve_read(rel, host, NULL, NULL, &hit) == SDL_PATHTYPE_FILE) {
+        if (hit.disc) {
+            data = files_disc_read(hit.disc, hit.path, size);
+        } else {
+            size_t n = 0;
+            void* loaded = SDL_LoadFile(host, &n);
+            if (loaded && (data = malloc(n ? n : 1)) != NULL) { memcpy(data, loaded, n); *size = n; }
+            SDL_free(loaded);
+        }
+    }
+    wd_devtools_file_open(rel, host, 0, data != NULL);
+    return data;
+}
+
 void imp_ReadFile(void) {  /* (h, buf, n, *read, overlapped) */
     uint32_t got = 0, count = ARG(2);
     int ok = 0, kind = handle_kind(ARG(0));
@@ -683,6 +708,10 @@ void imp_ReadFile(void) {  /* (h, buf, n, *read, overlapped) */
     if (ARG(3)) WD_HOST_WRITE32(ARG(3)) = got;
     RET(ok); STDRET(5);
 }
+/* Develop's console window (dev_tools.c, keypad 9) sees the guest's standard
+ * output and error while it is open; NULL otherwise. */
+void (*wd_std_tee)(const void* data, uint32_t n);
+
 void imp_WriteFile(void) {
     uint32_t put = 0, count = ARG(2);
     int ok = 0, kind = handle_kind(ARG(0));
@@ -699,6 +728,7 @@ void imp_WriteFile(void) {
         /* GetStdHandle's objects are 1 input, 2 output, 3 error. */
         FILE* stream = (uintptr_t)handle_get(ARG(0), HK_STD) == 2 ? stdout : stderr;
         put = (uint32_t)fwrite(wd_host_range(ARG(1), count, 0), 1, count, stream);
+        if (wd_std_tee) wd_std_tee(wd_host_range(ARG(1), count, 0), count);
         ok = 1;
     } else {
         g_last_error = W32_ERROR_INVALID_HANDLE;

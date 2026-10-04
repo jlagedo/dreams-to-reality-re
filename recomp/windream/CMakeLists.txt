@@ -90,6 +90,10 @@ set(RUNTIME_SRC
     ${VM_SRC}
     host/sdl/threads.c host/sdl/kernel.c host/sdl/files.c
     host/sdl/user.c host/sdl/gdi.c host/sdl/pacing.c host/sdl/winmm.c host/sdl/dsound.c host/sdl/launch_mode.c
+    host/sdl/editor_menu.c host/sdl/dev_keys.c host/sdl/dev_tools.c host/sdl/dev_console.c host/sdl/dev_save_page.c
+    host/sdl/dev_overlay.c
+    host/sdl/save_guard.c
+    host/sdl/editor_bank.c host/sdl/editor_bank_rle.c host/sdl/editor_pickers.c
     host/hooks/phys_hook.c
     host/render/render_boundary.cpp host/render/render_scene.cpp host/render/render_scene_io.cpp
     host/render/render_scene_draw.cpp host/render/render_scene_probe.c host/render/render_ui.cpp

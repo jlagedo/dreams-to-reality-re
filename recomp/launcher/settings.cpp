@@ -320,15 +320,16 @@ std::string keyboard_conflict(const PortSettings& s) {
 // ---- the host's variables ----
 
 void emit_port_vars(const PortSettings& s, VarList& out) {
-    const bool gpu = s.gpu && s.mode != LaunchMode::Develop;
-    if (gpu != PortSettings::kGpuDefault) out.emplace_back("WD_RENDERER", gpu ? "direct" : "software");
+    // Every mode follows the renderer setting, Develop too since the direct renderer
+    // draws the editor and the tools (spec 008 phase D).
+    if (s.gpu != PortSettings::kGpuDefault) out.emplace_back("WD_RENDERER", s.gpu ? "direct" : "software");
     if (s.fullscreen) out.emplace_back("WD_FULLSCREEN", "1");
     if (s.scale != 2) out.emplace_back("WD_SCALE", std::to_string(s.scale));
     if (s.filter != "pixelart") out.emplace_back("WD_FILTER", s.filter);
     if (s.fps != 25) out.emplace_back("WD_FPS", std::to_string(s.fps));  // "0" is uncapped, so it is not empty
     if (s.mute) out.emplace_back("WD_MUTE", "1");
     if (!s.smooth) out.emplace_back("WD_FIXED_STEP", "0");  // retail timing; no interpolation either
-    else if (gpu && PortSettings::kInterpolates && s.smooth_camera != PortSettings::kSmoothCameraDefault)
+    else if (s.gpu && PortSettings::kInterpolates && s.smooth_camera != PortSettings::kSmoothCameraDefault)
         out.emplace_back("WD_SMOOTH_CAMERA", std::to_string(s.smooth_camera));  // "0" is off, so it is not empty
     if (s.pad != PadMode::Game) out.emplace_back("WD_PAD", s.pad == PadMode::Keys ? "keys" : "off");
     if (s.dz_inner != 10 || s.dz_outer != 95)

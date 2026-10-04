@@ -12,8 +12,8 @@
  * and recomp/README.md, "Development control channel".
  *
  * To remove the feature: delete this directory, the include of this header in
- * host/sdl/host.h, the seven wd_devtools_* calls in host/sdl (user.c three,
- * gdi.c, files.c, winmm.c and dsound.c one each) and the WD_DEVTOOLS block in
+ * host/sdl/host.h, the ten wd_devtools_* calls in host/sdl (user.c five,
+ * files.c two, gdi.c, winmm.c and dsound.c one each) and the WD_DEVTOOLS block in
  * CMakeLists.txt; then debug/wdctl.py, run.py's --ctl, release.py's check and
  * tests/recomp/test_devtools.py, which only exist for it, and the MCP server
  * built on wdctl: debug/wd_mcp.py, .mcp.json at the repository root and
@@ -48,6 +48,9 @@ void wd_devtools_file_open(const char* guest, const char* host, int write, int o
 /* winmm.c, after each MCI command: the CD device's state (mode: the guest's
  * MCI_MODE_* value; disc 0 outside disc mode). */
 void wd_devtools_cd(int track, int disc, uint32_t mode);
+/* user.c, wd_editor_frame (Develop, a gameplay frame): 0 before the editor's
+ * call and the tools' overlays, 1 after them (the overlay_shot command). */
+void wd_devtools_overlay(int after);
 /* dsound.c, end of mix: the mixed output, interleaved 16-bit stereo, the
  * samples that go to the audio device (or nowhere when muted). Mixer thread. */
 void wd_devtools_audio(const int16_t* pcm, int frames, int rate);
@@ -62,6 +65,7 @@ static inline void wd_devtools_file_open(const char* guest, const char* host, in
     (void)guest; (void)host; (void)write; (void)ok;
 }
 static inline void wd_devtools_cd(int track, int disc, uint32_t mode) { (void)track; (void)disc; (void)mode; }
+static inline void wd_devtools_overlay(int after) { (void)after; }
 static inline void wd_devtools_audio(const int16_t* pcm, int frames, int rate) { (void)pcm; (void)frames; (void)rate; }
 
 #endif

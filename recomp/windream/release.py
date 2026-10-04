@@ -12,7 +12,10 @@ Version: `git describe --tags --always` (v0.1.0 on a tagged commit), or
 into README.txt and the file names.
 
 Output: DREAMS_OUT/recomp/windream/release/DreamsToReality/ holding the
-executable and README.txt, and beside it DreamsToReality-<version>-<system>.zip
+executable, README.txt, resources/editor-tree.tsv (the Dreams Editor menu of
+Develop, extracted from the July 1997 demo: DREAMS_WIP_DIR must be set; spec
+008 phase 1) and resources/fonts/ (the July editor fonts, from the same demo,
+SHA-256 checked), and beside it DreamsToReality-<version>-<system>.zip
 (what is published) and the build's .pdb under the same name (kept, not
 published: it symbolizes the exe+0x... addresses of a user's crash report and
 crash dump). The script fails if the folder holds anything else (delete what a
@@ -34,17 +37,20 @@ import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "editor"))
+import editor_tree  # noqa: E402
 import recomp_env  # noqa: E402
 
 NAME = "DreamsToReality"
 # Windows' own DLLs the executable may import: the Win32 API SDL3, the host and
-# the D3D11 renderer use. The C and C++ runtimes (VCRUNTIME140, MSVCP140,
-# api-ms-win-crt-*) are not on the list: the release links them statically.
+# the D3D11 renderer use (dwmapi: its display timing, recomp/render/graphics_d3d11.cpp). The
+# C and C++ runtimes (VCRUNTIME140, MSVCP140, api-ms-win-crt-*) are not on the
+# list: the release links them statically.
 SYSTEM_DLLS = frozenset(
     name + ".dll"
     for name in (
-        "advapi32", "d3d11", "dbghelp", "dxgi", "gdi32", "imm32", "kernel32", "ole32", "oleaut32",
-        "setupapi", "shell32", "user32", "version", "winmm",
+        "advapi32", "d3d11", "dbghelp", "dwmapi", "dxgi", "gdi32", "imm32", "kernel32", "ole32",
+        "oleaut32", "setupapi", "shell32", "user32", "version", "winmm",
     )
 )  # fmt: skip
 SUBSYSTEM_WINDOWS_GUI = 2
@@ -256,6 +262,13 @@ def main() -> int:
     version = args.version or git_version()
     stem = release_stem(version)
     out = recomp_env.out_dir("windream")
+    july = editor_tree.july_exe()
+    if not july or not july.is_file():
+        sys.exit("release.py needs the July 1997 demo for the editor menu: set DREAMS_WIP_DIR")
+    try:
+        menu = editor_tree.build(july, editor_tree.out_dir())
+    except editor_tree.TreeError as e:
+        sys.exit(f"editor menu: {e}")
     build = recomp_env.build_dir(out, release=True)
     rc = recomp_env.configure_and_build(
         build, out / "gen", release=True, optimize=args.optimize, version=version
@@ -277,7 +290,18 @@ def main() -> int:
     shutil.copy2(built, stage / exe_name)
     readme = README.format(version=version)
     (stage / "README.txt").write_text(readme, encoding="utf-8", newline="\r\n")
-    extra = unexpected_files(stage, {exe_name, "README.txt"})
+    resource = f"resources/{editor_tree.RESOURCE_NAME}"
+    fonts = [f"resources/{editor_tree.FONT_DIR}/{name}" for name in editor_tree.FONTS]
+    (stage / "resources" / editor_tree.FONT_DIR).mkdir(parents=True, exist_ok=True)
+    shutil.copy2(menu, stage / resource)
+    for font in fonts:
+        shutil.copy2(menu.parent / font.removeprefix("resources/"), stage / font)
+    problems = editor_tree.check_resources(stage / "resources")
+    if problems:
+        print("\n".join(problems), file=sys.stderr)
+        return 1
+    files = (exe_name, "README.txt", resource, *fonts)
+    extra = unexpected_files(stage, {*files, "resources", f"resources/{editor_tree.FONT_DIR}"})
     if extra:
         print(
             f"{stage} holds files that are not part of the release; delete them and run again:\n  "
@@ -287,7 +311,7 @@ def main() -> int:
         return 1
     archive = release / f"{stem}.zip"
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
-        for name in (exe_name, "README.txt"):
+        for name in files:
             z.write(stage / name, f"{NAME}/{name}")
     print(f"{stage / exe_name}  {(stage / exe_name).stat().st_size:,} bytes")
     print(f"{archive}  {archive.stat().st_size:,} bytes")

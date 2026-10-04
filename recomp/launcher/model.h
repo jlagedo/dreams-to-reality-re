@@ -66,7 +66,8 @@ struct CopyProgress {
 // Makes or completes the developer folder from the model's two discs, then writes the
 // marker. progress (may be empty) returns false to cancel. 0 done, 1 cancelled, -1 error.
 int make_developer_folder(const Model& m, const std::function<bool(const CopyProgress&)>& progress, std::string* err);
-// Reset edits: disc 1's DREAMS.DAT over the developer folder's; captures and saves stay.
+// Reset edits: disc 1's DREAMS.DAT over the developer folder's, and the editor's EDITOR.DAT
+// removed (spec 008 phase 5); captures and saves stay.
 bool reset_edits(const Model& m, std::string* err);
 
 // Shows the launcher window until the user plays or quits. Returns true for

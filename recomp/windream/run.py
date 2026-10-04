@@ -138,7 +138,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument(
         "--renderer", choices=recomp_env.RENDERER_CHOICES, default=None,
         help="direct (GPU; stops on a case it does not support) or software; "
-        "default direct on Windows, software elsewhere and in --mode dev",
+        "default direct on Windows, software elsewhere",
     )  # fmt: skip
     ap.add_argument("--headless", action="store_true", help="keep the window hidden and run muted")
     ap.add_argument(
@@ -262,7 +262,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     if args.tag and not re.fullmatch(r"[A-Za-z0-9_-]+", args.tag):
         ap.error("--tag must contain only letters, numbers, underscores or hyphens")
     if args.renderer is None:
-        args.renderer = "software" if args.mode == "dev" else recomp_env.renderer_default()
+        args.renderer = recomp_env.renderer_default()
     try:
         if args.mode == "play":
             args.images = None
@@ -285,11 +285,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return args
 
 
+DEVELOPER_MARKER = (
+    ".developer-folder"  # the launcher's kDeveloperMarker (recomp/launcher/launcher.cpp)
+)
+DEVELOPER_MARKER_TEXT = "complete: both discs copied (spec 008 phase M)\n"
+
+
 def developer_folder(args: argparse.Namespace, out: Path) -> Path | None:
     """The developer folder of --mode dev|edited, made or completed from the two
-    disc images (disc_list --copy-merged resumes and skips what is in place).
+    disc images (disc_list --copy-merged resumes and skips what is in place), then
+    marked complete as the launcher marks it. A marked folder is not copied into
+    again: the copy replaces every file whose size differs from the disc's, which
+    would undo the editor's DREAMS.DAT (spec 008 phase 5) and the saves.
     None, with the reason printed, when disc_list is not built or the copy fails."""
     tree = Path(args.tree).resolve() if args.tree else out / "developer"
+    if (tree / DEVELOPER_MARKER).is_file():
+        return tree
     tool = recomp_env.disc_tool()
     if not tool.exists():
         print(
@@ -303,6 +314,7 @@ def developer_folder(args: argparse.Namespace, out: Path) -> Path | None:
     if copy.returncode != 0:
         print(f"cannot make the developer folder {tree}: {copy.stderr.strip()}", file=sys.stderr)
         return None
+    (tree / DEVELOPER_MARKER).write_text(DEVELOPER_MARKER_TEXT, encoding="ascii", newline="\n")
     return tree
 
 

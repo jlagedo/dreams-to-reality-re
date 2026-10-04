@@ -30,9 +30,9 @@ SERVER = ROOT / "recomp" / "windream" / "debug" / "wd_mcp.py"
 TAG = "mcp-test"
 
 TOOLS = {
-    "game_start", "game_attach", "game_stop", "game_status", "game_key", "game_wait",
-    "game_wait_until", "game_read", "game_read_cstr", "game_write", "game_project", "game_log",
-    "game_pause", "game_resume", "game_step", "game_audio_dump", "game_audio_dump_stop",
+    "game_start", "game_attach", "game_stop", "game_status", "game_key", "game_type", "game_mouse",
+    "game_wait", "game_wait_until", "game_read", "game_read_cstr", "game_write", "game_project",
+    "game_log", "game_pause", "game_resume", "game_step", "game_audio_dump", "game_audio_dump_stop",
     "game_stderr", "game_screenshot",
 }  # fmt: skip
 

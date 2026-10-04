@@ -17,6 +17,7 @@
 #include "backends/imgui_impl_sdl3.h"
 #include "backends/imgui_impl_sdlrenderer3.h"
 #include "imgui.h"
+#include "dev_keys.h"
 #include "model.h"
 #include "testing.h"
 
@@ -326,10 +327,6 @@ struct Ui {
         static const char* const renderer_ids[] = {"software", "gpu"};
         ImGui::SetNextItemWidth(w);
         if (combo("##renderer", "renderer", &r, renderers, renderer_ids, 2)) s.gpu = r == 1;
-        if (s.mode == LaunchMode::Develop && s.gpu) {
-            ImGui::SameLine();
-            ImGui::TextColored(kGrey, "Develop uses the original one");
-        }
 
         label("Fullscreen window", lw);
         ImGui::Checkbox("##fullscreen", &s.fullscreen);
@@ -578,35 +575,11 @@ struct Ui {
         }
         if (!dev_notice.empty()) ImGui::TextColored(kYellow, "%s", dev_notice.c_str());
         if (!dev_error.empty()) ImGui::TextColored(kRed, "%s", dev_error.c_str());
-        ImGui::TextColored(kGrey, "Develop uses the original (software) renderer until the GPU renderer is ported.");
+        ImGui::TextColored(kGrey, "Render classes (e f l v) work with the original (software) renderer only.");
 
-        // The keys of docs/specs/008-editor-restoration/spec.md, phase 2. Keys are typed
-        // characters, as in the DOS build: Shift+A is A, and the AZERTY column is Cryo's.
-        static const char* const keys[][2] = {
-            {"!", "open and close the editor (Shift+1 on QWERTY; keypad 5 too)"},
-            {"A Z E R T", "editor on: create a project, objet, link, box, event"},
-            {"Q S D F G", "editor on: load a project, objet, link, box, event"},
-            {"W X C V B", "editor on: save the project, objet, link, box, event"},
-            {"1 to 6", "editor on: intro movie, mesh, exit target, path point add, drop, symbol"},
-            {"0", "editor on: put the player's position into the visible rows"},
-            {"? .", "editor on: copy, paste a project"},
-            {"/ and Ctrl+Shift+2", "editor on: copy, paste an objet (paste is the AZERTY key above !)"},
-            {": and Ctrl+Shift+3", "editor on: copy, paste a link"},
-            {"% and Ctrl+Shift+4", "editor on: copy, paste a box"},
-            {"F10", "editor on: write the levels to the folder (off: the game's key help)"},
-            {"-", "free-fly camera: mouse turns, buttons fly, PgUp PgDn Home End set the speed"},
-            {"9", "overhead camera"},
-            {"8 / keypad 1", "frame rate and memory readout"},
-            {"keypad 2, keypad 3", "object HUD, collision view (hold Backspace)"},
-            {"6, 7", "capture every frame (step 2.0), one frame, to DATA\\TGA"},
-            {"A (editor off)", "HUD on and off"},
-            {"D (editor off), H", "dialogue test, the level's movie again"},
-            {"r, R (editor off)", "record a demo / save it, replay DATA\\REPLAY.BIN"},
-            {"e f l v", "render classes (software renderer); Shift+L is the game's Load page"},
-            {"keypad 0", "Cryo's Save page: save anywhere, with a title"},
-            {"keypad 6 7 8 9", "give all items, collision views, profiler, console window"},
-            {"Caps Lock", "turns plain letters into editor commands, as in DOS"},
-        };
+        // The keys of docs/specs/008-editor-restoration/spec.md, phase 2 (dev_keys.h, the
+        // list the console also prints when Develop starts).
+        const auto& keys = wd_dev_keys;
         if (ImGui::BeginTable("devkeys", 2, ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH,
                               ImVec2(0, ImGui::GetContentRegionAvail().y))) {
             ImGui::TableSetupScrollFreeze(0, 1);

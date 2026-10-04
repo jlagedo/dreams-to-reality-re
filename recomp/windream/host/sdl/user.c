@@ -25,7 +25,9 @@
  *
  * Host keys: F11 toggles fullscreen (the game sees F11 as well); in Develop
  * (WD_MODE=dev) keypad 1-5 toggle retail debug flags (debug_toggle; the game
- * does not see those keys), elsewhere they reach the game.
+ * does not see those keys), elsewhere they reach the game. In Develop every
+ * key also passes through dev_keys.c first (DOS keys, spec 008 phase 2),
+ * which keeps the keys it consumes from the game.
  *
  * Environment:
  *   WD_SCALE=2          initial window size in multiples of the game's size
@@ -125,6 +127,8 @@ static void display_script_init(void) {
  * game keys. Names are those of WD_KEYS (input_map.h). */
 static WdKeyMap g_keymap;
 
+static void key_pass(const SDL_KeyboardEvent* k);
+
 static void keymap_bad(void* ctx, const char* e, size_t n, const char* why) {
     fprintf(stderr, "[keys] %s entry \"%.*s\" ignored: %s\n", (const char*)ctx, (int)n, e, why);
 }
@@ -158,6 +162,7 @@ void host_init(void) {
         fprintf(stderr, "[keys] %ums %.*s -> vk 0x%02X\n", ms, (int)len, name, vk);
         spec = comma ? comma + 1 : name + len;
     }
+    dev_keys_init(key_pass);
     wd_devtools_init();
 }
 uint32_t host_elapsed_ms(void) { return (uint32_t)(SDL_GetTicks() - g_t0); }
@@ -258,7 +263,9 @@ static uint16_t vk_of(const SDL_KeyboardEvent* k) {
 static void key_event(const SDL_KeyboardEvent* k) {
     if ((unsigned)k->scancode >= SDL_SCANCODE_COUNT) return;
     if (k->down) {
-        uint16_t v = wd_keymap_apply(&g_keymap, vk_of(k));   /* WD_KEYMAP: the one place a key is translated */
+        /* WD_KEYMAP: the one place a key is translated; suspended while the
+         * Develop editor is on, whose commands are letters (spec 008 phase 2 rule 4) */
+        uint16_t v = dev_keys_editor_letters() ? vk_of(k) : wd_keymap_apply(&g_keymap, vk_of(k));
         if (!v || g_sc_vk[k->scancode]) return;   /* unmapped, or auto-repeat */
         g_sc_vk[k->scancode] = v;
         vk_press(v & 0xFF);
@@ -337,10 +344,34 @@ static void mouse_post(void) {
 /* Called by lifted GAME_TickFrame before GAME_HandleHotkeys (lift.py CALLS):
  * runs the Dreams Editor draw 0x44d46d, which retail never calls, while the
  * editor flag (keypad 5) is set, in Develop only (spec 008 phase M). Every
- * guest register is restored. */
+ * guest register is restored. Around it, editor_menu.c fills two retail gaps
+ * the July menu exposes (spec 008 phase 1). */
 void wd_editor_frame(void) {
-    if (host_develop() && WD_HOST_READ32(0x004A477Cu))
+    if (!host_develop()) return;
+    dev_keys_frame();   /* the developer keys typed since the last frame (dev_keys.c) */
+    dev_tools_frame_begin();   /* Cryo's developer tools (dev_tools.c, spec 008 phase 7) */
+    wd_devtools_overlay(0);
+    if (WD_HOST_READ32(0x004A477Cu)) {
+        uint16_t game = dev_keys_editor_enter();   /* the editor reads DOS characters, the game virtual keys */
+        editor_frame_begin();
+        /* Under the direct renderer: the sliders' CPU pixels, and the frame
+         * read back for WorksEdit_'s TGA capture (dev_overlay.c). */
+        dev_overlay_begin(WD_HOST_READ32(0x004A4758u) == 1 || WD_HOST_READ32(0x004A475Cu) == 1);
         guest_call_regs(0x0044D46Du, g_eax, g_edx, g_ebx, g_ecx);
+        dev_overlay_end();
+        editor_frame_end();
+        dev_keys_editor_leave(game);
+    }
+    dev_tools_frame_end();
+    wd_devtools_overlay(1);
+    /* The free camera turns with unbounded mouse deltas (host-only). */
+    static int relative;
+    int want = dev_tools_mouse_relative();
+    if (want != relative && g_window && !g_destroyed) {
+        if (!SDL_SetWindowRelativeMouseMode(g_window, want))
+            fprintf(stderr, "[tools] relative mouse mode %d: %s\n", want, SDL_GetError());
+        relative = want;
+    }
 }
 
 /* ---- message queue ---- */
@@ -393,6 +424,16 @@ static int debug_toggle(const SDL_KeyboardEvent* k) {
         return 1;
     }
     return 0;
+}
+
+/* A key as Play delivers it: the keypad debug toggles of Develop, F11 for
+ * fullscreen (the game sees F11 as well), then the virtual-key state. In
+ * Develop the keys the host does not consume come here from dev_keys.c. */
+static void key_pass(const SDL_KeyboardEvent* k) {
+    if (debug_toggle(k)) return;
+    if (k->down && k->scancode == SDL_SCANCODE_F11 && !k->repeat && g_window)
+        SDL_SetWindowFullscreen(g_window, !(SDL_GetWindowFlags(g_window) & SDL_WINDOW_FULLSCREEN));
+    key_event(k);
 }
 
 static void display_checkpoint(const char* reason) {
@@ -464,24 +505,20 @@ void host_pump(void) {
     display_script_pump();
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
+        if (dev_keys_take(&e)) continue;   /* Develop: keys and text wait for the drain (dev_keys.c) */
         switch (e.type) {
         case SDL_EVENT_QUIT:
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             if (g_window && !g_destroyed) post(WD_HWND_MAIN, W32_WM_CLOSE, 0, 0);
             break;
         case SDL_EVENT_KEY_DOWN:
-            if (debug_toggle(&e.key)) break;
-            if (e.key.scancode == SDL_SCANCODE_F11 && !e.key.repeat && g_window)
-                SDL_SetWindowFullscreen(g_window, !(SDL_GetWindowFlags(g_window) & SDL_WINDOW_FULLSCREEN));
-            key_event(&e.key);
-            break;
         case SDL_EVENT_KEY_UP:
-            if (!debug_toggle(&e.key)) key_event(&e.key);
+            key_pass(&e.key);
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         case SDL_EVENT_MOUSE_BUTTON_UP: mouse_event(&e.button); mouse_button_game(&e); break;
         case SDL_EVENT_MOUSE_MOTION: mouse_motion(&e); break;
-        case SDL_EVENT_WINDOW_FOCUS_LOST: release_all(); break;
+        case SDL_EVENT_WINDOW_FOCUS_LOST: dev_keys_flush(); release_all(); dev_keys_release_all(); break;
         case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
         case SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
         case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
@@ -490,6 +527,7 @@ void host_pump(void) {
         default: joy_event(&e); break;
         }
     }
+    dev_keys_flush();
     g_last_pump = SDL_GetTicks();
 }
 
@@ -512,6 +550,7 @@ static void write_msg(uint32_t va, const Msg* m) {
 void imp_PeekMessageA(void) {  /* (lpMsg, hWnd, min, max, remove) */
     host_pump();
     mouse_post();
+    if (host_develop()) dev_tools_pump();   /* the Save page's characters, the end of a playback */
     uint32_t hw = ARG(1), lo = ARG(2), hi = ARG(3), rm = ARG(4) & W32_PM_REMOVE;
     for (int i = 0; i < g_qn; i++) {
         Msg m = g_q[i];
@@ -633,6 +672,7 @@ void imp_CreateWindowExA(void) {  /* (exStyle, cls, name, style, x, y, w, h, par
             title, (int)ARG(6), (int)ARG(7), width, height,
             wd_render_requested() ? "sokol direct" : SDL_GetRendererName(g_renderer));
     display_checkpoint("initial");
+    dev_keys_start(g_window);   /* Develop reads typed characters (spec 008 phase 2) */
 
     uint32_t cs = shim_alloc(W32_CS_SIZE, 16);
     WD_HOST_WRITE32(cs + W32_CS_INSTANCE) = ARG(10);

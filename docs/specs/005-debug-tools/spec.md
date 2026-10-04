@@ -600,9 +600,10 @@ local and game-derived: `out/research/devtools-audit/A`–`D/`.
   below on. Its keys are read as typed DOS characters, as the July DOS build
   read them; the full key plan and the clash rules are in spec 008, phase 2.
   Keypad 1–5 stay as in [Recomp support](#recomp-support); keypad 6–9 take
-  the tools with no July key, as below (2026-10-03). Develop runs on the
-  software renderer until spec 008's phase D ports it to the direct
-  renderer, so the "Direct renderer" columns below describe that port.
+  the tools with no July key, as below (2026-10-03). Develop ran on the
+  software renderer until spec 008's phase D ported it to the direct
+  renderer (2026-10-04); the "Direct renderer" columns below describe what
+  that port had to solve, and spec 008's phase D "Built" notes how.
 
 ### Tier 1: Cryo's tools, cheap to reconnect
 

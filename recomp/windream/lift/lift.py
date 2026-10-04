@@ -64,6 +64,21 @@ CALLS = {
     # After GAME_TickFrame's frame delta block, on every path into it: with
     # WD_FIXED_STEP, host/sdl/pacing.c sets the delta to 1.0.
     0x004172A2: "wd_frame_delta",
+    # Develop's profiler (keypad 8, host/sdl/dev_tools.c, spec 008 phase 7):
+    # around PHYS_ResolveCollisions and REND_DrawFrame (both called from
+    # 0x423f83 / 0x423f92) and ENT_TickAll (GAME_Tick 0x424749). Inert unless the
+    # profiler is on.
+    0x00423F83: "wd_prof_collision_begin",
+    0x00423F88: "wd_prof_collision_end",
+    0x00423F92: "wd_prof_render_begin",
+    0x00423F97: "wd_prof_render_end",
+    0x00424749: "wd_prof_entities_begin",
+    0x0042474E: "wd_prof_entities_end",
+    # The save guard's message on the main menu (host/sdl/save_guard.c, spec 008
+    # phase 7): MENU_Tick discards GAME_LoadGame's failure code 8 (0x4a2ef5);
+    # after its MENU_DrawSaveSlots call the host draws help entry 5, as the
+    # in-game Load page does for code 8.
+    0x0043630C: "wd_menu_save_slots",
 }
 # Self-modifying code. Five span blitters (0x4024B8, 0x40254D, 0x4027B8,
 # 0x40294D, 0x4029AF) write their texture steps, pointer steps and loop limits

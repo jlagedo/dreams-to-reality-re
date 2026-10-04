@@ -192,6 +192,34 @@ def game_key(name: str, action: str = "tap", frames: int | None = None) -> dict:
 
 
 @tool
+def game_type(
+    key: str, text: str | None = None, mods: str | None = None, ms: int | None = None
+) -> dict:
+    """Type a key through the host's own key path, as a keyboard would: key an SDL
+    scan-code name ("A", "1", "Keypad 2", "F10", "Space", "Escape"), text the character
+    the layout types (if any), mods "shift", "ctrl", "alt" joined by '+'. In Develop
+    this is what the DOS keys read (Shift+a: key "A", text "A", mods "shift")."""
+    return _channel().type(key, text, mods, ms)
+
+
+@tool
+def game_mouse(
+    x: int,
+    y: int,
+    action: str = "click",
+    button: str = "left",
+    ms: int | None = None,
+    dx: int | None = None,
+    dy: int | None = None,
+) -> dict:
+    """Move or click the mouse through the host's own mouse path: x, y in game pixels
+    (software renderer), action move, down, up or click (held ms, default 150),
+    button left or right; dx, dy give a move relative deltas (the free camera). In
+    Develop this drives the editor's menu, sliders and picker pages."""
+    return _channel().mouse(x, y, action, button, ms, dx=dx, dy=dy)
+
+
+@tool
 def game_wait(frames: int | None = None, ms: int | None = None) -> dict:
     """Wait for that many presented frames or host milliseconds (the first to pass)."""
     return _channel().wait(frames=frames, ms=ms)

@@ -11,6 +11,12 @@ Documentation for the *Dreams to Reality* recomp.
 `../AGENTS.md` lists project paths and commands. It holds no findings; these
 docs do.
 
+## Manuals
+
+| Manual | Contents |
+|---|---|
+| [Developer mode](developer-mode.md) | **Every command of Develop**: starting it, the DOS keys, the Dreams Editor menu and list pages, editor keys, developer keys, keypad tools, Cryo's Save page, saving edits to the developer folder, the files it writes, repository tools, scripting through the control channel, known limits, and the full editor menu |
+
 ## Specs
 
 | Spec | Contents |

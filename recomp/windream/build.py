@@ -6,6 +6,10 @@ gen_imports.py). Build: DREAMS_OUT/recomp/windream/build (build-trace with
 --trace, build-audit with --render-audit, build-vm-<impl> with --vm other
 than the default ledger; off Windows each name ends in -linux or -darwin, and
 only the ledger exists); one unoptimized development build, see CMakeLists.txt.
+After a native build, the Dreams Editor menu of Develop is extracted from the
+July demo (DREAMS_WIP_DIR) and copied beside the executable as
+resources/editor-tree.tsv (editor/editor_tree.py); without the demo it is left
+out and Develop keeps the retail two-node menu.
 
 --web builds the browser version with Emscripten instead (web_build.py):
 out/recomp/windream/build-web/dreams.{js,wasm}; --web-opt picks a CMake build
@@ -23,6 +27,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "editor"))
+import editor_tree  # noqa: E402
 import recomp_env  # noqa: E402
 
 
@@ -85,6 +91,13 @@ def main() -> int:
     if rc == 0:
         exe = build / recomp_env.exe_name("windream_recomp")
         print(f"{exe}  {exe.stat().st_size:,} bytes")
+        try:
+            staged = editor_tree.stage(build)
+        except editor_tree.TreeError as e:
+            print(f"editor menu: {e}", file=sys.stderr)
+            return 1
+        if staged:
+            print(f"{staged}  {staged.stat().st_size:,} bytes")
     return rc
 
 

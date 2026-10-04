@@ -1098,6 +1098,7 @@ def test_play_edits_and_reset_edits_once_the_folder_exists(demo, home, tmp_path)
     assert run_play(demo, home)[0] == 0  # Develop's first start makes the folder
     tree = Path(data_dir(home)) / "developer"
     (tree / "DREAMS.DAT").write_bytes(b"edited bank")
+    (tree / "EDITOR.DAT").write_bytes(b"the edited bank raw")  # the editor's (phase 5)
     r = clean(
         run_ui(
             demo,
@@ -1120,4 +1121,5 @@ def test_play_edits_and_reset_edits_once_the_folder_exists(demo, home, tmp_path)
     assert r.rc == 0, r.err
     assert r.pairs["WD_MODE"] == "edited"
     assert (tree / "DREAMS.DAT").read_bytes() == b"disc 1 bank"
+    assert not (tree / "EDITOR.DAT").exists(), "a reset leaves no stale EDITOR.DAT"
     assert read_ini(home / "dreams.ini")["port"]["mode"] == "edited"

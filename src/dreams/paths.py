@@ -25,6 +25,7 @@ VARIABLES = {
     "ghidra": "DREAMS_GHIDRA_ROOT",
     "na_game_tool": "DREAMS_NA_GAME_TOOL",
     "pcrecomp": "DREAMS_PCRECOMP",
+    "wip_dir": "DREAMS_WIP_DIR",
 }
 
 # Installed Watcom compilers under DREAMS_WATCOM, used when the compiler
@@ -122,6 +123,7 @@ def describe() -> list[tuple[str, Path | None, bool]]:
         "ghidra",
         "na_game_tool",
         "pcrecomp",
+        "wip_dir",
     )
     rows = []
     for key in keys:

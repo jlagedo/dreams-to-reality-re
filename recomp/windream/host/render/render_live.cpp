@@ -90,6 +90,7 @@ struct Live {
     uint64_t shadows = 0;
     uint64_t lines = 0;
     uint64_t hnm5_frames = 0;
+    uint64_t cpu_pixel_draws = 0;
     uint64_t export_reads = 0, export_bytes = 0;
     uint64_t capture_reads = 0, capture_bytes = 0;
     int drawable_w = 640, drawable_h = 480;
@@ -1156,6 +1157,101 @@ void wd_render_movie_upload(uint32_t source, uint32_t destination, int x, int y,
     if (++state.hnm5_frames == 1 || state.hnm5_frames % 250 == 0)
         std::fprintf(stderr, "[direct] hnm5_frames=%llu rect=%d,%d,%d,%d pitch=%d\n",
                      (unsigned long long)state.hnm5_frames, x, y, width, height, pitch);
+}
+// Pixels a host tool or Cryo's own debug code wrote into a GPU-owned surface's
+// guest memory (spec 008 phase D, host/sdl/dev_overlay.c): a raw draw, packed
+// colour | coverage << 16, coverage 0 keeping the target's pixel. Host-only.
+int wd_render_cpu_pixels(uint32_t destination, int x, int y, int width, int height,
+                         const uint32_t *packed) {
+    wd_render_display_point();
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
+    if (!state.renderer || !packed)
+        return 0;
+    auto *surface = find(destination);
+    if (!surface || surface->base != destination || surface->shadow)
+        return 0;
+    require(x >= 0 && y >= 0 && width > 0 && height > 0 && x <= surface->width - width &&
+                y <= surface->height - height,
+            "invalid CPU pixel rectangle");
+    resize(*surface);
+    upload(*surface, {x, y, width, height},
+           std::vector<uint32_t>(packed, packed + size_t(width) * height));
+    ++state.ui_draws;
+    if (++state.cpu_pixel_draws == 1 || state.cpu_pixel_draws % 1000 == 0)
+        std::fprintf(stderr, "[direct] cpu_pixels=%llu rect=%d,%d,%d,%d\n",
+                     (unsigned long long)state.cpu_pixel_draws, x, y, width, height);
+    return 1;
+}
+// The GPU image of a surface at its logical size, RGB565/555 as the guest's,
+// into a host buffer of width * height (spec 008 phase D: the editor's TGA
+// capture through wd_render_materialize, and the control channel's overlay
+// shots). An explicit readback, not a per-frame path. Host-only; 0 when the
+// address is not a GPU surface.
+int wd_render_read_frame(uint32_t destination, uint16_t *out, int width, int height) {
+    wd_render_display_point();
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
+    if (!state.renderer || !out)
+        return 0;
+    auto *surface = find(destination);
+    if (!surface || surface->base != destination || surface->shadow ||
+        surface->width != width || surface->height != height)
+        return 0;
+    resize(*surface);
+    const int pw = surface->physical_width, ph = surface->physical_height;
+    const int w = surface->width, h = surface->height;
+    std::vector<uint32_t> rgba;
+    std::string error;
+    const uint64_t begin = SDL_GetTicksNS();
+    sg_commit(); // explicit CPU consumer; does not present or advance game time
+    require(state.backend.read_image(od_renderer_image(state.renderer, surface->target), 0, 0, pw,
+                                     ph, rgba, error),
+            error);
+    require(rgba.size() >= size_t(pw) * ph, "short frame readback");
+    const od_rect canvas = od_centered_canvas(pw, ph, w, h);
+    for (int y = 0; y < h; ++y) {
+        const int sy = std::clamp(canvas.y + int((int64_t(y) * 2 + 1) * canvas.height / (2 * h)),
+                                  0, ph - 1);
+        for (int x = 0; x < w; ++x) {
+            const int sx = std::clamp(
+                canvas.x + int((int64_t(x) * 2 + 1) * canvas.width / (2 * w)), 0, pw - 1);
+            out[size_t(y) * w + x] = od_pack_colour(rgba[size_t(sy) * pw + sx], surface->format);
+        }
+    }
+    ++state.export_reads;
+    state.export_bytes += size_t(w) * h * 2;
+    std::fprintf(stderr,
+                 "[direct] explicit readback reason=frame surface=%08x region=0,0,%d,%d "
+                 "physical=%dx%d bytes=%zu barrier_ms=%.3f\n",
+                 destination, w, h, pw, ph, size_t(w) * h * 2,
+                 double(SDL_GetTicksNS() - begin) / 1e6);
+    return 1;
+}
+// The same, written back into the surface's guest memory for a CPU reader
+// (SaveImage_ 0x4479c7 reads the frame pixel by pixel).
+int wd_render_materialize(uint32_t destination) {
+    int w = 0, h = 0;
+    {
+        SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
+        auto *surface = state.renderer ? find(destination) : nullptr;
+        if (!surface || surface->base != destination || surface->shadow)
+            return 0;
+        require(surface->pitch == surface->width * 2, "materialize needs a packed surface");
+        w = surface->width;
+        h = surface->height;
+    }
+    std::vector<uint16_t> packed(size_t(w) * h);
+    if (!wd_render_read_frame(destination, packed.data(), w, h))
+        return 0;
+    // The guest copy is current for this read; the GPU stays the surface's
+    // authority for every later draw.
+    SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
+    auto &surface = exact(destination);
+    wd_surface_set_authority(surface.registry, WD_SURFACE_CPU);
+    wd_render_write_arena(destination, packed.data(), packed.size() * 2);
+    wd_surface_set_authority(surface.registry, WD_SURFACE_GPU);
+    std::fprintf(stderr, "[direct] materialize surface=%08x bytes=%zu\n", destination,
+                 packed.size() * 2);
+    return 1;
 }
 void wd_render_fog_update(void) {
     ReadScope scope;

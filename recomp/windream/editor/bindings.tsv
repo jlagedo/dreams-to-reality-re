@@ -1,0 +1,297 @@
+# Dreams Editor menu bindings (spec 008 phase 1, step 2): every July leaf -> retail.
+#
+# One row per leaf of the July 1997 demo's menu tree (recomp/windream/editor/editor_tree.py
+# extracts it from DREAMS.EXE), then our own entries. Columns:
+#   node    the July node symbol, or +Name for an entry of ours
+#   value   the July value as symbol+offset (checked against the extracted tree); for our
+#           gap entries the same notation, translated by the working-record bases
+#   rule    keep       retail reads the field, meaning unchanged: July label and range
+#           relabel    retail meaning changed: our label (and range, flags) from the reader
+#           widen      the final bank holds values outside the July range: the new range
+#                      contains it (a negative minimum centres the slider: symmetric ranges)
+#           no-effect  the bank sets it, no retail code reads it: kept so the data stays
+#                      editable, labelled so
+#           hide       no retail reader and never set in the bank: not installed
+#           not-wired  shown with its July label, bound to a host-only cell that starts at
+#                      the retail global's value (Option > Camera, spec 008 A4.4)
+#           retail-node  replaced by an existing retail node (the exit node 0x4a4784)
+#           gap        ours: a field retail reads and the final bank uses, July lacks
+#           group      ours: a new group in Cryo's "... 2..." style
+#   retail  the retail address bound: working record base + offset (A3), _Sema* July + 0x3df34c,
+#           engine globals one by one (A3 "Engine globals")
+#   min max mask flags label   overrides; empty keeps the July value
+#   parent  moves the node there, last (July nodes) or places our entry
+#   reader  the retail instructions that prove the binding (tests/recomp/test_editor_tree.py
+#           checks each against the lifted code); DREAMSFX.EXE:0x... is the DOS Glide build
+#   note    the retail reader and meaning
+node	value	rule	retail	min	max	mask	flags	label	parent	reader	note
+_editorObjet14	_SemaCreatScene	keep	0x4a46b8							0x44cadb	WorksGetEditor_: project create FUN_00449e7a: free bank slot (FUN_00449822), working record 0x65fb04 cleared, +0x14|1, name Project<n>. Unsafe: the slot scan walks 150 x 0x2200 from 0x659044 (retail holds one record there) and binds 0x661d94 to the slot
+_editorObjet24	_SemaLoadScene	keep	0x4a46bc							0x44cb3d	WorksGetEditor_: project load FUN_00449ee9: project picker FUN_0044991e, DDAT_LoadRecord, DDAT_CopyRecord to 0x65fb04, then SCENE_LoadLevel. Unsafe: the list (FUN_0044988f) walks 150 x 0x2200 from 0x659044 into a one-byte-stride name table at 0x661e25; 0x661d94 is bound to DDAT_LoadRecord's scratch (spec A4.3)
+_editorObjet12134	_SemaLoadVehicule	keep	0x4a4710							0x44c642	WorksGetEditor_: 3DC picker FUN_0044a6e4 -> header +0x8c (0x65fb90), player model replacement. Unsafe: picker list has a one-byte stride (0x661e21+i: names overlap) and OK with no row selected copies from row -1
+_editorObjet122134	_CurrentSceneS+0xb4	keep	0x65fbb8							0x41d5a1	ENT_MoveToPlayerSpawn: player spawn X, scene-object relative
+_editorObjet222134	_CurrentSceneS+0xb8	keep	0x65fbbc							0x41d5b1	ENT_MoveToPlayerSpawn: player spawn Y
+_editorObjet322134	_CurrentSceneS+0xbc	keep	0x65fbc0							0x41d5c2	ENT_MoveToPlayerSpawn: player spawn Z
+_editorObjet422134	_CurrentSceneS+0x10c	keep	0x65fc10							0x41d5d3	ENT_MoveToPlayerSpawn: player heading (4096ths)
+_editorObjet522134	_CurrentSceneS+0x1dc	keep	0x65fce0							0x41d999	ENT_LoadObject: player actor +0x180 = v/16 (as OBJET Speed Move), if non-zero
+_editorObjet132134	_CurrentSceneS+0x9c	keep	0x65fba0							0x41d87b	ENT_LoadObject: player movement mode -> actor +0x34, if non-zero
+_editorObjet232134	_CurrentSceneS+0xa4	keep	0x65fba8							0x41d952	ENT_LoadObject: player turn step -> actor +0x108, if non-zero
+_editorObjet332134	_CurrentSceneS+0xa0	keep	0x65fba4							0x41d926;0x421769	ENT_LoadObject, ENT_TickPlayerGround: walk movement scale -> actor +0x104
+_editorObjet432134	_CurrentSceneS+0xd8	keep	0x65fbdc							0x422ba2	ENT_TickPlayerSwimming: swim movement scale -> actor +0x104
+_editorObjet532134	_CurrentSceneS+0xdc	keep	0x65fbe0							0x422db4;0x422ef5	ENT_TickPlayerFlying: fly movement scale -> actor +0x104
+_editorObjet142134	_CurrentSceneS+0xa8	keep	0x65fbac							0x41da00	ENT_LoadObject: player collision sphere -> actor +0x10c (+0x110 half), if non-zero
+_editorObjet242134	_CurrentSceneS+0xac	hide									no retail reader (whole program scanned); 0 in all 150 bank records
+_editorObjet342134	_CurrentSceneS+0xb0	keep	0x65fbb4							0x41da3f	ENT_LoadObject: player shoot/see sphere -> actor +0x118, if non-zero
+_editorObjet152134	_CurrentSceneS+0x14	keep	0x65fb18							0x41d9b3	ENT_LoadObject: byte +0x16 bit 1 -> player actor +0xb0 |= 8 (gun allowed)
+_editorObjet252134	_CurrentSceneS+0x14	keep	0x65fb18							0x41d9c8	ENT_LoadObject: byte +0x16 bit 2 -> player actor +0xb0 |= 0x10 (surf allowed)
+_editorObjet352134	_CurrentSceneS+0x14	keep	0x65fb18							0x41d9dd	ENT_LoadObject: byte +0x16 bit 4 -> player actor +0xb0 |= 0x20 (no fall damage)
+_editorObjet123134	_CurrentSceneS+0x114	widen	0x65fc18	0	10000					0x4234bd	ENT_TickPlayerStatus: oxygen -= v*dt*0.01 under water; bank 0..10000 (one record 10000)
+_editorObjet223134	_CurrentSceneS+0x138	keep	0x65fc3c							0x41fc67;0x424198	SCENE_LoadLevel, GAME_Tick: entry/exit fade 0 white, 1 black, 16 none
+_editorObjet323134	_CurrentSceneS+0x13c	no-effect	0x65fc40	0	5			Bruit pas (no effect)			footstep sound: no retail reader (whole program scanned); bank 0..5 in 9 records, max widened to 5
+_editorObjet423134	_CurrentSceneS+0x1e4	keep	0x65fce8							0x41d4a9	SCENE_RotateSky: sky turn rate dt*k*v
+_editorObjet523134	_CurrentSceneS+0x1f0	keep	0x65fcf4							0x4233ec	ENT_TickPlayerStatus: kill plane, damage 40 per tick when player Y > v (if non-zero)
+_editorObjet13134	_CurrentSceneS+0xd0	keep	0x65fbd4							0x4120af;0x413275	AI_ApplySquadOrderTable: squad order table index (0x49d5a0); AI_ScanNearbyActors
+_editorObjet33134	_CurrentSceneS+0x118	keep	0x65fc1c							0x4235c8	ENT_TickPlayerStatus: magic += v*dt*0.01, cap 120
+_editorObjet43134	_CurrentSceneS+0x11c	keep	0x65fc20							0x42f1ae	GAME_StartLevel: CD track, low byte -> MGM message 0x1e
+_editorObjet1153134	_CurrentSceneS+0x120	keep	0x65fc24							0x40b829	CAM_LoadPreset: follow camera K_OBJ_TARGET_MIN (0x49d1cc), preset 0, if non-zero
+_editorObjet2153134	_CurrentSceneS+0x124	keep	0x65fc28							0x40b847	CAM_LoadPreset: K_OBJ_TARGET_MAX (0x49d1d0), preset 0, if non-zero
+_editorObjet1253134	_CurrentSceneS+0x128	keep	0x65fc2c							0x40b865	CAM_LoadPreset: K_OBJ_BACK_MIN (0x49d1d8), preset 0, if non-zero
+_editorObjet2253134	_CurrentSceneS+0x12c	keep	0x65fc30							0x40b883	CAM_LoadPreset: K_OBJ_BACK_MAX (0x49d1dc), preset 0, if non-zero
+_editorObjet3253134	_CurrentSceneS+0x1d8	keep	0x65fcdc							0x40b80b	CAM_LoadPreset: camera speed (0x52c840), preset 0, if non-zero
+_editorObjet1353134	_CurrentSceneS+0x130	keep	0x65fc34							0x40b8a1	CAM_LoadPreset: Y_LOW_FOLLOW_OBJ (0x49d1e4), preset 0, if non-zero
+_editorObjet2353134	_CurrentSceneS+0x134	keep	0x65fc38							0x40b8bf	CAM_LoadPreset: Y_HIGH_FOLLOW_OBJ (0x49d1e8), preset 0, if non-zero
+_editorObjet1453134	_CurrentSceneS+0x140	relabel	0x65fc44	0	512			Player Speed		0x41d974	ENT_LoadObject: player actor +0x44 = v/64 if non-zero (the field OBJET Speed fills, July 0..512); not a camera angle; bank 0, 96, 176
+_editorObjet2453134	_CurrentSceneS+0x144	relabel	0x65fc48	0	1			Camera No Collision		0x409d8c;0x40a988	CAM_TickFollow, CAM_UpdateFollowPos: CAM_EnableCollision only while 0; non-zero = camera collision off; bank 1 in one record
+_editorObjet14134	_CurrentSceneS+0xe0	keep	0x65fbe4							0x41fb15	SCENE_LoadLevel -> 0x6262f8: underwater palette tint R (REND_TickPaletteLighting while 0x626310 = 1)
+_editorObjet24134	_CurrentSceneS+0xe4	keep	0x65fbe8							0x41fb25	SCENE_LoadLevel -> 0x6262f0: underwater palette tint G
+_editorObjet34134	_CurrentSceneS+0xe8	keep	0x65fbec							0x41fb35	SCENE_LoadLevel -> 0x6262ec: underwater palette tint B
+_editorObjet44134	_CurrentSceneS+0xec	keep	0x65fbf0							0x41fb45	SCENE_LoadLevel -> 0x6262fc: underwater flicker amplitude added
+_editorObjet54134	_CurrentSceneS+0xd4	keep	0x65fbd8							0x41f5b2	SCENE_InitLevel -> 0x5e5490: water level Y (oxygen, swim, trails), if non-zero
+_editorObjet1134	_SemaLoadHnm	keep	0x4a471c							0x44cabc	WorksGetEditor_: HNM picker FUN_00449577 -> header +0x3c (0x65fb40), level intro movie. Unsafe: picker list has a one-byte stride (0x661e27+i: names overlap) and OK with no row selected copies from row -1
+_editorObjet15134	_CurrentSceneS+0x100	keep	0x65fc04							0x41ee65;0x41eec7	PHYS_InitForceFields: constant gravity X override if non-zero; 0 in all bank records
+_editorObjet25134	_CurrentSceneS+0x104	keep	0x65fc08							0x41ee81;0x41eee3	PHYS_InitForceFields: constant gravity Y override (negated) if non-zero; 0 in all bank records
+_editorObjet35134	_CurrentSceneS+0x108	keep	0x65fc0c							0x41ee9f;0x41ef01	PHYS_InitForceFields: constant gravity Z override if non-zero; 0 in all bank records
+_editorObjet111234	_CurrentSceneS+0x18	keep	0x65fb1c							0x41faee	SCENE_LoadLevel -> 0x4a0f88: palette lighting base R
+_editorObjet211234	_CurrentSceneS+0x1c	keep	0x65fb20							0x41fafb	SCENE_LoadLevel -> 0x4a0f8c: palette lighting base G
+_editorObjet311234	_CurrentSceneS+0x20	keep	0x65fb24							0x41fb08	SCENE_LoadLevel -> 0x4a0f90: palette lighting base B
+_editorObjet411234	_CurrentSceneS+0x1e8	keep	0x65fcec							0x42e22c;0x41c56c	MDL_BuildPaletteColorTable: material colour contrast factor; ENT_AdaptActorColor
+_editorObjet511234	_CurrentSceneS+0x1ec	keep	0x65fcf0							0x42e1c2	MDL_BuildPaletteColorTable: contrast only on materials whose name prefix matches 0x4fbdd4
+_editorObjet121234	_CurrentSceneS+0x24	keep	0x65fb28							0x41fb55	SCENE_LoadLevel -> 0x4a0fa0: random flicker amplitude R (REND_TickPaletteLighting)
+_editorObjet221234	_CurrentSceneS+0x28	keep	0x65fb2c							0x41fb62	SCENE_LoadLevel -> 0x4a0fa4: random flicker amplitude G
+_editorObjet321234	_CurrentSceneS+0x2c	keep	0x65fb30							0x41fb6f	SCENE_LoadLevel -> 0x4a0fa8: random flicker amplitude B
+_editorObjet131234	_CurrentSceneS+0x30	keep	0x65fb34							0x41fac7	SCENE_LoadLevel -> 0x62630c: ambient base R
+_editorObjet231234	_CurrentSceneS+0x34	keep	0x65fb38							0x41fad4	SCENE_LoadLevel -> 0x626308: ambient base G
+_editorObjet331234	_CurrentSceneS+0x38	keep	0x65fb3c							0x41fae1	SCENE_LoadLevel -> 0x626304: ambient base B
+_editorObjet141234	_CurrentSceneS+0xc0	keep	0x65fbc4							0x41f594	SCENE_InitLevel -> 0x6262e8: actor palette scale, if non-zero
+_editorObjet241234	_CurrentSceneS+0xc4	keep	0x65fbc8							0x41f5d0	SCENE_InitLevel -> 0x626300: scenery palette scale, if non-zero
+_editorObjet341234	_CurrentSceneS+0xc8	keep	0x65fbcc							0x41d8f6;0x41c55e	ENT_LoadObject: player actor +0xab |= 8 (effect light); ENT_AdaptActorColor
+_editorObjet441234	_CurrentSceneS+0xcc	keep	0x65fbd0							0x41f5ee;0x42eece	SCENE_InitLevel: far plane (REND_SetFarPlane), if non-zero; SCENE_AddActorEffectLights radius
+_editorObjet541234	_CurrentSceneS+0x1f4	no-effect	0x65fcf8	0	8			Perso Integ (no effect)		0x41c543	ENT_AdaptActorColor loads it into a local that is overwritten with 8/2/1 before use (0x41c585, 0x41c57c, 0x41c599): dead; bank 0..7, 0 in 25 records, min widened to 0
+_editorObjet151234	_CurrentSceneS+0xf0	keep	0x65fbf4							0x41fa97	SCENE_LoadLevel -> 0x4a0f94: timed palette target R
+_editorObjet251234	_CurrentSceneS+0xf4	keep	0x65fbf8							0x41faa7	SCENE_LoadLevel -> 0x4a0f98: timed palette target G
+_editorObjet351234	_CurrentSceneS+0xf8	keep	0x65fbfc							0x41fab7	SCENE_LoadLevel -> 0x4a0f9c: timed palette target B
+_editorObjet451234	_CurrentSceneS+0xfc	keep	0x65fc00							0x41fa87	SCENE_LoadLevel -> 0x626318: timed palette duration
+_editorObjet12234	_SemaMaterialHnmMaterName	keep	0x4a4748							0x44cc3f	WorksGetEditor_: material list FUN_004488bf + picker FUN_004492d1 -> header +0x4c (0x65fb50). Unsafe: picker list has a one-byte stride (0x661e22+i: names overlap) and OK with no row selected copies from row -1
+_editorObjet22234	_SemaLoadMaterialHnmName	keep	0x4a474c							0x44cc77	WorksGetEditor_: anim picker FUN_0044902b -> header +0x5c (0x65fb60), HNM4 texture file. Unsafe: picker list has a one-byte stride (0x661e26+i: names overlap) and OK with no row selected copies from row -1
+_editorObjet3234	_SemaMaterialscroll	keep	0x4a4744							0x44cc07	WorksGetEditor_: material list FUN_004488bf + picker FUN_004492d1 -> header +0x6c (0x65fb70), scroll material. Unsafe: picker list has a one-byte stride (0x661e22+i: names overlap) and OK with no row selected copies from row -1
+_editorObjet4234	_SemaMaterialPlasma	keep	0x4a4740							0x44cbcf	WorksGetEditor_: material list FUN_004488bf + picker FUN_004492d1 -> header +0x7c (0x65fb80), plasma material. Unsafe: picker list has a one-byte stride (0x661e22+i: names overlap) and OK with no row selected copies from row -1
+_editorObjet1634	_SemaCreatSceneLinkAdventure	keep	0x4a46d8							0x44c6b2	WorksGetEditor_: LINKADVENT create FUN_0044b0e5: project create first if 0x661d94 is 0 (unsafe path, see Project Creat); free slot by +0x28 bit 0 (16 of 16), working record cleared, four indexes -1, name LINKADVENT<n>
+_editorObjet2634	_SemaLoadSceneLinkAdventure	keep	0x4a46dc							0x44c6cc	WorksGetEditor_: LINKADVENT load FUN_0044b162: picker over live LINKADVENT names, copy to the working record. Unsafe: names in a one-byte-stride table at 0x661e1f; find-by-name (FUN_0044b07a) scans 150 x 0x40 from 0x661904 (16 exist)
+_editorObjet113634	_SemaLoadLinkAdventureObjetSrc	keep	0x4a4720							0x44c724	WorksGetEditor_: OBJET picker FUN_0044a594 -> LINKADVENT +0x0c (0x65d610, source) = picked list row 0x661d1c, the slot only while no earlier slot is free; also loads that OBJET into the OBJET working record. Unsafe: one-byte-stride list at 0x661e24, find-by-name scans 150 x 0xc0
+_editorObjet213634	_SemaLoadLinkAdventureObjetDest	keep	0x4a4724							0x44c76f	WorksGetEditor_: OBJET picker FUN_0044a594 -> LINKADVENT +0x14 (0x65d618, destination) = picked list row 0x661d1c, the slot only while no earlier slot is free; also loads that OBJET into the OBJET working record. Unsafe: one-byte-stride list at 0x661e24, find-by-name scans 150 x 0xc0
+_editorObjet313634	_SemaLoadLinkAdventureBoxDest	keep	0x4a472c							0x44c805	WorksGetEditor_: BOX picker FUN_0044bf3a -> LINKADVENT +0x18 (0x65d61c, destination box) = picked list row 0x661d38; also loads that BOX into the BOX working record. Unsafe: the list covers 16 slots of the 12-slot BOX family (12-15 are LINKADVENT memory), one-byte-stride names, find-by-name scans 150 x 0x100
+_editorObjet11423634	_CurrentSceneLinkAdventureS+0x20	keep	0x65d624							0x42898e;0x429189	player within 400 of the source (ENT_CheckPosInRange); when true and the source lacks See-Move it is hidden and its life zeroed (picked up). SCENE_InitTriggers 0x42898e copies rec +0x20 to task +0x14; SCENE_TickTriggers 0x429189 tests task +0x14 & 0x1 (byte +0x14)
+_editorObjet21423634	_CurrentSceneLinkAdventureS+0x20	keep	0x65d624							0x42898e;0x429464	source visible and its life <= 0. SCENE_InitTriggers 0x42898e copies rec +0x20 to task +0x14; SCENE_TickTriggers 0x429464 tests task +0x14 & 0x4 (byte +0x14)
+_editorObjet31423634	_CurrentSceneLinkAdventureS+0x20	keep	0x65d624							0x42898e;0x429362	player holds the source's model (ENT_HasInventoryItem). SCENE_InitTriggers 0x42898e copies rec +0x20 to task +0x14; SCENE_TickTriggers 0x429362 tests task +0x14 & 0x20 (byte +0x14)
+_editorObjet51423634	_CurrentSceneLinkAdventureS+0x20	keep	0x65d624							0x42898e;0x4293b8	player does not hold the source's model. SCENE_InitTriggers 0x42898e copies rec +0x20 to task +0x14; SCENE_TickTriggers 0x4293b8 tests task +0x14 & 0x2 (byte +0x15)
+_editorObjet41423634	_CurrentSceneLinkAdventureS+0x20	relabel	0x65d624					Flag Ele. Src LIFE INIT		0x42898e;0x42952f	retail: source alive and its life equals its OBJET Life (0x429587 fild OBJET +0x2c, compared with actor +0x38); July tested SYM_TestFlagsSym_ (symbol animation ended). SCENE_InitTriggers 0x42898e copies rec +0x20 to task +0x14; SCENE_TickTriggers 0x42952f tests task +0x14 & 0x1 (byte +0x15)
+_editorObjet12423634	_CurrentSceneLinkAdventureS+0x20	keep	0x65d624							0x42898e;0x429238	player within range (ENT_CheckInRange) of the destination. SCENE_InitTriggers 0x42898e copies rec +0x20 to task +0x14; SCENE_TickTriggers 0x429238 tests task +0x14 & 0x40 (byte +0x14)
+_editorObjet22423634	_CurrentSceneLinkAdventureS+0x20	keep	0x65d624							0x42898e;0x4292c2	destination within range of the source. SCENE_InitTriggers 0x42898e copies rec +0x20 to task +0x14; SCENE_TickTriggers 0x4292c2 tests task +0x14 & 0x10 (byte +0x15)
+_editorObjet13423634	_CurrentSceneLinkAdventureS+0x20	keep	0x65d624							0x42898e;0x4294de	no living opposing fighter (ENT_CheckSideCleared). SCENE_InitTriggers 0x42898e copies rec +0x20 to task +0x14; SCENE_TickTriggers 0x4294de tests task +0x14 & 0x8 (byte +0x14)
+_editorObjet23423634	_CurrentSceneLinkAdventureS+0x20	keep	0x65d624							0x42898e;0x429505	fewer than 3 hidden actors (FUN_00428e57, July INV_TestIFJustOneFreeze_). SCENE_InitTriggers 0x42898e copies rec +0x20 to task +0x14; SCENE_TickTriggers 0x429505 tests task +0x14 & 0x4 (byte +0x15)
+_editorObjet33423634	_CurrentSceneLinkAdventureS+0x20	keep	0x65d624							0x42898e;0x4290fa	countdown (Time x30 ticks) blocks until 0, then passes and the rule deactivates. SCENE_InitTriggers 0x42898e copies rec +0x20 to task +0x14; SCENE_TickTriggers 0x4290fa tests task +0x14 & 0x10 (byte +0x14)
+_editorObjet43423634	_CurrentSceneLinkAdventureS+0x20	keep	0x65d624							0x42898e;0x429141	countdown passes at 0 and reloads Time x30 (re-arming); 0 records in the bank. SCENE_InitTriggers 0x42898e copies rec +0x20 to task +0x14; SCENE_TickTriggers 0x429141 tests task +0x14 & 0x80 (byte +0x14)
+_editorObjet53423634	_CurrentSceneLinkAdventureS+0x3c	keep	0x65d640							0x4289ca;0x4289ba	SCENE_InitTriggers: Time in seconds; 0x4289ca imul x30 -> task +0x34 countdown (30 Hz ticks, decremented in SCENE_TickTriggers), 0x4289ba fild -> task +0x30 (Time Cycle reload); bank 0..63
+_editorObjet14423634	_CurrentSceneLinkAdventureS+0x20	keep	0x65d624							0x42898e;0x42951a	fewer than 2 hidden actors (FUN_00428eda, July INV_TestIFNoOneFreeze_). SCENE_InitTriggers 0x42898e copies rec +0x20 to task +0x14; SCENE_TickTriggers 0x42951a tests task +0x14 & 0x8 (byte +0x15)
+_editorObjet11523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x42975c	destination OBJET shown and reset to spawn (orb effect); destination box gets its force fields (0x429852); at load SCENE_HideTriggerTarget hides the destination. SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x42975c tests task +0x18 & 0x1 (byte +0x18)
+_editorObjet21523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x429925	destination OBJET hidden (orb effect); kind-1 destination box: force fields disabled (0x42989a). SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x429925 tests task +0x18 & 0x4 (byte +0x18)
+_editorObjet31523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x429a29	destination +0x114 move sphere = 50000. SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x429a29 tests task +0x18 & 0x20 (byte +0x18)
+_editorObjet41523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x429a88	destination +0x118 see sphere = 40000, +0xac|4. SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x429a88 tests task +0x18 & 0x40 (byte +0x18)
+_editorObjet51523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x429bb2	ENT_MoveToPoint(destination, source). SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x429bb2 tests task +0x18 & 0x4 (byte +0x19)
+_editorObjet14523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x429627	destination changes side (copies the player's side bit, revives a dead one, AI_BuildSquads). SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x429627 tests task +0x18 & 0x80 (byte +0x18)
+_editorObjet24523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x4296ec	destination +0xf0 = 450, +0xf4 = 0.2, life += 10; 0 records in the bank. SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x4296ec tests task +0x18 & 0x1 (byte +0x19)
+_editorObjet34523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x429af1	destination +0xad|0x10 (follow, as OBJET 0x400). SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x429af1 tests task +0x18 & 0x80 (byte +0x19)
+_editorObjet44523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x429b4d	destination's model added to the player's inventory (ENT_AddInventoryItem). SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x429b4d tests task +0x18 & 0x1 (byte +0x1a)
+_editorObjet12523634	_CurrentSceneLinkAdventureS+0x24	no-effect	0x65d628					Flag Src KILL no effect			not implemented: SCENE_InitTriggers 0x42899e copies the dword to task +0x18, but no instruction tests bit 0x10 (SCENE_TickTriggers tests byte +0x18 only for 1/2/4/0x20/0x40/0x80; HideTriggerTarget 1/2, IsBoxUntriggered 1); July had no action either; set in 1 bank record
+_editorObjet13523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x429c51	ENT_RestoreRemoved (all hidden actors back; July INV_CompAllObjUnfreeze_); SCENE_HideTriggerTarget 0x428af6 also tests it; 0 records in the bank. SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x429c51 tests task +0x18 & 0x2 (byte +0x18)
+_editorObjet23523634	_CurrentSceneLinkAdventureS+0x24	hide									not implemented: no instruction tests action bit 0x8 (task byte +0x18 tested for 1/2/4/0x20/0x40/0x80 only, in SCENE_TickTriggers, SCENE_HideTriggerTarget, SCENE_IsBoxUntriggered); never set in the bank
+_editorObjet33523634	_SemaLoadLinkAdventureHnm	keep	0x4a4730							0x44c675	WorksGetEditor_: HNM picker FUN_00449577 -> LINKADVENT +0x2c (0x65d630), movie played when the rule fires (MGM 0x17). Unsafe: picker list has a one-byte stride (0x661e27+i: names overlap) and OK with no row selected copies from row -1
+_editorObjet43523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x4295d5	ENT_SetOthersTimeScale(0). SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x4295d5 tests task +0x18 & 0x2 (byte +0x19)
+_editorObjet53523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x4295fe	ENT_ResetOthersTimeScale; 0 records in the bank. SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x4295fe tests task +0x18 & 0x8 (byte +0x19)
+_editorObjet15523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x429f08	camera message 0x2d on the destination for 90 frames (if 0x4fbb24&0x20 the rule waits 60 ticks and stays armed); July used message 0x2e with +0x1c as duration. SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x429f08 tests task +0x18 & 0x10 (byte +0x19)
+_editorObjet25523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x429db3	camera message 0x2d via ENT_PlaceAtFacingOffset, 90 frames. SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x429db3 tests task +0x18 & 0x20 (byte +0x19)
+_editorObjet35523634	_CurrentSceneLinkAdventureS+0x1c	relabel	0x65d620	0	178			Dialog Number (0=none)		0x4289e5;0x429ccd;0x429d51	dialogue: SCENE_InitTriggers 0x4289e5 copies rec +0x1c to task +0x10; SCENE_TickTriggers 0x429ccd tests task +0x10 != 0, 0x429d51 posts MGM 0x40 with v-1 (DRD_SelectEntry; DRD_LoadEntry indexes the 178-entry DIALOG.DRD offset table unchecked) when the rule fires without a camera action; bank 0..176 (disc 2: 177), 42 above 127; 178 = last entry; July camera-cut time gone (cameras fixed at 90 frames)
+_editorObjet45523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x429c6e	sets 0x6155e4 (SCENE_IsTriggerDone), opening LINK flag 0x10 exits. SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x429c6e tests task +0x18 & 0x40 (byte +0x19)
+_editorObjet55523634	_CurrentSceneLinkAdventureS+0x24	keep	0x65d628							0x42899e;0x429c90	palette base 0x4a0f88..90 += 0x40 per channel (the level lights up). SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x429c90 tests task +0x18 & 0x2 (byte +0x1a)
+_editorObjet123634	_SemaLoadLinkAdventureBoxSrc	hide									WorksGetEditor_ 0x44c7ba (_SemaLoadLinkAdventureBoxSrc = 0x4a4728): BOX picker -> LINKADVENT +0x10 (0x65d614), the source box; SCENE_InitTriggers 0x42895e copies it to task +4, which nothing reads; -1 in every bank record
+_editorObjet223634	_SemaLoadLinkAdventureObjetDest	keep	0x4a4724							0x44c76f	WorksGetEditor_: OBJET picker FUN_0044a594 -> LINKADVENT +0x14 (0x65d618, destination) = picked list row 0x661d1c, the slot only while no earlier slot is free; also loads that OBJET into the OBJET working record. Unsafe: one-byte-stride list at 0x661e24, find-by-name scans 150 x 0xc0
+_editorObjet323634	_SemaLoadLinkAdventureBoxDest	keep	0x4a472c							0x44c805	WorksGetEditor_: BOX picker FUN_0044bf3a -> LINKADVENT +0x18 (0x65d61c, destination box) = picked list row 0x661d38; also loads that BOX into the BOX working record. Unsafe: the list covers 16 slots of the 12-slot BOX family (12-15 are LINKADVENT memory), one-byte-stride names, find-by-name scans 150 x 0x100
+_editorObjet4634	_SemaSaveSceneLinkAdventure	keep	0x4a46e0							0x44c700	WorksGetEditor_: LINKADVENT save FUN_0044b1bb: working record -> its slot (0x661d9c), then _SemaSaveScene (project save, see its note)
+_editorObjet5634	_SemaDeleteSceneLinkAdventure	keep	0x4a46e4							0x44c6e6	WorksGetEditor_: LINKADVENT delete FUN_0044b1f9: picker under a DELETE banner, clears +0x28 and name[0], then _SemaSaveScene. Same list and find-by-name issues as Load
+_editorObjet1334	_SemaCreatSceneLink	keep	0x4a46ec							0x44c93a	WorksGetEditor_: LINK create FUN_0044b74d: free slot by +0x18 bit 0 (8 of 8), working record cleared (FUN_0044b2b2), name LINK<n>
+_editorObjet2334	_SemaLoadSceneLink	keep	0x4a46f0							0x44c954	WorksGetEditor_: LINK load FUN_0044b7bc: picker over live LINK names, copy to the working record. Unsafe: one-byte-stride names at 0x661e1e; find-by-name (FUN_0044b6df) scans 150 x 0x80 from 0x65fd04 (8 exist)
+_editorObjet13334	_SemaLoadSceneNameLink	keep	0x4a470c							0x44c9ac	WorksGetEditor_: LINK target FUN_0044b9a7: project picker FUN_0044991e -> LINK +0x0c (0x65d650). Unsafe: it does not refill the list (shows what the last project Load/Delete listed: 150-record walk, one-byte-stride names at 0x661e25) and loops on _SemaLoadScene
+_editorObjet1123334	_CurrentSceneLinkS+0x18	keep	0x65d65c							0x42102f	SCENE_CheckExits: inverts the held-object test (flags & 8 passed to ENT_CheckRequiredItem, 0x421032 and ebx,8); in-volume branch, also 0x420e27/0x42122b
+_editorObjet2123334	_CurrentSceneLinkS+0x18	keep	0x65d65c							0x42100f	SCENE_CheckExits: exit needs Ctrl (INPUT_TestCtrlPressed); in-volume branch, also 0x42120b; the empty-volume branch does not test it
+_editorObjet3123334	_CurrentSceneLinkS+0x18	keep	0x65d65c							0x420fde	SCENE_CheckExits: exit needs SCENE_IsTriggerDone (LINKADVENT action 0x4000); also 0x420ded/0x4211da
+_editorObjet4123334	_CurrentSceneLinkS+0x18	keep	0x65d65c							0x420ff5	SCENE_CheckExits: exit needs no living enemy (ENT_TestNoHostilesAlive); also 0x420e04/0x4211f1
+_editorObjet5123334	_CurrentSceneLinkS+0x18	keep	0x65d65c							0x42104f	SCENE_CheckExits: exit needs contact with a Hit-Link object (FUN_00420a44, OBJET 0x80); also 0x420e47/0x42124b
+_editorObjet223334	_SemaLoadLinkObjetMesh	keep	0x4a46e8							0x44c9c6	WorksGetEditor_: 3DC picker FUN_0044a6e4 -> LINK +0x3c (0x65d680), the object the player must hold; sets 0x661da4 (never read). Unsafe: picker list has a one-byte stride (0x661e21+i: names overlap) and OK with no row selected copies from row -1
+_editorObjet1323334	_CurrentSceneLinkS+0x18	keep	0x65d65c							0x420f22	SCENE_CheckExits: inverts the volume test, fires while the actor is outside the box; never set in the bank
+_editorObjet1143334	_CurrentSceneLinkS+0x24	keep	0x65d668							0x420f45	SCENE_CheckExits: volume min X (actor strictly inside; +0x24 and +0x30 both 0 = no volume); capture leaf, bank values outside the slider are filled by key 0
+_editorObjet2143334	_CurrentSceneLinkS+0x28	keep	0x65d66c							0x420f77	SCENE_CheckExits: volume min Y (actor strictly inside; +0x24 and +0x30 both 0 = no volume); capture leaf, bank values outside the slider are filled by key 0
+_editorObjet3143334	_CurrentSceneLinkS+0x2c	keep	0x65d670							0x420fa9	SCENE_CheckExits: volume min Z (actor strictly inside; +0x24 and +0x30 both 0 = no volume); capture leaf, bank values outside the slider are filled by key 0
+_editorObjet1243334	_CurrentSceneLinkS+0x30	keep	0x65d674							0x420f54	SCENE_CheckExits: volume max X (actor strictly inside; +0x24 and +0x30 both 0 = no volume); capture leaf, bank values outside the slider are filled by key 0
+_editorObjet2243334	_CurrentSceneLinkS+0x34	keep	0x65d678							0x420f86	SCENE_CheckExits: volume max Y (actor strictly inside; +0x24 and +0x30 both 0 = no volume); capture leaf, bank values outside the slider are filled by key 0
+_editorObjet3243334	_CurrentSceneLinkS+0x38	keep	0x65d67c							0x420fb8	SCENE_CheckExits: volume max Z (actor strictly inside; +0x24 and +0x30 both 0 = no volume); capture leaf, bank values outside the slider are filled by key 0
+_editorObjet1343334	_CurrentSceneLinkS+0x24	keep	0x65d668							0x420f45	SCENE_CheckExits: volume min X (actor strictly inside; +0x24 and +0x30 both 0 = no volume); capture leaf, bank values outside the slider are filled by key 0
+_editorObjet2343334	_CurrentSceneLinkS+0x28	keep	0x65d66c							0x420f77	SCENE_CheckExits: volume min Y (actor strictly inside; +0x24 and +0x30 both 0 = no volume); capture leaf, bank values outside the slider are filled by key 0
+_editorObjet3343334	_CurrentSceneLinkS+0x2c	keep	0x65d670							0x420fa9	SCENE_CheckExits: volume min Z (actor strictly inside; +0x24 and +0x30 both 0 = no volume); capture leaf, bank values outside the slider are filled by key 0
+_editorObjet1443334	_CurrentSceneLinkS+0x30	keep	0x65d674							0x420f54	SCENE_CheckExits: volume max X (actor strictly inside; +0x24 and +0x30 both 0 = no volume); capture leaf, bank values outside the slider are filled by key 0
+_editorObjet2443334	_CurrentSceneLinkS+0x34	keep	0x65d678							0x420f86	SCENE_CheckExits: volume max Y (actor strictly inside; +0x24 and +0x30 both 0 = no volume); capture leaf, bank values outside the slider are filled by key 0
+_editorObjet3443334	_CurrentSceneLinkS+0x38	keep	0x65d67c							0x420fb8	SCENE_CheckExits: volume max Z (actor strictly inside; +0x24 and +0x30 both 0 = no volume); capture leaf, bank values outside the slider are filled by key 0
+_editorObjet4334	_SemaSaveSceneLink	keep	0x4a46f4							0x44c988	WorksGetEditor_: LINK save FUN_0044b8ab: min/max sorted (FUN_0044b815), working record -> its slot (0x661d8c), then _SemaSaveScene
+_editorObjet5334	_SemaDeleteSceneLink	keep	0x4a46f8							0x44c96e	WorksGetEditor_: LINK delete FUN_0044b8ee: picker under a DELETE banner, clears +0x18 and name[0], then _SemaSaveScene. Same list issues as Load
+_editorObjet1434	_SemaCreatSceneObjet	keep	0x4a46c8							0x44c850	WorksGetEditor_: OBJET create FUN_0044a517: project create first if 0x661d94 is 0 (unsafe path); free slot by +0x34 bit 0 (16 of 16), working record EMPTY, then opens Load Mesh (_SemaLoad3dc)
+_editorObjet2434	_SemaLoadSceneObjet	keep	0x4a46cc							0x44c874	WorksGetEditor_: OBJET load FUN_0044a594: picker over live OBJET names, copy to the working record. Unsafe: one-byte-stride names at 0x661e24; find-by-name (FUN_0044a4a9) scans 150 x 0xc0 from 0x660104 (16 exist)
+_editorObjet13434	_SemaLoad3dc	keep	0x4a4718							0x44c88e	WorksGetEditor_: 3DC picker FUN_0044a6e4 -> OBJET +0x0c (0x65f8d0) model; if not EMPTY sets _SemaSaveSceneObjet and _SemaSpeedLoadScene (save, copy back, reload the level). Unsafe: picker list has a one-byte stride (0x661e21+i: names overlap) and OK with no row selected copies from row -1
+_editorObjet33434	_SemaLoadSym	keep	0x4a4714							0x44c8dd	WorksGetEditor_: SYM picker FUN_0044a990 -> OBJET +0x1c (0x65f8e0), passed to SYM_InitSymboleInObjet_ by ENT_InstantiateFromObjet; empty in every bank record. Unsafe: picker list has a one-byte stride (0x661e23+i: names overlap) and OK with no row selected copies from row -1
+_editorObjet1123434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41dd48;0x41ddf0	ENT_LoadModel / ENT_CloneFromActor: animated, loads the anim set (ANIM_LoadEntitySet)
+_editorObjet2123434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41e04f	ENT_InstantiateFromObjet: enemy side, actor +0xa9|0x20
+_editorObjet3123434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41e062	ENT_InstantiateFromObjet: run, actor +0xab|1
+_editorObjet4123434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41e088	ENT_InstantiateFromObjet: see-move, actor +0xac|8 (also exempts a LINKADVENT source from Src NEAR pickup)
+_editorObjet5123434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41e0ae	ENT_InstantiateFromObjet: effect light, actor +0xab|8
+_editorObjet1323434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41fbaa;0x41fc10	SCENE_LoadLevel: record not spawned at load (slots 1-15 at 0x41fbaa, slot 0 at 0x41fc10); July testImportNewScene_ skips it the same way, so the meaning is unchanged but the July label does not describe it; never set in the bank
+_editorObjet2323434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41e075	ENT_InstantiateFromObjet: blessing, actor +0xac|2
+_editorObjet3323434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41e09b	ENT_InstantiateFromObjet: hit-link, actor +0xac|0x10 (LINK flag 4 tests it)
+_editorObjet4323434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41e0c1	ENT_InstantiateFromObjet: random position, actor +0xad|1
+_editorObjet5323434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41e0d4	ENT_InstantiateFromObjet: follow, actor +0xad|0x10 (LINKADVENT action 0x8000 sets the same)
+_editorObjet1523434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41e131	ENT_InstantiateFromObjet: platform, actor +0xad|8 and +0xa9&~2
+_editorObjet2523434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41e0e7	ENT_InstantiateFromObjet: fire, actor +0xae|2
+_editorObjet3523434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41e0fa	ENT_InstantiateFromObjet: friend hit, actor +0xae|4
+_editorObjet4523434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41e10d	ENT_InstantiateFromObjet: mana emitter, PART_SetEmitterActor
+_editorObjet5523434	_CurrentSceneObjetS+0x34	keep	0x65f8f8							0x41e11e	ENT_InstantiateFromObjet: shock, actor +0xaf|0x20
+_editorObjet1223434	_CurrentSceneObjetS+0x2c	keep	0x65f8f0							0x41e33e	ENT_InstantiateFromObjet: life, actor +0x38 (float) if non-zero; SCENE_TickTriggers 0x429587 compares it for condition 0x100
+_editorObjet2223434	_CurrentSceneObjetS+0x30	keep	0x65f8f4							0x41e353	ENT_InstantiateFromObjet: mana, actor +0x3c (float) if non-zero
+_editorObjet3223434	_CurrentSceneObjetS+0x38	keep	0x65f8fc							0x41e380	ENT_InstantiateFromObjet: speed, actor +0x44 = v/64
+_editorObjet4223434	_CurrentSceneObjetS+0x3c	keep	0x65f900							0x41e412	ENT_InstantiateFromObjet: hit strength, actor +0x48 (x2 above 256, 100000 above 512); ENT_ApplyAttackHit passes it as damage
+_editorObjet5223434	_CurrentSceneObjetS+0x7c	keep	0x65f940							0x41e368	ENT_InstantiateFromObjet: mass, actor +0x250 (double)
+_editorObjet1423434	_CurrentSceneObjetS+0x80	keep	0x65f944							0x41e39e	ENT_InstantiateFromObjet: courage, actor +0x188 = round(v*0.2)
+_editorObjet2423434	_CurrentSceneObjetS+0x84	keep	0x65f948							0x41e3c7	ENT_InstantiateFromObjet: defence, actor +0x190
+_editorObjet3423434	_CurrentSceneObjetS+0x88	keep	0x65f94c							0x41e3e5	ENT_InstantiateFromObjet: attack, actor +0x194
+_editorObjet4423434	_CurrentSceneObjetS+0x8c	keep	0x65f950							0x41e3f7	ENT_InstantiateFromObjet: path, actor +0x198 = first BOX index AI_FindPatrolBox scans
+_editorObjet5423434	_CurrentSceneObjetS+0x90	keep	0x65f954							0x41e2d5	ENT_InstantiateFromObjet: speed move, actor +0x180 = v/16
+_editorObjet1143434	_CurrentSceneObjetS+0x40	keep	0x65f904							0x41e020	ENT_InstantiateFromObjet: spawn X, actor +0x00 (double)
+_editorObjet2143434	_CurrentSceneObjetS+0x44	keep	0x65f908							0x41e02b	ENT_InstantiateFromObjet: spawn Y, actor +0x08 (double)
+_editorObjet3143434	_CurrentSceneObjetS+0x48	keep	0x65f90c							0x41e037	ENT_InstantiateFromObjet: spawn Z, actor +0x10 (double)
+_editorObjet4143434	_CurrentSceneObjetS+0x5c	keep	0x65f920							0x41e043	ENT_InstantiateFromObjet: heading, actor +0x5c
+_editorObjet1243434	_CurrentSceneObjetS+0x64	keep	0x65f928							0x41e176	ENT_InstantiateFromObjet: move mode, actor +0x34 if non-zero (3 sets flags; 5->1, 6->3 with +0xad|0x20)
+_editorObjet2243434	_CurrentSceneObjetS+0x68	keep	0x65f92c							0x41e1f9	ENT_InstantiateFromObjet: inertia, actor +0x104 (float, default 16)
+_editorObjet3243434	_CurrentSceneObjetS+0x6c	keep	0x65f930							0x41e21b	ENT_InstantiateFromObjet: maniability, actor +0x108 and +0xaa|0x20
+_editorObjet4243434	_CurrentSceneObjetS+0x94	keep	0x65f958							0x41e236	ENT_InstantiateFromObjet: shoot impact, actor +0x58 = v/128
+_editorObjet5243434	_CurrentSceneObjetS+0x98	keep	0x65f95c							0x41e274	ENT_InstantiateFromObjet: scale, every model node scaled (Scale_Obj_)
+_editorObjet1343434	_CurrentSceneObjetS+0x70	keep	0x65f934							0x41e2f6	ENT_InstantiateFromObjet: collision sphere, actor +0x10c
+_editorObjet2343434	_CurrentSceneObjetS+0x74	keep	0x65f938							0x41e30e	ENT_InstantiateFromObjet: move sphere, actor +0x114 (LINKADVENT action 0x20 sets 50000)
+_editorObjet3343434	_CurrentSceneObjetS+0x78	keep	0x65f93c							0x41e326	ENT_InstantiateFromObjet: see sphere, actor +0x118 (LINKADVENT action 0x40 sets 40000)
+_editorObjet4434	_SemaSaveSceneObjet	keep	0x4a46d0							0x44c8fc	WorksGetEditor_: OBJET save FUN_0044a5ed: working record -> its slot (0x661d90), then _SemaSaveScene
+_editorObjet5434	_SemaDeleteSceneObjet	keep	0x4a46d4							0x44c920	WorksGetEditor_: OBJET delete FUN_0044a62b: picker under a DELETE banner, clears +0x34 and name[0], then _SemaSaveScene. Same list issues as Load
+_editorObjet1534	_SemaCreatSceneBox	keep	0x4a46fc							0x44ca16	WorksGetEditor_: BOX create FUN_0044becb: free slot by +0xec bit 0, working record EMPTY, +0xe4 = -1, name BOX<n>. Unsafe: the free-slot scan (FUN_0044baed) covers 16 slots of the 12-slot BOX family, so a 13th box lands on LINKADVENT records 0-3
+_editorObjet2534	_SemaLoadSceneBox	keep	0x4a4700							0x44ca30	WorksGetEditor_: BOX load FUN_0044bf3a: picker over live BOX names, copy to the working record. Unsafe: lists 16 slots of 12 (12-15 are LINKADVENT memory), one-byte-stride names at 0x661e20, find-by-name (FUN_0044be5d) scans 150 x 0x100 from 0x660d04
+_editorObjet13534	_SemaCreatSceneBoxInputPath	keep	0x4a4734							0x44ca88	WorksGetEditor_: path in FUN_0044c11b: ++BOX +0xe4, stores the reference position (FUN_0041c9dd) as point e4 while e4 < 16, else e4 = 16
+_editorObjet23534	_SemaCreatSceneBoxOutputPath	keep	0x4a4738							0x44caa2	WorksGetEditor_: path out FUN_0044c1a9: BOX +0xe4 -= 1, not below -1; the old point stays
+_editorObjet33534	_CurrentSceneBoxS+0xf0	keep	0x65b334							0x4130b5;0x41ef43;0x42074d;0x420801	box kind 0..9 (bank 0..9): AI_FindPatrolBox kind 0 patrol, PHYS_InitForceFields kind 1 force path, ENT_ApplyZoneHazards kinds 8 and 9 (other kinds: SolProps 3, ManaPickups 2, AirZones 6, spawn points 7)
+_editorObjet1143534	_CurrentSceneBoxS+0xc	keep	0x65b250							0x420795;0x4130fe	ENT_ApplyZoneHazards 3D zone test and AI_FindPatrolBox XZ test: min X; capture leaf
+_editorObjet2143534	_CurrentSceneBoxS+0x10	keep	0x65b254							0x4207bb	ENT_ApplyZoneHazards 3D zone test: min Y; capture leaf
+_editorObjet3143534	_CurrentSceneBoxS+0x14	keep	0x65b258							0x4207e1;0x413128	ENT_ApplyZoneHazards 3D zone test and AI_FindPatrolBox XZ test: min Z; capture leaf
+_editorObjet1243534	_CurrentSceneBoxS+0x18	keep	0x65b25c							0x4207a0;0x413109	ENT_ApplyZoneHazards 3D zone test and AI_FindPatrolBox XZ test: max X; capture leaf
+_editorObjet2243534	_CurrentSceneBoxS+0x1c	keep	0x65b260							0x4207c6	ENT_ApplyZoneHazards 3D zone test: max Y; capture leaf
+_editorObjet3243534	_CurrentSceneBoxS+0x20	keep	0x65b264							0x4207ec;0x413133	ENT_ApplyZoneHazards 3D zone test and AI_FindPatrolBox XZ test: max Z; capture leaf
+_editorObjet53534	_CurrentSceneBoxS+0xf4	widen	0x65b338	-1000	1000					0x420829;0x41f034;0x4195f2;0x419296;0x41893b	box intensity: ENT_ApplyZoneHazards kind 9 life -= v/k per tick (negative heals, cap 120), PHYS_InitForceFields kind 1 strength, ManaPickups, AirZones, SolProps; bank -600..1000 (7 outside 0..1000): centred slider, symmetric range
+_editorObjet4534	_SemaSaveSceneBox	keep	0x4a4704							0x44ca4a	WorksGetEditor_: BOX save FUN_0044c029: min/max sorted (FUN_0044bf93), working record -> its slot (0x661d88), then _SemaSaveScene
+_editorObjet5534	_SemaDeleteSceneBox	keep	0x4a4708							0x44ca6e	WorksGetEditor_: BOX delete FUN_0044c06c: picker under a DELETE banner (text says DELETE OBJET), clears +0xec only (name kept), then _SemaSaveScene. Same list issues as Load
+_editorObjet44	_SemaSaveScene	keep	0x4a46c0							0x44cb19	WorksGetEditor_: project save FUN_00449f42: worksCopyCurrenttoScene_ 0x65fb04 -> *0x661d94 if set; sets 0x661da4 (never read). Unsafe: after Load or Delete 0x661d94 is DDAT_LoadRecord's scratch, so the save never reaches the bank (spec A4.3)
+_editorObjet54	_SemaDeleteScene	keep	0x4a46c4							0x44caf5	WorksGetEditor_: project delete FUN_00449f80: project picker under a DELETE banner, DDAT_LoadRecord, zeroes +0x14..+0x17 (bits 16-18 too). Unsafe: same 150-record list walk; the clear lands in DDAT_LoadRecord's scratch, not the bank
+_editorObjet11111	_CurrentSceneS+0x148	keep	0x65fc4c							0x43b469	PART_LoadLevelParams -> 0x4a30e4: mote spawn box min X (scene units x256)
+_editorObjet21111	_CurrentSceneS+0x14c	keep	0x65fc50							0x43b479	PART_LoadLevelParams -> 0x4a30e8: mote spawn box min Y
+_editorObjet31111	_CurrentSceneS+0x150	keep	0x65fc54							0x43b489	PART_LoadLevelParams -> 0x4a30ec: mote spawn box min Z
+_editorObjet12111	_CurrentSceneS+0x154	keep	0x65fc58							0x43b499	PART_LoadLevelParams -> 0x4a3114: mote spawn box max X
+_editorObjet22111	_CurrentSceneS+0x158	keep	0x65fc5c							0x43b4a9	PART_LoadLevelParams -> 0x4a3118: mote spawn box max Y
+_editorObjet32111	_CurrentSceneS+0x15c	keep	0x65fc60							0x43b4b9	PART_LoadLevelParams -> 0x4a311c: mote spawn box max Z
+_editorObjet11211	_CurrentSceneS+0x160	keep	0x65fc64							0x43b4c9	PART_LoadLevelParams -> 0x4a30f0: mote speed min X
+_editorObjet21211	_CurrentSceneS+0x164	keep	0x65fc68							0x43b4d9	PART_LoadLevelParams -> 0x4a30f4: mote speed min Y
+_editorObjet31211	_CurrentSceneS+0x168	keep	0x65fc6c							0x43b4e9	PART_LoadLevelParams -> 0x4a30f8: mote speed min Z
+_editorObjet12211	_CurrentSceneS+0x16c	keep	0x65fc70							0x43b4f9	PART_LoadLevelParams -> 0x4a3120: mote speed max X
+_editorObjet22211	_CurrentSceneS+0x170	keep	0x65fc74							0x43b509	PART_LoadLevelParams -> 0x4a3124: mote speed max Y
+_editorObjet32211	_CurrentSceneS+0x174	keep	0x65fc78							0x43b519	PART_LoadLevelParams -> 0x4a3128: mote speed max Z
+_editorObjet4311	_CurrentSceneS+0x1e0	keep	0x65fce4							0x43b726	PART_InitLevel: mana motes on (loads particl2.3dc, 126 nodes) when non-zero
+_editorObjet1311	_CurrentSceneS+0x178	keep	0x65fc7c							0x43b429	PART_LoadLevelParams -> 0x626fd4: mote generation mode
+_editorObjet2311	_CurrentSceneS+0x17c	keep	0x65fc80							0x43b419	PART_LoadLevelParams -> 0x4a2fa8: mote turbulence
+_editorObjet3311	_CurrentSceneS+0x1d4	keep	0x65fcd8							0x43b601	PART_LoadLevelParams -> 0x4a2fbc = v*0.01: magic per mote
+_editorObjet1411	_CurrentSceneS+0x180	keep	0x65fc84							0x43b3c3	PART_LoadLevelParams -> 0x4a3104: mote initial life min, if non-zero
+_editorObjet2411	_CurrentSceneS+0x184	keep	0x65fc88							0x43b3e1	PART_LoadLevelParams -> 0x4a3134: mote initial life max, if non-zero
+_editorObjet3411	_CurrentSceneS+0x188	keep	0x65fc8c							0x43b439	PART_LoadLevelParams -> 0x4a2fb4: mote life decrement
+_editorObjet4411	_CurrentSceneS+0x18c	keep	0x65fc90							0x43b449	PART_LoadLevelParams -> 0x4a2fb8: mote life generation decrement
+_editorObjet5411	_CurrentSceneS+0x1d0	widen	0x65fcd4	0						0x43b409	PART_LoadLevelParams -> 0x4a3144: initial mote count, 0 = default 16 (0x43b3ec); pool 127 (PART_CreatePool), allocator stops at 126; bank 0 in 140/150, max 115
+_editorObjet121	_CurrentSceneS+0x190	keep	0x65fc94							0x43b459	PART_LoadLevelParams -> 0x4a2fa4: mote behaviour type
+_editorObjet1221	_CurrentSceneS+0x194	keep	0x65fc98							0x43b529	PART_LoadLevelParams -> 0x4a3090: T1 force X
+_editorObjet2221	_CurrentSceneS+0x198	keep	0x65fc9c							0x43b539	PART_LoadLevelParams -> 0x4a3094: T1 force Y
+_editorObjet3221	_CurrentSceneS+0x19c	keep	0x65fca0							0x43b549	PART_LoadLevelParams -> 0x4a3098: T1 force Z
+_editorObjet11321	_TableParticleGravity	keep	0x4a2fc4							0x43b9e4;0x43c4d9	attractor 0 X: PART_SetAttractor rewrites it every unpaused tick with the player position x256 (a live readout); PART_ResetPool reads the table
+_editorObjet21321	_TableParticleGravity+0x4	keep	0x4a2fc8							0x43ba02	attractor 0 Y, as X
+_editorObjet31321	_TableParticleGravity+0x8	keep	0x4a2fcc							0x43ba20	attractor 0 Z, as X
+_editorObjet41321	_TableParticleGravity+0x20	keep	0x4a2fe4							0x43ba2d	attractor 0 strength: PART_SetAttractor writes 4 every unpaused tick
+_editorObjet12321	_CurrentSceneS+0x1a0	keep	0x65fca4							0x43b559	PART_LoadLevelParams -> 0x4a2ff4: second attractor X
+_editorObjet22321	_CurrentSceneS+0x1a4	keep	0x65fca8							0x43b569	PART_LoadLevelParams -> 0x4a2ff8: second attractor Y
+_editorObjet32321	_CurrentSceneS+0x1a8	keep	0x65fcac							0x43b579	PART_LoadLevelParams -> 0x4a2ffc: second attractor Z
+_editorObjet42321	_CurrentSceneS+0x1ac	keep	0x65fcb0							0x43b589	PART_LoadLevelParams -> 0x4a3014: second attractor gravity
+_editorObjet13321	_CurrentSceneS+0x1b0	keep	0x65fcb4							0x43b599	PART_LoadLevelParams -> 0x4a3024: third attractor X
+_editorObjet23321	_CurrentSceneS+0x1b4	keep	0x65fcb8							0x43b5a9	PART_LoadLevelParams -> 0x4a3028: third attractor Y
+_editorObjet33321	_CurrentSceneS+0x1b8	keep	0x65fcbc							0x43b5b9	PART_LoadLevelParams -> 0x4a302c: third attractor Z
+_editorObjet43321	_CurrentSceneS+0x1bc	keep	0x65fcc0							0x43b5c9	PART_LoadLevelParams -> 0x4a3044: third attractor gravity
+_editorObjet14321	_CurrentSceneS+0x1c0	relabel	0x65fcc4	0	255		0	Fog R		DREAMSFX.EXE:0x2931f	DREAMSFX SCENE_SetFog only (Windows PART_LoadLevelParams zeroes the fourth attractor 0x4a3054..0x4a3074 instead, SCENE_SetFog 0x41f9ba is a stub; the port's fog.cpp reproduces it): colour = R<<16 + G<<8 + B, used when +0x1cc != 0; P66 holds July attractor 242688
+_editorObjet24321	_CurrentSceneS+0x1c4	relabel	0x65fcc8	0	255		0	Fog G		DREAMSFX.EXE:0x29325	DREAMSFX SCENE_SetFog only: fog colour G (<<8); P66 holds July attractor 110848
+_editorObjet34321	_CurrentSceneS+0x1c8	relabel	0x65fccc	0	255		0	Fog B		DREAMSFX.EXE:0x2932b	DREAMSFX SCENE_SetFog only: fog colour B; P66 holds July attractor 97280
+_editorObjet44321	_CurrentSceneS+0x1cc	relabel	0x65fcd0	0	128			Fog Density		DREAMSFX.EXE:0x29319	DREAMSFX SCENE_SetFog only: fog on when non-zero, density v*6.25e-6 (else water fog or none); bank 0..75, 18 records
+_editorObjet1421	_TablePlaneGravity	hide									contact plane X min: no reader and no writer in July or retail
+_editorObjet2421	_TablePlaneGravity+0x4	keep	0x4a3088							0x43c5e2	contact plane Y min, particle force type 3 (PART_ResetPool 0x43c5c1); never written
+_editorObjet3421	_TablePlaneGravity+0x8	hide									contact plane Z min: no reader and no writer in July or retail
+_editorObjet131	_ParticuleSprite	hide									read only by dead code in both builds (0x43ca8e has no caller; 0x43ca25 saves and restores it)
+_editorObjet231	_particule0Immortel	keep	0x4a2fb0							0x43ccac	== 1 re-seeds particle 0 every frame (0x43cc32); no writer
+_editorObjet41	_particuleResetNeg	keep	0x4a2fac							0x43cc8f	0 reloads the level's particles (PART_LoadLevelParams, which sets 1 at 0x43b631)
+_editorObjet1115	_K_OBJ_TARGET_MIN	not-wired	0x49d1cc							0x40a8a7	CAM_UpdateFollowPos reads it; CAM_LoadPreset (0x40b82f) reloads it every follow frame, so a host cell starting at the global's value (A4.4)
+_editorObjet2115	_K_OBJ_TARGET_MAX	not-wired	0x49d1d0							0x40a8ad	as TARGET_MIN (reloaded at 0x40b84d)
+_editorObjet3115	_K_OBJ_TARGET_PAS	hide									no reader in either build
+_editorObjet4115	_SpeedCamera	keep	0x49d1f0							0x40a259	chase and orbit divisor; CAM_UpdateFollowPos rewrites it in follow states 0 and 1 while 0x49d2b8 is 0
+_editorObjet5115	_SpeedTarget	keep	0x49d1f4							0x40a152	chase, orbit and CAM_TickTrack divisor (idiv): the July minimum 1 stays a floor
+_editorObjet1215	_K_OBJ_BACK_MIN	not-wired	0x49d1d8							0x40a88c	as TARGET_MIN (reloaded at 0x40b86b)
+_editorObjet2215	_K_OBJ_BACK_MAX	not-wired	0x49d1dc							0x40a892	as TARGET_MIN (reloaded at 0x40b889)
+_editorObjet3215	_K_OBJ_BACK_PAS	keep	0x49d1e0	1						0x40a320	CAM_ComputeChasePos eye height (/150.0); minimum 1 is ours: 0 divides by zero on the x87 in both builds
+_editorObjet4215	_Y_LOW_FOLLOW_OBJ	not-wired	0x49d1e4							0x40a35d	as TARGET_MIN (reloaded at 0x40b8a7)
+_editorObjet5215	_Y_HIGH_FOLLOW_OBJ	not-wired	0x49d1e8							0x40a385	as TARGET_MIN (reloaded at 0x40b8c5)
+_editorObjet125	_MAP_AnimHnmOk	keep	0x4a0f68							0x42dbeb	SCENE_StartAnimTexture gate (HNM material); next level load
+_editorObjet225	_MAP_AnimPlasmaOk	keep	0x4a0f6c							0x42f13c	SCENE_TickPaletteLighting gate (plasma pages); per frame
+_editorObjet325	_MAP_AnimScrollOk	keep	0x4a0f70							0x42f12e	SCENE_TickPaletteLighting gate (scroll pages); per frame
+_editorObjet425	_MAP_AnimParticleOk	hide									no reader and no writer in either build
+_editorObjet525	_MAP_AnimColorOk	keep	0x4a0f74							0x42f14a	SCENE_TickPaletteLighting gate (actor colour adaptation); per frame
+_editorObjet2	_MaxiLoad	keep	0x49d9f0							0x41fb77	SCENE_LoadLevel: 0 loads the next level without its objects; initial 1, no writer
+_editorObjet3	_exitDos	retail-node	0x4a4784							0x41743f	the retail exit node (0x4a4784, flags 6, value 0x4a4780) takes this place: GAME_TickFrame ends the game when 0x4a4780 is 1
+# ---- ours: new groups, moved nodes and gap entries (data principle rule 4) ----
+_editorObjet4423634		relabel						Flags C. Element Misc2.			the July label fills all 24 bytes and would run into the group's child pointers when drawn: one dot dropped
+_editorObjet453134		relabel						Speed & Collision...			Camera COMBAT...: retail reads its two fields as player speed (+0x140) and the camera collision switch (+0x144)
++MiscScene3		group						Misc Scene 3...	_editorObjet134		ours (rule 4), in Cryo's "Misc Scene 2..." style: Misc Player &Scene... is full, so its last entry moves in here with fog and the two header fields July lacks
+_editorObjet5134		keep							+MiscScene3		Phys Gravite... moved one level down, into Misc Scene 3...
+_editorObjet4321		relabel						Fog...	+MiscScene3		Particle Four...: retail reads +0x1c0..+0x1cc as fog (DREAMSFX SCENE_SetFog; the port's renderer reproduces it), moved next to Fluid...
++SaveMode	_CurrentSceneS+0x1f8	gap	0x65fcfc	0	3		0	Scene Save Mode	+MiscScene3	0x42f1c9;0x42f1e1;0x41b2b2	GAME_StartLevel: 0 autosave, 1 autosave and clear hotkeys; SCENE_RestoreLevelState: 3 no save and no restore; 2 no save; bank 0..3
++DiscGroup	_CurrentSceneS+0x1fc	gap	0x65fd00	0	4		0	Scene Chapter CD	+MiscScene3	0x41ad77	SCENE_GetLevelNumber (CD_PrepareLevel; listL<g> lists 0x447b72): chapter and disc group, 1-2 disc 1, 3-4 disc 2, 0 both; bank 0..4
++LinkAnyActor	_CurrentSceneLinkS+0x18	gap	0x65d65c	0	1	0x80	0x40	Flag Player/ Any Objet	_editorObjet323334	0x420dbe	SCENE_CheckExits: with bit 0x80 any actor may take the exit, else the player only (test before the in-use bit 1); 8 bank links
++CondDestNotInInv	_CurrentSceneLinkAdventureS+0x20	gap	0x65d624	0	1	0x2000	0x40	Flag E. Dest NOT In Inv	_editorObjet2423634	0x42898e;0x42940e	player does not hold the destination's model (ENT_HasInventoryItem on OBJET +0x0c of the destination). SCENE_InitTriggers 0x42898e copies rec +0x20 to task +0x14; SCENE_TickTriggers 0x42940e tests task +0x14 & 0x20 (byte +0x15); 4 bank records
++ActPlayerDamage	_CurrentSceneLinkAdventureS+0x24	gap	0x65d628	0	1	0x40000	0x40	Flag A. Player DAMAGE	_editorObjet3523634	0x42899e;0x4295b0	ENT_TakeDamage(player), then the rule deactivates. SCENE_InitTriggers 0x42899e copies rec +0x24 to task +0x18; SCENE_TickTriggers 0x4295b0 tests task +0x18 & 0x4 (byte +0x1a); 4 bank records

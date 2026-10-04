@@ -54,6 +54,13 @@ DREAMS_DISC1=/mnt/e/<disc 1> DREAMS_INSTALL_ROOT=/mnt/e/<...>/CRYO/DREAMS \
   PYTHONPATH=src python3 recomp/windream/run.py --headless --renderer direct --seconds 30
 ```
 
+The build stages the editor menu and the July fonts only when it finds the
+July demo, so give `DREAMS_WIP_DIR` as a Linux path too
+(`DREAMS_WIP_DIR=/mnt/e/<...>/DREAMS`); without it Develop keeps the retail
+two-node menu. Develop, Play edits and the editor and tool suites were
+checked under WSL on 2026-10-04 (spec 008 phase M), including a developer
+folder on a case-sensitive file system.
+
 ### Browser tool environment (Windows)
 
 The browser tools on this machine are configured in the gitignored
@@ -224,17 +231,158 @@ developers' hard-disk game had it; **Play edits** plays that folder's game with
 the tools off and CD music from the disc images. The launcher offers the three
 in a mode row above the discs (`dreams.ini` `[port] mode = retail | dev | edited`);
 its Develop tab shows the folder, Reset edits (disc 1's `DREAMS.DAT` back over the
-folder's) and the key list. Develop's first Play copies both discs into
+folder's, the editor's `EDITOR.DAT` removed) and the key list. Develop's first Play copies both discs into
 `<data dir>/developer` with a progress dialog (`--play`: on stderr) and writes
 `.developer-folder` last; an interrupted copy resumes. Play edits needs that folder
 and plays silently without the images. `run.py` gives the modes for development and
-tests.
+tests; it makes the folder the same way and, once `.developer-folder` is there, never
+copies into it again (the copy replaces every file whose size differs from the disc's,
+which would undo the editor's `DREAMS.DAT` and the saves).
 
 | `run.py` option | Environment | What |
 |---|---|---|
-| `--mode dev` | `WD_MODE=dev`, `WD_TREE` | Develop: keypad 1-5 (`host/sdl/user.c`), the editor's mouse feed and the inserted editor call are live (in Play and Play edits they are inert and the keypad reaches the game); `CD_OpenAudio` (`0x4042f1`) is replaced to return 0, so no CD music and no MCI error (`host/sdl/launch_mode.c`); the software renderer unless `--renderer` says otherwise |
+| `--mode dev` | `WD_MODE=dev`, `WD_TREE` | Develop: the DOS keys (`host/sdl/dev_keys.c`, below), keypad 1-5 (`host/sdl/user.c`), the editor's mouse feed and the inserted editor call are live (in Play and Play edits they are inert and the keypad reaches the game); `CD_OpenAudio` (`0x4042f1`) is replaced to return 0, so no CD music and no MCI error (`host/sdl/launch_mode.c`); the platform's renderer as in Play (direct on Windows) unless `--renderer` says otherwise (spec 008 phase D) |
 | `--mode edited` | `WD_MODE=edited`, `WD_TREE`, `WD_DISC1`, `WD_DISC2` | Play edits: files from the developer folder, CD audio from the discs |
 | `--tree DIR` | `WD_TREE` | The developer folder (default `DREAMS_OUT/recomp/windream/developer`). `run.py` makes or completes it first with `disc_list --copy-merged` (`recomp/disc`, `disc_copy_merged`): disc 1 wins a shared path but `DATA\UNIVBE\UVCONFIG.EXE`; disc 1's `DATA\FULL.ID` and disc 2's `DATA\GAME` are left out; a resumed copy skips files already at full size. About 655 MB |
+
+The Dreams Editor menu of Develop (spec 008 phase 1): the build extracts the
+July 1997 demo's menu from its `DREAMS.EXE` (`DREAMS_WIP_DIR`, SHA-256
+checked), binds each leaf to its retail address with
+`windream/editor/bindings.tsv` and copies the result beside the executable as
+`resources/editor-tree.tsv` (`windream/editor/editor_tree.py build` makes it
+alone, with `menu.txt`, the menu as text, under `out/recomp/windream/editor/`).
+In Develop the host builds those nodes in guest memory before the game starts
+(`windream/host/sdl/editor_menu.c`, `[editor] menu: 349 nodes` in the log);
+without the resource the editor keeps the retail two-node menu. While the
+inserted editor call runs, the editor prints in the July fonts, which the build
+copies from the demo (SHA-256 checked) as `resources/fonts/`: the host puts them
+into the tree's `DATA\FONT` if missing, loads them into font slots 4-7 with
+retail's `TEXT_LoadFont` (`[editor] July fonts loaded into slots 4-7`) and lets
+slots 0-3 hold them during the editor's frame (without them, `HI320` in slot 1).
+The sliders are the DOS build's, ported: retail never
+loads their sprite set (`alphabe2.spr`, `[editor] sprite set 3 ... loaded` once
+the editor first opens) and its slider blit `0x402406` is empty, so the host
+loads the set with retail's own `LoadFileSpr_` and replaces the blit with the
+DOS `_ZoomSpriteL16` (`lift/replacements.py` `HOST_ENTRIES`). Without
+`DREAMS_WIP_DIR`, `release.py` refuses to build.
+
+The keyboard of Develop is DOS keys (spec 008 phase 2,
+`windream/host/sdl/dev_keys.c`): text input is on, and the character a key
+types, in code page 850 as the DOS build read it, decides whether the host
+takes the key. A key it takes (an editor command while the editor is on, a
+developer key, `!`) never reaches the game: no key state, no event `0x33`, and
+its repeats and release are dropped. The editor reads its characters from a
+queue, one per frame, which the host writes into the frame's key code
+`0x626fd8` for the editor call alone and then puts the game's code back, so
+`GAME_HandleHotkeys` sees only virtual keys and the editor only characters.
+Shift+letter is the editor's capital (`a` is no command, `A` creates a project);
+the keypad never types; Ctrl+Shift+2/3/4 paste an objet, link and box on any
+layout; Space and Esc go to the editor alone while one of its pages is open;
+`WD_KEYMAP` is suspended while the editor is on. The key list
+(`recomp/launcher/dev_keys.h`) is in the launcher's Develop tab and printed on
+stdout when Develop starts; `[keys] ...` lines in the log show what was taken.
+While Cryo's Save page is open (keypad 0) the developer keys are suspended:
+typed ASCII is its title and only Backspace, Tab, Return and Esc reach the
+game. Test keys with the
+channel's `type` command: its `key` command sets the key state directly and
+bypasses all of this.
+
+Cryo's developer tools (spec 008 phase 7, `windream/host/sdl/dev_tools.c`,
+`[tools] ...` in the log) are Cryo's code reached by a host call or a data
+write, served from the inserted editor call once per gameplay frame:
+`6`/`7` capture every frame or one frame with Cryo's `SaveImage_` into the
+folder's `DATA\TGA`, which the host makes at Develop start (`<scn>_0000.tga`,
+640x480 24-bit; the counter starts at 0000 each session, as in retail, over
+older files; keypad 4 is the same flag as `6`); keypad 6 gives all 14 items
+(the retail flag `0x49d5e0`), refused unless the empty inventory entries cover
+the missing names (plus one when any is held), and puts back the spelling,
+count and level of the entries already held; keypad 7 draws the collision
+world's spheres with Cryo's `Display_Collision_Sphere_` and
+`Display_Overlap_Sphere_` (red wall boxes, white floor faces, yellow centres;
+software renderer); keypad 8 is Cryo's profiler bar and frame rate
+(`Display_Info_Timer_`, `info_timer_text_`) over four stages the host times:
+the frame (top grey rows), then the 3D render (red), the entities (green) and
+collision (blue) on the rows between (`lift.py` `CALLS` around their calls);
+keypad 9 opens a console window (Windows; the terminal elsewhere) that shows
+the game's own standard output, and Cryo's `Scan_Mem_` and `PrintMisEntry_`
+print into it on each opening; `-` frees the camera with SDL's relative mouse
+mode on (its turn deltas are zeroed each frame, so it stops with the mouse);
+`H` plays the project's movie again (the boot sequence's four calls, `data\hnm\`
+plus the record's `+0x3c`; none in project 0 after New Game); `e f l v`
+change the render classes of the level's model (`[0x4fbdbc]`) under the
+software renderer only (the direct renderer, like the 3dfx build, draws
+nothing for classes 6 and `0x1c`: there the keys only say so). Under the
+direct renderer the sliders, the profiler and the collision views' centre
+dots, which Cryo's code writes into the guest frame with the CPU, reach the
+screen through `windream/host/sdl/dev_overlay.c` (a marker fill before the
+draw, the changed pixels handed to the renderer after it), and a TGA capture
+reads the GPU frame back into guest memory first; `tests/recomp/test_editor_direct.py`
+matches every editor page and tool against the software renderer. The channel's
+`mouse` command takes `dx`, `dy` for relative motion; `tests/recomp/test_dev_tools.py`
+checks each tool and saves its screen as `DREAMS_OUT/recomp/editor-reference/tool-*.png`.
+
+Keypad 0 opens Cryo's Save page (`windream/host/sdl/dev_save_page.c`), the
+Load page in save mode that retail never calls: the host picks an empty slot,
+else the least recent unprotected one, clears its title for typing, and when
+the page is confirmed with Return makes the save Cryo's page never made
+(`GAME_SaveGame`, `GAME_SaveIndex`, `GAME_SaveThumbnail`: `game<n>.dat`, the
+index `game.dat` and `game<n>.ico` in the folder's `DATA\GAME`), refusing a
+title another save has; Esc saves nothing. The page closes the menu with it.
+`r` (editor off) records a demo with Cryo's recorder and `r` again writes
+`DATA\REPLAY.BIN` in the folder and returns to the title (Cryo's own end);
+`R` (editor off) plays it, refusing any file that is not 4 + n x 112 bytes
+(the folder's shipped `REPLAY.BIN` is a DOS recording of 104-byte records);
+Space stops it, and the host stops it when a game menu opens (the death page)
+and puts the input mode back when it ends. `tests/recomp/test_dev_save.py`
+checks both, on a copy of the folder.
+
+The save guard runs in every mode (`windream/host/sdl/save_guard.c`):
+`GAME_LoadGame` is replaced by a host check of the save it is about to read
+(through the file layer, `[save] guard: ...` in the log), which refuses a file
+that is not 11,388 bytes or whose project name is not in the bank by
+`DDAT_LoadRecord`'s rule, before anything is overwritten, and otherwise calls
+the original. The load pages then show "Save refused" with the reason in help
+entry 5's place, on the main menu too (`lift.py` `CALLS` `0x43630c`). Without
+it such a save crashed the game (`memcpy_` from a NULL record) or loaded the
+last level.
+
+The editor's projects are a bank of 150 unpacked records in guest memory (spec
+008 phase 4, `windream/host/sdl/editor_bank.c`; the codec is
+`editor_bank_rle.c`): each time `DDAT_Load` reads the folder's `DREAMS.DAT`
+the host unpacks it (`[bank] 150 records unpacked ...; records at 0x...`), and
+the retail functions that walk the 150 records (free slot, project list, empty
+bank, Create, Load, Delete, Save) are replaced (`HOST_ENTRIES`). Before each
+editor frame the save pointer `0x661d94` is bound to the record of the level
+being played (`[bank] the level is ProjectN ...`), so `W` writes that record and
+the host packs the bank back into `DREAMS.DAT` in memory (`[bank] Project
+Save ...`): the next level transition loads the edit. Create refuses with a
+message at the screen's foot while all 150 records are in use (the shipped
+bank); Delete frees a record in the bank only, until the next save. Closing LOAD MESH (`2`) on a mesh other than
+`EMPTY`, even with Esc, saves the project and reloads the level, as in July.
+
+The bank reaches the disk (spec 008 phase 5) as July's `SaveDiskScene_` wrote
+it: once it changed (`0x661da4`, which the editor sets after a project save or
+delete), F10 with the editor on, and the game's own quit (`GAME_Shutdown`'s
+`SaveDiskScene_`, `0x44900a`: the system page's Quit and Alt+X), write `DREAMS.DAT` (packed, what the game holds in memory) and
+`EDITOR.DAT` (the 150 records raw, which no retail code reads) into the
+developer folder's root, each through a `.tmp` file and a rename (`[bank] Bank
+written (F10): ...`). The next Develop or Play edits start plays them; Reset
+edits in the launcher (or disc 1's `DREAMS.DAT` copied back by hand) undoes
+them. Edits not saved with `W`, and a game ended by the control channel's
+`quit` or a kill, are not written. The disc images are never touched.
+
+The editor's pickers (spec 008 phase 3, `windream/host/sdl/editor_pickers.c`)
+page host tables, never retail's one-byte tables, which ran over the resource
+heap's globals: LOAD MESH (`2`) lists every `.3dc`, `.dan` and `.dsn` of the
+folder's `DATA\3DC`, LOAD HNM (`1`) `DATA\HNM`, LOAD SYMBOLE (`6`) `DATA\SYM`,
+LOAD Anim `DATA\ANIM` (refilled each time a page opens, through the game's own
+find calls, 8.3 names only: `[pickers] mesh list: 270 files ...`); LOAD Map the
+scene's materials; the project page (`Q`, Delete, the link target `3`) the
+bank; Objet, Link, Box and Link Adventure Load (`S`, `D`, `F`, `G`) the live
+level's slots. The layout and hit tests are retail's: rows at y 50 + 10 k,
+UP 40, DOWN 130, EXIT 150, the title line confirms; Space confirms, Esc
+cancels; a confirm with no valid row writes nothing. Drive a page from a test
+with the channel's `mouse` command (`game_nav.page_click`, `page_choose`).
 
 What the guest sees in tree mode (`WD_TREE`, `windream/host/sdl/files.c`; the
 browser build is always in it): the tree is the only read root and the write
@@ -245,6 +393,27 @@ tree's level files); the three disc markers are created if missing. With
 and the last marker the game opened picks the disc whose tracks play. The
 host runs the launcher only when it has no EXE path, no `WD_DISC1` and no
 `WD_TREE`.
+
+The mastering lists (spec 008 phase 6) come from a repository tool, not the
+game:
+
+```sh
+uv run python recomp/windream/debug/mastering_lists.py [--tree DIR] [--bank DAT] [--out DIR] [--check]
+```
+
+`windream/debug/mastering_lists.py` replays retail's two uncalled generators
+(`0x447b72`, `0x447e7c`) over the developer folder's `DREAMS.DAT` and writes
+`listL0..4.txt` (the files each level group needs, which `CD_PrepareLevel`
+copies to the hard disk) and `copyL0..4.bat` (the `COPY` lines that stage them
+and the movies to `D:\CD1`, `D:\CD2`) into the folder's root, over the folder's
+`LISTL*.TXT` under their own names (matched case-insensitively, so Linux keeps
+one file). `--tree` defaults to `WD_TREE`, else
+`DREAMS_OUT/recomp/windream/developer`. `--check` prints, as information, the
+listed files on no disc, on the wrong disc and missing from the folder (22 on
+the shipped bank: retail lists them and skips them) and writes nothing unless
+`--out` is given. Standard library only; it
+runs under WSL `python3`. On disc 1's bank the lists are the shipped ones byte
+for byte (`tests/recomp/test_mastering_lists.py`).
 
 ## Launcher and release
 
@@ -285,8 +454,8 @@ Win32 environment only. `main` therefore sets the C runtime's copy too
 argument is opened as UTF-8 through SDL.
 
 `release.py` builds the executable users get, in `out/recomp/windream/build-release`,
-and stages `out/recomp/windream/release/DreamsToReality/` (`DreamsToReality.exe`
-and `README.txt`) and `DreamsToReality-<version>-windows-x64.zip` beside it. It fails if
+and stages `out/recomp/windream/release/DreamsToReality/` (`DreamsToReality.exe`,
+`README.txt` and `resources/editor-tree.tsv`) and `DreamsToReality-<version>-windows-x64.zip` beside it. It fails if
 the folder holds any other file or if the executable imports a DLL Windows
 does not ship: the release links the C runtime and SDL3 statically (a second
 SDL3 build, `out/recomp/sdl3/<commit>/install-mt`). The compiler flags are the
@@ -412,6 +581,8 @@ host's main thread at `host_pump`, where SDL events are drained.
 | `ping` | | `build`, `render_audit` |
 | `status` | `opens` (how many, default 8) | `headless`, `renderer`, `disc_mode`, `disc` (active disc, 0 outside disc mode), `paused`, `audio_dump`, `cd_track`, `cd_disc`, `cd_state` (`playing`, `paused`, `stopped`), `opens` (the last file opens, as in `log`) |
 | `key` | `name` (a `WD_KEYS` name), `action` `down`, `up` or `tap` (default), for a tap `frames` or `ms` (default 150 ms) | `vk`. A game key, read where a `WD_KEYS` key is: not remapped by `WD_KEYMAP`. Unlike in a `WD_KEYS` script, `F11` and `KP1`-`KP5` are plain game keys here, not the host's fullscreen and debug toggles |
+| `type` | `key` (an SDL scan-code name: `A`, `1`, `-`, `'`, `Keypad 2`, `F10`, `Space`, `Escape`), `text` (what the layout would type, optional), `mods` (`shift`, `ctrl`, `alt` joined by `+`), `ms` (hold, default 150) | `scancode`. A key as a keyboard delivers it: SDL key events (the modifiers first), the text, the release after `ms`, all through `host_pump`, so `WD_KEYMAP`, the keypad toggles and, in Develop, the DOS keys apply (spec 008 phase 2). The host never derives `text` from the key: pass `"A"` with `shift` for Shift+a |
+| `mouse` | `x`, `y` (game pixels, mapped through the software renderer; `client`: 1 for window pixels as given, the direct renderer), `action` (`move`, `down`, `up`, `click`: down, the release after `ms`, default 150), `button` (`left`, `right`), `dx`, `dy` (a move's relative deltas, 32-bit two's complement: Develop's free camera) | `window_x`, `window_y`. The pointer as a mouse delivers it: SDL motion and button events through `host_pump`, so in Develop the editor's cursor and buttons (spec 008 phase 3). The editor sees a press on the frame after it reaches the pump: for a one-frame click, `step` once, then `mouse down`, `step`, `mouse up`, `step` (`game_nav.page_click`) |
 | `wait` | `frames` and/or `ms` | Answers after that many presented frames or host milliseconds, the first to pass: `waited_frames`, `waited_ms` |
 | `wait_until` | `cond` and its arguments, `timeout_frames` and/or `timeout_ms` (60000 ms when neither is given) | Answers when the condition holds, or with the error `timeout after N frames (M ms)`. Checked at every pump, at least once per frame |
 | | `cond: "mem"`, `addr`, `size` 1, 2 or 4 (default 4), `op` `==` `!=` `<` `>` `&`, `value` | `value`: what was read. Unsigned compare; `&` is "any of these bits set"; an address that is not mapped is not true |
@@ -428,6 +599,7 @@ host's main thread at `host_pump`, where SDL events are drained.
 | `audio_dump_stop` | | `path`, `frames`, `rate` |
 | `trace` | `path`, `frames`, `ranges` (`"va:size,..."`, sizes up to 64) | After each of the next `frames` presents, one line in `path`: frame, host nanoseconds, each range as hex (`-` when unmapped). The game is not paused, so the timing is its own; answers at once |
 | `display_shot` | `path` | The next display interpolation frame (`WD_INTERPOLATE`), not the game's own, as a PNG from the swapchain; answers at once, the file follows with that frame |
+| `overlay_shot` | `before`, `after` | Develop, in a level: the game frame of the next gameplay frame just before the editor's call and the tools' overlays (`user.c` `wd_editor_frame`) and just after them, as 24-bit BMPs: the guest frame with the software renderer, the GPU frame read back with the direct one. Their difference is exactly what Develop drew (`tests/recomp/test_editor_direct.py`). While paused it steps one frame; fails after 120 frames without a gameplay frame |
 | `quit` | `code` (default 0) | Ends the process as `main` does when the game returns: trace flushed, renderer closed, `exit(code)` |
 
 Time is not paused: `timeGetTime` is the host's clock (`SDL_GetTicks`), and the
@@ -464,6 +636,8 @@ software renderer's BMP into a PNG for `game_screenshot`.
 | `game_attach(run_dir=None, port=None)` | Attach to a game already running with `run.py --ctl` |
 | `game_stop()`, `game_status()` | End the game this server started (an attached one is only disconnected); the host's status and whether the process is alive |
 | `game_key(name, action="tap", frames=None)` | A game key: tap, down or up |
+| `game_type(key, text=None, mods=None, ms=None)` | A key typed through the host's key path (the `type` command; Develop's DOS keys) |
+| `game_mouse(x, y, action="click", button="left", ms=None, dx=None, dy=None)` | The mouse through the host's mouse path (the `mouse` command; Develop's editor) |
 | `game_wait(frames=None, ms=None)`, `game_wait_until(cond, value, addr, op, size, path, since, ok, timeout_ms, timeout_frames)` | Wait; `cond` is `opened`, `mem`, `disc`, `cd_track` or `frame`, 60 s timeout by default |
 | `game_read(addr, size)`, `game_read_cstr(addr)`, `game_write(addr, hex)`, `game_project()` | Guest memory (addresses are ints or hex strings) and the current project record |
 | `game_log(since=0)`, `game_stderr(tail=50)` | File-open and CD events; the last lines of the run's `stderr.txt` |

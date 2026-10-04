@@ -29,6 +29,13 @@ void wd_render_line(uint32_t destination, int x0, int y0, int x1, int y1, uint32
 // Source points at the first decoded pixel of the rectangle; pitch is bytes.
 void wd_render_movie_upload(uint32_t source, uint32_t destination, int x, int y,
                             int width, int height, int pitch);
+// Host-written pixels of a GPU surface (colour | coverage << 16; coverage 0
+// keeps the target) and the GPU image read back into guest memory
+// (spec 008 phase D, host/sdl/dev_overlay.c). Both 0 when not a GPU surface.
+int wd_render_cpu_pixels(uint32_t destination, int x, int y, int width, int height,
+                         const uint32_t *packed);
+int wd_render_materialize(uint32_t destination);
+int wd_render_read_frame(uint32_t destination, uint16_t *out, int width, int height);
 bool wd_render_read_arena(void *, uint32_t, void *, size_t);
 void wd_render_read_scope_begin(void);
 void wd_render_read_scope_end(void);
