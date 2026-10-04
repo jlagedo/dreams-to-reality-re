@@ -20,12 +20,20 @@
 > turns these tools on for players, Develop, is defined in
 > [spec 008](../008-editor-restoration/spec.md).
 
+> **Note, 2026-10-04 (traces).** Four traces for spec 008's phase 7 (the
+> demo recorder, give all items, the Save page, save loading), static and in
+> part live through the control channel, answer the open points those tools
+> had; the affected paragraphs are marked "Trace 2026-10-04". Scratch and
+> reports: `out/research/phase7-traces/` (local).
+
 Status: **Three debug views, a step override and the Dreams Editor (noclip,
 menu tree, mouse cursor, record pages) run in the recomp through data pokes,
 keypad toggles and two restored links; the editor's file pickers are broken in
 the retail code; the recorder start and several debug draws stay unreachable;
-the 2026-10-03 audit inventories every surviving developer tool**
-Date: 2026-09-29; audit 2026-10-03
+the 2026-10-03 audit inventories every surviving developer tool; the
+2026-10-04 traces settle the recorder, give all items, the Save page and save
+loading**
+Date: 2026-09-29; audit 2026-10-03; traces 2026-10-04
 Depends on: [000 the recomp](../000-the-recomp/spec.md)
 
 ## Goal and boundary
@@ -60,9 +68,9 @@ tags follow [the docs index](../../README.md#evidence-tags).
 | Dreams Editor (`DREAMS.DAT` editor) | gameplay branches live; draw, mouse producer and flag setter removed; file pickers broken; fill stubbed | `0x4a477c != 0`, draw `0x44d46d` called | keypad 5: flag plus a restored draw call; noclip, menu tree, cursor, record pages (owner-observed) |
 | Editor BOX gizmo | inside the editor draw, before its flag test | working BOX record `+0xec & 1` | runs with the editor draw; the working BOX is empty until an editor page fills it, so the box seen is most likely `ShowLink_`'s exit volume (update 2026-10-03) |
 | Editor TGA frame capture | inside the editor draw | `0x4a4758` (every frame) or `0x4a475c` (once) | keypad 4 with keypad 5; `data\tga` must exist |
-| Demo recorder | per-frame code live, start functions dead | `0x49d34a` = 0 record / 1 play / 2 normal | untested poke |
+| Demo recorder | per-frame code, save and stop live; start and load functions dead | `0x49d34a` = 0 record / 1 play / 2 normal | recorded and played back through memory writes alone (trace 2026-10-04) |
 | Free-fly and overhead cameras (audit 2026-10-03) | live, message never posted | camera message `0x31` / `0x30` | not yet |
-| Give all items (audit 2026-10-03) | live, flag only ever cleared | `0x49d5e0 != 0` | not yet (a poke) |
+| Give all items (audit 2026-10-03) | live, flag only ever cleared | `0x49d5e0 != 0` | a poke, checked live (trace 2026-10-04); renames items already held |
 | HUD on/off (audit 2026-10-03) | live, flag stuck at 1 | `0x49d5d4 == 0` hides the HUD | not yet (a poke) |
 | BEN11 debug draws (`Display_*`, `Aff_Box_`, `Display_Frame_`), `New_PreRender_` | dead | no caller, no pointer | not reachable |
 | BEN11 profiler | DOS 3dfx: calls present; Windows: module present, uncalled | DOS: `_rendertype` `0x104f38` | not reachable |
@@ -436,14 +444,76 @@ frame count `DEMO_PlayFrame` stops at (read from the file by
 `0x40ee88`). `UI_DrawHud` also keeps a blinking REC/PLAY icon driven by
 `0x49d5dc` (`_flagRep`, toggled by `DEMO_RecordFrame`) and the demo mode.
 Writing `0x49d34a` alone is therefore not enough: recording and playback need
-host calls into the start functions. **[verified in code]**
+host calls into the start functions. **[verified in code]** *Trace
+2026-10-04:* wrong as stated: live, mode 0 plus an index wrote the file, and
+playback emulated with memory writes alone played to its end. Calling the
+functions is simply easier. **[verified in the recomp]**
 
 *Update 2026-10-03:* in the July demo the recorder is live: `r` (F3 in the
 Windows build) records, and the title menu and its idle timeout play
 `data\replay.bin`, which there holds 1,848 frames recorded on the build day.
 Retail ships a 3-frame `REPLAY.BIN` of 104-byte frames, while the retail
 writer uses 0x70-byte frames (`0x40ee31`), so the shipped file no longer
-matches its own format.
+matches its own format. *Trace 2026-10-04:* not a format change but struct
+packing: the July DOS build lays the same record out in 104 bytes (doubles at
+`+0x4c`, count at `+0x64`, a 100-byte compare), the July Windows build
+already in 0x70. The shipped file, identical on both discs and in the install,
+is a DOS recording. Retail reads it, short read included: record 0 gets count
+2 and near-zero positions, so it would play about 6–9 frames inside the fade
+and return to the title (worked out from the bytes, not run).
+
+*Trace 2026-10-04,* the full paths **[verified in code; live runs in
+`out/research/phase7-traces/recorder/`]**:
+
+- **Record.** `0x40db80` sets index `0x49d346` = 0, last-applied index
+  `0x49d336` = −1, mode `0x49d34a` = 0, repeat count `0x49d342` = 0 and the
+  input display `0x4a2f05` = 1; it also clears `0x49d5b8`, sets `0x5e5480` =
+  15.0 and `0x5e547c` = `[0x661e04]`, which starts the 15-frame exit
+  transition into the current project. That reload (`SCENE_SaveLevelState`,
+  a self-copy through `DDAT_CopyRecord`, `SCENE_LoadLevel`,
+  `SCENE_RestoreLevelState`) is the recording's start anchor. Each frame
+  `GAME_TickFrame` calls `DEMO_RecordFrame` (`0x40d833`) after
+  `INPUT_UpdateActions` and before `GAME_Tick`, never during a video or the
+  caption loop; in mode 0 both `GAME_TickFrame` and `CTRL_Dispatcher` force
+  Δt to 1.0. Buffer `0x52eb98`, 6,144 records of 0x70 bytes: `+0x00` the 11
+  action dwords `0x49d2fe`–`0x49d326`, `+0x2c` player `+0x5c..+0x70`
+  (heading, bank, pitch with their rates), `+0x44` movement mode (`+0x34`),
+  `+0x48` current action (`+0x15c`), `+0x50` three position doubles,
+  `+0x68` repeat count. The run-length repeat never merges: the 0x6c-byte
+  compare runs against the current slot before its position is written, so
+  it always differs (every count is 0, live and in July's file). One record
+  is one frame: 204.8 s at 30 Hz.
+- **Save.** `DEMO_SaveReplay` (`0x40edaf`) is live but called only when the
+  buffer is full: it writes `FILE_GetInstallRoot()` + `data\replay.bin` as a
+  dword count and count × 112 bytes, then sets mode 2, `0x4a2f05` = 0, index
+  0, quit `0x4a4780` = 1 and reset `0x49d5d8` = 1, so `WinMain` reruns
+  `BOOT_Run`: back to the intro and the title. `DEMO_RecordFrame` toggles
+  `_flagRep` itself. Live: a 688,132-byte file under the sandbox's
+  `CRYO\DREAMS\data\`, its records byte-equal to the buffer.
+- **Replay.** The loader `0x40ee88` reads the count into `0x49d33a` with no
+  limit check (a count above 6,144 overruns the buffer), the records into the
+  buffer, and calls `0x40dac2`, which saves the input device mode, sets it to
+  4, sets mode 1 and the input display, writes record 0's position into the
+  player and starts the same reload. `DEMO_PlayFrame` (`0x40e4ed`) loads
+  record i's words, on each new record its orientation, and moves the
+  position halfway toward the recorded one, then advances `round(Δt)`
+  records through `DEMO_AdvanceFrames`, which ORs the next record's words
+  into the live ones, so every key edge arrives a frame early. Playback
+  stops at the last record or when Space is held; `DEMO_StopPlayback` sets
+  mode 2, clears the words, sets quit and reset and restores the device
+  mode: back to the title.
+- **Determinism.** The file names no level (playback reloads the current
+  project) and the random seed is never set or stored. At the recomp's fixed
+  step the replayed positions equal the recorded ones through the reload
+  and diverge from the first key edge (largest gap 42 units; one Alt press
+  became a different action). Under `--retail-timing` playback skips
+  records after the reload (largest gap 114 units), and a caption started
+  during playback saved device mode 4 into the same save slot `0x49d2f9`, so
+  after the stop the input stayed dead: a retail bug. **[verified in the
+  recomp]** Cryo's playback is approximate by design.
+
+Develop's keys and guards (`r` record and save as in July; `R` with the
+editor off to replay) are in spec 008, phase 7.
 
 ### Debug draws with no caller **[verified in code]**
 
@@ -540,8 +610,8 @@ local and game-derived: `out/research/devtools-audit/A`–`D/`.
 | Collision view | — | byte `0x4ac8c8` plus Backspace held | flag | keypad 3, Backspace | software frame only |
 | HUD on/off | `A` | `0x49d5d4` (`_FlagAfficheInterface`), initial 1, never written | write 0 | `A` | yes |
 | TGA capture, Δt 2.0 | `6` every frame, `7` once | `0x4a4758`, `0x4a475c`; the writer runs in the editor draw | flags; the inserted call must run the draw every frame in Develop mode (the draw tests the flags itself) | `6`, `7` | the writer reads the software frame buffer **[unverified with direct]** |
-| Demo recorder | `r` (F3 in July Windows) | start functions `0x40db80`, `0x40dac2`, `0x40ee88` uncalled; flags `0x49d34a`, `0x4a2f05`, `0x49d33a`, `0x49d5dc` (Demo recorder start, above) | host calls into the start functions | `r` | yes |
-| Give all items | none, in July either | `0x49d5e0` (`_flagImportAllObjects`); while non-zero `GAME_TickFrame` (`0x4170e4`) adds one item per frame through `ENT_AddInventoryItem` (`0x42a182`), 14 names at `0x49db12` (feu, arc, epee, guerison, bouclier, connaiss, temps, spirit, holo, resurec, invivib, mine, shaman, vitesse), then clears it at `0x417121`, its only write; `MENJ_Dispatcher` shortens the pick-up wait while it is set | write 1 | keypad 6 | yes |
+| Demo recorder | `r` (F3 in July Windows) | start `0x40db80` and loader `0x40ee88` (which calls the playback start `0x40dac2`) uncalled; `DEMO_SaveReplay` `0x40edaf` live but only on a full buffer; flags `0x49d34a`, `0x4a2f05`, `0x49d33a`, `0x49d5dc` (Demo recorder start, above; trace 2026-10-04) | host calls `0x40db80` / `0x40edaf` (record, save) and `0x40ee88` (replay, after a size check) | `r`; `R` replay | yes |
+| Give all items | none, in July either | `0x49d5e0` (`_flagImportAllObjects`); while non-zero `GAME_TickFrame` (`0x4170e4`) adds one item per frame through `ENT_AddInventoryItem` (`0x42a182`), 14 names at `0x49db12` (feu, arc, epee, guerison, bouclier, connaiss, temps, spirit, holo, resurec, invivib, mine, shaman, vitesse), then clears it at `0x417121`, its only write; `MENJ_Dispatcher` shortens the pick-up wait while it is set; items already held are renamed (below, trace 2026-10-04) | write 1, with guards and a host-only fix-up of held items (spec 008, phase 7) | keypad 6 | yes |
 | Dialogue test | `D` (plays entry 0) | `MENJ_Dispatcher` handles message `0x40` from the HUD queue `[0x626f2c]`, live | host calls `MGM_PostMessage` (`0x43b31a`) with (`[0x626f2c]`, `0x40`, id, 0) | `D` | yes |
 | Replay level movie | `H` (the project's movie, `+0x3c`) | the same sequence runs at level entry (`0x416015`) | host call | `H` | yes |
 | Console log | always on | the game's own `printf`: `Nom: %s` (archive entries), `map %s not used`, `No 3di file`, `ATTENTION Problème de hiérarchie !!!`, `Heap overflow`, `Erreur liberation`, `Error SprSet %d`, `Pb de scanline qui recule`, `Sound Is On`; it already reaches `run/stdout.txt` **[verified in data]** | host shows it | keypad 9 | n/a |
@@ -556,8 +626,50 @@ first, because both use the mouse. July DOS read the speed keys by scan code
 (`_tab_active_scankey + 0x49`, `0x51`, `0x47`, `0x4f`) and the trigger by
 character, so they never clashed; the July Windows port read the old
 character codes as virtual keys, which made `!` (the editor toggle, `0x21`)
-Page Up. **[verified in code]** Whether giving items the player already
-holds is safe is **[unverified]**.
+Page Up. **[verified in code]**
+
+*Trace 2026-10-04,* give all items **[verified in code and in the recomp;
+live runs in `out/research/phase7-traces/giveall/`]**:
+
+- **The loop.** While `0x49d5e0` is set, `GAME_TickFrame` runs `i =
+  [0x49d5e4]++` and `ENT_AddInventoryItem(0x4fba78, 0x49db12 + 9·i)`; at 14
+  it zeroes the counter and the flag. One press adds exactly 14 items over 14
+  frames; setting it again mid-sequence changes nothing. It runs during a
+  video (the 14 messages wait and are handled afterwards) and waits during a
+  dialogue or the game menu, which block the frame; with no inventory
+  (`actor+0x30` = 0) nothing is added; items given during a New Game load
+  are lost when the inventory block is cleared.
+- **The inventory** (`actor+0x30`, `0x61520c` live, 0x3b8 bytes, 32 entries;
+  layout in [game-content.md](../../research/game-content.md)). An item
+  already held (matched with `stricmp`) gets count + 1, its level follows
+  the count, and `strcpy` overwrites its stored name with the give-all's
+  lower-case spelling (`EPEE` became `epee`, count 2, HUD "3"). A repeat
+  still needs a free entry; with all 32 used every add is refused.
+- **Messages.** Message `0x41` is posted before the slot search, so also for
+  a refused add: with a full inventory that leaves a "ghost" hotkey (icon set,
+  entry −1; the HUD prints the bits of 50.0f). The HUD queue holds 50
+  messages and drops more silently. A usable item takes the first free
+  hotkey slot unless it is already in one, but the slot is saved only on the
+  HUD's own tick inside its visible branch: with the HUD hidden
+  (`0x49d5d4` = 0), or after a video, all 14 messages pick slot 0 and the
+  last item wins it.
+- **Effects.** Adding writes only the inventory, the owner pointer, the HUD
+  state and, through `ENT_BindHotkeySlot`, the owner's `+0xd8..+0xec`: no
+  weapon state, no model, no passive effect; the level matters only for
+  `guerison` (each extra copy heals 6 more). But `ENT_HasInventoryItem` is a
+  case-sensitive `strncmp`, and pick-ups store the OBJET name in upper case
+  (all 23 item OBJETs): the lower-case give-all names satisfy no "held" test
+  and block no "not held" test. Only three bank names are concerned:
+  `VITESSE` (Project 99, LINK0 → Project 31), `INVIVIB` (Project 100, LINK0
+  → Project 37) and `HOLO` (Project 10, LINKADVENT1–5, "not held" rules).
+  So a give-all while `VITESSE` or `INVIVIB` is held renames it and closes
+  the only exit of Project 99 or 100; live, Project 99's exit stayed closed
+  until `VITESSE` was written back, then opened at once. The renamed
+  inventory also goes into the next autosave.
+
+So giving all items is not harmless when some are held; spec 008's phase 7
+guards the press and restores the held entries' spelling, count and level
+afterwards (host-only).
 
 ### Tier 2: engine-library views that need a host hook
 
@@ -627,8 +739,61 @@ retail-only table of per-level node overrides keyed by level name
 unused AI tactics; the motion-blur and smooth-blur filters; the magic bar;
 and the in-game Save page opener `0x4313b5` (`MENU_InitSaveSlotSelect(1)`,
 then `MENU_RunGameMenu`), the twin of the `L` load page, which Develop
-reconnects as its save-anywhere (spec 008, B1; its typed-title entry is
-still to trace).
+reconnects as its save-anywhere (spec 008, B1 and phase 7).
+
+### Save page and save loading (trace 2026-10-04) **[verified in code]**
+
+Scratch: `out/research/phase7-traces/savepage/` and `saveguard/` (local).
+
+- **What is dead.** `0x4313b5` is `MENU_OpenLoadPage` with `0x4a155b` = 1;
+  it has no caller and no pointer. The SYSTEM page's item 1 (Save) is
+  skipped by Up/Down (`0x431669`, `0x4316a5`). The page itself is live
+  code: `MENU_RunGameMenu` (`0x4337c0`) makes `CTRL_Dispatcher` the handler
+  (the game is frozen) and reaches `MENU_HandleSaveSlotInput` (`0x4373a7`);
+  `MENU_DrawSaveSlots(1)` sets save mode `0x4a2f41` = 1 and draws the
+  blinking `_` cursor.
+- **The typed-title entry is live.** It runs in a frame where a key event
+  arrived and Esc, Up and Down were not pressed (`0x4376d5`), takes codes
+  0x20–0x7e from the last event `0x33` (`0x626fd8`), at most 20 characters
+  (`0x4379e7`, `0x437a41`), and types into the slot's name in the index
+  (`0x5dabf8` + slot·0x16); Backspace needs Backspace held. Retail posts
+  virtual-key codes there, so only upper-case letters, digits and space type
+  as intended (arrows type `%&'(`, F-keys `p`…`{`); July's twin read DOS
+  characters with the same filter and limit.
+- **What confirm writes.** Return on an unprotected slot sets its recency to
+  max + 1 and calls `GAME_SaveIndex` only: `game.dat` is rewritten, but no
+  `game<n>.dat` and no `.ico`, so the renamed slot still restores the slot's
+  old autosave. `GAME_SaveGame` and `GAME_SaveThumbnail` are called only by
+  the autosave (`0x439341`). Every save and load lookup takes the first slot
+  whose name matches, so a title equal to another slot's name saves into, and
+  loads from, that slot.
+- **Retail defects.** The selection is frozen in save mode (`0x437587`,
+  `0x43763f`): the page stays on the slot `MENU_InitSaveSlotSelect(1)`
+  picked, the most recent unprotected one; with no unprotected used slot
+  (a fresh folder on P0, which never autosaves) that function leaves the
+  slot index uninitialised (`0x437b21`). `0x4a2f41` is set only by the
+  draw (`0x437c35`), so until the first redraw the page runs in load mode.
+  Tab writes an unconfirmed title, possibly with the cursor, into
+  `game.dat`; after a save the blink highlights the sorted-away slot.
+- **Loading.** `GAME_LoadGame` (`0x40f94a`) is the only reader of
+  `game<n>.dat` and has one call site, `0x437960` in
+  `MENU_HandleSaveSlotInput` (0 → code 5, else code 8). It finds the slot by
+  title, reads the 0x2880-byte level-state ring, the dword `0x49da84`, then
+  the record name (`+0x2884`, `char[32]`; a save is 11,388 bytes), calls
+  `DDAT_LoadRecord(name)` (`0x40fa9f`) and `memcpy_(0x52c970, rec, 0x2200)`.
+  `DDAT_LoadRecord` returns NULL only with the editor flag set or while
+  `0x633bf4` is still empty (filled by the first successful lookup: exit,
+  death, resurrection or save load); otherwise an unknown name loads the
+  level named at `0x633bf4` with the save's state, sets `0x4a4804` = 1 and
+  puts the player in the wrong level. No automatic restore reads a save: the
+  resurrection item moves the player to `Project10`, `SCENE_RestoreLevelState`
+  works from memory. The in-game Load page shows `MENU_DrawHelpText(5)` for
+  code 8 (static English table `0x4a102c`, 99 bytes per entry); the main
+  menu stores code 8 at `0x4a2ef5` and never reads it.
+
+Spec 008 phase 7 turns this into the Save page recipe (a host opener, ASCII
+text entry, the three save calls after a confirm, duplicate titles refused)
+and the save guard (a host replacement of `GAME_LoadGame`).
 
 ## Recomp support
 
@@ -728,6 +893,9 @@ The last run reaches Project 0 and taps Backspace; snapshots land in
    the loading done by the dead `0x40dac2`. *Audit 2026-10-03:* recording
    also needs `0x40db80` called (it sets the input display `0x4a2f05`), and
    playback the frame count `0x49d33a` that only `0x40ee88` reads in.
+   *Trace 2026-10-04:* done live; the loader is `0x40ee88` (it calls the
+   playback start `0x40dac2`), the save `0x40edaf` returns the game to the
+   title, and memory writes alone suffice (Demo recorder start, above).
 6. **Collision view over the live scene.** Draw the retail wireframe again
    after `REND_DrawFrame` in a visible colour. This needs a host hook, so it
    leaves the pokes-only boundary; opt-in only.
@@ -748,8 +916,16 @@ The last run reaches Project 0 and taps Backspace; snapshots land in
   (answered by the audit, 2026-10-03).
 - ~~What did the July keys `9`, `-` and `D` do?~~ Overhead camera, free-fly
   camera, dialogue entry 0 (answered by the audit, 2026-10-03).
-- Is giving all items safe when the player already holds some
-  (`0x49d5e0`)?
+- ~~Is giving all items safe when the player already holds some
+  (`0x49d5e0`)?~~ No: a held item is renamed to the lower-case spelling and
+  counted twice, which can close the exits of Projects 99 and 100 (answered
+  by the trace, 2026-10-04).
+- Do the `VITESSE` and `INVIVIB` pick-ups respawn on a return visit to
+  Projects 99 and 100?
+- How would July's 1,848-frame `REPLAY.BIN`, repacked from 104 to 112-byte
+  records, play on retail data?
+- Where can the main menu show a refused save load, since it discards code
+  8 (`0x4a2ef5`): after `MENU_DrawSaveSlots` (`0x437c01`), or not at all?
 - What are the never-written flags `0x4a2ecd` (`UI_DrawHud` draws the
   `infosne` icon when set), `0x49d2c8` (stuck at 1; `CAM_ApplyLookAt` takes a
   branch only then), `0x49d9f0` (stuck at 1; `SCENE_LoadLevel` runs a

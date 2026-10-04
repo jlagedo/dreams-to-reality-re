@@ -282,6 +282,14 @@ For action 1 (Save), `MENU_DrawHelpText` (`0x43126a`) with argument 1 indexes th
 short label. There is no standalone `Save` literal in the executable, so the
 runtime source of the short Save label remains unresolved. `DREAMS.INI`
 supplies additional localized system strings and inventory descriptions.
+*Trace 2026-10-04:* action 1 (Save) is unreachable: Up and Down on the
+SYSTEM list skip it (`0x431669`, `0x4316a5`), and its opener `0x4313b5` has
+no caller. The help-text block holds 99-byte entries in a static English
+table (the language loader `TEXT_LoadLanguageIni` `0x433cfa` is dead);
+entry 5 (`0x4a121b`, three 33-byte lines) is the load-failure text
+`MENU_DrawGameMenu` shows for result code 8. **[verified in code]** The
+save page's flow and defects are in
+[spec 005](../specs/005-debug-tools/spec.md#save-page-and-save-loading-trace-2026-10-04).
 
 The save/load browser and boot Options screen remain separate controllers.
 Another cyclic UI-message handler, `MENJ_Dispatcher` (`0x435896`, named by
@@ -392,7 +400,7 @@ capacity for 256 descriptors, and a trailing count of 1. The engine's
 | Msg | Posted by | Effect |
 |---:|---|---|
 | `0x40` | `SCENE_TickTriggers` (`0x429061`) | dialogue entry: `DRD_SelectEntry` (`0x410cd6`), then the caption loop above |
-| `0x41` | `ENT_AddInventoryItem` (`0x42a182`) | show the picked-up object's icon; a usable object (type 1) also goes into the first free hotkey slot and flashes for 15 ticks |
+| `0x41` | `ENT_AddInventoryItem` (`0x42a182`) | show the picked-up object's icon; a usable object (type 1) also goes into the first free hotkey slot, unless it is already in one, and flashes for 15 ticks. *Trace 2026-10-04:* posted before the slot search, so also when the add is refused (a full inventory leaves a "ghost" hotkey with entry −1); the slot is stored only on the HUD's own tick inside its visible branch, so with the HUD hidden several messages all pick slot 0 **[verified in code and in the recomp]** |
 | `0x42` | player controllers, `SCENE_CheckExits` (`0x420b60`) | show the nearby object's or exit's icon, and flag whether the pending target matches one of eight 0x510-byte records at `0x5e3008` (role open) |
 | `0x43` | player controllers | hide it |
 | `0x44` | keys 1/2/3 | highlight that slot |

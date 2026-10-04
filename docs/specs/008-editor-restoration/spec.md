@@ -698,7 +698,7 @@ shots and do not.
 | Object HUD | F1 | never written | `0x49d5d0` |
 | HUD on/off | `A` | stuck at 1 | `0x49d5d4` |
 | Capture, Δt 2.0 | `6` / `7` (capture needs the panel) | never written | `0x4a4758`, `0x4a475c` |
-| Demo recorder | `r` / F3 records; title menu and idle play `REPLAY.BIN` (1,848 frames) | start and load dead; shipped `REPLAY.BIN` is 3 frames of 104 bytes, the writer uses 112 | `0x49d34a` |
+| Demo recorder | `r` / F3 records; title menu and idle play `REPLAY.BIN` (1,848 frames) | start and load dead, the save `0x40edaf` live but reached only when the buffer fills; shipped `REPLAY.BIN` is a DOS recording (104-byte records; Windows packs the same struct in 112) | `0x49d34a` |
 | "Collision view" | never written (BEN11 `_build_list`) | never written | `0x4ac8c8` |
 | Renderer profiler (`3DC_PROF.C`) | DOS software and Windows, behind `_rendertype` | Windows: whole module present, uncalled; DOS Glide: gate never written | `_rendertype` (DOS Glide `0x104f38`) |
 | `_MaxiLoad` ("Debug" leaf) | menu | reused by the Options page | `0x49d9f4` |
@@ -929,7 +929,7 @@ gaps are filled (owner, 2026-10-03). Four rules apply it (owner,
 | Play | The shipped game from the disc images, with CD music and our visual improvements (renderer, smooth motion, camera smoothing); none of the host bindings added for Cryo's tools | Owner decision |
 | Develop | Cryo's in-game developer tools, which the game already contains and the port only reconnects: the editor, the cameras, readouts, capture, the recorder and the rest of the inventory in spec 005 ("Developer-tool inventory"); the host bindings that reach them because retail removed their keys (DOS-character keys, keypad 1–9, the editor's mouse feed, the inserted editor call); data from the developer folder, no CD music | Owner decision: "a game option to enable the in-game developer tools", widened to "anything else we can find on the game that looks like a developer tool" |
 | Play edits | The developer folder's game as a player sees it: tools off as in Play, CD music from the disc images. Offered once Develop has created the folder. Without the images it plays silently (2026-10-03, accepted as recommended) | Owner decision (music: yes). It is to Develop what the retail build was to Cryo's editor build: the export played without the tools; it checks edits in the shipping configuration (exits, autosave and load, music) |
-| Saves | Develop and Play edits share the developer folder's `DATA\GAME`; Play keeps its own. The host refuses, with a message, to load a save whose project name no longer exists in the bank (the save stores the name; `GAME_LoadGame` would crash in `memcpy_` on the NULL record) | Owner decision (shared); the guard follows from it |
+| Saves | Develop and Play edits share the developer folder's `DATA\GAME`; Play keeps its own (owner, 2026-10-03). **Save guard, in every mode (owner, 2026-10-04):** a host replacement of `GAME_LoadGame` (`0x40f94a`; its only caller is `0x437960` in the Load page) reads the save first and refuses one that is not 11,388 bytes or whose project name at `+0x2884` is not in the bank by `DDAT_LoadRecord`'s rule, before anything is overwritten; otherwise it calls the original, so valid loads stay byte-identical to retail. The Load page then shows its own load-failure text (help entry 5) with the guard's wording (phase 7) | The editor never removes a name (Delete zeroes `+0x14` only; Create always writes `Project<slot>`), so editor-made banks keep every save loadable; the guard covers banks changed outside the editor and foreign or wrong-size saves. Without it retail crashes (editor on, or no level lookup yet since boot) or loads the wrong level (it falls back to the last level name, `0x633bf4`) **[verified in code]**. Every disc save names an existing project, so valid saves are untouched in Play |
 | Our harness | **Untouched and the same in every mode** (owner, 2026-10-03): the control channel, the MCP tool and the `run.py` options stay a build-time development option, absent from release builds | Owner decision: "not our work to build it" |
 | Developer folder | **A local copy of both discs in the user-data folder** (owner, 2026-10-03). The first Develop launch copies the two images into it, except disc 1's `DATA\FULL.ID` and disc 2's leftover `DATA\GAME` saves (phase M). **The launcher does the copy, with a progress bar, and writes the "initialized" marker last; a launch that finds no marker resumes, skipping files already copied at their full size** (owner, 2026-10-03). Each later launch finds the marker, copies nothing and plays from that folder without reading the images. The folder is the game's data tree, like the developers' `C:\DREAMS\DREAMS`: edits and everything the game writes land in it as they are | Owner decision. The July builds have no disc logic at all (no `1CD.ID`, `2CD.ID`, `HD.ID`, `FULL.ID`, `LEVEL.ID` or `ListL` strings): the developers' game read one data tree, which `STATUS.ME` places at `C:\DREAMS\DREAMS\DATA` **[verified]** |
 | Music in Develop | **None, as in the developers' build** (owner, 2026-10-03), by a host replacement of `CD_OpenAudio` (`0x4042f1`) that returns 0, as July's `ACD_Init_` did. Not by failing the MCI open: retail answers an MCI error with a modal "MCI Error" box (`CD_ShowMciError` `0x404278`) | Owner decision. The July DOS `ACD_Init_` (`0x42600`) is `xor eax, eax; ret`: the message manager stores 0 and never sets its audio-CD flag, so that build plays no CD music while the rest of `ACD.C` (Miles redbook) is intact **[verified in code]**. Every retail music path then stays silent (phase M) **[verified in code]**. Track numbers were assigned late: 24 of 138 projects in July, 127 of 150 in October **[verified in data]** |
@@ -947,7 +947,7 @@ gaps are filled (owner, 2026-10-03). Four rules apply it (owner,
 | Keyboard | **DOS keys** (owner, 2026-10-03): in Develop the host reads commands as typed characters, as the DOS build did, and held controls (arrows, Alt, Ctrl, Space, PgUp…) as physical keys. Rules: a key the host consumes as an editor or developer command is hidden from the game (key state and event); while the editor is on, editor commands win over the July developer keys; keypad text is ignored (the keypad stays host keys). Key tables and clashes: phase 2 | Owner decision, superseding Page Up and Ctrl+1..4. The developers worked in DOS (A11.3); the July Windows key map is a translation accident (A5.4) |
 | Toggle | **`!`, read as a character** (one key on AZERTY, Shift+1 on QWERTY); keypad 5 stays as an alias. Consumed by the host, never passed to the game; in Play and Play edits it reaches the game unchanged | Owner decision. It frees PgUp for the free camera, as in DOS. `sceneKeyboard_` reads 0x21 as "paste link", so in July one press toggled the editor and pasted a link; paste link moves to Ctrl+Shift+3 |
 | Toggle at any width | **`!` opens the editor at every resolution**, even when the layout is cut off (owner, 2026-10-03). The July toggle acted only at a width of 640 (`_ScreenXRes`); the port drops that condition | Owner decision. The layout is drawn for 640 (rows 10 px apart, sliders at label x+180, values at x+380), so narrower frames clip the deeper levels |
-| Save on toggle | **None** (2026-10-03, with the DOS keys; supersedes option A, the retail autosave on each press). **Save-anywhere: Cryo's uncalled Save page** (`0x4313b5`: `MENU_InitSaveSlotSelect(1)`, `MENU_RunGameMenu`) on **keypad 0**, restored from the Load page (owner, 2026-10-03). To trace before building: the page's typed-title entry, unreachable since retail | July's `!` called `CTRL_SaveGame_("data\\game.dat")` on every press, entering and leaving; the string occurs once in the July binary and no build reads the file (the July Load page reads slot files; retail has no such string) **[verified in code]**. Why it saved is unknown **[unverified]**. The retail autosave (`0x439341`) is no substitute: it keys its slot by the level's display name, so it overwrites the level's own save instead of adding one, writes a protected slot's file, ignores record `+0x1f8` (P0, P5, P10, P52 never save) and must run from the frame hook behind five guards **[verified in code]** |
+| Save on toggle | **None** (2026-10-03, with the DOS keys; supersedes option A, the retail autosave on each press). **Save-anywhere: Cryo's uncalled Save page** (`0x4313b5`: `MENU_InitSaveSlotSelect(1)`, `MENU_RunGameMenu`) on **keypad 0**, restored from the Load page (owner, 2026-10-03). Traced 2026-10-04: the page's typed-title entry is live; what is dead is its opener and the SYSTEM list item, and its confirm writes only the index, so the host completes the save (phase 7) | July's `!` called `CTRL_SaveGame_("data\\game.dat")` on every press, entering and leaving; the string occurs once in the July binary and no build reads the file (the July Load page reads slot files; retail has no such string) **[verified in code]**. Why it saved is unknown **[unverified]**. The retail autosave (`0x439341`) is no substitute: it keys its slot by the level's display name, so it overwrites the level's own save instead of adding one, writes a protected slot's file, ignores record `+0x1f8` (P0, P5, P10, P52 never save) and must run from the frame hook behind five guards **[verified in code]** |
 | How edits are played | In Develop and Play edits, by the folder itself: the editor's save overwrites the folder's `DREAMS.DAT` (and writes `EDITOR.DAT` beside it), and the next launch in either mode plays it, as July's `LoadDiskScene_` loaded `editor.dat` at every start and New Game and `SaveDiskScene_` wrote it back. Play always plays the discs. No separate mod system | Follows from the developer-folder decision; an earlier mods proposal was never approved and is withdrawn |
 | Restoring the folder | **A launcher button "Reset edits"** that copies disc 1's `DREAMS.DAT` back over the folder's and keeps captures and saves (2026-10-03, accepted as recommended) | Closes the open question of how a player restores the folder |
 | Disc number in the folder | **No host change; the one-frame prompt is accepted** (owner, 2026-10-03). Replacing `CD_GetDiscNumber` (`0x4287fa`) to answer from the level record's `+0x1fc` was considered and declined | It tests only `1CD.ID`, so a folder with both ID files always reports disc 1 and every disc-2 level passes through `CD_PromptSwap` ("Please change to CD no 2"), shown for one frame **[verified in code]** |
@@ -1091,7 +1091,8 @@ events) and plays a disc-2 level (the one-frame swap prompt is accepted); no `cd
 in Develop and no "MCI Error" box appears; Play edits plays the folder's
 `DREAMS.DAT` with `cd` events; a save made in Develop is in the folder's
 `DATA\GAME` after a restart and loads in Play edits; a save naming a
-deleted project is refused with a message.
+project missing from the bank (made with `bank_patch.py`) is refused with
+the Load page's message (phase 7).
 
 ### Phase 1 — the July menu
 
@@ -1182,6 +1183,9 @@ Rules:
    player walks with the arrows (`W`, `A`, `S`, `D` are editor commands).
 5. Retail game keys keep working unless a rule above hides them. F1–F6
    still switch the editor off (`VID_SetResolution`), as F6/F7 did in July.
+6. While Cryo's Save page is open (keypad 0, phase 7), the developer keys
+   are suspended and typed ASCII (0x20–0x7e) goes to its title entry as
+   event `0x33`; the key state reports only Backspace, Tab, Return and Esc.
 
 Encoding. The DOS build's characters are code page 850, not 437: the July
 cases compare `§` = `0xF5`, `µ` = `0xE6` and `ù` = `0x97` (CP437 has `§`
@@ -1235,11 +1239,12 @@ work on every layout; `§` and `µ` also work where the layout has them.
 | `A` | HUD on/off | host toggles `0x49d5d4` |
 | `D` | dialogue test | host posts `0x40` to the HUD queue |
 | `H` | replay the level's movie | host call |
-| `r` | record a demo / stop and write `DATA\REPLAY.BIN` | host calls the recorder (spec 005) |
+| `r` | record a demo / stop and write `DATA\REPLAY.BIN` (Cryo then returns to the title) | host calls `0x40db80` / `0x40edaf` (phase 7) |
+| `R` (editor off) | replay `DATA\REPLAY.BIN` | host calls `0x40ee88` (phase 7) |
 | `e` `f` `l` `v` | render classes (Develop runs on the software renderer; the game's Load page stays on Shift+`L`, which types no developer character) | host calls `0x4577cc` |
 | keypad 1–5 | readout, object HUD, collision view, capture flag, editor (as phase 0) | host |
 | keypad 6–9 | give all items, collision views, profiler overlay, console window (spec 005; phase 7) | host |
-| keypad 0 | Cryo's Save page (`0x4313b5`) | host call (phase 7) |
+| keypad 0 | Cryo's Save page (`0x4313b5`); while it is open the developer keys are suspended and typed ASCII goes to its title entry | host opener and save (phase 7) |
 
 Held keys stay physical and reach the game: arrows, Alt, Ctrl, Space,
 Insert (look), Backspace (collision mesh, already live), PgUp, PgDn, Home,
@@ -1390,12 +1395,12 @@ except where noted as host-only.
 | Readouts, object HUD, collision view | `8`, keypad 1–3 | as phase 0 | as today |
 | Dialogue test | `D` | host posts `0x40` with a dialogue id | entry 0 plays with voice and caption |
 | Level movie | `H` | host call into the level-entry sequence (`0x416015`) | the project's movie plays again |
-| Give all items | keypad 6 | writes `0x49d5e0 = 1` | 14 items over 14 frames; to trace first: adding an item the player already holds |
+| Give all items | keypad 6 | guards, then writes `0x49d5e0 = 1`; restores held entries afterwards (below) | 14 items in 14 frames with three hotkeys filled; a second press changes nothing; a held `VITESSE` keeps its spelling and count; in Project 99 the exit stays closed until the pick-up |
 | Collision views | keypad 7 | host call after the render per collider (`PHYS_GetCollider` `0x45f638`) into `Display_Collision_Sphere_` and the box draws | lines and centre dots over the level |
 | Profiler overlay | keypad 8 | host-only: times frame, 3D render, animation and collision, and draws Cryo's bar layout itself (`cpu_init_lib_` hangs in `vbl_`, a double start calls `getch_`) | the bar tracks the frame time |
 | Console window | keypad 9 | host-only: opens or closes a console window (Windows) or uses the terminal (Linux) showing the game's stdout; the dump helpers print there | Cryo's diagnostics appear as the game prints them |
-| Save page | keypad 0 | host call `0x4313b5`; to trace first: its typed-title entry, dead since retail | a titled save appears in the Load list and restores |
-| Demo recorder | `r` | host calls into `0x40db80` / `0x40dac2` / `0x40ee88`; to trace first: the start sequence, the flags `0x49d34a`, `0x4a2f05`, `0x49d33a`, `0x49d5dc`, and the writer's 112-byte frame against the shipped 104-byte `REPLAY.BIN` | a recording replays the same inputs |
+| Save page | keypad 0 | host opener, text entry, then the save Cryo's confirm never makes (below) | type "Dev Save 1", Return: `game.dat` lists it with its own `game<n>.dat` (11,388 bytes) and `.ico`; after changing health or inventory, loading it from Shift+`L` restores level, health, magic and inventory; Esc leaves `game.dat` byte-identical; a duplicate title is refused; a first save in a fresh folder on P0 lands in an empty slot; `r`, `-`, `9` typed on the page are text |
+| Demo recorder | `r`, `R` | below | a recording of a scripted run saves with the expected count and returns to the title; replayed from a new game it follows the recorded positions exactly until the first key edge and within 50 units after, ends at its last record and returns to the title with input working; Space stops it; the shipped 104-byte file is refused |
 | Render classes | `e f l v` | host calls `0x4577cc` on `[0x4fbdbc]` | the level's texturing changes and changes back |
 
 TGA capture: create `data\tga` in the developer folder before the first
@@ -1407,10 +1412,126 @@ nothing: `ShowBox_` needs a working BOX in use). Develop runs on the
 software renderer, where the capture is the game frame (phase 0 check);
 the direct renderer's black capture is phase D's.
 
-The save guard of B1 (refuse a save whose project no longer exists) is
-built here too; to trace first: where the Load page reaches
-`GAME_LoadGame`, so the host can refuse before `DDAT_LoadRecord` returns
-NULL.
+Traced 2026-10-04 (static, and live through the control channel on the
+software renderer where marked; scripts and notes in
+`out/research/phase7-traces/`):
+
+**Give all items.** One write of `0x49d5e0` makes `GAME_TickFrame`
+(`0x4170e4`–`0x41711f`) add item `[0x49d5e4]++` per frame through
+`ENT_AddInventoryItem` (`0x42a182`) until the counter reaches 14, then
+clear both; a second write mid-sequence is absorbed **[verified in the
+recomp]**. Adding never fires anything by itself: it writes the inventory
+(`actor+0x30`, 32 entries) and the HUD state, posts message `0x41`, and
+binds a usable item to the first free hotkey slot **[verified in code]**.
+Three retail quirks matter:
+
+- An item already held gets count + 1, its level follows the count, and
+  its stored name is overwritten with the give-all's lower-case spelling.
+  `ENT_HasInventoryItem` is case-sensitive and pick-ups store upper case,
+  so a held `VITESSE` or `INVIVIB` stops counting: the only exits of
+  Projects 99 and 100 (LINK0, "Link with Objet") close, and Project 10's
+  `HOLO` rules change **[verified in the recomp for Project 99]**.
+- Message `0x41` is posted even when the add is refused, so a full
+  inventory leaves a "ghost" hotkey; with the HUD hidden all 14 messages
+  pick hotkey slot 0.
+- It runs during videos, waits during a dialogue or the game menu, and is
+  lost on New Game.
+
+Host recipe: keypad 6 acts only when `[0x4fba78+0x30] != 0`,
+`0x661e08 == 0`, `0x49d5b4 == 0`, `0x49d5e0 == 0` and the free entries
+cover the missing names; the host snapshots the held entries, writes the
+flag, and when it reads 0 again restores the held entries' spelling, count
+(`+0x314`) and level (`+0x294`) and the level of any bound hotkey
+(host-only structure, labelled as such).
+
+**Save page.** `0x4313b5` is `MENU_OpenLoadPage` in save mode, never
+called; the SYSTEM list skips item 1 (Save) **[verified in code]**. Inside
+`MENU_RunGameMenu` (`0x4337c0`, the game frozen under `CTRL_Dispatcher`)
+the typed-title entry of `MENU_HandleSaveSlotInput` (`0x4373a7`) is live:
+codes 0x20–0x7e from event `0x33`, 20 characters, typed into the slot's
+index name. Retail gaps: Return writes only `game.dat` (`GAME_SaveIndex`),
+never `game<n>.dat` or the `.ico`, so the renamed slot restores the old
+autosave; the selection is frozen on the slot `MENU_InitSaveSlotSelect(1)`
+picks, which is left uninitialised when no unprotected used slot exists (a
+fresh folder on P0, which never autosaves); the page runs in load mode
+until its first draw sets `0x4a2f41`; all save and load lookups take the
+first slot with a matching name.
+
+Host recipe (host-only structure around Cryo's page):
+
+1. Keypad 0 latches a request; `wd_editor_frame` serves it (the hook is
+   the `GAME_HandleHotkeys` call, the `L` key's context) only with the
+   editor off, no video (`0x49d5b4`, `0x49d5b8`), no pending load
+   (`0x661e08`), no exit fade (`[0x661e04]+0x138 == 1` with
+   `0x5e5480 > 0`) and no quit (`0x4a4780`).
+2. Snapshot the index (`0x5dabf8`, `0x5dab98`, `0x5dabc0`, `0x52eb70`);
+   write `0x4a2f41 = 1`; call `0x4313b5`, or, with no candidate slot, make
+   its five stores, select the first empty slot and call `0x4337c0`.
+3. While the page is open (`0x4a1537 == 2`, `0x4a153b`, `0x4a155f`,
+   `0x4a155b` = 1, `0x4a2f35 == 0`), suspend the developer keys, report
+   only Backspace, Tab, Return and Esc in the key state, and post typed
+   ASCII 0x20–0x7e as event `0x33`, one per dispatch, into `[0x626f70]`
+   while `[0x626f74] == 0x40e75c`.
+4. A confirm shows status 4 (`0x4a1563 == 4`). When the menu returns,
+   clear `0x626fd8`; if confirmed, take the title of the slot with the
+   highest recency; a title another slot already has restores the
+   snapshot and shows a message; otherwise call `GAME_SaveGame`,
+   `GAME_SaveIndex` and `GAME_SaveThumbnail` on it (the autosave's order),
+   each checked for 0. The files are the ones the Load page and
+   `GAME_LoadGame` read.
+
+**Demo recorder.** Record: `0x40db80` sets index `0x49d346`, mode
+`0x49d34a = 0`, the on-screen input display `0x4a2f05`, and starts the
+15-frame reload of the current project that anchors the recording;
+`DEMO_RecordFrame` (`0x40d833`) then stores one 0x70-byte record per frame
+(the 11 action words, the player's heading, bank and pitch with rates,
+movement mode, action and position) into `0x52eb98`, at most 6,144
+(204.8 s at 30 Hz; the run-length repeat never merges), with Δt forced to
+1.0. Save: `DEMO_SaveReplay` (`0x40edaf`, live, reached only when the
+buffer fills) writes install root + `data\replay.bin` as a count and the
+records, then quits to the title (`0x4a4780`, reset `0x49d5d8`). Replay:
+`0x40ee88` loads (no size check) and calls `0x40dac2`, which sets input
+device mode 4 and reloads the level at record 0's position;
+`DEMO_PlayFrame` (`0x40e4ed`) ORs each next record's words (edges arrive a
+frame early) and pulls the position halfway to the record; it ends at the
+last record or on Space and returns to the title. Neither the level nor the
+random seed is stored, so playback is approximate by design: at the fixed
+step it matched exactly until the first key edge and then within 42 units;
+under `--retail-timing` it drifted further, and a caption sequence during
+playback left input dead after the stop (retail bug) **[verified in the
+recomp]**. The 104-byte shipped records are the same struct packed by the
+DOS compiler; retail plays a few frames of it and returns to the title.
+
+Host recipe: `r` (editor off) calls `0x40db80` and sets `0x49d5dc = 1`,
+or with `0x49d5dc == 1` calls `0x40edaf` and clears it, as July's key did,
+from `wd_editor_frame` with no video, load or fade under way and playback
+not running; Cryo's return to the title is kept. `R` (owner, 2026-10-04; editor
+off; it is Box Create with the editor on) replays: the host refuses
+`DATA\REPLAY.BIN` unless its size is 4 + n·112 with 1 ≤ n ≤ 6,144, saves
+the input device mode `0x49d2f8`, calls `0x40ee88`, and restores the mode
+when playback ends (host-only fix for the caption bug). `FILE_GetInstallRoot`
+resolves to the developer folder (phase M).
+
+**Save guard.** `GAME_LoadGame` (`0x40f94a`) is the only reader of
+`game<n>.dat` and has one call site, `0x437960` in `MENU_HandleSaveSlotInput`,
+reached from the in-game Load page (Esc menu, `L`, the death path of
+`SCENE_CheckExits`) and the main menu (`MENU_Tick`); no automatic restore
+reads a save file **[verified in code]**. It finds the slot by title,
+overwrites the level-state ring `0x5e2b08` and `0x49da84`, then reads the
+32-byte record name at `+0x2884` and calls `DDAT_LoadRecord`, so the name
+is known only after state is lost. Host recipe: replace `0x40f94a` (title
+in EAX, result in EAX, other registers kept); when the title and file are
+found, read the file through the host file layer and refuse unless it is
+11,388 bytes with a NUL-terminated name, not `"EMPTY"`, found in
+`_RLE_SAVES` by `DDAT_LoadRecord`'s rule; on refusal return -1 (the menu
+shows code 8 and stays in the slot list, nothing written) after writing the
+guard's wording into help entry 5 (`0x4a121b`, restored on the next call);
+otherwise call the original. The main menu discards code 8 (`0x4a2ef5`);
+the host shows the same text (owner, 2026-10-04) by a call to `MENU_DrawHelpText(5)` after
+`MENU_DrawSaveSlots` (`0x437c01`) while it is 8; the placement is checked
+when it is built. Wiring: `0x40f94a` joins the replacement table (phase 3
+generalizes it) and the read is reported to the control channel's event
+log.
 
 ### Phase D — the direct renderer port
 
@@ -1463,7 +1584,9 @@ every editor page and tool works under the direct renderer (owner,
 | Fonts and layout below 640 pixels wide | accepted (owner decision): the editor opens at any width and may be cut off |
 | A release without the menu resource, or with one from another build of the demo | `release.py` checks the resource's presence and the source hash; the host validates the file before installing nodes |
 | A player's edits break a level or a save | edits stay inside the developer folder; Play always plays the untouched discs; "Reset edits" restores the bank (B1) |
-| A save names a project the editor deleted or renamed | the host refuses the load with a message (B1, Saves) |
+| A save names a project missing from the bank, or is foreign or the wrong size | the save guard refuses it before anything is overwritten (B1, Saves; phase 7) |
+| Give all items renames an item the player already holds (`VITESSE` → `vitesse`), and the case-sensitive held test then closes the exits of Projects 99 and 100 | the host restores held entries after the sequence (phase 7) |
+| A demo replay leaves input dead after a caption sequence (retail bug) | the host saves and restores the input device mode around playback (phase 7) |
 | The first Develop launch is interrupted or runs out of space | the launcher writes the "initialized" marker only after a complete copy (about 480 MB merged, `disc-layout.md`) and resumes a partial one, skipping files present at full size (phase M) |
 | An editor draw stops the direct renderer | Develop runs on the software renderer until phase D; the direct smoke at the end of each phase finds such draws early |
 | Capture under the direct renderer writes black | not reached before phase D (Develop is software); the proposed `SaveImage_` replacement there |
@@ -1476,7 +1599,8 @@ every editor page and tool works under the direct renderer (owner,
 |---|---|---|
 | Play is clean | M | keypad 1–9 and the developer keys change no guest memory; no `0x34`–`0x38` event posted |
 | Developer folder set up once, then used | M | first Develop launch creates and marks the folder, without `FULL.ID` or disc 2's saves; second launch: no `open` or `disc` event on an image, no `cd` event, no "MCI Error" box, a disc-2 level plays (one-frame swap prompt accepted) |
-| Play edits | M | plays the folder's `DREAMS.DAT` with `cd` events; loads a Develop save; refuses a save naming a deleted project |
+| Play edits | M | plays the folder's `DREAMS.DAT` with `cd` events; loads a Develop save |
+| Save guard | 7 | `bank_patch.py` bank with a renamed project: its save refused in the main menu and in game (state unchanged, no `.DSN` open), the other saves load; a zero-filled 10,364-byte save refused |
 | DOS keys | 2 | each developer key acts once; consumed keys change no game action word; `!` leaves link records unchanged; CP850 characters reach `sceneKeyboard_` |
 | Developer tools | 7 | per tool, the acceptance column of phase 7, through the control channel |
 | Software reference screenshots | 1–7 | each editor page and tool, captured under the software renderer as it is built |
@@ -1503,10 +1627,10 @@ every editor page and tool works under the direct renderer (owner,
 - Whether Space and Esc on a picker page also act in the game.
 - Whether the host can serve files from the folder and CD audio from the
   images at once (Play edits).
-- The Save page's typed-title entry (phase 7).
-- Traces before phase 7: the recorder's start sequence and file format;
-  giving an item the player already holds; where the Load page reaches
-  `GAME_LoadGame` (the save guard).
+- Whether the `VITESSE` and `INVIVIB` pick-ups respawn when the player
+  returns to Projects 99 and 100.
+- How July's 1,848-frame recording would play if repacked to 112 bytes.
+- Where the main menu can show the save guard's message (phase 7).
 - Decided in phase D: TGA capture under the direct renderer (a
   `SaveImage_` replacement is proposed) and whether the render classes are
   ported or stay software-only.

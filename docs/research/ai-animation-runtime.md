@@ -243,8 +243,11 @@ Traced 2026-09-26. Keys reach the game as eleven **action words**
 (`0x49d2fe`–`0x49d326`), filled each frame by `INPUT_UpdateActions` (`0x40dce4`) from the
 `GetAsyncKeyState` table at `0x6308d8` (indexed by Windows virtual-key code)
 or, on joystick devices, from the axes and two buttons. Bit 0 is held, bit 1
-the press edge, bit 2 the change edge (directions also auto-repeat every 40
-ticks).
+up (released), bit 2 the change edge, so a word reads 2 idle, 5 on the press
+frame and 6 on the release frame (directions also auto-repeat every 40
+ticks). *Trace 2026-10-04:* corrected from "bit 1 the press edge", per
+`INPUT_UpdateKeyState` and the July recordings. **[verified in code and in
+data]**
 
 | Action word | Key (VK) | Joystick |
 |---|---|---|
@@ -411,7 +414,13 @@ The item names behind the codes are in the spell and object tables of
 **Inventory** (`ENT_AddInventoryItem` (`0x42a182`), `ENT_HasInventoryItem` (`0x42a3a3`), `ENT_ResetInventory` (`0x42a448`)): the actor's `+0x30` points to
 a 32-slot inventory of 16-byte object names (`+0x04`) with counts (`+0x314`);
 picking an object up adds or counts it and posts UI message `0x41`. Level
-exits test for a required object by name prefix.
+exits test for a required object by name prefix. *Trace 2026-10-04:* that
+test (`ENT_HasInventoryItem`) is a case-sensitive `strncmp`, while adding
+matches with `stricmp` and overwrites the stored name with the new
+spelling; pick-ups store upper-case OBJET names, so a held `VITESSE`
+renamed `vitesse` (as "give all items" does) no longer opens Project 99's
+exit. **[verified in code and in the recomp]** Full block layout:
+[game-content.md](game-content.md).
 
 ## Firing animation: IBI sequence and remaining effect identity
 

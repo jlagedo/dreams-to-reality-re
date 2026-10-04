@@ -185,6 +185,11 @@ The **"protected slot"** concept is confirmed in the retail save menu:
 `0x5DAB98 + 4*i` is zero, while load mode (argument `0`) takes the most recent
 of all slots. The resource
 strings include the matching "protected slot cannot be saved here" error.
+*Trace 2026-10-04:* in save mode, when no unprotected used slot exists (a
+fresh install on Project 0, which never autosaves), it leaves the slot index
+uninitialised (`0x437b21`). **[verified in code]** The page that uses save
+mode is unreachable in retail and its confirm writes only the index; see
+[spec 005](../specs/005-debug-tools/spec.md#save-page-and-save-loading-trace-2026-10-04).
 
 ## Save files
 
@@ -203,11 +208,11 @@ Traced from `GAME_SaveIndex` (`0x40f202`) / `GAME_LoadIndex` (`0x40f3aa`) and `G
 `GAME_LoadGame` (`0x40f94a`), all under the install root:
 
 ```
-data\game\game.dat        slot index, 340 bytes
-  +0x000  char[10][22]    slot names (the level shown in the menu)
-  +0x0dc  i32[10]         status: non-zero = protected (MENU_InitSaveSlotSelect skips it when saving)
-  +0x104  i32[10]         recency 1..n, 0 = empty (GAME_SortSaveIndex (0x40ef1f) sorts and renumbers)
-  +0x12c  i32[10]         file number n of game<n>.dat, -1 = none
+data\game\game.dat        slot index, 340 bytes; in memory after GAME_LoadIndex:
+  +0x000  char[10][22]    slot names (the level shown in the menu)              0x5dabf8
+  +0x0dc  i32[10]         status: non-zero = protected (MENU_InitSaveSlotSelect skips it when saving)   0x5dab98
+  +0x104  i32[10]         recency 1..n, 0 = empty (GAME_SortSaveIndex (0x40ef1f) sorts and renumbers)   0x5dabc0
+  +0x12c  i32[10]         file number n of game<n>.dat, -1 = none                0x52eb70
 
 data\game\game<n>.dat     one save, 11,388 bytes
   +0x0000  0x2880 bytes   world-state block 0x5e2b08..0x5e5387
@@ -221,6 +226,28 @@ data\game\game<n>.dat     one save, 11,388 bytes
 data\game\game<n>.ico     64x64 RGB 2-byte thumbnail, 0x2000 bytes (GAME_SaveThumbnail (0x40fd54))
 ```
 
+*Trace 2026-10-04,* the inventory block (player actor `+0x30`; `0x61520c`
+in a live run) **[verified in code and in the recomp]**:
+
+```
+  +0x000  ptr             owner actor
+  +0x004  char[32][16]    item names
+  +0x204  i32             selected quest object
+  +0x208  i32[3]          hotkey slot -> entry index
+  +0x214  f32[32]         50.0 each
+  +0x294  i32[32]         level (follows the count)
+  +0x314  i32[32]         count
+  +0x394  u8[32]          level lock
+  +0x3b4  u8              in use
+```
+
+`ENT_AddInventoryItem` (`0x42a182`) matches a held item with `stricmp`, adds
+one to its count and overwrites its stored name with the new spelling; a
+repeat still needs a free entry. `ENT_HasInventoryItem`, which exits and
+event rules use, compares with case-sensitive `strncmp`, and pick-ups store
+the OBJET name in upper case. `GAME_LoadGame` (`0x40f94a`, one call site
+`0x437960`) is the only reader of `game<n>.dat`.
+
 Loading reads the same fields, then **re-reads the level record from
 `DREAMS.DAT` by name** (`DDAT_LoadRecord` (`0x449bf9`)) into the working copy, reattaches the
 inventory to the player, restores the hotkey icons and sets the pending-load
@@ -232,7 +259,10 @@ and two of the three arrays; slot 0 "Ile d'Angkor" has recency 1) and
 `DATA\REPLAY.BIN` (316 bytes) is a **demo recording** (`DEMO_SaveReplay` (`0x40edaf`) format: a
 frame count, then records) of 3 frames in an older 104-byte record, where the
 current recorder writes 112: 11 input words (all 2, released), player state,
-position. **[verified]**
+position. **[verified]** *Trace 2026-10-04:* the 104 bytes are the July DOS
+build's packing of the same record (the July Windows build already uses
+112), so the file is a DOS recording, not an older format.
+**[verified in code]**
 
 ## Level file naming
 
