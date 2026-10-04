@@ -9,7 +9,8 @@ shipped), **Develop** (Cryo's in-game developer tools, the editor included,
 playing from a local copy of the discs where edits land as they did for the
 developers) and **Play edits** (the developer folder's game with no tools,
 with CD music); Develop reads keys as the DOS build did, by character, so
-`!` opens the editor; the July menu is bundled with the release; one
+`!` opens the editor; Develop runs on the software renderer until a final
+direct-renderer port; the July menu is bundled with the release; one
 milestone covers every phase. A second round of static traces and a
 developer-tool audit (2026-10-03) corrected Part B: see B1 and B2.**
 Date: 2026-10-03
@@ -930,11 +931,11 @@ gaps are filled (owner, 2026-10-03). Four rules apply it (owner,
 | Play edits | The developer folder's game as a player sees it: tools off as in Play, CD music from the disc images. Offered once Develop has created the folder. Without the images it plays silently (2026-10-03, accepted as recommended) | Owner decision (music: yes). It is to Develop what the retail build was to Cryo's editor build: the export played without the tools; it checks edits in the shipping configuration (exits, autosave and load, music) |
 | Saves | Develop and Play edits share the developer folder's `DATA\GAME`; Play keeps its own. The host refuses, with a message, to load a save whose project name no longer exists in the bank (the save stores the name; `GAME_LoadGame` would crash in `memcpy_` on the NULL record) | Owner decision (shared); the guard follows from it |
 | Our harness | **Untouched and the same in every mode** (owner, 2026-10-03): the control channel, the MCP tool and the `run.py` options stay a build-time development option, absent from release builds | Owner decision: "not our work to build it" |
-| Developer folder | **A local copy of both discs in the user-data folder** (owner, 2026-10-03). The first Develop launch copies the two images into it, except disc 1's `DATA\FULL.ID` and disc 2's leftover `DATA\GAME` saves (phase M); each later launch checks that the copy was initialized and, if so, copies nothing and plays from that folder without reading the images. The folder is the game's data tree, like the developers' `C:\DREAMS\DREAMS`: edits and everything the game writes land in it as they are | Owner decision. The July builds have no disc logic at all (no `1CD.ID`, `2CD.ID`, `HD.ID`, `FULL.ID`, `LEVEL.ID` or `ListL` strings): the developers' game read one data tree, which `STATUS.ME` places at `C:\DREAMS\DREAMS\DATA` **[verified]** |
+| Developer folder | **A local copy of both discs in the user-data folder** (owner, 2026-10-03). The first Develop launch copies the two images into it, except disc 1's `DATA\FULL.ID` and disc 2's leftover `DATA\GAME` saves (phase M). **The launcher does the copy, with a progress bar, and writes the "initialized" marker last; a launch that finds no marker resumes, skipping files already copied at their full size** (owner, 2026-10-03). Each later launch finds the marker, copies nothing and plays from that folder without reading the images. The folder is the game's data tree, like the developers' `C:\DREAMS\DREAMS`: edits and everything the game writes land in it as they are | Owner decision. The July builds have no disc logic at all (no `1CD.ID`, `2CD.ID`, `HD.ID`, `FULL.ID`, `LEVEL.ID` or `ListL` strings): the developers' game read one data tree, which `STATUS.ME` places at `C:\DREAMS\DREAMS\DATA` **[verified]** |
 | Music in Develop | **None, as in the developers' build** (owner, 2026-10-03), by a host replacement of `CD_OpenAudio` (`0x4042f1`) that returns 0, as July's `ACD_Init_` did. Not by failing the MCI open: retail answers an MCI error with a modal "MCI Error" box (`CD_ShowMciError` `0x404278`) | Owner decision. The July DOS `ACD_Init_` (`0x42600`) is `xor eax, eax; ret`: the message manager stores 0 and never sets its audio-CD flag, so that build plays no CD music while the rest of `ACD.C` (Miles redbook) is intact **[verified in code]**. Every retail music path then stays silent (phase M) **[verified in code]**. Track numbers were assigned late: 24 of 138 projects in July, 127 of 150 in October **[verified in data]** |
 | How it is distributed | The release package is the binary plus a `resources\` folder; the player supplies only the two disc images (owner, 2026-10-03) | Owner decision |
 | Where the menu comes from | Extracted at build time from the July demo `DREAMS.EXE` (SHA-256 checked) into `out/recomp/windream/editor/`, bundled as a resource in the release package, never committed. `release.py` fails if the resource is missing or its hash differs; a development build without the demo keeps the retail two-node tree. The July tree is a **template** checked entry by entry against retail, with retail-only fields added (phase 1, option C) | Owner decision; no game data in the repository; data principle rule 3 |
-| Milestone | **One milestone, every phase (1–6)** (owner, 2026-10-03) | Owner decision |
+| Milestone | **One milestone, every phase** (owner, 2026-10-03): M, 1–7 and D, phase 6 optional as it always was | Owner decision; phase 7 (developer tools) and phase D (direct renderer port) added 2026-10-03 |
 | How nodes reach the guest | Host-built 0x40-byte nodes in `shim_alloc` memory; the retail root `0x4a47c4` gets its child pointers (four empty slots plus the exit node), a data write | The retail walker and leaf editor take any tree; no instruction changes |
 | Bindings | A committed table mapping each July value symbol (+offset) to a retail address, with the retail reader that proves it; each entry kept, relabelled, widened, marked "no effect" or hidden by the rules of phase 1 (option C, owner, 2026-10-03) | AGENTS.md: no field bound on a label alone; data principle rules 1–3 |
 | Picker lists | Host replacements of the page and list functions (the stride is compiled in), registered through the replacement table | Bigger buffers cannot fix `base + i` |
@@ -942,14 +943,15 @@ gaps are filled (owner, 2026-10-03). Four rules apply it (owner,
 | Full bank | **Project Create refuses with an on-screen message when no slot is free**; Delete frees one (2026-10-03, accepted as recommended) | All 150 shipped records are in use (July had 12 free); retail Create with no free slot still clears the live level **[verified in code and data]** |
 | Where files go | Into the developer folder, in place: `DREAMS.DAT` and `EDITOR.DAT` at its root, `DATA\TGA\` captures, `DATA\REPLAY.BIN`, saves in `DATA\GAME\`, the mastering lists of phase 6; never a disc image or the retail install | Follows from the developer-folder decision |
 | Call site | Keep candidate 1 (`0x41743a`) | Fits every constraint; candidate 2 is equal and unproven |
+| Console | **A separate console window** that keypad 9 opens and closes in Develop (a console window on Windows, the terminal on Linux), showing the game's own `printf` diagnostics and the dump helpers' output (owner, 2026-10-03) | No new in-game UI; the output already reaches `stdout.txt` (spec 005) |
 | Keyboard | **DOS keys** (owner, 2026-10-03): in Develop the host reads commands as typed characters, as the DOS build did, and held controls (arrows, Alt, Ctrl, Space, PgUp…) as physical keys. Rules: a key the host consumes as an editor or developer command is hidden from the game (key state and event); while the editor is on, editor commands win over the July developer keys; keypad text is ignored (the keypad stays host keys). Key tables and clashes: phase 2 | Owner decision, superseding Page Up and Ctrl+1..4. The developers worked in DOS (A11.3); the July Windows key map is a translation accident (A5.4) |
 | Toggle | **`!`, read as a character** (one key on AZERTY, Shift+1 on QWERTY); keypad 5 stays as an alias. Consumed by the host, never passed to the game; in Play and Play edits it reaches the game unchanged | Owner decision. It frees PgUp for the free camera, as in DOS. `sceneKeyboard_` reads 0x21 as "paste link", so in July one press toggled the editor and pasted a link; paste link moves to Ctrl+Shift+3 |
 | Toggle at any width | **`!` opens the editor at every resolution**, even when the layout is cut off (owner, 2026-10-03). The July toggle acted only at a width of 640 (`_ScreenXRes`); the port drops that condition | Owner decision. The layout is drawn for 640 (rows 10 px apart, sliders at label x+180, values at x+380), so narrower frames clip the deeper levels |
-| Save on toggle | **None** (2026-10-03, with the DOS keys; supersedes option A, the retail autosave on each press). **Save-anywhere: Cryo's uncalled Save page** (`0x4313b5`: `MENU_InitSaveSlotSelect(1)`, `MENU_RunGameMenu`) on a Develop key, restored from the Load page (owner, 2026-10-03). To trace before building: the page's typed-title entry, unreachable since retail, and which key opens it | July's `!` called `CTRL_SaveGame_("data\\game.dat")` on every press, entering and leaving; the string occurs once in the July binary and no build reads the file (the July Load page reads slot files; retail has no such string) **[verified in code]**. Why it saved is unknown **[unverified]**. The retail autosave (`0x439341`) is no substitute: it keys its slot by the level's display name, so it overwrites the level's own save instead of adding one, writes a protected slot's file, ignores record `+0x1f8` (P0, P5, P10, P52 never save) and must run from the frame hook behind five guards **[verified in code]** |
+| Save on toggle | **None** (2026-10-03, with the DOS keys; supersedes option A, the retail autosave on each press). **Save-anywhere: Cryo's uncalled Save page** (`0x4313b5`: `MENU_InitSaveSlotSelect(1)`, `MENU_RunGameMenu`) on **keypad 0**, restored from the Load page (owner, 2026-10-03). To trace before building: the page's typed-title entry, unreachable since retail | July's `!` called `CTRL_SaveGame_("data\\game.dat")` on every press, entering and leaving; the string occurs once in the July binary and no build reads the file (the July Load page reads slot files; retail has no such string) **[verified in code]**. Why it saved is unknown **[unverified]**. The retail autosave (`0x439341`) is no substitute: it keys its slot by the level's display name, so it overwrites the level's own save instead of adding one, writes a protected slot's file, ignores record `+0x1f8` (P0, P5, P10, P52 never save) and must run from the frame hook behind five guards **[verified in code]** |
 | How edits are played | In Develop and Play edits, by the folder itself: the editor's save overwrites the folder's `DREAMS.DAT` (and writes `EDITOR.DAT` beside it), and the next launch in either mode plays it, as July's `LoadDiskScene_` loaded `editor.dat` at every start and New Game and `SaveDiskScene_` wrote it back. Play always plays the discs. No separate mod system | Follows from the developer-folder decision; an earlier mods proposal was never approved and is withdrawn |
 | Restoring the folder | **A launcher button "Reset edits"** that copies disc 1's `DREAMS.DAT` back over the folder's and keeps captures and saves (2026-10-03, accepted as recommended) | Closes the open question of how a player restores the folder |
 | Disc number in the folder | **No host change; the one-frame prompt is accepted** (owner, 2026-10-03). Replacing `CD_GetDiscNumber` (`0x4287fa`) to answer from the level record's `+0x1fc` was considered and declined | It tests only `1CD.ID`, so a folder with both ID files always reports disc 1 and every disc-2 level passes through `CD_PromptSwap` ("Please change to CD no 2"), shown for one frame **[verified in code]** |
-| Renderer in Develop | **The launcher's renderer setting, as in Play**; tools that draw pixels into the software frame buffer say they need the software renderer (spec 005) (2026-10-03, accepted as recommended) | Lines draw through the replaced `C3D_Line_`; pixels and the render classes do not |
+| Renderer in Develop | **The software renderer, until the direct port (phase D) passes** (owner, 2026-10-03; supersedes "the launcher's setting"). The launcher shows the renderer as fixed for Develop, with a note; Play and Play edits keep the setting. After phase D, Develop follows the setting | The software renderer runs Cryo's own drawing code, so every tool draws as written (panel, sliders, pickers, wireframes, cursor, centre dots, capture, render classes) and its 640×480 frame is the layout the editor was drawn for; the direct renderer stops on any unsupported draw and leaves the software frame buffer empty (phase 0 check). Software screenshots become the reference the port is checked against |
 | Which `DREAMS.DAT` the folder gets | **Disc 1's** (owner, 2026-10-03), the final retail bank | Data principle rule 2. Disc 1's file is dated 1997-10-29, the day `WINDREAM.EXE` was linked; disc 2's 1997-10-08. In 5 of the 6 differing records (P31, P41, P55, P69, P75, P87) disc 2 keeps the value both July banks share and disc 1 changes it **[verified in data]**. It is also what a normal session plays: `DDAT_Load` reads the bank only at start (`GAME_Init`, `BOOT_Run`), never at a swap, so a game started with disc 1 uses disc 1's records for every level **[verified in code]**. Five of the six differing projects are disc-1 levels (groups 1–2); P75 (`E08_END`, group 4) differs only in magic regeneration (6 against 0). Dropped with disc 2's bank: P69 `LINKADVENT2` (dialogue 177, which `DIALOG.DRD`'s 178 entries hold), deleted on disc 1 |
 | Merging the two discs | **The newer copy of each differing file wins** (owner, 2026-10-03); disc 1's `DATA\FULL.ID` and disc 2's `DATA\GAME` are not copied (phase M). Of the 10 files that differ (`disc-layout.md`), disc 1's is newer for `DREAMS.DAT` (10-29 / 10-08), `DATA\HNM\INTRO.HNM` (10-08, full 38 MB intro / 09-30, 1.7 MB), `DATA\ICONE\ICONES.BF` (09-10, 372,358 bytes / 08-03, 440,029) and `DATA\HD.ID` (09-18 / 09-01); disc 2's for `DATA\UNIVBE\UVCONFIG.EXE` (DOS only, never read by the port); the rest are junk (`DESCRIPT.ION`, `ANTI-VIR.DAT`, `SETUP.GID`) | Data principle. This **changes** `disc-layout.md`'s "keep disc 2 — larger" for `ICONES.BF`: disc 2's larger bank is the older generation, the same size as the `ICONES.BAK` backup disc 2 also carries **[verified in data: sizes and dates]** |
 | Runtime fields in exports | **Keep them, as the retail bank did** (BOX `+0xf8` in 92 boxes, 24 spent spawn markers, `+0x138` after a save load) (owner, 2026-10-03) | Faithful to how Cryo's bank was made; it keeps the byte-identical export test meaningful and needs no list of runtime-written fields |
@@ -976,7 +978,9 @@ editor draws or lists at run time comes from the player's discs.
 The phases are steps inside one milestone (owner decision): the editor
 ships when every phase passes. Phase M (the three modes and the developer
 folder) comes first because the others build on it; the rest keep their
-numbers. Each phase's acceptance checks run through the control channel
+numbers. Build order: M, 1, 2, 4, 3 (the project page lists phase 4's
+bank), 5, 7, D (the direct renderer port; Develop runs on the software
+renderer until then), with the optional 6 at any point after 4. Each phase's acceptance checks run through the control channel
 (`run.py --ctl`, `recomp/windream/debug/wdctl.py`, `game_nav.py`); tests
 skip without the build, the discs or, from phase 1, the July demo.
 
@@ -995,13 +999,28 @@ Acceptance (to automate): with keypad 5 on in Project 0, the screen shows
 "Dreams Editor" and "Exit To DOS"; a click on "Exit To DOS" sets
 `0x4a4780`; `ShowLink_` draws LINK0's box.
 
+Checked 2026-10-03 through the control channel, Project 0, editor flag
+written directly (scripts `out/research/p0check/`) **[verified in the
+recomp]**:
+
+- Direct renderer: "Dreams Editor" and "Exit To DOS" draw, the cursor
+  sprite shows at (0,0), and `ShowLink_` draws a LINK volume in blue
+  lines; no `[direct] FATAL`; turning the flag off again is clean. Picker
+  pages and sliders need phase 1 and are not checked yet.
+- TGA capture (`0x4a475c`, one shot) works only while the inserted call
+  runs, that is with the editor flag set (`wd_editor_frame` tests it).
+  Software renderer: `data\tga\H18_0000.tga`, 640×480, the game frame.
+  Direct renderer: the same file, all black: `SaveImage_` reads the
+  software frame buffer, which the direct renderer leaves empty (phase D).
+
 ### Phase M — Play, Develop, Play edits and the developer folder
 
 1. **The option.** The launcher (spec 007) gets a mode choice: Play
    (default), Develop, Play edits, stored as `[port] mode` in `dreams.ini`
    and emitted as `WD_MODE=dev|edited` only when not Play (the launcher
    leaves defaults out); the host reads it once at start and the mode holds
-   for the session. Play edits is greyed out until the folder is
+   for the session. `run.py --mode dev|edited` sets the same variable for
+   the harness and tests. Play edits is greyed out until the folder is
    initialized. The Play button no longer requires the images in Develop
    and Play edits once the folder exists (`play_blocker`). The web build
    has no launcher and stays Play.
@@ -1029,8 +1048,12 @@ Acceptance (to automate): with keypad 5 on in Project 0, the screen shows
      `GAME0.DAT` (10,364; retail 11,388) and `GAME0.ICO`, which would
      become the player's saves **[verified in data]**.
 
-   When the copy is complete the host records that the folder is
-   initialized; how an interrupted copy is detected and resumed is open.
+   The launcher does the copy (owner, 2026-10-03), before it starts the
+   game, with a progress bar; it writes the "initialized" marker as its
+   last step. A launch that finds the folder without the marker resumes:
+   files already present at their full size are skipped, the rest copied
+   again. Running out of space stops the copy with a message and no
+   marker.
 4. **Develop and Play edits, every launch.** The port finds the
    initialized folder, copies nothing and serves it as the only root: the
    CD root (working directory, `DATA\1CD.ID`, `2CD.ID`) and the install root
@@ -1056,6 +1079,9 @@ Acceptance (to automate): with keypad 5 on in Project 0, the screen shows
    saves land in the folder (phase 5), and the tools of spec 005's
    inventory are reachable on the keys of phase 2.
 7. **Play edits tools off.** As Play, with the folder as data.
+8. **Renderer.** Develop starts with `WD_RENDERER=software` whatever the
+   launcher's renderer setting, until phase D passes (B1); Play and Play
+   edits use the setting.
 
 Acceptance: in Play keypad 1–9 and the developer keys change no guest
 memory and no `0x34`–`0x38` event is posted; the first Develop launch
@@ -1157,6 +1183,18 @@ Rules:
 5. Retail game keys keep working unless a rule above hides them. F1–F6
    still switch the editor off (`VID_SetResolution`), as F6/F7 did in July.
 
+Encoding. The DOS build's characters are code page 850, not 437: the July
+cases compare `§` = `0xF5`, `µ` = `0xE6` and `ù` = `0x97` (CP437 has `§`
+at `0x15`) **[verified in code]**. The host maps typed Unicode characters
+to CP850 and ignores any character CP850 lacks.
+
+Consumption. SDL reports a key press (`SDL_EVENT_KEY_DOWN`) before the
+character it types (`SDL_EVENT_TEXT_INPUT`), in the same pump. The host
+holds a key's state bit and its event `0x33` back until the pump is
+drained; if the key produced a consumed character, both are dropped, and so
+are that key's repeats and its release. The Ctrl+Shift fallbacks type no
+character and are matched by scancode. Text input is on only in Develop.
+
 **Editor keys** (editor on). Letters are uppercase (Shift+letter on any
 layout):
 
@@ -1198,9 +1236,10 @@ work on every layout; `§` and `µ` also work where the layout has them.
 | `D` | dialogue test | host posts `0x40` to the HUD queue |
 | `H` | replay the level's movie | host call |
 | `r` | record a demo / stop and write `DATA\REPLAY.BIN` | host calls the recorder (spec 005) |
-| `e` `f` `l` `v` | render classes; software renderer only (under the direct renderer `l` stays the retail Load page) | host calls `0x4577cc` |
+| `e` `f` `l` `v` | render classes (Develop runs on the software renderer; the game's Load page stays on Shift+`L`, which types no developer character) | host calls `0x4577cc` |
 | keypad 1–5 | readout, object HUD, collision view, capture flag, editor (as phase 0) | host |
-| keypad 6–9 | give all items, collision views, profiler overlay, console (spec 005) | host |
+| keypad 6–9 | give all items, collision views, profiler overlay, console window (spec 005; phase 7) | host |
+| keypad 0 | Cryo's Save page (`0x4313b5`) | host call (phase 7) |
 
 Held keys stay physical and reach the game: arrows, Alt, Ctrl, Space,
 Insert (look), Backspace (collision mesh, already live), PgUp, PgDn, Home,
@@ -1221,7 +1260,7 @@ camera presets; Alt+X quit; menus: arrows, Return, Esc, Tab, Backspace.
 | `!` toggles and pastes a link | July | `!` only toggles; paste link on Ctrl+Shift+3 |
 | `A`, `D`, `6`: editor command and developer key | July | rule 2 |
 | Editor `1`–`3` and the game's item slots; QWERTY `!` = Shift+1 | retail added the slots | rule 1 |
-| `l` render class and `L` Load page | retail added `L` | render classes only under the software renderer |
+| `l` render class and `L` Load page | retail added `L` | in Develop `l` is the render class (rule 1 hides it from the game) and Shift+`L` opens the Load page; phase D decides whether the render classes survive the direct port |
 | F10 bank save and key help | retail | editor on: bank save; off: key help |
 | F1–F6 switch the editor off | July and retail | kept; listed in the key help |
 | Space/Esc confirm a picker and act in the game | **[unverified]** | hidden from the game while a page is open |
@@ -1265,10 +1304,10 @@ buffers changes (memory diff of `0x661e18`–`0x661e40` before and after).
 A host bank of 150 × 0x2200 bytes (1.3 MB) in guest memory, unpacked at
 run time, not by a build step: the bank must come from the developer
 folder, which the build never sees, and unpacking 138 KB of
-zero-run RLE takes milliseconds. The host does it the first time the editor
-opens, from the `DREAMS.DAT` the game itself mounted (`_RLE_SAVES`
-`0x633c14`, already in memory after `DDAT_Load`), so it edits exactly the
-bank being played.
+zero-run RLE takes milliseconds. The host does it at the first level load
+in Develop (the pointer binding below needs the bank from then on), from
+the `DREAMS.DAT` the game itself mounted (`_RLE_SAVES` `0x633c14`, already
+in memory after `DDAT_Load`), so it edits exactly the bank being played.
 
 Traced 2026-10-03 **[verified in code]**:
 
@@ -1336,18 +1375,79 @@ folder started with, byte for byte (the round trip of phase 4); after one
 edit, only that record's bytes and the later offsets differ; a restart in
 Develop or Play edits plays the edited level.
 
-### Phase 6 — mastering lists and capture (optional)
+### Phase 7 — Cryo's developer tools
+
+The Develop tools of spec 005's inventory, on the keys of phase 2. Built
+after phase 5. Each is Cryo's code reached by a host call or a data write,
+except where noted as host-only.
+
+| Tool | Key | Work | Acceptance |
+|---|---|---|---|
+| Free-fly camera | `-` | host posts camera message `0x31`; relative mouse mode (hidden cursor, unbounded deltas) while the camera is mode 7, absolute cursor for the editor | mouse turns it, buttons fly it, PgUp/PgDn/Home/End change the speed; `-` again or a `0x2b` post returns to follow; inert with the editor on |
+| Overhead camera | `9` | host posts `0x30` | the eye sits 1,500 units above the player; `9` again returns |
+| HUD on/off | `A` | toggles `0x49d5d4` | the HUD disappears and returns |
+| TGA capture | `6`, `7` | toggles `0x4a4758` / `0x4a475c`; below | one capture writes `<scn>_0000.tga` of the game frame |
+| Readouts, object HUD, collision view | `8`, keypad 1–3 | as phase 0 | as today |
+| Dialogue test | `D` | host posts `0x40` with a dialogue id | entry 0 plays with voice and caption |
+| Level movie | `H` | host call into the level-entry sequence (`0x416015`) | the project's movie plays again |
+| Give all items | keypad 6 | writes `0x49d5e0 = 1` | 14 items over 14 frames; to trace first: adding an item the player already holds |
+| Collision views | keypad 7 | host call after the render per collider (`PHYS_GetCollider` `0x45f638`) into `Display_Collision_Sphere_` and the box draws | lines and centre dots over the level |
+| Profiler overlay | keypad 8 | host-only: times frame, 3D render, animation and collision, and draws Cryo's bar layout itself (`cpu_init_lib_` hangs in `vbl_`, a double start calls `getch_`) | the bar tracks the frame time |
+| Console window | keypad 9 | host-only: opens or closes a console window (Windows) or uses the terminal (Linux) showing the game's stdout; the dump helpers print there | Cryo's diagnostics appear as the game prints them |
+| Save page | keypad 0 | host call `0x4313b5`; to trace first: its typed-title entry, dead since retail | a titled save appears in the Load list and restores |
+| Demo recorder | `r` | host calls into `0x40db80` / `0x40dac2` / `0x40ee88`; to trace first: the start sequence, the flags `0x49d34a`, `0x4a2f05`, `0x49d33a`, `0x49d5dc`, and the writer's 112-byte frame against the shipped 104-byte `REPLAY.BIN` | a recording replays the same inputs |
+| Render classes | `e f l v` | host calls `0x4577cc` on `[0x4fbdbc]` | the level's texturing changes and changes back |
+
+TGA capture: create `data\tga` in the developer folder before the first
+write (the retail writer does not check `fopen`). `SaveImage_` runs from
+`WorksEdit_` step 1 whether the editor is on or off, but the inserted call
+reaches `WorksEdit_` only while the editor flag is set, so in Develop
+`wd_editor_frame` calls it every frame (with the flag off it draws
+nothing: `ShowBox_` needs a working BOX in use). Develop runs on the
+software renderer, where the capture is the game frame (phase 0 check);
+the direct renderer's black capture is phase D's.
+
+The save guard of B1 (refuse a save whose project no longer exists) is
+built here too; to trace first: where the Load page reaches
+`GAME_LoadGame`, so the host can refuse before `DDAT_LoadRecord` returns
+NULL.
+
+### Phase D — the direct renderer port
+
+Develop moves from the software renderer to the launcher's setting once
+every editor page and tool works under the direct renderer (owner,
+2026-10-03: "we will port it later"). Last phase of the milestone.
+
+- **Reference.** Phases 1–7 record software screenshots of each editor
+  page and tool (the menu, a slider drag, each picker page, the delete
+  banner, `ShowBox_`/`ShowLink_` wireframes, the cursor, the cameras, the
+  collision views, the profiler overlay). The port matches them, through
+  the project's parity tools (`render_parity.py` and the screenshot
+  tests).
+- **Early warning.** Each phase from 1 on ends with the direct smoke of
+  `out/research/p0check/` (about a minute, not blocking): a new draw that
+  stops the direct renderer is known when it is added, not at the end.
+  Known on 2026-10-03: the panel text, the cursor and `ShowLink_`'s lines
+  already work under direct.
+- **Known gaps.** TGA capture writes black under direct; proposed: a host
+  replacement of `SaveImage_` (`0x4479c7`), active only under the direct
+  renderer, that reads back the presented game frame, as the snapshot and
+  autosave-thumbnail paths already do, and writes it at 640×480 with
+  Cryo's name, counter and TGA layout (host-only structure). The collision
+  views' centre dots go through `C3D_Pixel_` (`0x465ea4`), which the
+  direct renderer does not replace. The render classes `e f l v` set face
+  classes 6 and `0x1c`, which the direct renderer may not support; ported
+  or left software-only is decided here.
+- **Acceptance.** Every reference screenshot matched under the direct
+  renderer with no `[direct] FATAL`; then the launcher stops fixing
+  Develop's renderer.
+
+### Phase 6 — mastering lists (optional)
 
 - Run the October generators' logic over the host bank (a host
   reimplementation or a repository tool next to `bank_patch.py`; the
   originals walk `0x659044`) and write `listL*.txt`, `copyL*.bat`. Acceptance:
   on the unedited disc 1 bank the lists equal the shipped `LISTL*.TXT`.
-- TGA capture: create `data\tga` in the developer folder before the first
-  write (the retail writer does not check `fopen`); keys `6`/`7` (phase 2;
-  `6` only with the editor off, rule 2). `SaveImage_` runs from
-  `WorksEdit_` step 1 whether the editor is on or off, so the inserted
-  editor call is enough. Acceptance: one capture writes `<scn>_0000.tga` of
-  the game frame.
 
 ## B3. Risks
 
@@ -1364,7 +1464,9 @@ Develop or Play edits plays the edited level.
 | A release without the menu resource, or with one from another build of the demo | `release.py` checks the resource's presence and the source hash; the host validates the file before installing nodes |
 | A player's edits break a level or a save | edits stay inside the developer folder; Play always plays the untouched discs; "Reset edits" restores the bank (B1) |
 | A save names a project the editor deleted or renamed | the host refuses the load with a message (B1, Saves) |
-| The first Develop launch is interrupted or runs out of space | the folder counts as initialized only once the copy is complete (about 480 MB merged, `disc-layout.md`); how a partial copy is detected and resumed is open |
+| The first Develop launch is interrupted or runs out of space | the launcher writes the "initialized" marker only after a complete copy (about 480 MB merged, `disc-layout.md`) and resumes a partial one, skipping files present at full size (phase M) |
+| An editor draw stops the direct renderer | Develop runs on the software renderer until phase D; the direct smoke at the end of each phase finds such draws early |
+| Capture under the direct renderer writes black | not reached before phase D (Develop is software); the proposed `SaveImage_` replacement there |
 | `FULL.ID` or disc 2's saves reach the folder | excluded from the copy and `FULL.ID` hidden by the host (phase M) |
 | Create on a full bank clears the live level | the phase 4 Create refuses when no slot is free |
 
@@ -1375,7 +1477,11 @@ Develop or Play edits plays the edited level.
 | Play is clean | M | keypad 1–9 and the developer keys change no guest memory; no `0x34`–`0x38` event posted |
 | Developer folder set up once, then used | M | first Develop launch creates and marks the folder, without `FULL.ID` or disc 2's saves; second launch: no `open` or `disc` event on an image, no `cd` event, no "MCI Error" box, a disc-2 level plays (one-frame swap prompt accepted) |
 | Play edits | M | plays the folder's `DREAMS.DAT` with `cd` events; loads a Develop save; refuses a save naming a deleted project |
-| DOS keys | 2 | each developer key acts once; consumed keys change no game action word; `!` leaves link records unchanged |
+| DOS keys | 2 | each developer key acts once; consumed keys change no game action word; `!` leaves link records unchanged; CP850 characters reach `sceneKeyboard_` |
+| Developer tools | 7 | per tool, the acceptance column of phase 7, through the control channel |
+| Software reference screenshots | 1–7 | each editor page and tool, captured under the software renderer as it is built |
+| Direct smoke | each phase (not blocking) | `out/research/p0check/` scripts: panel rows, `ShowLink_` lines, no `[direct] FATAL` |
+| Direct port | D | every reference screenshot matched under the direct renderer; a capture with non-black pixels |
 | Panel and exit node | 0 | screenshot + `0x4a4780` after a scripted click |
 | Root rows and a captured position | 1 | control channel: keypad 5, mouse script, read `0x65fb04+0xb4` |
 | Binding table proof | 1 | test reads `bindings.tsv` and checks each retail reader address against the lifted code |
@@ -1397,9 +1503,13 @@ Develop or Play edits plays the edited level.
 - Whether Space and Esc on a picker page also act in the game.
 - Whether the host can serve files from the folder and CD audio from the
   images at once (Play edits).
-- The Save page's typed-title entry and the key that opens it (B1).
-- Owner decision still open: how an interrupted first copy is detected
-  and resumed.
+- The Save page's typed-title entry (phase 7).
+- Traces before phase 7: the recorder's start sequence and file format;
+  giving an item the player already holds; where the Load page reaches
+  `GAME_LoadGame` (the save guard).
+- Decided in phase D: TGA capture under the direct renderer (a
+  `SaveImage_` replacement is proposed) and whether the render classes are
+  ported or stay software-only.
 
 ## B6. Work items
 
@@ -1425,9 +1535,12 @@ Develop or Play edits plays the edited level.
     disc 2's saves) with its initialized check, serving the folder as the
     only root on desktop builds (the browser build's layout), the
     `CD_OpenAudio` replacement in Develop, CD audio from the images in Play
-    edits, and the save guard.
-12. The developer tools of spec 005's inventory that Develop reconnects,
-    each with its key (phase 2).
+    edits, `run.py --mode`.
+12. Phase 7: the developer tools of spec 005's inventory, each with its
+    key (phase 2), the console window, the Save page on keypad 0, the save
+    guard, and TGA capture, on the software renderer.
+13. Phase D: the direct renderer port against the software reference
+    screenshots; the launcher stops fixing Develop's renderer.
 
 ## File map
 
