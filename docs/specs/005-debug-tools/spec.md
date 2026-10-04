@@ -496,12 +496,17 @@ and return to the title (worked out from the bytes, not run).
   4, sets mode 1 and the input display, writes record 0's position into the
   player and starts the same reload. `DEMO_PlayFrame` (`0x40e4ed`) loads
   record i's words, on each new record its orientation, and moves the
-  position halfway toward the recorded one, then advances `round(Δt)`
+  position halfway toward the recorded one (only x and z while walking,
+  `+0x34 == 1`: height is left to physics), then advances `round(Δt)`
   records through `DEMO_AdvanceFrames`, which ORs the next record's words
   into the live ones, so every key edge arrives a frame early. Playback
   stops at the last record or when Space is held; `DEMO_StopPlayback` sets
   mode 2, clears the words, sets quit and reset and restores the device
-  mode: back to the title.
+  mode: back to the title. Not after the player dies: the death path opens
+  the system page, playback stays in demo mode there and Space no longer
+  stops it (trace 2026-10-04, July's recording repacked: it plays 910 of
+  its 1,848 records faithfully on retail data, then Duncan walks off the
+  level and dies) **[verified in the recomp]**.
 - **Determinism.** The file names no level (playback reloads the current
   project) and the random seed is never set or stored. At the recomp's fixed
   step the replayed positions equal the recorded ones through the reload
