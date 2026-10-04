@@ -11,6 +11,7 @@
 #include <cstring>
 #include <string>
 
+#include "disc.h"
 #include "model.h"
 #include "testing.h"
 
@@ -185,19 +186,123 @@ bool Model::save(std::string* err) {
     return true;
 }
 
+// ---- the developer folder ----
+
+const char* const kDeveloperMarker = ".developer-folder";
+
+std::string Model::developer_dir() const { return with_separator(data_dir()) + "developer"; }
+
+bool Model::developer_ready() const {
+    SDL_PathInfo info;
+    std::string marker = with_separator(developer_dir()) + kDeveloperMarker;
+    return SDL_GetPathInfo(marker.c_str(), &info) && info.type == SDL_PATHTYPE_FILE;
+}
+
+bool Model::developer_started() const {
+    SDL_PathInfo info;
+    return SDL_GetPathInfo(developer_dir().c_str(), &info) && info.type == SDL_PATHTYPE_DIRECTORY;
+}
+
+namespace {
+struct CopyContext {
+    const std::function<bool(const CopyProgress&)>* progress;
+    CopyProgress state;
+};
+int SDLCALL copy_step(void* ctx, const DiscCopyProgress* p) {
+    CopyContext* c = (CopyContext*)ctx;
+    c->state.bytes_done = p->bytes_done;
+    c->state.bytes_total = p->bytes_total;
+    c->state.files_done = p->files_done;
+    c->state.files_total = p->files_total;
+    c->state.files_skipped = p->files_skipped;
+    c->state.path = p->path ? p->path : "";
+    return *c->progress && !(*c->progress)(c->state);
+}
+}  // namespace
+
+int make_developer_folder(const Model& m, const std::function<bool(const CopyProgress&)>& progress, std::string* err) {
+    char msg[512] = "";
+    Disc* d1 = disc_open(m.discs.path[0].c_str(), msg, sizeof msg);
+    Disc* d2 = d1 ? disc_open(m.discs.path[1].c_str(), msg, sizeof msg) : nullptr;
+    int rc = -1;
+    if (d1 && d2) {
+        CopyContext ctx{&progress, {}};
+        rc = disc_copy_merged(d1, d2, m.developer_dir().c_str(), copy_step, &ctx, msg, sizeof msg);
+        if (rc == 1) msg[0] = 0;
+    }
+    disc_close(d2);
+    disc_close(d1);
+    if (rc == 0) {
+        std::string marker = with_separator(m.developer_dir()) + kDeveloperMarker;
+        static const char text[] = "complete: both discs copied (spec 008 phase M)\n";
+        if (!SDL_SaveFile(marker.c_str(), text, sizeof text - 1)) {
+            std::snprintf(msg, sizeof msg, "cannot write %s: %s", marker.c_str(), SDL_GetError());
+            rc = -1;
+        }
+    }
+    if (rc < 0 && err) *err = msg[0] ? msg : "the developer folder could not be made";
+    return rc;
+}
+
+bool reset_edits(const Model& m, std::string* err) {
+    char msg[512] = "";
+    Disc* d1 = disc_open(m.discs.path[0].c_str(), msg, sizeof msg);
+    DiscEntry e;
+    bool ok = false;
+    if (d1 && disc_find(d1, "DREAMS.DAT", &e) && !e.is_dir) {
+        std::string data(e.size, '\0');
+        DiscFile* f = disc_file_open(d1, &e);
+        std::string target = with_separator(m.developer_dir()) + "DREAMS.DAT";
+        if (f && disc_file_read(f, 0, data.data(), data.size()) == (int64_t)data.size())
+            ok = SDL_SaveFile(target.c_str(), data.data(), data.size());
+        if (!ok) std::snprintf(msg, sizeof msg, "cannot copy disc 1's DREAMS.DAT to %s", target.c_str());
+        disc_file_close(f);
+    } else if (d1) {
+        std::snprintf(msg, sizeof msg, "disc 1 has no DREAMS.DAT");
+    }
+    disc_close(d1);
+    if (!ok && err) *err = msg;
+    return ok;
+}
+
 std::string Model::play_blocker() const {
-    if (discs.check[0].status == DiscStatus::NotSet && discs.check[1].status == DiscStatus::NotSet)
-        return "Choose both disc images to play.";
-    for (int i = 0; i < 2; i++)
-        if (!discs.check[i].ok()) return "Disc " + std::to_string(i + 1) + ": " + discs.check[i].message;
+    std::string why;
+    switch (port.mode) {
+    case LaunchMode::Play:
+        if (discs.check[0].status == DiscStatus::NotSet && discs.check[1].status == DiscStatus::NotSet)
+            return "Choose both disc images to play.";
+        for (int i = 0; i < 2; i++)
+            if (!discs.check[i].ok()) return "Disc " + std::to_string(i + 1) + ": " + discs.check[i].message;
+        break;
+    case LaunchMode::Develop:
+        // The images are needed once, for the copy; after it Develop plays from the folder.
+        if (!developer_ready())
+            for (int i = 0; i < 2; i++)
+                if (!discs.check[i].ok())
+                    return "Develop copies both discs into the developer folder first. Disc " + std::to_string(i + 1) +
+                           ": " + discs.check[i].message;
+        break;
+    case LaunchMode::Edited:
+        if (!developer_ready()) return "Play edits plays the developer folder: start Develop once to make it.";
+        break;
+    }
     return keyboard_conflict(port);
 }
 
 VarList Model::vars() const {
     VarList v;
-    v.emplace_back("WD_DISC1", discs.path[0]);
-    v.emplace_back("WD_DISC2", discs.path[1]);
+    bool tree = port.mode != LaunchMode::Play;
+    // Play edits plays the discs' CD audio when both images are there, and silently without them.
+    bool discs_too = port.mode == LaunchMode::Play || (port.mode == LaunchMode::Edited && discs.both_ok());
+    if (discs_too) {
+        v.emplace_back("WD_DISC1", discs.path[0]);
+        v.emplace_back("WD_DISC2", discs.path[1]);
+    }
     v.emplace_back("WD_DATA_DIR", data_dir());
+    if (tree) {
+        v.emplace_back("WD_MODE", port.mode == LaunchMode::Develop ? "dev" : "edited");
+        v.emplace_back("WD_TREE", developer_dir());
+    }
     emit_port_vars(port, v);
     return v;
 }
@@ -221,14 +326,29 @@ int launcher_run(int argc, char** argv, LauncherResult* out) {
             for (int i = 0; i < 2; i++) std::fprintf(stderr, "disc %d: %s\n", i + 1, m.discs.check[i].message.c_str());
         // Name the bad image's path as well: a script has nothing else to go by.
         std::string why;
-        for (int i = 0; i < 2 && why.empty(); i++)
+        for (int i = 0; i < 2 && why.empty() && m.port.mode == LaunchMode::Play; i++)
             if (!m.discs.check[i].ok())
                 why = "disc " + std::to_string(i + 1) + ": " + m.discs.check[i].message +
                       (m.discs.path[i].empty() ? "" : " (" + m.discs.path[i] + ")");
-        if (why.empty()) why = keyboard_conflict(m.port);
+        if (why.empty()) why = m.play_blocker();
         if (!why.empty()) {
             set_error(out, why);
             return -1;
+        }
+        if (m.needs_copy()) {  // Develop's first start: the developer folder, before the game
+            unsigned long long next = 0;
+            std::string err;
+            auto report = [&next](const CopyProgress& p) {
+                if (p.bytes_done >= next) {
+                    std::fprintf(stderr, "launcher: developer folder %llu of %llu MB\n", p.bytes_done >> 20, p.bytes_total >> 20);
+                    next = p.bytes_done + (64ull << 20);
+                }
+                return true;
+            };
+            if (make_developer_folder(m, report, &err) != 0) {
+                set_error(out, "cannot make the developer folder: " + err);
+                return -1;
+            }
         }
         m.save(nullptr);  // as Play does; a read-only location cannot stop a run
         fill_vars(out, m.vars());
@@ -254,6 +374,10 @@ int launcher_run(int argc, char** argv, LauncherResult* out) {
         return -1;
     }
     if (!play) return 0;
+    if (m.needs_copy()) {  // the window makes the folder before it returns Play; never start without it
+        set_error(out, "the developer folder is not complete");
+        return -1;
+    }
     std::string save_err;
     m.save(&save_err);
     fill_vars(out, m.vars());

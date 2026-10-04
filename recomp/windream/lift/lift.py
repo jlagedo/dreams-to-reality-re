@@ -28,7 +28,7 @@ import time
 
 from render_audit import memory_probes
 from render_bulk import wrap_bulk
-from replacements import RENDER_ENTRIES, wrap_entry
+from replacements import REPLACEABLE_ENTRIES, wrap_entry
 
 from dreams import paths  # noqa: E402
 
@@ -724,7 +724,7 @@ def main():
     )
     head += "".join(f"void {fn}(void);\n" for fn in sorted(set(CALLS.values()))) + "\n"
     head += '#include "render_boundary.h"\n'
-    for address in RENDER_ENTRIES.intersection(bodies):
+    for address in REPLACEABLE_ENTRIES.intersection(bodies):
         bodies[address] = wrap_entry(bodies[address], address)
     for n in os.listdir(out):
         if re.match(r"recomp_\d{4}\.c$", n):
@@ -739,7 +739,7 @@ def main():
         f.write("#pragma once\n")
         for a in lifted:
             f.write(f"void sub_{a:08X}(void);\n")
-            if a in RENDER_ENTRIES:
+            if a in REPLACEABLE_ENTRIES:
                 f.write(f"void wd_original_{a:08X}(void);\n")
     with open(os.path.join(out, "recomp_dispatch.c"), "w") as f:
         f.write(
@@ -750,7 +750,7 @@ def main():
             f.write(f"    {{ 0x{a:08X}u, sub_{a:08X} }},\n")
         f.write(f"}};\nconst uint32_t recomp_dispatch_count = {len(lifted)};\n")
         f.write("recomp_func_t recomp_lookup_reference(uint32_t va) { switch (va) {\n")
-        for a in sorted(RENDER_ENTRIES.intersection(lifted)):
+        for a in sorted(REPLACEABLE_ENTRIES.intersection(lifted)):
             f.write(f"case 0x{a:08X}u: return wd_original_{a:08X};\n")
         f.write("default: return NULL; } }\n")
     json.dump(

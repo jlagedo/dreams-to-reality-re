@@ -295,3 +295,8 @@ def build_dir(
 
 def exe_name(stem: str) -> str:
     return stem + (".exe" if sys.platform == "win32" else "")
+
+
+def disc_tool() -> Path:
+    """disc_list of recomp/disc/build.py (shared here: run.py cannot import build.py)."""
+    return out_dir("disc") / ("build" + platform_suffix()) / exe_name("disc_list")

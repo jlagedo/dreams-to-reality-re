@@ -6,6 +6,8 @@
  *   disc_list --find <path in disc> <disc>           look one path up: FILE/DIR, size, SHA-256
  *   disc_list --cat <path in disc> <offset> <count> <disc>   bytes of one file to stdout
  *   disc_list --selftest             check SHA-256 against the standard vectors
+ *   disc_list --copy-merged <disc 1> <disc 2> <dest>   both discs as one tree in dest
+ *                                    (disc_copy_merged's rules; resumes; prints COPIED, SKIPPED, BYTES)
  *
  * Listing output, tab-separated:
  *   DISC    <1|2|0|-1>               (-1: both marker files present)
@@ -188,12 +190,43 @@ static int cat_one(const char* path, const char* guest, unsigned long long offse
     return rc;
 }
 
+/* --copy-merged: the developer folder's copy (disc_copy_merged). Progress on
+ * stderr every 64 MB; the totals on stdout. */
+typedef struct { unsigned long long next; int files, skipped; unsigned long long bytes; } CopyState;
+static int copy_progress(void* ctx, const DiscCopyProgress* p) {
+    CopyState* s = (CopyState*)ctx;
+    if (p->bytes_done >= s->next) {
+        fprintf(stderr, "disc_list: %llu of %llu MB\n", (unsigned long long)(p->bytes_done >> 20),
+                (unsigned long long)(p->bytes_total >> 20));
+        s->next = p->bytes_done + (64ull << 20);
+    }
+    s->files = p->files_done;
+    s->skipped = p->files_skipped;
+    s->bytes = p->bytes_done;
+    return 0;
+}
+static int copy_merged(const char* path1, const char* path2, const char* dest) {
+    char err[512];
+    Disc* d1 = disc_open(path1, err, sizeof err);
+    if (!d1) { fprintf(stderr, "disc_list: %s\n", err); return 1; }
+    Disc* d2 = disc_open(path2, err, sizeof err);
+    if (!d2) { fprintf(stderr, "disc_list: %s\n", err); disc_close(d1); return 1; }
+    CopyState s = {0, 0, 0, 0};
+    int rc = disc_copy_merged(d1, d2, dest, copy_progress, &s, err, sizeof err);
+    if (rc) fprintf(stderr, "disc_list: %s\n", rc < 0 ? err : "cancelled");
+    else printf("COPIED\t%d\nSKIPPED\t%d\nBYTES\t%llu\n", s.files - s.skipped, s.skipped, s.bytes);
+    disc_close(d2);
+    disc_close(d1);
+    return rc ? 1 : 0;
+}
+
 static int usage(void) {
     fprintf(stderr,
             "usage: disc_list [--no-hash] <disc.cue | disc.iso | directory>\n"
             "       disc_list --find <path in disc> <disc>\n"
             "       disc_list --cat <path in disc> <offset> <count> <disc>\n"
-            "       disc_list --selftest\n");
+            "       disc_list --selftest\n"
+            "       disc_list --copy-merged <disc 1> <disc 2> <dest>\n");
     return 2;
 }
 
@@ -201,6 +234,7 @@ static int tool(int argc, char** argv) {
     int hash = 1;
     const char* path = NULL;
     if (argc == 2 && !strcmp(argv[1], "--selftest")) return selftest();
+    if (argc == 5 && !strcmp(argv[1], "--copy-merged")) return copy_merged(argv[2], argv[3], argv[4]);
     if (argc == 4 && !strcmp(argv[1], "--find")) return find_one(argv[3], argv[2]);
     if (argc == 6 && !strcmp(argv[1], "--cat"))
         return cat_one(argv[5], argv[2], strtoull(argv[3], NULL, 10), strtoull(argv[4], NULL, 10));

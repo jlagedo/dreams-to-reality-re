@@ -45,6 +45,36 @@ FILE* plat_fopen(const char* path) {
     return f;
 }
 
+FILE* plat_fopen_write(const char* path) {
+    wchar_t* w = widen(path);
+    FILE* f = w ? _wfopen(w, L"wb") : NULL;
+    free(w);
+    return f;
+}
+
+int plat_mkdir(const char* path) {
+    wchar_t* w = widen(path);
+    int ok = w && (CreateDirectoryW(w, NULL) || GetLastError() == ERROR_ALREADY_EXISTS);
+    free(w);
+    return ok && plat_is_dir(path) ? 0 : -1;
+}
+
+int plat_replace(const char* from, const char* to) {
+    wchar_t* wf = widen(from);
+    wchar_t* wt = widen(to);
+    int ok = wf && wt && MoveFileExW(wf, wt, MOVEFILE_REPLACE_EXISTING);
+    free(wf);
+    free(wt);
+    return ok ? 0 : -1;
+}
+
+int plat_remove(const char* path) {
+    wchar_t* w = widen(path);
+    int ok = w && DeleteFileW(w);
+    free(w);
+    return ok ? 0 : -1;
+}
+
 int plat_seek(FILE* f, uint64_t offset) {
     return offset > (uint64_t)INT64_MAX ? -1 : _fseeki64(f, (__int64)offset, SEEK_SET);
 }
@@ -96,6 +126,15 @@ int plat_list_dir(const char* dir, PlatListFn cb, void* ctx) {
 #include <sys/stat.h>
 
 FILE* plat_fopen(const char* path) { return fopen(path, "rb"); }
+FILE* plat_fopen_write(const char* path) { return fopen(path, "wb"); }
+
+int plat_mkdir(const char* path) {
+    return (!mkdir(path, 0777) || plat_is_dir(path)) ? 0 : -1;
+}
+
+int plat_replace(const char* from, const char* to) { return rename(from, to) ? -1 : 0; }
+
+int plat_remove(const char* path) { return remove(path) ? -1 : 0; }
 
 int plat_seek(FILE* f, uint64_t offset) {
     return offset > (uint64_t)INT64_MAX ? -1 : fseeko(f, (off_t)offset, SEEK_SET);

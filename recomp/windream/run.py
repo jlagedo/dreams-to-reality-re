@@ -9,7 +9,9 @@ snapshots and crash dumps land there).
   run.py --discs                           play from the two disc images (.cue)
                                            instead of the extracted trees
   run.py --overlays                        play with the retail debug flags on
-                                           (keypad 1-4 toggle them)
+                                           (with --mode dev, keypad 1-5 toggle them)
+  run.py --mode dev                        Develop: Cryo's developer tools and their
+                                           host bindings (spec 008 phase M)
   run.py --vm ledger --vm-log              run the build-vm-ledger executable and
                                            write every virtual-memory call to
                                            <run dir>/vm.log (compare two with
@@ -134,11 +136,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Run the recompiled game.")
     ap.add_argument("--exe", help="guest exe (default DREAMS_DISC1/GDIDREAM.EXE)")
     ap.add_argument(
-        "--renderer", choices=recomp_env.RENDERER_CHOICES, default=recomp_env.renderer_default(),
+        "--renderer", choices=recomp_env.RENDERER_CHOICES, default=None,
         help="direct (GPU; stops on a case it does not support) or software; "
-        "default direct on Windows, software elsewhere",
+        "default direct on Windows, software elsewhere and in --mode dev",
     )  # fmt: skip
     ap.add_argument("--headless", action="store_true", help="keep the window hidden and run muted")
+    ap.add_argument(
+        "--mode", choices=("play", "dev", "edited"), default="play",
+        help="launch mode (spec 008 phase M): play, the shipped game; dev, Develop: Cryo's "
+        "developer tools and their host bindings (keypad 1-5, the editor's mouse and call); "
+        "edited, Play edits: the developer folder's game with the tools off",
+    )  # fmt: skip
+    ap.add_argument(
+        "--tree", metavar="DIR",
+        help="--mode dev|edited: the developer folder (default DREAMS_OUT/recomp/windream/"
+        "developer, made from the two disc images by disc_list --copy-merged when missing)",
+    )  # fmt: skip
     ap.add_argument(
         "--mute", action="store_true", help="mix silently without opening an audio device"
     )
@@ -214,8 +227,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )  # fmt: skip
     ap.add_argument(
         "--overlays", action="store_true",
-        help="start with the retail debug flags on (in game: keypad 1 Frame Rate/Mem 3DTR, "
-        "2 object HUD, 3 collision view: hold Backspace; off here: 4 step 2.0, 5 editor flag)",
+        help="start with the retail debug flags on (in game, with --mode dev: keypad 1 Frame "
+        "Rate/Mem 3DTR, 2 object HUD, 3 collision view: hold Backspace; off here: 4 step 2.0, "
+        "5 editor flag)",
     )  # fmt: skip
     ap.add_argument(
         "--poke", action="append", default=[], metavar="VA=VALUE",
@@ -247,13 +261,49 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ap.error("--headless and --fullscreen cannot be combined")
     if args.tag and not re.fullmatch(r"[A-Za-z0-9_-]+", args.tag):
         ap.error("--tag must contain only letters, numbers, underscores or hyphens")
+    if args.renderer is None:
+        args.renderer = "software" if args.mode == "dev" else recomp_env.renderer_default()
     try:
-        args.disc_paths = disc_sources(args.discs, args.disc1, args.disc2)
+        if args.mode == "play":
+            args.images = None
+            args.disc_paths = disc_sources(args.discs, args.disc1, args.disc2)
+        else:
+            # The developer folder is made from the images; Play edits plays their CD audio.
+            args.images = disc_sources(args.disc1 is None, args.disc1, args.disc2)
+            args.disc_paths = args.images if args.mode == "edited" else None
     except ValueError as error:
         ap.error(str(error))
+    if args.mode != "play" and (args.exe or args.read_roots):
+        ap.error(
+            "--mode dev|edited reads everything from the developer folder: "
+            "--exe and --read-roots do not apply"
+        )
     if args.disc_paths and (args.exe or args.read_roots):
         ap.error("disc mode reads everything from the discs: --exe and --read-roots do not apply")
+    if args.tree and args.mode == "play":
+        ap.error("--tree needs --mode dev or --mode edited")
     return args
+
+
+def developer_folder(args: argparse.Namespace, out: Path) -> Path | None:
+    """The developer folder of --mode dev|edited, made or completed from the two
+    disc images (disc_list --copy-merged resumes and skips what is in place).
+    None, with the reason printed, when disc_list is not built or the copy fails."""
+    tree = Path(args.tree).resolve() if args.tree else out / "developer"
+    tool = recomp_env.disc_tool()
+    if not tool.exists():
+        print(
+            f"{tool} does not exist; build it first: uv run python recomp/disc/build.py",
+            file=sys.stderr,
+        )
+        return None
+    copy = subprocess.run(
+        [str(tool), "--copy-merged", *args.images, str(tree)], capture_output=True, text=True
+    )
+    if copy.returncode != 0:
+        print(f"cannot make the developer folder {tree}: {copy.stderr.strip()}", file=sys.stderr)
+        return None
+    return tree
 
 
 def prepare(args: argparse.Namespace) -> tuple[list[str], dict[str, str], Path] | None:
@@ -268,9 +318,14 @@ def prepare(args: argparse.Namespace) -> tuple[list[str], dict[str, str], Path] 
     # Backspace collision wireframe visible (its next three bytes are also 0).
     overlays = ["0x49d5c0=1", "0x49d5d0=1", "0x4ac8c8=1"]
     pokes = (overlays if args.overlays else []) + args.poke
-    # Disc mode starts the host without an exe path: it loads the disc's.
-    exe = [] if discs else [args.exe or str(paths.disc(1) / "GDIDREAM.EXE")]
+    # Disc mode and the developer folder start the host without an exe path:
+    # it loads the disc's or the folder's.
+    tree_mode = args.mode != "play"
+    exe = [] if discs or tree_mode else [args.exe or str(paths.disc(1) / "GDIDREAM.EXE")]
     out = recomp_env.out_dir("windream")
+    tree = developer_folder(args, out) if tree_mode else None
+    if tree_mode and tree is None:
+        return None
     run = out / ("run-" + args.tag if args.tag else "run")
     run.mkdir(exist_ok=True)
     if args.capture_scene:
@@ -282,10 +337,12 @@ def prepare(args: argparse.Namespace) -> tuple[list[str], dict[str, str], Path] 
     unattended = args.seconds > 0
     env = dict(
         os.environ,
-        WD_READ_ROOTS="" if discs else args.read_roots or read_roots(),
+        WD_READ_ROOTS="" if discs or tree_mode else args.read_roots or read_roots(),
+        WD_TREE=str(tree) if tree else "",
         WD_DISC1=discs[0] if discs else "",
         WD_DISC2=discs[1] if discs else "",
-        WD_DATA_DIR=str(run / "sandbox") if discs else "",
+        WD_DATA_DIR=str(run / "sandbox") if discs or tree_mode else "",
+        WD_MODE="" if args.mode == "play" else args.mode,
         WD_KEYS=args.keys,
         WD_SNAP_MS=str(args.snap_ms) if args.snap_ms else "",
         WD_FPS=str(args.fps),  # "0" = uncapped (an empty value would unset it)

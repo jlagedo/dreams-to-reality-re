@@ -37,6 +37,17 @@ RENDER_ENTRIES = frozenset(
     }
 )
 
+# Host replacements outside the renderer (host/sdl/launch_mode.c), installed
+# by launch mode (docs/specs/008-editor-restoration/spec.md): CD_OpenAudio.
+HOST_ENTRIES = frozenset(
+    {
+        0x4042F1,
+    }
+)
+
+# Every entry that gets a wrapper, a reference original and a wd_try_replace call.
+REPLACEABLE_ENTRIES = RENDER_ENTRIES | HOST_ENTRIES
+
 
 def wrap_entry(body: str, address: int) -> str:
     public = f"sub_{address:08X}"

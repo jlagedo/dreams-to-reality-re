@@ -107,6 +107,40 @@ int disc_sha256_file(const Disc* disc, const DiscEntry* file, char hex[65]);
 /* SHA-256 of a memory block, same output format (also the self-test hook). */
 void disc_sha256_buffer(const void* data, size_t n, char hex[65]);
 
+/* ---- the two discs as one tree ---- */
+
+/* Where a merged copy stands, for a progress display. path is the file being
+ * copied or checked, relative, '/'-separated (valid during the call only). */
+typedef struct DiscCopyProgress {
+    uint64_t bytes_done, bytes_total;   /* of the files the copy writes */
+    int files_done, files_total;        /* every file of the merged tree, skipped ones included */
+    int files_skipped;                  /* already in place at their full size (a resumed copy) */
+    const char* path;
+} DiscCopyProgress;
+/* Called before each file and after each block written; a nonzero return cancels. */
+typedef int (*DiscCopyFn)(void* ctx, const DiscCopyProgress* progress);
+
+/* Copy every file of disc1 and disc2 into dest (created, with its parents
+ * missing at most one level) as one tree: the developers' single data tree,
+ * which the Develop launch mode plays from (docs/specs/008-editor-
+ * restoration/spec.md, phase M). The rules:
+ *   - a path both discs have comes from disc 1, the newer copy of every file
+ *     that differs (DREAMS.DAT, DATA\HNM\INTRO.HNM, DATA\ICONE\ICONES.BF,
+ *     DATA\HD.ID), except DATA\UNIVBE\UVCONFIG.EXE, newer on disc 2 (a DOS
+ *     tool the Windows game never reads);
+ *   - disc 1's DATA\FULL.ID is left out: in one tree that is both the CD root
+ *     and the install root it would switch the game to its copy-to-hard-disk
+ *     mode, which purges the level files;
+ *   - disc 2's DATA\GAME directory is left out: leftover saves of another
+ *     version that the game would offer as the player's own;
+ *   - a directory both discs have keeps disc 1's spelling.
+ * Resumable: a file already in dest with the source's size is skipped, and
+ * each file is written to <name>.part and renamed when complete, so an
+ * interrupted copy leaves no short file under a real name. Returns 0, 1 if
+ * the callback cancelled, or -1 with a message in err (when err_size > 0). */
+int disc_copy_merged(const Disc* disc1, const Disc* disc2, const char* dest, DiscCopyFn progress, void* ctx,
+                     char* err, size_t err_size);
+
 /* ---- audio tracks ---- */
 
 /* Number of tracks the disc has, data and audio (an .iso has 1). */

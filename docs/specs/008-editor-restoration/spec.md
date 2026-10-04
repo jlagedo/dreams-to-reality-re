@@ -251,9 +251,34 @@ counts Nb and the picker that pages it:
 | Anim | d64 / d58 / d80 | 448937, 44902b |
 | Sym | d60 / d74 / d3c | 4489ab, 44a990 |
 
-Still to pin: the engine globals the July menu binds (A4.4). A lead: the
-four dwords `0x4a0f68`–`0x4a0f74`, tested and never written (stuck at 1),
-sit where July's `_MAP_Anim*Ok` would be by data order **[unverified]**.
+Engine globals the July menu binds, pinned 2026-10-04 (27 leaves on 22
+symbols, each proven by a matched July/retail function pair; rows in
+`out/research/phase1-globals/engine-globals.tsv`, the source of phase 1's
+bindings table) **[verified in code]** except `_K_OBJ_TARGET_PAS`
+**[verified in data]**:
+
+| Original name | Retail | Proof (July = retail) | Same meaning? | Rule |
+|---|---|---|---|---|
+| `_TableParticleGravity` +0/+4/+8/+0x20 | 4a2fc4 / c8 / cc / e4 | `PAR_InitParticlesAttract_` = `PART_SetAttractor` 0x43b9ae; `ShowGravityFirst_` = 0x43ca25 | yes: both overwrite attractor 0 every tick with the player's position, strength 4 | keep (a live readout) |
+| `_TablePlaneGravity` +4 (Y min) | 4a3088 | the contact-plane mover = 0x43c5c1 | yes; particle type 3 only (1 level) | keep |
+| `_TablePlaneGravity` +0, +8 (X, Z min) | 4a3084, 4a308c | PARTICLE.C block offset | unread in both builds | hide |
+| `_ParticuleSprite` | 4a2f9c | 0x43ca25, 0x43ca8e | only dead code reads it | hide |
+| `_particule0Immortel` | 4a2fb0 | `CompParticles_` = 0x43cc32 | yes | keep |
+| `_particuleResetNeg` | 4a2fac | 0x43cc32 (0 reloads the level's particles, then 1) | yes | keep |
+| `_K_OBJ_TARGET_MIN` / `MAX`, `_K_OBJ_BACK_MIN` / `MAX`, `_Y_LOW_FOLLOW_OBJ` / `_Y_HIGH_` | 49d1cc / d0, d8 / dc, e4 / e8 | `calc_new_cam_and_target_pos_` = `CAM_UpdateFollowPos` 0x40a866; `CAM_InitCameraParam_` = `CAM_LoadPreset` 0x40b729; `calc_new_walk_parm_` = `CAM_ComputeChasePos` 0x409de2 | **no**: retail reloads them every follow frame (below) | shown, not wired (owner, 2026-10-04) |
+| `_K_OBJ_TARGET_PAS` | 49d1d4 | layout; initial 25 in both | unread | hide |
+| `_K_OBJ_BACK_PAS` | 49d1e0 | the same eye-height formula in both | yes | keep, minimum 1 (ours: 0 divides by zero on the x87 in both builds) |
+| `_SpeedCamera` | 49d1f0 | chase/orbit divisor, rewritten every frame | yes | keep |
+| `_SpeedTarget` | 49d1f4 | chase/orbit/`CAM_TickTrack` divisor | yes | keep, minimum 1 |
+| `_MAP_AnimHnmOk` / `Plasma` / `Scroll` / `Color` | 4a0f68 / 6c / 70 / 74 | `SCENE_HasAnimTexture`, `SCENE_StartAnimTexture`, `SCENE_TickPaletteLighting` 0x42f024 (the same gates in the same order) | yes | keep |
+| `_MAP_AnimParticleOk` | 4a0f78 | MAPANIM.C block offset | unread | hide |
+| `_MaxiLoad` ("Debug") | **49d9f0** | `testImportNewScene_` = `SCENE_LoadLevel` (the same test at 0x41fb78) | yes; initial 1, never written | keep |
+| `_exitDos` | 4a4780 | `GAME_TickFrame`, `WinMain` | yes | keep: the retail exit node (`0x4a4784`, flags 6) already binds it |
+
+Retail block offsets for the three modules: CAMERA.C `+0x3d2050`,
+PARTICLE.C `+0x3d82a0`, MAPANIM.C `+0x3d5db4`. The retail initial values
+equal July's except where retail inserted variables (the camera preset
+table at `0x49d1f8`, the fight-mode toggle at `0x49d9f4`).
 
 ## A4. How it is built
 
@@ -357,11 +382,46 @@ Multi-frame chains:
 | `_CurrentSceneLinkS` | 18 | |
 | `_CurrentSceneBoxS` | 8 | |
 | `_Sema*` buttons | ~45 | create/load/save/delete/pickers |
-| Engine globals | ~21 | `_TableParticleGravity` (attractor 0), `_TablePlaneGravity` (contact plane), `_K_OBJ_*`, `_Y_LOW/HIGH_FOLLOW_OBJ`, `_SpeedCamera`, `_SpeedTarget`, `_MAP_Anim*Ok` (5), `_ParticuleSprite`, `_particule0Immortel`, `_particuleResetNeg`, `_MaxiLoad`, `_exitDos` |
+| Engine globals | 27 leaves on 22 symbols (A3) | `_TableParticleGravity` (attractor 0), `_TablePlaneGravity` (contact plane), `_K_OBJ_*`, `_Y_LOW/HIGH_FOLLOW_OBJ`, `_SpeedCamera`, `_SpeedTarget`, `_MAP_Anim*Ok` (5), `_ParticuleSprite`, `_particule0Immortel`, `_particuleResetNeg`, `_MaxiLoad`, `_exitDos` |
 
-The engine-global leaves are session tweaks, not bank data: the Option
-branch tunes the live camera, then the per-project camera fields under
-Project carry values into the record.
+The engine-global leaves are session tweaks, not bank data. In July the
+Option branch tuned the live camera (the six follow constants were loaded
+once per level, `ReInit3dEngine_` → `CAM_InitCameraParam_`) and the
+per-project camera fields under Project carried values into the record. In
+retail `CAM_TickFollow` reloads the six every frame (`CAM_ApplyCloseRange` →
+`CAM_LoadPreset`) from the preset table row `0x49d2bc` and the record's
+`+0x120..+0x134` and `+0x1d8` when non-zero, so the Project > Camera leaves
+act live from the next frame and the Option > Camera globals keep no edit
+**[verified in code]**.
+
+**Known not to work: Option > Camera.** The six sliders (Target min and
+max, Back min and max, Y low and high follow) are shown with their July
+labels and July ranges, but each is bound to a host-only cell of its own
+(`shim_alloc`), not to the retail global, so dragging one moves the slider
+and changes nothing in the game (owner, 2026-10-04). Binding them to the
+globals would look broken (the next frame overwrites the value); binding
+them to the camera preset table would change the camera of every level
+without its own values, only on camera preset 0, and only until the game
+restarts. To tune a level's camera, use Project > Camera: retail reads
+those fields every frame and saves them with the level. Each cell starts
+at the retail global's initial value, so the slider shows what the game
+starts with.
+
+Every reference to the six, checked 2026-10-04 (lifted code; script
+`out/research/phase1-globals/camera_refs.py`) **[verified in code]**: the
+follow camera reads them (`CAM_UpdateFollowPos` `0x40a866`,
+`CAM_ComputeChasePos` `0x409de2`, `CAM_ApplyCloseRange` `0x409ba0`);
+`CAM_LoadPreset` (`0x40b729`) writes them, from `CAM_ApplyCloseRange` on
+every follow tick with no condition, from the Alt+5…Alt+0 presets and at
+level load. No cutscene camera mode (fixed, track, entity pair, ride,
+overhead, free) reads them, so they never shaped a cutscene. Since
+`CAM_TickFollow` runs `CAM_UpdateFollowPos` before the reload, a write
+would last one frame at most. One more writer is dead: `0x40b8d3`, called
+by `ENT_TickPlayerControl` every frame, jumps from its prologue straight
+to its epilogue (`0x40b8ee`); its body set the six, `_K_OBJ_BACK_PAS`,
+`_SpeedCamera` and `_SpeedTarget` by movement mode (walking: target
+0x220–0x43c; swimming or flying: 0x20) and eased them in combat stance, a
+camera behaviour switched off for release.
 
 ### A4.5 Node format
 
@@ -379,7 +439,7 @@ Project carry values into the record.
 | Flag | Meaning | Nodes |
 |---|---|---|
 | 0x01 | runtime: selected / expanded | — |
-| 0x02 + 0x04 (6) | button: reaching it toggles its value to 1, deselects, waits 50 ms; sticky (does not collapse siblings) | 49 |
+| 0x02 + 0x04 (6) | button: reaching it toggles its value (`v = (v + 1) & 1`, leaf editor `0x44cd62`), deselects, waits 50 ms; sticky (does not collapse siblings) | 49 |
 | 0x40 | bit toggle on the mask: shows `(v & mask) != 0`, writes `(v & ~mask) \| mask·new` | 54 |
 | 0x08 / 0x10 / 0x20 | key `0` copies X / Y / Z of `_ObjetReference` | 8 / 10 / 8 |
 | 0x80 | key `0` copies the angle | 2 |
@@ -701,7 +761,7 @@ shots and do not.
 | Demo recorder | `r` / F3 records; title menu and idle play `REPLAY.BIN` (1,848 frames) | start and load dead, the save `0x40edaf` live but reached only when the buffer fills; shipped `REPLAY.BIN` is a DOS recording (104-byte records; Windows packs the same struct in 112) | `0x49d34a` |
 | "Collision view" | never written (BEN11 `_build_list`) | never written | `0x4ac8c8` |
 | Renderer profiler (`3DC_PROF.C`) | DOS software and Windows, behind `_rendertype` | Windows: whole module present, uncalled; DOS Glide: gate never written | `_rendertype` (DOS Glide `0x104f38`) |
-| `_MaxiLoad` ("Debug" leaf) | menu | reused by the Options page | `0x49d9f4` |
+| `_MaxiLoad` ("Debug" leaf) | menu | kept, never written (initial 1); the Options page's fight toggle is the new variable after it | `0x49d9f0` |
 | `printmemory_` | uncalled | uncalled / empty | — |
 | Free-fly camera | `-` | camera code live, no sender of message `0x31` | — |
 | Overhead camera | `9` | camera code live, no sender of `0x30` | — |
@@ -943,6 +1003,8 @@ gaps are filled (owner, 2026-10-03). Four rules apply it (owner,
 | Full bank | **Project Create refuses with an on-screen message when no slot is free**; Delete frees one (2026-10-03, accepted as recommended) | All 150 shipped records are in use (July had 12 free); retail Create with no free slot still clears the live level **[verified in code and data]** |
 | Where files go | Into the developer folder, in place: `DREAMS.DAT` and `EDITOR.DAT` at its root, `DATA\TGA\` captures, `DATA\REPLAY.BIN`, saves in `DATA\GAME\`, the mastering lists of phase 6; never a disc image or the retail install | Follows from the developer-folder decision |
 | Call site | Keep candidate 1 (`0x41743a`) | Fits every constraint; candidate 2 is equal and unproven |
+| Launcher layout | **A mode row at the top of the launcher window**, Play / Develop / Play edits, above the disc setup and always visible; a new **Develop** tab beside Display, Keyboard and Gamepad holds the developer folder's status (size, initialized), the copy's progress, **Reset edits** and the full key list with its clashes (owner, 2026-10-04) | Owner decision |
+| Where the keys are shown | **The launcher's Develop tab and the console window**, which prints the key list when Develop starts; Cryo's in-game F10 key help stays retail (owner, 2026-10-04) | Owner decision; no host-drawn text in the game |
 | Console | **A separate console window** that keypad 9 opens and closes in Develop (a console window on Windows, the terminal on Linux), showing the game's own `printf` diagnostics and the dump helpers' output (owner, 2026-10-03) | No new in-game UI; the output already reaches `stdout.txt` (spec 005) |
 | Keyboard | **DOS keys** (owner, 2026-10-03): in Develop the host reads commands as typed characters, as the DOS build did, and held controls (arrows, Alt, Ctrl, Space, PgUp…) as physical keys. Rules: a key the host consumes as an editor or developer command is hidden from the game (key state and event); while the editor is on, editor commands win over the July developer keys; keypad text is ignored (the keypad stays host keys). Key tables and clashes: phase 2 | Owner decision, superseding Page Up and Ctrl+1..4. The developers worked in DOS (A11.3); the July Windows key map is a translation accident (A5.4) |
 | Toggle | **`!`, read as a character** (one key on AZERTY, Shift+1 on QWERTY); keypad 5 stays as an alias. Consumed by the host, never passed to the game; in Play and Play edits it reaches the game unchanged | Owner decision. It frees PgUp for the free camera, as in DOS. `sceneKeyboard_` reads 0x21 as "paste link", so in July one press toggled the editor and pasted a link; paste link moves to Ctrl+Shift+3 |
@@ -1094,6 +1156,24 @@ in Develop and no "MCI Error" box appears; Play edits plays the folder's
 project missing from the bank (made with `bank_patch.py`) is refused with
 the Load page's message (phase 7).
 
+Built 2026-10-04 (branch `spec-008-phase-m`): `host_mode` and the gates
+(`host/sdl/user.c`), tree mode on desktop builds (`host/sdl/files.c`,
+`WD_TREE`), the `CD_OpenAudio` replacement (`host/sdl/launch_mode.c`,
+`lift/replacements.py` `HOST_ENTRIES`), `disc_copy_merged` and `disc_list
+--copy-merged` (`recomp/disc/merge.c`), `run.py --mode` and `--tree`, and the
+launcher's mode row, Develop tab, copy with progress and resume, and Reset
+edits. Checked live through the control channel and the launcher's own
+`--play`: Play keeps keypad 1 inert and plays CD track 9 from disc 1;
+Develop reads every file from the folder (the `CRYO\DREAMS` prefix
+stripped), toggles keypad 1, has no `cd` event and no "MCI Error" box;
+Play edits reads the folder and plays track 9 from disc 1; the merged
+folder (655 MB) has no `FULL.ID` and no `DATA\GAME`, and its five
+differing files are the expected discs' **[verified in the recomp]**.
+Still to check: a disc-2 level in Develop and Play edits (the swap frame
+and disc 2's audio), a save carried from Develop to Play edits, the
+Linux build of the launcher and of tree mode, and the keypad 6–9 and
+DOS-key bindings, which phases 2 and 7 add.
+
 ### Phase 1 — the July menu
 
 1. **Extract.** A build step reads the July `DREAMS.EXE` (path from
@@ -1118,7 +1198,7 @@ the Load page's message (phase 7).
    | The final bank holds values outside the July range | widen the range to cover them | oxygen `+0x114` up to 10000 (July 0..100), fog density up to 75 (0..32), dialogue up to 177 (`DIALOG.DRD` has 178 entries; July 0..127 or 0..64), BOX intensity down to −600 (0..1000) |
    | The bank sets the field, no retail code reads it | keep, labelled "no effect", so the data stays editable | `+0x13c` "Bruit pas", `+0x1f4` "Perso Integration", action `0x10` "Flag Ele Src KILL" |
    | No retail reader and never set in the bank | hide | `+0xac` "Sphere move", LINKADVENT source box `+0x10` |
-   | Bound to an engine global (camera constants, particle attractor 0, contact plane, animated-material switches) | keep only where the retail global is found and means the same | "Debug" → `_MaxiLoad`: retail reused that address (`0x49d9f4`) for an Options toggle, so it is dropped unless proven the same |
+   | Bound to an engine global (camera constants, particle attractor 0, contact plane, animated-material switches) | keep only where the retail global is found and means the same (A3, pinned 2026-10-04): 16 keep, 5 hide, 6 shown but not wired | "Debug" → `_MaxiLoad` at `0x49d9f0` is kept (same test in `SCENE_LoadLevel`); the six Option > Camera follow constants are shown with July's labels but bound to host-only cells, because retail reloads the globals every frame (owner, 2026-10-04; A4.4 "Known not to work"). Rebinding them to the camera preset row 0 (`0x49d1f8`…) was considered and declined |
 
    A slider maps 128 pixels onto its range, so a widened range moves in
    coarser steps (oxygen 0..10000: about 78 per pixel); position capture
@@ -1275,8 +1355,9 @@ camera presets; Alt+X quit; menus: arrows, Return, Esc, Tab, Backspace.
 | `§`, `µ`, `ù` exist only on French layouts | layout | Ctrl+Shift+2, Ctrl+Shift+4; the object page needs AZERTY |
 
 The free camera and the editor do not clash: the camera stops while the
-editor is on (A5.4). All keys and clashes go into the in-game key help and
-the README.
+editor is on (A5.4). All keys and clashes are listed in the launcher's
+Develop tab, printed by the console window when Develop starts, and in the
+README (B1); Cryo's F10 key help stays retail.
 
 Acceptance: `a` creates nothing and `A` (Shift+a) creates `Project<n>` in
 phase 4's bank (or refuses when the bank is full); `Z` then a mesh pick
@@ -1400,7 +1481,7 @@ except where noted as host-only.
 | Profiler overlay | keypad 8 | host-only: times frame, 3D render, animation and collision, and draws Cryo's bar layout itself (`cpu_init_lib_` hangs in `vbl_`, a double start calls `getch_`) | the bar tracks the frame time |
 | Console window | keypad 9 | host-only: opens or closes a console window (Windows) or uses the terminal (Linux) showing the game's stdout; the dump helpers print there | Cryo's diagnostics appear as the game prints them |
 | Save page | keypad 0 | host opener, text entry, then the save Cryo's confirm never makes (below) | type "Dev Save 1", Return: `game.dat` lists it with its own `game<n>.dat` (11,388 bytes) and `.ico`; after changing health or inventory, loading it from Shift+`L` restores level, health, magic and inventory; Esc leaves `game.dat` byte-identical; a duplicate title is refused; a first save in a fresh folder on P0 lands in an empty slot; `r`, `-`, `9` typed on the page are text |
-| Demo recorder | `r`, `R` | below | a recording of a scripted run saves with the expected count and returns to the title; replayed from a new game it follows the recorded positions exactly until the first key edge and within 50 units after, ends at its last record and returns to the title with input working; Space stops it; the shipped 104-byte file is refused |
+| Demo recorder | `r`, `R` | below | a recording of a scripted run saves with the expected count and returns to the title; replayed from a new game it follows the recorded positions exactly until the first key edge and within 50 units after, ends at its last record and returns to the title with input working; Space stops it; a playback that reaches the player's death is stopped by the host with input working; the shipped 104-byte file is refused |
 | Render classes | `e f l v` | host calls `0x4577cc` on `[0x4fbdbc]` | the level's texturing changes and changes back |
 
 TGA capture: create `data\tga` in the developer folder before the first
@@ -1430,7 +1511,14 @@ Three retail quirks matter:
   `ENT_HasInventoryItem` is case-sensitive and pick-ups store upper case,
   so a held `VITESSE` or `INVIVIB` stops counting: the only exits of
   Projects 99 and 100 (LINK0, "Link with Objet") close, and Project 10's
-  `HOLO` rules change **[verified in the recomp for Project 99]**.
+  `HOLO` rules change **[verified in the recomp for Project 99]**. The
+  pick-ups do not respawn while the level's record is in the 8-entry
+  level-state ring (`SCENE_RestoreLevelState` hides actors saved with life
+  0; Project 100's `INVIVIB` appears only through a LINKADVENT whose source
+  is then restored as removed), and the ring travels with saves, so a
+  player who returns to Project 99 or 100 holding only the lower-case
+  spelling is stranded until eight newer levels push the record out
+  **[verified in the recomp for Project 99]**.
 - Message `0x41` is posted even when the add is refused, so a full
   inventory leaves a "ghost" hotkey; with the HUD hidden all 14 messages
   pick hotkey slot 0.
@@ -1493,20 +1581,33 @@ records, then quits to the title (`0x4a4780`, reset `0x49d5d8`). Replay:
 `0x40ee88` loads (no size check) and calls `0x40dac2`, which sets input
 device mode 4 and reloads the level at record 0's position;
 `DEMO_PlayFrame` (`0x40e4ed`) ORs each next record's words (edges arrive a
-frame early) and pulls the position halfway to the record; it ends at the
-last record or on Space and returns to the title. Neither the level nor the
+frame early) and pulls the position halfway to the record (only x and z
+while walking, `+0x34 == 1`: height is left to physics); it ends at the
+last record or on Space and returns to the title, but not once the player
+dies: the death path opens the system page and playback, with input still
+in demo mode, stays there and Space no longer stops it **[verified in the
+recomp]**. Neither the level nor the
 random seed is stored, so playback is approximate by design: at the fixed
 step it matched exactly until the first key edge and then within 42 units;
 under `--retail-timing` it drifted further, and a caption sequence during
 playback left input dead after the stop (retail bug) **[verified in the
 recomp]**. The 104-byte shipped records are the same struct packed by the
 DOS compiler; retail plays a few frames of it and returns to the title.
+July's own 1,848-frame recording (the attract demo, project 0 `H18ANGKR`,
+made with the editor bank's spawn), repacked to 112 bytes, plays
+faithfully for 910 records on retail data (walk, jump, take-off, flight;
+11–13 units off walking, 3.6 in flight), then retail ends the flight
+early, Duncan walks off the level and dies, and playback hangs on the
+death page **[verified in the recomp]**; cut to about 900 records it would
+end cleanly **[unverified]**.
 
 Host recipe: `r` (editor off) calls `0x40db80` and sets `0x49d5dc = 1`,
 or with `0x49d5dc == 1` calls `0x40edaf` and clears it, as July's key did,
 from `wd_editor_frame` with no video, load or fade under way and playback
 not running; Cryo's return to the title is kept. `R` (owner, 2026-10-04; editor
-off; it is Box Create with the editor on) replays: the host refuses
+off; it is Box Create with the editor on) replays, and the host stops
+playback (`DEMO_StopPlayback`'s effects) when the game opens a menu page or
+the player dies (host-only guard against the hang above); the host refuses
 `DATA\REPLAY.BIN` unless its size is 4 + n·112 with 1 ≤ n ≤ 6,144, saves
 the input device mode `0x49d2f8`, calls `0x40ee88`, and restores the mode
 when playback ends (host-only fix for the caption bug). `FILE_GetInstallRoot`
@@ -1587,7 +1688,7 @@ every editor page and tool works under the direct renderer (owner,
 | A save names a project missing from the bank, or is foreign or the wrong size | the save guard refuses it before anything is overwritten (B1, Saves; phase 7) |
 | Give all items renames an item the player already holds (`VITESSE` → `vitesse`), and the case-sensitive held test then closes the exits of Projects 99 and 100 | the host restores held entries after the sequence (phase 7) |
 | A demo replay leaves input dead after a caption sequence (retail bug) | the host saves and restores the input device mode around playback (phase 7) |
-| The first Develop launch is interrupted or runs out of space | the launcher writes the "initialized" marker only after a complete copy (about 480 MB merged, `disc-layout.md`) and resumes a partial one, skipping files present at full size (phase M) |
+| The first Develop launch is interrupted or runs out of space | the launcher writes the "initialized" marker only after a complete copy (655 MB merged, measured 2026-10-04) and resumes a partial one, skipping files present at full size (phase M) |
 | An editor draw stops the direct renderer | Develop runs on the software renderer until phase D; the direct smoke at the end of each phase finds such draws early |
 | Capture under the direct renderer writes black | not reached before phase D (Develop is software); the proposed `SaveImage_` replacement there |
 | `FULL.ID` or disc 2's saves reach the folder | excluded from the copy and `FULL.ID` hidden by the host (phase M) |
@@ -1625,24 +1726,25 @@ every editor page and tool works under the direct renderer (owner,
 - Why July's `!` saved `data\game.dat`, which no build reads.
 - The meaning of project `+0x14` bits 16–18, which Delete clears.
 - Whether Space and Esc on a picker page also act in the game.
-- Whether the host can serve files from the folder and CD audio from the
-  images at once (Play edits).
-- Whether the `VITESSE` and `INVIVIB` pick-ups respawn when the player
-  returns to Projects 99 and 100.
-- How July's 1,848-frame recording would play if repacked to 112 bytes.
+- Play edits on a disc-2 level: whether the marker rule switches its CD
+  audio to disc 2's tracks (files from the folder and audio from disc 1
+  were checked live on 2026-10-04).
 - Where the main menu can show the save guard's message (phase 7).
+- Whether `VITESSE` or `INVIVIB` can be used up, which would strand a
+  returning player even in retail.
 - Decided in phase D: TGA capture under the direct renderer (a
   `SaveImage_` replacement is proposed) and whether the render classes are
   ported or stay software-only.
 
 ## B6. Work items
 
-1. Pin the engine globals the July menu binds (A3, "Still to pin"); the
-   editor's own addresses were pinned on 2026-10-03.
+1. Done 2026-10-04: the editor's addresses and the engine globals the
+   July menu binds are pinned (A3).
 2. Bindings table with proofs (phase 1, step 2).
 3. Tree extraction and install (phase 1).
 4. DOS-character keys, the consumed-key rules and the developer-key
-   bindings (phase 2), with the in-game key help and the README.
+   bindings (phase 2), with the key list in the launcher's Develop tab,
+   the console window and the README.
 5. Generalized replacement table; picker replacements (phase 3).
 6. Host bank, `_LoadSaveSceneSPtr` binding, recompression (phase 4).
 7. Export and the byte-identity test (phase 5).

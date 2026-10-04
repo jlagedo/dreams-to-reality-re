@@ -44,6 +44,30 @@ struct PickContext {
     int row;
 };
 
+// The developer folder's copy (make_developer_folder) on its own thread, so the
+// window keeps drawing its progress. The job owns a snapshot of the model.
+struct CopyJob {
+    Model snapshot;
+    SDL_Thread* thread = nullptr;
+    SDL_Mutex* lock = nullptr;
+    SDL_AtomicInt cancel{}, finished{};
+    CopyProgress progress;  // under lock
+    int result = 0;         // 0 done, 1 cancelled, -1 failed; read once finished
+    std::string error;
+};
+int SDLCALL copy_thread(void* userdata) {
+    CopyJob* job = (CopyJob*)userdata;
+    auto report = [job](const CopyProgress& p) {
+        SDL_LockMutex(job->lock);
+        job->progress = p;
+        SDL_UnlockMutex(job->lock);
+        return SDL_GetAtomicInt(&job->cancel) == 0;
+    };
+    job->result = make_developer_folder(job->snapshot, report, &job->error);
+    SDL_SetAtomicInt(&job->finished, 1);
+    return 0;
+}
+
 void SDLCALL on_picked(void* userdata, const char* const* list, int /*filter*/) {
     std::unique_ptr<PickContext> ctx((PickContext*)userdata);
     std::lock_guard<std::mutex> g(ctx->queue->lock);
@@ -69,8 +93,54 @@ struct Ui {
     std::string last_dialog_start;   // test only: the folder the last Browse would have opened
     int last_dialog_row = -1;
     std::string tab_shown;
+    std::unique_ptr<CopyJob> copy;   // a developer-folder copy in progress
+    std::string copy_state = "idle"; // idle running done cancelled failed (a test fact)
+    std::string dev_notice, dev_error;
 
     explicit Ui(Model& model) : m(model) {}
+    ~Ui() { stop_copy(); }
+
+    // ---- the developer folder ----
+
+    void start_copy() {
+        copy = std::make_unique<CopyJob>();
+        copy->snapshot = m;
+        copy->lock = SDL_CreateMutex();
+        copy_state = "running";
+        dev_error.clear();
+        copy->thread = SDL_CreateThread(copy_thread, "developer folder", copy.get());
+        if (!copy->thread) {
+            dev_error = std::string("cannot start the copy: ") + SDL_GetError();
+            copy_state = "failed";
+            SDL_DestroyMutex(copy->lock);
+            copy.reset();
+        }
+    }
+    // Waits for a running copy to end (cancelled first when asked).
+    void stop_copy(bool cancel = true) {
+        if (!copy) return;
+        if (cancel) SDL_SetAtomicInt(&copy->cancel, 1);
+        SDL_WaitThread(copy->thread, nullptr);
+        SDL_DestroyMutex(copy->lock);
+        copy.reset();
+    }
+    // A finished copy: Play goes on, or the reason shows.
+    void poll_copy() {
+        if (!copy || !SDL_GetAtomicInt(&copy->finished)) return;
+        int result = copy->result;
+        std::string error = copy->error;
+        stop_copy(false);
+        if (result == 0) {
+            copy_state = "done";
+            play = true;
+        } else if (result == 1) {
+            copy_state = "cancelled";
+            dev_notice = "Copy cancelled. Play in Develop goes on from where it stopped.";
+        } else {
+            copy_state = "failed";
+            dev_error = error;
+        }
+    }
 
     // Test only: tell the script where the widget just submitted is.
     void track(const std::string& id) {
@@ -227,6 +297,8 @@ struct Ui {
         ImGui::SameLine(em * 4.5f + path_w + ImGui::GetStyle().ItemSpacing.x);
         ImGui::BeginDisabled(picking);
         if (ImGui::Button("Browse...")) browse(i);
+        // A first start with nothing to play lands on the first Browse, not on the mode row above.
+        if (i == 0 && first_frame && !m.play_blocker().empty()) ImGui::SetItemDefaultFocus();
         if (testing::kEnabled && script) track("browse" + std::to_string(i + 1));
         ImGui::EndDisabled();
 
@@ -254,6 +326,10 @@ struct Ui {
         static const char* const renderer_ids[] = {"software", "gpu"};
         ImGui::SetNextItemWidth(w);
         if (combo("##renderer", "renderer", &r, renderers, renderer_ids, 2)) s.gpu = r == 1;
+        if (s.mode == LaunchMode::Develop && s.gpu) {
+            ImGui::SameLine();
+            ImGui::TextColored(kGrey, "Develop uses the original one");
+        }
 
         label("Fullscreen window", lw);
         ImGui::Checkbox("##fullscreen", &s.fullscreen);
@@ -458,6 +534,148 @@ struct Ui {
         }
     }
 
+    void draw_develop_tab() {
+        float em = ImGui::GetFontSize();
+        std::string dir = m.developer_dir();
+        bool ready = m.developer_ready(), started = m.developer_started();
+        ImGui::TextWrapped("Develop plays from the developer folder, one tree made once from the two discs, where "
+                           "Cryo's editor and developer tools write as they did for the developers. Play edits plays "
+                           "the same folder with the tools off.");
+        float lw = ImGui::CalcTextSize("Developer folder").x + ImGui::GetStyle().ItemSpacing.x * 2;
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted("Developer folder");
+        ImGui::SameLine(lw);
+        ImGui::TextUnformatted(ellipsize(dir, ImGui::GetContentRegionAvail().x).c_str());
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", dir.c_str());
+        ImGui::Indent(lw);
+        if (ready) ImGui::TextColored(kGreen, "Ready.");
+        else if (started) ImGui::TextColored(kYellow, "Incomplete: Play in Develop finishes the copy.");
+        else ImGui::TextColored(kGrey, "Not made yet: Play in Develop copies both discs here once (about 655 MB).");
+        ImGui::Unindent(lw);
+        ImGui::BeginDisabled(!started);
+        if (ImGui::Button("Open folder##dev")) SDL_OpenURL(file_url(dir).c_str());
+        track("dev.open");
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!ready || !m.discs.check[0].ok());
+        if (ImGui::Button("Reset edits...")) ImGui::OpenPopup("Reset edits");
+        track("dev.reset");
+        ImGui::EndDisabled();
+        if (ImGui::BeginPopupModal("Reset edits", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::TextUnformatted("Replace the developer folder's DREAMS.DAT with disc 1's?");
+            ImGui::TextColored(kGrey, "Every edit to the levels is lost. Saves and captures stay.");
+            if (ImGui::Button("Reset")) {
+                std::string err;
+                if (reset_edits(m, &err)) { dev_notice = "The levels are disc 1's again."; dev_error.clear(); }
+                else dev_error = err;
+                ImGui::CloseCurrentPopup();
+            }
+            track("dev.reset.confirm");
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+            track("dev.reset.cancel");
+            ImGui::EndPopup();
+        }
+        if (!dev_notice.empty()) ImGui::TextColored(kYellow, "%s", dev_notice.c_str());
+        if (!dev_error.empty()) ImGui::TextColored(kRed, "%s", dev_error.c_str());
+        ImGui::TextColored(kGrey, "Develop uses the original (software) renderer until the GPU renderer is ported.");
+
+        // The keys of docs/specs/008-editor-restoration/spec.md, phase 2. Keys are typed
+        // characters, as in the DOS build: Shift+A is A, and the AZERTY column is Cryo's.
+        static const char* const keys[][2] = {
+            {"!", "open and close the editor (Shift+1 on QWERTY; keypad 5 too)"},
+            {"A Z E R T", "editor on: create a project, objet, link, box, event"},
+            {"Q S D F G", "editor on: load a project, objet, link, box, event"},
+            {"W X C V B", "editor on: save the project, objet, link, box, event"},
+            {"1 to 6", "editor on: intro movie, mesh, exit target, path point add, drop, symbol"},
+            {"0", "editor on: put the player's position into the visible rows"},
+            {"? .", "editor on: copy, paste a project"},
+            {"/ and Ctrl+Shift+2", "editor on: copy, paste an objet (paste is the AZERTY key above !)"},
+            {": and Ctrl+Shift+3", "editor on: copy, paste a link"},
+            {"% and Ctrl+Shift+4", "editor on: copy, paste a box"},
+            {"F10", "editor on: write the levels to the folder (off: the game's key help)"},
+            {"-", "free-fly camera: mouse turns, buttons fly, PgUp PgDn Home End set the speed"},
+            {"9", "overhead camera"},
+            {"8 / keypad 1", "frame rate and memory readout"},
+            {"keypad 2, keypad 3", "object HUD, collision view (hold Backspace)"},
+            {"6, 7", "capture every frame (step 2.0), one frame, to DATA\\TGA"},
+            {"A (editor off)", "HUD on and off"},
+            {"D (editor off), H", "dialogue test, the level's movie again"},
+            {"r, R (editor off)", "record a demo / save it, replay DATA\\REPLAY.BIN"},
+            {"e f l v", "render classes (software renderer); Shift+L is the game's Load page"},
+            {"keypad 0", "Cryo's Save page: save anywhere, with a title"},
+            {"keypad 6 7 8 9", "give all items, collision views, profiler, console window"},
+            {"Caps Lock", "turns plain letters into editor commands, as in DOS"},
+        };
+        if (ImGui::BeginTable("devkeys", 2, ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH,
+                              ImVec2(0, ImGui::GetContentRegionAvail().y))) {
+            ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_WidthFixed, em * 9);
+            ImGui::TableSetupColumn("In Develop", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableHeadersRow();
+            for (const auto& k : keys) {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(k[0]);
+                ImGui::TableNextColumn();
+                ImGui::TextColored(kGrey, "%s", k[1]);
+            }
+            ImGui::EndTable();
+        }
+    }
+
+    void draw_mode_row() {
+        float em = ImGui::GetFontSize();
+        PortSettings& s = m.port;
+        bool ready = m.developer_ready();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted("Mode");
+        ImGui::SameLine(em * 4.5f);
+        if (ImGui::RadioButton("Play##mode", s.mode == LaunchMode::Play)) s.mode = LaunchMode::Play;
+        track("mode.play");
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Develop##mode", s.mode == LaunchMode::Develop)) s.mode = LaunchMode::Develop;
+        track("mode.dev");
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!ready && s.mode != LaunchMode::Edited);
+        if (ImGui::RadioButton("Play edits##mode", s.mode == LaunchMode::Edited)) s.mode = LaunchMode::Edited;
+        track("mode.edited");
+        ImGui::EndDisabled();
+        if (!ready && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("Available after the first Develop start makes the developer folder.");
+        ImGui::Indent(em * 4.5f);
+        ImGui::TextColored(kGrey, "%s",
+                           s.mode == LaunchMode::Play      ? "The original game from your discs."
+                           : s.mode == LaunchMode::Develop ? "Cryo's level editor and developer tools; edits are saved to the developer folder."
+                                                           : "Your edited game as a player sees it: no tools, with music from the discs.");
+        ImGui::Unindent(em * 4.5f);
+    }
+
+    void draw_copy_progress() {
+        if (!copy) return;
+        if (!ImGui::IsPopupOpen("Developer folder")) ImGui::OpenPopup("Developer folder");
+        ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x * 0.8f, 0));
+        if (ImGui::BeginPopupModal("Developer folder", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
+            CopyProgress p;
+            SDL_LockMutex(copy->lock);
+            p = copy->progress;
+            SDL_UnlockMutex(copy->lock);
+            ImGui::TextWrapped("Copying both discs into the developer folder. This happens once; an interrupted copy "
+                               "goes on from where it stopped.");
+            float fraction = p.bytes_total ? (float)((double)p.bytes_done / (double)p.bytes_total) : 0.0f;
+            char overlay[64];
+            SDL_snprintf(overlay, sizeof overlay, "%llu of %llu MB", p.bytes_done >> 20, p.bytes_total >> 20);
+            ImGui::ProgressBar(fraction, ImVec2(-1, 0), overlay);
+            ImGui::TextColored(kGrey, "%s", ellipsize("File " + std::to_string(p.files_done) + " of " +
+                                                          std::to_string(p.files_total) + ": " + p.path,
+                                                      ImGui::GetContentRegionAvail().x)
+                                                .c_str());
+            if (ImGui::Button("Cancel")) SDL_SetAtomicInt(&copy->cancel, 1);
+            track("copy.cancel");
+            ImGui::EndPopup();
+        }
+    }
+
     static std::string file_url(std::string path) {
         std::string out = "file://";
         std::replace(path.begin(), path.end(), '\\', '/');
@@ -483,6 +701,9 @@ struct Ui {
                          ImGuiWindowFlags_NoBringToFrontOnFocus);
         capture_visible = false;
 
+        ImGui::SeparatorText("Mode");
+        draw_mode_row();
+
         ImGui::SeparatorText("Discs");
         for (int i = 0; i < 2; i++) draw_disc_row(i);
         if (!notice.empty()) ImGui::TextColored(kYellow, "%s", notice.c_str());
@@ -499,6 +720,7 @@ struct Ui {
                 {"Display and sound", "display", &Ui::draw_display_tab},
                 {"Keyboard", "keyboard", &Ui::draw_keyboard_tab},
                 {"Gamepad", "gamepad", &Ui::draw_gamepad_tab},
+                {"Develop", "develop", &Ui::draw_develop_tab},
             };
             for (auto& t : tabs) {
                 ImGuiTabItemFlags flags = want_tab && SDL_strcmp(want_tab, t.id) == 0 && first_frame ? ImGuiTabItemFlags_SetSelected : 0;
@@ -536,7 +758,10 @@ struct Ui {
 
         std::string blocker = m.play_blocker();
         ImGui::BeginDisabled(!blocker.empty());
-        if (ImGui::Button("Play", ImVec2(ImGui::GetFontSize() * 7, 0))) play = true;
+        if (ImGui::Button("Play", ImVec2(ImGui::GetFontSize() * 7, 0))) {
+            if (m.needs_copy()) start_copy();  // Develop's first start: the folder, then the game
+            else play = true;
+        }
         track("play");
         if (first_frame && blocker.empty()) ImGui::SetItemDefaultFocus();  // not on a button that does nothing
         ImGui::EndDisabled();
@@ -550,6 +775,7 @@ struct Ui {
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", blocker.c_str());
         }
 
+        draw_copy_progress();
         ImGui::End();
         if (testing::kEnabled && script) publish_facts(blocker);
     }
@@ -588,7 +814,8 @@ struct Ui {
         // The WD_* pairs the port settings would emit now ("" for a name left out), as var.NAME.
         static const char* const names[] = {"WD_RENDERER", "WD_FULLSCREEN", "WD_SCALE", "WD_FILTER", "WD_FPS", "WD_MUTE",
                                             "WD_FIXED_STEP", "WD_SMOOTH_CAMERA",
-                                            "WD_PAD", "WD_DEADZONE", "WD_PAD_DIRECTION", "WD_KEYMAP", "WD_PADMAP"};
+                                            "WD_PAD", "WD_DEADZONE", "WD_PAD_DIRECTION", "WD_KEYMAP", "WD_PADMAP",
+                                            "WD_MODE", "WD_TREE", "WD_DISC1", "WD_DISC2"};
         for (const char* n : names) t.fact(std::string("var.") + n, "");
         VarList vars;
         emit_port_vars(m.port, vars);
@@ -598,6 +825,16 @@ struct Ui {
             if (kv.first == "WD_KEYMAP") keymap = kv.second;
         }
         t.fact("keymap", keymap);
+        for (const auto& kv : m.vars())  // the mode's own pairs and the discs, as Play would give them
+            if (kv.first == "WD_MODE" || kv.first == "WD_TREE" || kv.first == "WD_DISC1" || kv.first == "WD_DISC2")
+                t.fact("var." + kv.first, kv.second);
+        t.fact("mode", m.port.mode == LaunchMode::Develop ? "dev" : m.port.mode == LaunchMode::Edited ? "edited" : "play");
+        t.fact("dev.ready", m.developer_ready() ? "yes" : "no");
+        t.fact("dev.started", m.developer_started() ? "yes" : "no");
+        t.fact("dev.dir", m.developer_dir());
+        t.fact("dev.notice", dev_notice);
+        t.fact("dev.error", dev_error);
+        t.fact("copy", copy_state);
 
         // The keyboard table: the physical key of each game key, and which rows are flagged.
         std::vector<KeyRowState> rows = keyboard_rows(m.port);
@@ -710,6 +947,7 @@ bool run_window(Model& m, bool* quit, std::string* err) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) ui.on_event(e);
         ui.drain_picks();
+        ui.poll_copy();
 
         Uint64 t0 = SDL_GetTicks();
         ImGui_ImplSDLRenderer3_NewFrame();

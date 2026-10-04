@@ -19,6 +19,7 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
 from test_launcher import (
@@ -26,6 +27,8 @@ from test_launcher import (
     OTHER_RENDERER_INI,
     OTHER_RENDERER_VAR,
     cue_of,
+    disc1_dir,
+    disc2_dir,
     load,
     read_ini,
 )
@@ -673,6 +676,7 @@ def test_display_settings_reach_play_and_the_next_start(demo, home):
         "mute": "0",
         "smooth": "1",
         "smooth_camera": "60",
+        "mode": "retail",  # Play, the default launch mode (spec 008 phase M)
     }
 
 
@@ -873,6 +877,8 @@ def test_keyboard_only_every_control_in_tab_order_then_play(demo, home):
     order = [
         "play",  # shown by the first key; the default focus
         "quit",
+        "mode.play",  # the mode row (Play edits is off until the developer folder exists: skipped)
+        "mode.dev",
         "browse1",
         "browse2",
         "tab.display",
@@ -885,15 +891,17 @@ def test_keyboard_only_every_control_in_tab_order_then_play(demo, home):
         "mute",
         "tab.keyboard",
         "tab.gamepad",
+        "tab.develop",
         "open_folder",
         "play",  # and round again
     ]
     script = ["key TAB"]
     for want in order[1:]:
         script += ["key TAB", f"expect focus {want}"]
-    # Now on Play again. Back (Shift+Tab) twice reaches the folder button and the Gamepad tab; walk
-    # to the Mute checkbox and press it with the keyboard, then on to Play.
+    # Now on Play again. Back (Shift+Tab) reaches the folder button and the Develop and Gamepad
+    # tabs; walk to the Mute checkbox and press it with the keyboard, then on to Play.
     script += ["key SHIFT+TAB", "expect focus open_folder"]
+    script += ["key SHIFT+TAB", "expect focus tab.develop"]
     script += ["key SHIFT+TAB", "expect focus tab.gamepad"]
     script += ["key SHIFT+TAB", "expect focus tab.keyboard"]
     script += ["key SHIFT+TAB", "expect focus mute"]
@@ -904,7 +912,7 @@ def test_keyboard_only_every_control_in_tab_order_then_play(demo, home):
         'expect var.WD_MUTE ""',
         "key SPACE",
     ]
-    script += ["key TAB", "key TAB", "key TAB", "expect focus open_folder", "key TAB"]
+    script += ["key TAB", "key TAB", "key TAB", "key TAB", "expect focus open_folder", "key TAB"]
     script += ["expect focus play", shot("keyboard-only"), "key RETURN"]
     r = clean(run_ui(demo, home, script))
     assert r.rc == 0, r.err
@@ -923,8 +931,14 @@ def test_keyboard_only_first_start_lands_on_browse_and_play_stays_off(demo, home
                 "expect focus browse1",  # the first key only shows the focus
                 "key TAB",
                 "expect focus browse2",
-                # Shift+Tab from the first control wraps to the last: Quit (Play is off: skipped).
+                # Shift+Tab goes back over the mode row (Play edits is off: skipped), then wraps
+                # to the last control: Quit (Play is off: skipped).
                 "key SHIFT+TAB",
+                "expect focus browse1",
+                "key SHIFT+TAB",
+                "expect focus mode.dev",
+                "key SHIFT+TAB",
+                "expect focus mode.play",
                 "key SHIFT+TAB",
                 "expect focus quit",
                 "key SHIFT+TAB",
@@ -1033,3 +1047,77 @@ def test_quit_keeps_the_discs_that_were_chosen(demo, home):
     assert cfg["discs"]["disc1"] == str(cue_of(1)) and cfg["discs"]["disc2"] == ""
     r = clean(run_ui(demo, home, ["expect disc1 found", 'expect disc2 "not set"', "close"]))
     assert r.rc == 1  # the next start shows what was kept
+
+
+# ---- launch modes (spec 008 phase M) ----
+
+
+def small_discs(tmp_path):
+    """Two directory sources the launcher accepts, small enough to copy in a test."""
+    d1, d2 = disc1_dir(tmp_path / "d1"), disc2_dir(tmp_path / "d2")
+    (d1 / "DREAMS.DAT").write_bytes(b"disc 1 bank")
+    return d1, d2
+
+
+def test_the_first_develop_start_makes_the_developer_folder(demo, home, tmp_path):
+    d1, d2 = small_discs(tmp_path)
+    write_ini(home, f"[discs]\ndisc1 = {d1}\ndisc2 = {d2}\n")
+    tree = data_dir(home) + os.sep + "developer"
+    r = clean(
+        run_ui(
+            demo,
+            home,
+            [
+                "expect mode play",
+                "expect dev.ready no",
+                'expect var.WD_MODE ""',
+                "click mode.edited",  # off until the folder exists
+                "expect mode play",
+                "click mode.dev",
+                "expect mode dev",
+                "expect var.WD_MODE dev",
+                f"expect var.WD_TREE {q(tree)}",
+                'expect var.WD_DISC1 ""',
+                "expect play enabled",
+                "tab develop",
+                "expect tab develop",
+                shot("develop-tab"),
+                "click play",  # copies both discs, then plays
+            ],
+        )
+    )
+    assert r.rc == 0, r.err
+    assert r.pairs["WD_MODE"] == "dev" and r.pairs["WD_TREE"] == tree
+    assert (Path(tree) / ".developer-folder").is_file()
+    assert (Path(tree) / "DREAMS.DAT").read_bytes() == b"disc 1 bank"
+
+
+def test_play_edits_and_reset_edits_once_the_folder_exists(demo, home, tmp_path):
+    d1, d2 = small_discs(tmp_path)
+    write_ini(home, f"[discs]\ndisc1 = {d1}\ndisc2 = {d2}\n[port]\nmode = dev\n")
+    assert run_play(demo, home)[0] == 0  # Develop's first start makes the folder
+    tree = Path(data_dir(home)) / "developer"
+    (tree / "DREAMS.DAT").write_bytes(b"edited bank")
+    r = clean(
+        run_ui(
+            demo,
+            home,
+            [
+                "expect dev.ready yes",
+                "click mode.edited",
+                "expect mode edited",
+                "expect var.WD_MODE edited",
+                f"expect var.WD_DISC1 {q(d1)}",  # the discs' CD audio
+                "tab develop",
+                "click dev.reset",
+                "click dev.reset.confirm",
+                'expect dev.notice ~ "disc 1\'s again"',
+                'expect dev.error ""',
+                "click play",
+            ],
+        )
+    )
+    assert r.rc == 0, r.err
+    assert r.pairs["WD_MODE"] == "edited"
+    assert (tree / "DREAMS.DAT").read_bytes() == b"disc 1 bank"
+    assert read_ini(home / "dreams.ini")["port"]["mode"] == "edited"

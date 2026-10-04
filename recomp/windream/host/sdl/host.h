@@ -32,6 +32,14 @@ void          host_pump(void);          /* drain SDL events into key state and t
 void          host_key_latch(int vk);   /* GetAsyncKeyState's "pressed since last call" bit */
 const char*   host_env(const char* name);   /* getenv, "" treated as unset */
 
+/* The launch mode (docs/specs/008-editor-restoration/spec.md, phase M), read
+ * once from WD_MODE: "dev" is Develop (Cryo's developer tools and their host
+ * bindings live), "edited" is Play edits (the developer folder's game, tools
+ * off), anything else Play (the shipped game, every Develop binding inert). */
+typedef enum { WD_MODE_PLAY, WD_MODE_DEVELOP, WD_MODE_EDITED } WdMode;
+WdMode        host_mode(void);
+#define       host_develop() (host_mode() == WD_MODE_DEVELOP)
+
 /* winmm.c: joysticks are SDL gamepads */
 void joy_init(void);
 void joy_event(const SDL_Event* e);

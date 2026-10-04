@@ -15,6 +15,11 @@
 #include "ini.h"
 
 enum class PadMode { Game, Keys, Off };  // WD_PAD winmm | keys | off
+// The launch mode (docs/specs/008-editor-restoration/spec.md, phase M), dreams.ini
+// [port] mode = retail | dev | edited: Play, the shipped game from the disc images;
+// Develop, Cryo's developer tools on the developer folder (WD_MODE=dev); Play edits,
+// the developer folder's game with the tools off (WD_MODE=edited).
+enum class LaunchMode { Play, Develop, Edited };
 enum class PadDir { Stick, Dpad, Both };
 
 constexpr int kPadButtons = 12;  // a b x y lb rb back start ls rs lt rt, in WD_PADMAP's order
@@ -81,6 +86,8 @@ struct PortSettings {
 
     std::vector<KeyPair> keymap;   // WD_KEYMAP pairs
 
+    LaunchMode mode = LaunchMode::Play;
+
     PortSettings();
     PadDir effective_dir() const;
     static PadDir default_dir(PadMode mode) { return mode == PadMode::Keys ? PadDir::Both : PadDir::Stick; }
@@ -112,6 +119,8 @@ std::string keyboard_conflict(const PortSettings& s);
 
 using VarList = std::vector<std::pair<std::string, std::string>>;
 // The port's WD_* pairs (not the paths), leaving out whatever is at the host's default.
+// Develop runs on the software renderer until the direct renderer is ported (spec 008
+// phase D), whatever `gpu` says: WD_RENDERER=software where the host's default is direct.
 void emit_port_vars(const PortSettings& s, VarList& out);
 
 #endif

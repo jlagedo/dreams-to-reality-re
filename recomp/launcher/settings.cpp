@@ -204,6 +204,8 @@ void PortSettings::load(const Ini& ini) {
     mute = parse_bool(ini.get_or("port", "mute", ""), false);
     smooth = parse_bool(ini.get_or("port", "smooth", ""), true);
     smooth_camera = parse_int(ini.get_or("port", "smooth_camera", ""), kSmoothCameraDefault, 0, 200);
+    v = ini.get_or("port", "mode", "");
+    mode = iequals(v, "dev") ? LaunchMode::Develop : iequals(v, "edited") ? LaunchMode::Edited : LaunchMode::Play;
 
     v = ini.get_or("gamepad", "mode", "");
     pad = iequals(v, "keys") ? PadMode::Keys : iequals(v, "off") ? PadMode::Off : PadMode::Game;
@@ -252,6 +254,7 @@ void PortSettings::store(Ini& ini) const {
     ini.set("port", "mute", mute ? "1" : "0");
     ini.set("port", "smooth", smooth ? "1" : "0");
     ini.set("port", "smooth_camera", std::to_string(smooth_camera));
+    ini.set("port", "mode", mode == LaunchMode::Develop ? "dev" : mode == LaunchMode::Edited ? "edited" : "retail");
 
     ini.set("gamepad", "mode", pad == PadMode::Keys ? "keys" : pad == PadMode::Off ? "off" : "game");
     if (dir_set) ini.set("gamepad", "direction", dir == PadDir::Dpad ? "dpad" : dir == PadDir::Both ? "both" : "stick");
@@ -317,14 +320,15 @@ std::string keyboard_conflict(const PortSettings& s) {
 // ---- the host's variables ----
 
 void emit_port_vars(const PortSettings& s, VarList& out) {
-    if (s.gpu != PortSettings::kGpuDefault) out.emplace_back("WD_RENDERER", s.gpu ? "direct" : "software");
+    const bool gpu = s.gpu && s.mode != LaunchMode::Develop;
+    if (gpu != PortSettings::kGpuDefault) out.emplace_back("WD_RENDERER", gpu ? "direct" : "software");
     if (s.fullscreen) out.emplace_back("WD_FULLSCREEN", "1");
     if (s.scale != 2) out.emplace_back("WD_SCALE", std::to_string(s.scale));
     if (s.filter != "pixelart") out.emplace_back("WD_FILTER", s.filter);
     if (s.fps != 25) out.emplace_back("WD_FPS", std::to_string(s.fps));  // "0" is uncapped, so it is not empty
     if (s.mute) out.emplace_back("WD_MUTE", "1");
     if (!s.smooth) out.emplace_back("WD_FIXED_STEP", "0");  // retail timing; no interpolation either
-    else if (s.gpu && PortSettings::kInterpolates && s.smooth_camera != PortSettings::kSmoothCameraDefault)
+    else if (gpu && PortSettings::kInterpolates && s.smooth_camera != PortSettings::kSmoothCameraDefault)
         out.emplace_back("WD_SMOOTH_CAMERA", std::to_string(s.smooth_camera));  // "0" is off, so it is not empty
     if (s.pad != PadMode::Game) out.emplace_back("WD_PAD", s.pad == PadMode::Keys ? "keys" : "off");
     if (s.dz_inner != 10 || s.dz_outer != 95)

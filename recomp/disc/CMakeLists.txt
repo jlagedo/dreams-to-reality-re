@@ -15,7 +15,7 @@ else()
 endif()
 option(DREAMS_DISC_TOOLS "Build the disc_list tool" ${_disc_top})
 
-add_library(dreams_disc STATIC cue.c image.c plat.c sha256.c)
+add_library(dreams_disc STATIC cue.c image.c merge.c plat.c sha256.c)
 target_include_directories(dreams_disc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 set_target_properties(dreams_disc PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF)
 if(MSVC)

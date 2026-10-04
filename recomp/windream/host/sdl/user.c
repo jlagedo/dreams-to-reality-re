@@ -23,8 +23,9 @@
  *   - GetFocus returns the window while it has keyboard focus, so the game
  *     pauses in the background as the original does.
  *
- * Host keys: F11 toggles fullscreen (the game sees F11 as well); keypad 1-5
- * toggle retail debug flags (debug_toggle; the game does not see those keys).
+ * Host keys: F11 toggles fullscreen (the game sees F11 as well); in Develop
+ * (WD_MODE=dev) keypad 1-5 toggle retail debug flags (debug_toggle; the game
+ * does not see those keys), elsewhere they reach the game.
  *
  * Environment:
  *   WD_SCALE=2          initial window size in multiples of the game's size
@@ -75,6 +76,16 @@ SDL_Renderer* host_renderer(void) { return g_renderer; }
 const char* host_env(const char* name) {
     const char* v = getenv(name);
     return v && *v ? v : NULL;
+}
+
+WdMode host_mode(void) {
+    static int mode = -1;
+    if (mode < 0) {
+        const char* v = host_env("WD_MODE");
+        mode = v && !SDL_strcasecmp(v, "dev") ? WD_MODE_DEVELOP : v && !SDL_strcasecmp(v, "edited") ? WD_MODE_EDITED : WD_MODE_PLAY;
+        fprintf(stderr, "[mode] %s\n", mode == WD_MODE_DEVELOP ? "Develop" : mode == WD_MODE_EDITED ? "Play edits" : "Play");
+    }
+    return (WdMode)mode;
 }
 
 /* ---- scripted keys ---- */
@@ -309,9 +320,11 @@ static void mouse_button_game(SDL_Event* e) {
     if (t && g_mbtn_n < (int)sizeof g_mbtn) g_mbtn[g_mbtn_n++] = t;
 }
 
+/* Develop only (spec 008 phase M): retail has no mouse producer, so in Play
+ * and Play edits the game sees no mouse event, as it shipped. */
 static void mouse_post(void) {
     uint32_t h = WD_HOST_READ32(WD_GAME_HANDLER), q = WD_HOST_READ32(WD_GAME_QUEUE);
-    int ok = q && (h == 0x00416D45u || h == 0x0040E75Cu);
+    int ok = host_develop() && q && (h == 0x00416D45u || h == 0x0040E75Cu);
     if (ok && (g_mmoved || g_mbtn_n)) {
         uint32_t pos = (uint32_t)g_mx << 16 | ((uint32_t)g_my & 0xFFFFu);
         uint32_t d = ((uint32_t)g_mdx & 0xFFFFu) << 16 | ((uint32_t)g_mdy & 0xFFFFu);
@@ -323,9 +336,10 @@ static void mouse_post(void) {
 
 /* Called by lifted GAME_TickFrame before GAME_HandleHotkeys (lift.py CALLS):
  * runs the Dreams Editor draw 0x44d46d, which retail never calls, while the
- * editor flag (keypad 5) is set. Every guest register is restored. */
+ * editor flag (keypad 5) is set, in Develop only (spec 008 phase M). Every
+ * guest register is restored. */
 void wd_editor_frame(void) {
-    if (WD_HOST_READ32(0x004A477Cu))
+    if (host_develop() && WD_HOST_READ32(0x004A477Cu))
         guest_call_regs(0x0044D46Du, g_eax, g_edx, g_ebx, g_ecx);
 }
 
@@ -342,7 +356,7 @@ static void post(uint32_t hwnd, uint32_t msg, uint32_t wp, uint32_t lp) {
     if (g_qn < (int)(sizeof g_q / sizeof g_q[0])) g_q[g_qn++] = (Msg){hwnd, msg, wp, lp};
 }
 
-/* Keypad 1-4 toggle retail debug flags that no retail code sets:
+/* In Develop, keypad 1-5 toggle retail debug flags that no retail code sets:
  *   1  Frame Rate/Mem 3DTR readout (GAME_TickFrame, 0x49d5c0; hidden while
  *      the editor flag 0x4a477c is set)
  *   2  object HUD (DBG_DrawObjectInfo, 0x49d5d0)
@@ -355,7 +369,8 @@ static void post(uint32_t hwnd, uint32_t msg, uint32_t wp, uint32_t lp) {
  *   5  editor flag 0x4a477c: no collision, no momentum, faster root motion,
  *      no camera lag or collision, no level exits; the editor menu itself is
  *      unreachable. VID_SetResolution (F1-F6) clears it.
- * The keys are kept from the game. */
+ * The keys are kept from the game in Develop; in Play and Play edits they
+ * are ordinary keys. */
 static const struct { SDL_Scancode sc; uint32_t va; int byte; } g_debug_keys[] = {
     {SDL_SCANCODE_KP_1, 0x0049D5C0u, 0},
     {SDL_SCANCODE_KP_2, 0x0049D5D0u, 0},
@@ -364,7 +379,10 @@ static const struct { SDL_Scancode sc; uint32_t va; int byte; } g_debug_keys[] =
     {SDL_SCANCODE_KP_5, 0x004A477Cu, 0},
 };
 
+/* Develop only (spec 008 phase M): in Play and Play edits the keypad reaches
+ * the game as retail delivers it. */
 static int debug_toggle(const SDL_KeyboardEvent* k) {
+    if (!host_develop()) return 0;
     for (size_t i = 0; i < sizeof g_debug_keys / sizeof g_debug_keys[0]; i++) {
         uint32_t va = g_debug_keys[i].va;
         if (k->scancode != g_debug_keys[i].sc) continue;
