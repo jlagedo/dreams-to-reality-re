@@ -248,6 +248,7 @@ keep = me
         "mute": "1",
         "smooth": "1",  # not in the ini: smooth motion is the default
         "smooth_camera": "60",
+        "mode": "retail",  # Play, the default launch mode (spec 008 phase M)
     }
     assert dict(cfg["keyboard"]) == {"W": "UP", "A": "LEFT"}
     assert cfg["gamepad"]["keys_a"] == "ALT" and "a" not in cfg["gamepad"]
@@ -337,3 +338,70 @@ def test_non_ascii_paths_come_back_byte_exact(demo, tmp_path):
         env=env,
     ).stdout
     assert f"WD_DATA_DIR={data}\n".encode() in out.replace(b"\r\n", b"\n")
+
+
+# ---- launch modes (spec 008 phase M) ----
+
+
+def mode_ini(home, mode, disc1, disc2):
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "dreams.ini").write_text(
+        f"[discs]\ndisc1 = {disc1}\ndisc2 = {disc2}\n[port]\nmode = {mode}\n", encoding="utf-8"
+    )
+
+
+def developer(home):
+    return data_dir(home) + os.sep + "developer"  # Model::developer_dir: the data directory's
+
+
+def test_develop_makes_the_developer_folder_once_and_plays_from_it(demo, home, tmp_path):
+    d1, d2 = disc1_dir(tmp_path / "d1"), disc2_dir(tmp_path / "d2")
+    mode_ini(home, "dev", d1, d2)
+    rc, pairs, err = run(demo, home)
+    assert rc == 0, err
+    tree = Path(developer(home))
+    assert pairs["WD_MODE"] == "dev" and pairs["WD_TREE"] == developer(home)
+    assert "WD_DISC1" not in pairs and "WD_DISC2" not in pairs  # Develop plays the folder only
+    # The software renderer until the direct renderer is ported, whatever [port] renderer says.
+    assert pairs.get("WD_RENDERER") == ("software" if sys.platform == "win32" else None)
+    # Both discs as one tree, and the marker written last.
+    assert (tree / "GDIDREAM.EXE").read_bytes() == (d1 / "GDIDREAM.EXE").read_bytes()
+    assert (tree / "DATA" / "1CD.ID").is_file() and (tree / "DATA" / "2CD.ID").is_file()
+    assert (tree / ".developer-folder").is_file()
+    assert read_ini(home / "dreams.ini")["port"]["mode"] == "dev"
+
+    # Once made, Develop needs no disc: the images may be gone.
+    shutil.rmtree(d1)
+    shutil.rmtree(d2)
+    rc, pairs, err = run(demo, home)
+    assert rc == 0, err
+    assert pairs["WD_TREE"] == developer(home)
+
+
+def test_develop_without_a_folder_needs_both_discs(demo, home, tmp_path):
+    mode_ini(home, "dev", disc1_dir(tmp_path / "d1"), tmp_path / "missing")
+    rc, pairs, err = run(demo, home)
+    assert rc != 0 and "Develop copies both discs into the developer folder first" in err, err
+    assert not Path(developer(home)).exists()
+
+
+def test_play_edits_needs_the_folder_then_plays_it_with_the_discs_music(demo, home, tmp_path):
+    d1, d2 = disc1_dir(tmp_path / "d1"), disc2_dir(tmp_path / "d2")
+    mode_ini(home, "edited", d1, d2)
+    rc, pairs, err = run(demo, home)
+    assert rc != 0 and "start Develop once" in err, err
+
+    mode_ini(home, "dev", d1, d2)
+    assert run(demo, home)[0] == 0
+    mode_ini(home, "edited", d1, d2)
+    rc, pairs, err = run(demo, home)
+    assert rc == 0, err
+    assert pairs["WD_MODE"] == "edited" and pairs["WD_TREE"] == developer(home)
+    assert pairs["WD_DISC1"] == str(d1) and pairs["WD_DISC2"] == str(d2)  # for the CD audio
+    assert "WD_RENDERER" not in pairs  # the renderer setting applies again
+
+    # Without the images it still plays, silently.
+    mode_ini(home, "edited", tmp_path / "gone1", tmp_path / "gone2")
+    rc, pairs, err = run(demo, home)
+    assert rc == 0, err
+    assert "WD_DISC1" not in pairs and pairs["WD_MODE"] == "edited"

@@ -47,7 +47,7 @@
  *   click ID [fx [fy]]        mouse move, press, release on the widget's last drawn rectangle
  *                             (at fx,fy of it, default the centre): real hit-testing
  *   move ID | move X Y        pointer only
- *   tab display|keyboard|gamepad   click that tab
+ *   tab display|keyboard|gamepad|develop   click that tab
  *   drop PATH [X Y | @ID]     SDL's drop sequence (begin, position, file, complete); default
  *                             the window's top left (row 1); @disc2.row drops on that row
  *   dialog ROW PATH           what the file dialog reports (the callback SDL_ShowOpenFileDialog
@@ -65,7 +65,9 @@
  * a `dialog` step answers, and record the folder the dialog would have started in.
  *
  * Widget ids (click, move, drop @): disc1.row disc2.row (drop only) browse1 browse2
- *   tab.display tab.keyboard tab.gamepad  play quit open_folder
+ *   tab.display tab.keyboard tab.gamepad tab.develop  play quit open_folder
+ *   mode: mode.play mode.dev mode.edited (the row above the discs)
+ *   develop: dev.open dev.reset dev.reset.confirm dev.reset.cancel  copy.cancel (the copy's dialog)
  *   display: renderer renderer.software renderer.gpu  fullscreen  scale  filter
  *            filter.pixelart filter.nearest filter.linear  smooth  smooth_camera  fps  mute
  *   keyboard: key.wasd key.reset  key.<GAME>.capture key.<GAME>.reset  (GAME = UP DOWN LEFT RIGHT
@@ -79,7 +81,9 @@
  *   play (enabled|disabled)  blocker  conflict (yes|no)  conflict.text  conflict.rows  keymap
  *   key.<GAME> (physical key)  capture (none or the game key waiting for a key)  picking
  *   dialog.row  dialog.start  tab  focus (a widget id or none)  var.WD_RENDERER ... var.WD_PADMAP
- *   (what the port settings would emit now, "" if left out)  nav.keyboard nav.gamepad (ImGui
+ *   (what the port settings would emit now, "" if left out; also WD_MODE WD_TREE WD_DISC1 WD_DISC2
+ *   as Play would give them)  mode (play|dev|edited)  dev.ready dev.started (yes|no)  dev.dir
+ *   dev.notice dev.error  copy (idle running done cancelled failed)  nav.keyboard nav.gamepad (ImGui
  *   config flags)  gamepad.seen (ImGui's SDL backend has a gamepad).
  */
 #ifndef DREAMS_LAUNCHER_H
@@ -116,6 +120,13 @@ typedef struct {
  *   WD_DISC1 WD_DISC2 WD_DATA_DIR (always) WD_RENDERER WD_FULLSCREEN WD_SCALE
  *   WD_FILTER WD_FPS WD_MUTE WD_FIXED_STEP (0: smooth motion off) WD_SMOOTH_CAMERA
  *   WD_PAD WD_DEADZONE WD_PAD_DIRECTION WD_KEYMAP WD_PADMAP
+ * Launch modes (docs/specs/008-editor-restoration/spec.md, phase M; dreams.ini [port] mode =
+ * retail | dev | edited): Play gives WD_DISC1 WD_DISC2; Develop gives WD_MODE=dev and
+ * WD_TREE (the data directory's "developer" folder) and WD_RENDERER=software where the
+ * host's default is direct, and no discs; Play edits gives WD_MODE=edited, WD_TREE and the
+ * discs when both are valid (CD audio). Develop's first Play (and --play) copies both discs
+ * into the developer folder first (disc_copy_merged), then writes its marker; an
+ * interrupted copy resumes. Play edits needs that folder.
  */
 int launcher_run(int argc, char** argv, LauncherResult* out);
 

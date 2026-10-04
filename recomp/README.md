@@ -221,8 +221,14 @@ Spec 008 (`docs/specs/008-editor-restoration/spec.md`, phase M): **Play** is
 the shipped game; **Develop** reconnects Cryo's in-game developer tools and
 plays from the developer folder, one tree made from the two discs as the
 developers' hard-disk game had it; **Play edits** plays that folder's game with
-the tools off and CD music from the disc images. The launcher will offer the
-three; `run.py` gives them for development and tests.
+the tools off and CD music from the disc images. The launcher offers the three
+in a mode row above the discs (`dreams.ini` `[port] mode = retail | dev | edited`);
+its Develop tab shows the folder, Reset edits (disc 1's `DREAMS.DAT` back over the
+folder's) and the key list. Develop's first Play copies both discs into
+`<data dir>/developer` with a progress dialog (`--play`: on stderr) and writes
+`.developer-folder` last; an interrupted copy resumes. Play edits needs that folder
+and plays silently without the images. `run.py` gives the modes for development and
+tests.
 
 | `run.py` option | Environment | What |
 |---|---|---|

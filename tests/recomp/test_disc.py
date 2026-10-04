@@ -620,7 +620,11 @@ def write_tree(root, files):
 
 def merged(root):
     """dest's files as {relative path with '/': bytes}, the spelling kept."""
-    return {p.relative_to(root).as_posix(): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
+    return {
+        p.relative_to(root).as_posix(): p.read_bytes()
+        for p in sorted(root.rglob("*"))
+        if p.is_file()
+    }
 
 
 def test_copy_merged_follows_the_developer_folder_rules(tool, tmp_path):
