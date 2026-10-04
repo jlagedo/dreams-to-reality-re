@@ -89,7 +89,7 @@ set(RUNTIME_SRC
     ${WD_GEN_DIR}/imports_gen.c
     ${VM_SRC}
     host/sdl/threads.c host/sdl/kernel.c host/sdl/files.c
-    host/sdl/user.c host/sdl/gdi.c host/sdl/pacing.c host/sdl/winmm.c host/sdl/dsound.c
+    host/sdl/user.c host/sdl/gdi.c host/sdl/pacing.c host/sdl/winmm.c host/sdl/dsound.c host/sdl/launch_mode.c
     host/hooks/phys_hook.c
     host/render/render_boundary.cpp host/render/render_scene.cpp host/render/render_scene_io.cpp
     host/render/render_scene_draw.cpp host/render/render_scene_probe.c host/render/render_ui.cpp

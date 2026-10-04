@@ -16,6 +16,10 @@
 
 /* ---- plat.c: files and directories, UTF-8 paths, 64-bit offsets ---- */
 FILE* plat_fopen(const char* path);                     /* "rb"; NULL on failure */
+FILE* plat_fopen_write(const char* path);               /* "wb"; NULL on failure */
+int plat_mkdir(const char* path);                       /* one level; 0 if it exists afterwards */
+int plat_replace(const char* from, const char* to);     /* rename, replacing to; 0 on success */
+int plat_remove(const char* path);                      /* a file; 0 on success */
 int plat_seek(FILE* f, uint64_t offset);                /* 0 on success */
 int plat_file_size(const char* path, uint64_t* size);   /* 0 if path is a regular file */
 int plat_is_dir(const char* path);

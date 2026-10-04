@@ -314,6 +314,15 @@ static int choose_exe(int argc, char** argv, const char** exe, int* options) {
 #endif
     int discs = files_open_discs();
     if (discs < 0) return 1;
+    /* Tree mode (WD_TREE, spec 008 phase M): the program is the tree's own
+     * GDIDREAM.EXE, whether or not discs are open for their audio. */
+    static char tree_exe[1100];
+    const char* tree = files_tree();
+    if (!*exe && tree) {
+        snprintf(tree_exe, sizeof tree_exe, "%s/%s", tree, DISC_EXE);
+        *exe = tree_exe;
+        return 0;
+    }
     if (*exe || discs) return 0;
     fprintf(stderr, "usage: %s [<GDIDREAM.EXE>] [--run] [trace options]\n"
                     "  without <GDIDREAM.EXE>, WD_DISC1 and WD_DISC2 name the discs (.cue, .iso or\n"
@@ -373,8 +382,8 @@ static void log_version(void) {
 /* ---- launcher ----
  * The launcher does not know the host and the host does not know the launcher.
  * This is the only code that knows both: it runs the launcher when the
- * program is started with neither an EXE path nor WD_DISC1 (so run.py never
- * sees it), and puts the WD_* pairs it returns into the process environment,
+ * program is started with neither an EXE path, WD_DISC1 nor WD_TREE (so
+ * run.py never sees it), and puts the WD_* pairs it returns into the process environment,
  * where the host reads every option. A variable that is already set (and not
  * empty) is kept: the real environment wins over dreams.ini.
  *
@@ -388,7 +397,7 @@ static void log_version(void) {
 #ifdef WD_WITH_LAUNCHER
 static int launcher_wanted(int argc, char** argv) {
     const char* disc1 = SDL_getenv("WD_DISC1");
-    return !exe_argument(argc, argv) && !(disc1 && *disc1);
+    return !exe_argument(argc, argv) && !(disc1 && *disc1) && !files_tree();
 }
 /* -1: play, the pairs are in the environment; else the exit code. */
 static int launch(int argc, char** argv) {
@@ -472,6 +481,7 @@ int main(int argc, char** argv) {
     host_init();
     wd_scene_probe_init();
     wd_render_install();
+    host_mode_install();
     fprintf(stderr, "[*] entering the program at 0x%08X\n", entry);
     PUSH32(g_esp, RECOMP_RETADDR);
     entry_fn();

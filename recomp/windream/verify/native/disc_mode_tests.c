@@ -37,6 +37,7 @@ void recomp_trace_flush(void) { abort(); }
 void recomp_trace_help(void) { abort(); }
 void wd_scene_probe_init(void) { abort(); }
 void wd_render_install(void) { abort(); }
+void host_mode_install(void) { abort(); }
 void wd_render_close(void) { abort(); }
 uint32_t wd_surface_invalidate_range(uint32_t base, uint32_t bytes) { (void)base; (void)bytes; return 0; }
 

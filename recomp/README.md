@@ -215,6 +215,31 @@ runs the production file bridges on two small directory discs
 (`windream/verify/native/disc_mode_tests.c`): resolution, the marker rule in
 both directions, the saves, listings and reads.
 
+## Launch modes and the developer folder
+
+Spec 008 (`docs/specs/008-editor-restoration/spec.md`, phase M): **Play** is
+the shipped game; **Develop** reconnects Cryo's in-game developer tools and
+plays from the developer folder, one tree made from the two discs as the
+developers' hard-disk game had it; **Play edits** plays that folder's game with
+the tools off and CD music from the disc images. The launcher will offer the
+three; `run.py` gives them for development and tests.
+
+| `run.py` option | Environment | What |
+|---|---|---|
+| `--mode dev` | `WD_MODE=dev`, `WD_TREE` | Develop: keypad 1-5 (`host/sdl/user.c`), the editor's mouse feed and the inserted editor call are live (in Play and Play edits they are inert and the keypad reaches the game); `CD_OpenAudio` (`0x4042f1`) is replaced to return 0, so no CD music and no MCI error (`host/sdl/launch_mode.c`); the software renderer unless `--renderer` says otherwise |
+| `--mode edited` | `WD_MODE=edited`, `WD_TREE`, `WD_DISC1`, `WD_DISC2` | Play edits: files from the developer folder, CD audio from the discs |
+| `--tree DIR` | `WD_TREE` | The developer folder (default `DREAMS_OUT/recomp/windream/developer`). `run.py` makes or completes it first with `disc_list --copy-merged` (`recomp/disc`, `disc_copy_merged`): disc 1 wins a shared path but `DATA\UNIVBE\UVCONFIG.EXE`; disc 1's `DATA\FULL.ID` and disc 2's `DATA\GAME` are left out; a resumed copy skips files already at full size. About 655 MB |
+
+What the guest sees in tree mode (`WD_TREE`, `windream/host/sdl/files.c`; the
+browser build is always in it): the tree is the only read root and the write
+root, and the guest EXE is its `GDIDREAM.EXE`; `CRYO\DREAMS\x` is `x`;
+`DATA\FULL.ID` is never found (its copy-to-hard-disk mode would purge the
+tree's level files); the three disc markers are created if missing. With
+`WD_DISC1` and `WD_DISC2` as well, the discs are opened for their audio only,
+and the last marker the game opened picks the disc whose tracks play. The
+host runs the launcher only when it has no EXE path, no `WD_DISC1` and no
+`WD_TREE`.
+
 ## Launcher and release
 
 The executable started without arguments opens the launcher (`launcher/`):

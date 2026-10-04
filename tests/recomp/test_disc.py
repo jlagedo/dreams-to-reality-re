@@ -609,3 +609,65 @@ def test_sha256_matches_hashlib_on_block_boundaries(tool, tmp_path):
     (tmp_path / "h.iso").write_bytes(iso)
     got = listing(tool, tmp_path / "h.iso")
     assert got["files"] == {n: (len(b), hashlib.sha256(b).hexdigest()) for n, b in blobs.items()}
+
+
+def write_tree(root, files):
+    for rel, data in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+
+def merged(root):
+    """dest's files as {relative path with '/': bytes}, the spelling kept."""
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
+
+
+def test_copy_merged_follows_the_developer_folder_rules(tool, tmp_path):
+    """disc_copy_merged (spec 008 phase M): disc 1 wins a shared path but
+    UVCONFIG.EXE, FULL.ID and disc 2's saves stay out, a directory keeps disc
+    1's spelling, and a second run copies nothing."""
+    disc1, disc2, dest = tmp_path / "disc1", tmp_path / "disc2", tmp_path / "out" / "developer"
+    write_tree(
+        disc1,
+        {
+            "DATA/1CD.ID": b"",
+            "DATA/FULL.ID": b"full",
+            "DATA/HD.ID": b"toto\r\n",
+            "DREAMS.DAT": b"bank from disc 1",
+            "DATA/UNIVBE/UVCONFIG.EXE": b"old",
+            "DATA/3DC/A.DSN": b"a" * 70000,
+        },
+    )
+    write_tree(
+        disc2,
+        {
+            "DATA/2CD.ID": b"",
+            "DATA/HD.ID": b"\x01\x00\x00\x00",
+            "DREAMS.DAT": b"bank from disc 2",
+            "DATA/UNIVBE/UVCONFIG.EXE": b"newer",
+            "data/3dc/B.DSN": b"b" * 3,
+            "DATA/GAME/GAME0.DAT": b"foreign save",
+            "DATA/GAME/GAME.DAT": b"foreign index",
+        },
+    )
+    rc, out, err = run(tool, "--copy-merged", disc1, disc2, dest)
+    assert rc == 0, err
+    assert merged(dest) == {
+        "DATA/1CD.ID": b"",
+        "DATA/2CD.ID": b"",
+        "DATA/3DC/A.DSN": b"a" * 70000,
+        "DATA/3DC/B.DSN": b"bbb",
+        "DATA/HD.ID": b"toto\r\n",
+        "DATA/UNIVBE/UVCONFIG.EXE": b"newer",
+        "DREAMS.DAT": b"bank from disc 1",
+    }
+    assert "COPIED\t7" in out.decode() and "SKIPPED\t0" in out.decode()
+
+    # A resumed copy: complete files are skipped, a missing one is copied again.
+    (dest / "DREAMS.DAT").unlink()
+    rc, out, err = run(tool, "--copy-merged", disc1, disc2, dest)
+    assert rc == 0, err
+    assert "COPIED\t1" in out.decode() and "SKIPPED\t6" in out.decode()
+    assert (dest / "DREAMS.DAT").read_bytes() == b"bank from disc 1"
+    assert not list(dest.rglob("*.part"))

@@ -61,6 +61,24 @@
  * disc (not for the saves directory): the first with a match, unmerged as
  * above. Disc files have no dates (FILETIME 1970-01-01).
  *
+ * Tree mode (WD_TREE: a directory; the browser build always): one tree is
+ * both the CD root and the install root, as the developers' hard-disk game
+ * had it and as the Develop and Play edits launch modes serve the developer
+ * folder (docs/specs/008-editor-restoration/spec.md, phase M). Host-only
+ * structure; the guest keeps its retail view:
+ *   - the tree is the only read root and the write root (saves land in its
+ *     DATA\GAME, edits in place); WD_READ_ROOTS and WD_DATA_DIR's sandbox
+ *     do not apply, and the guest EXE is the tree's GDIDREAM.EXE;
+ *   - CRYO\DREAMS\x is x;
+ *   - DATA\FULL.ID is never found: its copy-to-hard-disk mode would purge
+ *     DATA\3DC and DATA\ANIM of the one tree before copying them back;
+ *   - DATA\1CD.ID, DATA\2CD.ID and DATA\HD.ID are created if missing.
+ * With WD_DISC1 and WD_DISC2 as well (Play edits), the discs are opened for
+ * their audio tracks only: files still come from the tree, and the last disc
+ * marker the game opened (CD_GetDiscNumber opens 1CD.ID, CD_PromptSwap
+ * 2CD.ID) picks the disc whose tracks winmm.c plays.
+ *
+ *   WD_TREE             the tree (tree mode)
  *   WD_DISC1, WD_DISC2  the discs (disc mode); both or neither
  *   WD_DISC_ACTIVE=2    start with disc 2 in the drive (default 1; either disc
  *                       boots the game, and a new game then asks for disc 1)
@@ -95,6 +113,7 @@ static SDL_SpinLock g_marker_lock;
 static int g_marker_miss;               /* the marker (1, 2) whose open just failed, no other open since */
 static int g_log_disc = 200;            /* marker opens and failed install-root opens, logged past g_log */
 static void (*g_on_switch)(void);       /* winmm.c: the CD audio device follows the active disc */
+static int g_tree;                      /* tree mode: one tree is CD root, install root and write root */
 typedef struct { int disc; const char* path; DiscEntry entry; } DiscHit;   /* disc 0: not on a disc; path: in the caller's rel */
 
 /* An SDL stream is not safe to use from two threads at once, a Win32 handle
@@ -168,6 +187,16 @@ static int folds_case(const char* directory) {
     }
     return letters && path_type(flipped, NULL) == SDL_PATHTYPE_DIRECTORY;
 }
+
+/* ---- tree mode ---- */
+/* WD_TREE, or NULL. Read before files_init (the guest EXE comes from it). */
+const char* files_tree(void) {
+    const char* tree = SDL_getenv("WD_TREE");
+    return tree && *tree ? tree : NULL;
+}
+/* Files come from the discs (disc mode proper; in tree mode the discs, when
+ * open, are for their audio only). */
+static int disc_files(void) { return g_disc[1] && !g_tree; }
 
 /* ---- disc mode ---- */
 /* Open the discs. 1: disc mode; 0: WD_DISC1 is unset, the directory read
@@ -245,7 +274,8 @@ static void disc_note_open(int marker) {
     int from = 0;
     SDL_LockSpinlock(&g_marker_lock);
     int active = SDL_GetAtomicInt(&g_active);
-    if (!marker || marker == active) g_marker_miss = 0;
+    if (g_tree) { if (marker && marker != active) { from = active; SDL_SetAtomicInt(&g_active, marker); } }
+    else if (!marker || marker == active) g_marker_miss = 0;
     else if (g_marker_miss != marker) g_marker_miss = marker;
     else { g_marker_miss = 0; from = active; SDL_SetAtomicInt(&g_active, marker); }
     SDL_UnlockSpinlock(&g_marker_lock);
@@ -322,12 +352,17 @@ static void disc_copy_out(const DiscHit* hit, const char* out) {
 
 void files_init(const char* exe) {
     char dir[HOST_PATH];
-    if (!g_disc[1]) {
+#ifdef __EMSCRIPTEN__
+    g_tree = 1;
+#else
+    g_tree = files_tree() != NULL;
+#endif
+    if (!disc_files()) {
         absolute(exe, dir);
         char* s = strrchr(dir, '/');
         if (s) *s = 0;
         SDL_strlcpy(g_roots[g_nroots++], dir, HOST_PATH);
-        const char* extra = SDL_getenv("WD_READ_ROOTS");
+        const char* extra = g_tree ? NULL : SDL_getenv("WD_READ_ROOTS");
         if (extra) {
             char tmp[4 * HOST_PATH]; char* ctx = NULL;
             SDL_strlcpy(tmp, extra, sizeof tmp);
@@ -335,7 +370,8 @@ void files_init(const char* exe) {
                 absolute(t, g_roots[g_nroots++]);
         }
     }
-    const char* w = SDL_getenv("WD_DATA_DIR");
+    const char* w = files_tree();
+    if (!w) w = SDL_getenv("WD_DATA_DIR");
     if (!w || !*w) w = SDL_getenv("WD_WRITE_ROOT");
     absolute(w && *w ? w : "sandbox", g_sandbox);
     SDL_CreateDirectory(g_sandbox);
@@ -348,13 +384,12 @@ void files_init(const char* exe) {
         fprintf(stderr, "[files] read root %d: %s\n", i, g_roots[i]);
     }
     g_folds[MAX_ROOTS] = folds_case(g_sandbox);
-    fprintf(stderr, "[files] write sandbox: %s\n", g_sandbox);
-#ifdef __EMSCRIPTEN__
-    /* The game only opens these markers (CD_FindDrive, CD_FindCacheDrive,
-     * CD_GetDiscNumber, CD_PromptSwap): the one tree stands for both discs and
-     * the install, so they exist whether or not the pack ships them. */
+    fprintf(stderr, "[files] write sandbox: %s%s\n", g_sandbox, g_tree ? " (tree mode)" : "");
+    /* Tree mode. The game only opens these markers (CD_FindDrive,
+     * CD_FindCacheDrive, CD_GetDiscNumber, CD_PromptSwap): the one tree stands
+     * for both discs and the install, so they exist whether or not it holds them. */
     static const char* const markers[] = { "DATA/1CD.ID", "DATA/2CD.ID", "DATA/HD.ID" };
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; g_tree && i < 3; i++) {
         char path[HOST_PATH];
         SDL_snprintf(path, sizeof path, "%s/%s", g_sandbox, markers[i]);
         if (path_type(path, NULL) != SDL_PATHTYPE_NONE) continue;
@@ -365,7 +400,6 @@ void files_init(const char* exe) {
         if (io) SDL_CloseIO(io);
         fprintf(stderr, "[files] marker %s created\n", markers[i]);
     }
-#endif
 }
 static int root_folds(const char* root) {
     if (g_walk) return 0;
@@ -395,14 +429,12 @@ static int guest_rel(uint32_t va, char* rel) {
     }
     size_t used = 0;
     rel[0] = 0;
-#ifdef __EMSCRIPTEN__
-    /* The browser's one tree is both the CD root and the install root:
-     * CRYO\DREAMS\x is x (the pack's paths are relative to /dreams). */
-    if (n >= 2 && !SDL_strcasecmp(seg[0], "CRYO") && !SDL_strcasecmp(seg[1], "DREAMS")) {
+    /* Tree mode: the one tree is both the CD root and the install root, so
+     * CRYO\DREAMS\x is x (the browser pack's paths are relative to /dreams). */
+    if (g_tree && n >= 2 && !SDL_strcasecmp(seg[0], "CRYO") && !SDL_strcasecmp(seg[1], "DREAMS")) {
         for (int i = 0; i + 2 < n; i++) seg[i] = seg[i + 2];
         n -= 2;
     }
-#endif
     for (int i = 0; i < n; i++) {
         size_t len = strlen(seg[i]);
         if (used + (i ? 1 : 0) + len >= W32_MAX_PATH) { rel[0] = 0; return 0; }
@@ -472,16 +504,15 @@ static SDL_PathType locate(const char* root, const char* rel, char* out, SDL_Pat
 static SDL_PathType resolve_read_disc(const char* rel, char* out, SDL_PathInfo* info, uint32_t* error, DiscHit* hit);
 static SDL_PathType resolve_read(const char* rel, char* out, SDL_PathInfo* info, uint32_t* error, DiscHit* hit) {
     if (hit) hit->disc = 0;
-    if (g_disc[1]) return resolve_read_disc(rel, out, info, error, hit);
-#ifdef __EMSCRIPTEN__
-    /* DATA\FULL.ID would switch the game to its copy-to-hard-disk mode, which
-     * purges and refills DATA\3DC in the one tree that is both CD and install. */
-    if (!SDL_strcasecmp(rel, "DATA\\FULL.ID") && !SDL_getenv("WD_WEB_FULL_ID")) {
+    if (disc_files()) return resolve_read_disc(rel, out, info, error, hit);
+    /* Tree mode: DATA\FULL.ID would switch the game to its copy-to-hard-disk
+     * mode, which purges DATA\3DC and DATA\ANIM of the one tree that is both
+     * CD and install before copying them back (CD_PurgeCache 0x4281d9). */
+    if (g_tree && !SDL_strcasecmp(rel, "DATA\\FULL.ID") && !SDL_getenv("WD_WEB_FULL_ID")) {
         SDL_snprintf(out, HOST_PATH, "%s/%s", g_sandbox, "DATA/FULL.ID");
         if (error) *error = W32_ERROR_FILE_NOT_FOUND;
         return SDL_PATHTYPE_NONE;
     }
-#endif
     SDL_PathType type = locate(g_sandbox, rel, out, info, error);
     for (int i = 0; type == SDL_PATHTYPE_NONE && i < g_nroots; i++)
         type = locate(g_roots[i], rel, out, info, error);
@@ -549,7 +580,7 @@ void imp_CreateFileA(void) {  /* (name, access, share, sa, disposition, flags, t
     int write = (access & W32_GENERIC_WRITE) || disp == W32_CREATE_ALWAYS || disp == W32_CREATE_NEW ||
                 disp == W32_TRUNCATE_EXISTING || disp == W32_OPEN_ALWAYS;
     DiscHit hit = { 0 };
-    if (g_disc[1]) disc_note_open(write ? 0 : marker_of(rel));
+    if (g_disc[1]) disc_note_open(write ? 0 : marker_of(rel));   /* in tree mode: the audio disc */
     SDL_PathType type = write
         ? resolve_write(rel, host, disp == W32_OPEN_EXISTING || disp == W32_OPEN_ALWAYS, NULL, &error)
         : resolve_read(rel, host, NULL, &error, &hit);
@@ -612,7 +643,7 @@ void imp_CreateFileA(void) {  /* (name, access, share, sa, disposition, flags, t
     /* In disc mode the marker opens (the disc questions) and what the install
      * root lacks stay visible after that budget too, within their own. */
     int failed = gh == W32_INVALID_HANDLE_VALUE;
-    int disc_event = g_disc[1] && !write && (marker_of(rel) || (failed && below_install(rel)));
+    int disc_event = disc_files() && !write && (marker_of(rel) || (failed && below_install(rel)));
     if (save && !failed)
         fprintf(stderr, "[save] open %s \"%s\" -> %s\n", write ? "W" : "R", rel, host);
     else if (g_log > 0 || (disc_event && g_log_disc > 0)) {
@@ -923,7 +954,7 @@ void imp_FindFirstFileA(void) {
     uint32_t error = 0;
     Find* find = find_in(g_sandbox, dir, expression, &error);
     for (int i = 0; !find && i < g_nroots; i++) find = find_in(g_roots[i], dir, expression, &error);
-    if (g_disc[1]) {
+    if (disc_files()) {
         /* Disc mode: the active disc, then for a directory of the install
          * root the same directory at the root of the active and the other disc. */
         int active = SDL_GetAtomicInt(&g_active);

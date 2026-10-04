@@ -23,7 +23,7 @@ def build_dir() -> Path:
 
 
 def tool_path() -> Path:
-    return build_dir() / recomp_env.exe_name("disc_list")
+    return recomp_env.disc_tool()
 
 
 def main() -> int:
