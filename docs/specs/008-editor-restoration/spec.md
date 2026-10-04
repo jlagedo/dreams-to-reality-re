@@ -407,6 +407,22 @@ those fields every frame and saves them with the level. Each cell starts
 at the retail global's initial value, so the slider shows what the game
 starts with.
 
+Every reference to the six, checked 2026-10-04 (lifted code; script
+`out/research/phase1-globals/camera_refs.py`) **[verified in code]**: the
+follow camera reads them (`CAM_UpdateFollowPos` `0x40a866`,
+`CAM_ComputeChasePos` `0x409de2`, `CAM_ApplyCloseRange` `0x409ba0`);
+`CAM_LoadPreset` (`0x40b729`) writes them, from `CAM_ApplyCloseRange` on
+every follow tick with no condition, from the Alt+5…Alt+0 presets and at
+level load. No cutscene camera mode (fixed, track, entity pair, ride,
+overhead, free) reads them, so they never shaped a cutscene. Since
+`CAM_TickFollow` runs `CAM_UpdateFollowPos` before the reload, a write
+would last one frame at most. One more writer is dead: `0x40b8d3`, called
+by `ENT_TickPlayerControl` every frame, jumps from its prologue straight
+to its epilogue (`0x40b8ee`); its body set the six, `_K_OBJ_BACK_PAS`,
+`_SpeedCamera` and `_SpeedTarget` by movement mode (walking: target
+0x220–0x43c; swimming or flying: 0x20) and eased them in combat stance, a
+camera behaviour switched off for release.
+
 ### A4.5 Node format
 
 0x40 bytes, the same in July and October **[verified in code]**:
