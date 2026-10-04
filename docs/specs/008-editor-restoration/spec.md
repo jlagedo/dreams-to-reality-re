@@ -1127,6 +1127,24 @@ in Develop and no "MCI Error" box appears; Play edits plays the folder's
 project missing from the bank (made with `bank_patch.py`) is refused with
 the Load page's message (phase 7).
 
+Built 2026-10-04 (branch `spec-008-phase-m`): `host_mode` and the gates
+(`host/sdl/user.c`), tree mode on desktop builds (`host/sdl/files.c`,
+`WD_TREE`), the `CD_OpenAudio` replacement (`host/sdl/launch_mode.c`,
+`lift/replacements.py` `HOST_ENTRIES`), `disc_copy_merged` and `disc_list
+--copy-merged` (`recomp/disc/merge.c`), `run.py --mode` and `--tree`, and the
+launcher's mode row, Develop tab, copy with progress and resume, and Reset
+edits. Checked live through the control channel and the launcher's own
+`--play`: Play keeps keypad 1 inert and plays CD track 9 from disc 1;
+Develop reads every file from the folder (the `CRYO\DREAMS` prefix
+stripped), toggles keypad 1, has no `cd` event and no "MCI Error" box;
+Play edits reads the folder and plays track 9 from disc 1; the merged
+folder (655 MB) has no `FULL.ID` and no `DATA\GAME`, and its five
+differing files are the expected discs' **[verified in the recomp]**.
+Still to check: a disc-2 level in Develop and Play edits (the swap frame
+and disc 2's audio), a save carried from Develop to Play edits, the
+Linux build of the launcher and of tree mode, and the keypad 6–9 and
+DOS-key bindings, which phases 2 and 7 add.
+
 ### Phase 1 — the July menu
 
 1. **Extract.** A build step reads the July `DREAMS.EXE` (path from
@@ -1641,7 +1659,7 @@ every editor page and tool works under the direct renderer (owner,
 | A save names a project missing from the bank, or is foreign or the wrong size | the save guard refuses it before anything is overwritten (B1, Saves; phase 7) |
 | Give all items renames an item the player already holds (`VITESSE` → `vitesse`), and the case-sensitive held test then closes the exits of Projects 99 and 100 | the host restores held entries after the sequence (phase 7) |
 | A demo replay leaves input dead after a caption sequence (retail bug) | the host saves and restores the input device mode around playback (phase 7) |
-| The first Develop launch is interrupted or runs out of space | the launcher writes the "initialized" marker only after a complete copy (about 480 MB merged, `disc-layout.md`) and resumes a partial one, skipping files present at full size (phase M) |
+| The first Develop launch is interrupted or runs out of space | the launcher writes the "initialized" marker only after a complete copy (655 MB merged, measured 2026-10-04) and resumes a partial one, skipping files present at full size (phase M) |
 | An editor draw stops the direct renderer | Develop runs on the software renderer until phase D; the direct smoke at the end of each phase finds such draws early |
 | Capture under the direct renderer writes black | not reached before phase D (Develop is software); the proposed `SaveImage_` replacement there |
 | `FULL.ID` or disc 2's saves reach the folder | excluded from the copy and `FULL.ID` hidden by the host (phase M) |
