@@ -1,0 +1,25 @@
+{
+  "$schema": "https://recomp.fyi/schema/v1.json",
+  "game": "Dreams to Reality",
+  "wikidata": "Q3039299",
+  "system": "PC (Windows)",
+  "type": "recomp",
+  "original": {
+    "region": "Europe",
+    "revision": "English, 2 CDs (GDIDREAM.EXE)",
+    "sha1": "7f048057dbcf085eb9a27d912ab83ee6b7118dd6"
+  },
+  "project": "Dreams to Reality, recompiled",
+  "status": "released",
+  "targets": ["Windows", "Linux", "Browser"],
+  "toolchain": "pcrecomp",
+  "approach": "x86 static recompilation of the Watcom-built GDIDREAM.EXE to C; SDL3 host for Win32, D3D11/OpenGL/WebGL 2 renderer",
+  "maintainers": [{ "name": "jlagedo", "link": "https://github.com/jlagedo" }],
+  "links": [
+    { "label": "Windows pre-release", "url": "https://github.com/jlagedo/dreams-to-reality-re/releases" },
+    { "label": "Browser demo", "url": "https://dreams.lagedo.dev/" }
+  ],
+  "help": ["Play-testing the GPU renderer through the whole game", "Other editions of the game", "macOS build"],
+  "tags": ["cryo", "watcom", "level-editor", "webassembly"],
+  "notes": "Plays from images of your own two discs with CD music, through a launcher. Adds a GPU renderer beside the original software one, smooth motion (30 Hz step, interpolated display), keyboard and gamepad remapping, and a Develop mode that restores Cryo's own level editor and developer tools from the July 1997 demo. Windows is the tested platform; Linux runs; the browser build plays a demo."
+}

@@ -1,5 +1,7 @@
 # Dreams to Reality, recompiled
 
+![Duncan on the first level, recompiled, with the GPU renderer](docs/demo.jpg)
+
 A static recompilation of **Dreams to Reality** (Cryo Interactive
 Entertainment, 1997) for modern PCs, built with
 [pcrecomp](https://github.com/sp00nznet/pcrecomp).
