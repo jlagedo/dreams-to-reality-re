@@ -104,7 +104,13 @@ typedef struct od_scene_packet {
      * Zero disables. Separate model roots and parallel/alpha layers never join.
      * Guest transforms, topology, metadata and draw ordering are unchanged. */
     float source_edge_quantum;
+    /* Non-zero with clear: draw with OD_SCENE_MSAA_SAMPLES samples and
+     * alpha-to-coverage on chroma faces, then resolve into the target's
+     * colour; the target's depth is not written. Single-sampled where the
+     * GPU has no MSAA for these formats, or without clear. */
+    int msaa;
 } od_scene_packet;
+#define OD_SCENE_MSAA_SAMPLES 4
 
 od_renderer *od_renderer_create(void);
 void od_renderer_destroy(od_renderer *renderer);

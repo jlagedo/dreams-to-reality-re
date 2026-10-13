@@ -198,10 +198,16 @@ float fog_factor(float w) {
 }
 void main() {
     vec4 c=material_mode.x!=0.0?texture(sampler2D(material_tex,material_smp),uv):colour;
-    if(material_mode.y!=0.0&&c.a<0.5)discard;
+    // Chroma faces: alpha-to-coverage under MSAA (material_mode.w), the 0.5
+    // cut sharpened to a one-pixel ramp; otherwise discard below the cut.
+    float ramp=max(fwidth(c.a),0.0001);
+    float coverage=material_mode.z;
+    if(material_mode.w!=0.0)
+        coverage=clamp((c.a-0.5)/ramp+0.5,0.0,1.0);
+    else if(material_mode.y!=0.0&&c.a<0.5)discard;
     c.rgb*=vertex_brightness;
     if(fog_colour.a!=0.0)c.rgb=mix(c.rgb,fog_colour.rgb,fog_factor(view_w));
-    frag_color=vec4(c.rgb,material_mode.z);
+    frag_color=vec4(c.rgb,coverage);
 }
 @end
 @program direct_draw direct_quad_vs direct_draw_fs

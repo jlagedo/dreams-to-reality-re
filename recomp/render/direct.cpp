@@ -15,6 +15,7 @@ namespace {
 struct Image {
     sg_image image{};
     sg_view texture{}, attachment{};
+    sg_view resolve{}; // a single-sampled colour target's MSAA resolve view
 };
 struct Resource {
     uint32_t generation = 1;
@@ -28,6 +29,8 @@ void destroy_image(Image &image) {
         sg_destroy_view(image.texture);
     if (image.attachment.id)
         sg_destroy_view(image.attachment);
+    if (image.resolve.id)
+        sg_destroy_view(image.resolve);
     if (image.image.id)
         sg_destroy_image(image.image);
     image = {};
@@ -38,15 +41,19 @@ void destroy_resource(Resource &r) {
     destroy_image(r.depth);
 }
 // With mips > 1, data holds every level, each half the one before, in order.
+// A multisampled image is an attachment only: it is resolved, never sampled.
 bool make_image(Image &image, int w, int h, sg_pixel_format fmt, bool target,
-                const void *data = nullptr, int mips = 1) {
+                const void *data = nullptr, int mips = 1, int samples = 1) {
     sg_image_desc d{};
     d.width = w;
     d.height = h;
     d.pixel_format = fmt;
     d.num_mipmaps = mips;
+    d.sample_count = samples;
     const bool depth = fmt == SG_PIXELFORMAT_DEPTH;
+    const bool resolvable = target && !depth && samples == 1;
     d.usage.color_attachment = target && !depth;
+    d.usage.resolve_attachment = resolvable;
     d.usage.depth_stencil_attachment = depth;
     for (int i = 0, lw = w, lh = h; data && i < mips; ++i, lw = std::max(lw / 2, 1), lh = std::max(lh / 2, 1)) {
         d.data.mip_levels[i] = {data, size_t(lw) * size_t(lh) * 4};
@@ -56,7 +63,7 @@ bool make_image(Image &image, int w, int h, sg_pixel_format fmt, bool target,
     if (sg_query_image_state(image.image) != SG_RESOURCESTATE_VALID)
         return false;
     sg_view_desc v{};
-    if (!depth) {
+    if (!depth && samples == 1) {
         v.texture.image = image.image;
         image.texture = sg_make_view(&v);
         if (sg_query_view_state(image.texture) != SG_RESOURCESTATE_VALID)
@@ -72,6 +79,13 @@ bool make_image(Image &image, int w, int h, sg_pixel_format fmt, bool target,
         if (sg_query_view_state(image.attachment) != SG_RESOURCESTATE_VALID)
             return false;
     }
+    if (resolvable) {
+        v = {};
+        v.resolve_attachment.image = image.image;
+        image.resolve = sg_make_view(&v);
+        if (sg_query_view_state(image.resolve) != SG_RESOURCESTATE_VALID)
+            return false;
+    }
     return true;
 }
 } // namespace
@@ -85,9 +99,17 @@ struct od_renderer {
     sg_pipeline shadow_pipeline{};
     sg_shader mask_shader{};
     sg_pipeline mask_pipeline{};
-    sg_pipeline draw_pipeline{}, output_pipeline{}, scene_pipeline{}, alpha_pipeline{};
+    sg_pipeline draw_pipeline{}, output_pipeline{};
     sg_pipeline output_rgba_pipeline{};
-    sg_pipeline scene_culled_pipeline{}, alpha_culled_pipeline{};
+    // Single-sampled scenes draw chroma faces with the opaque pipelines (the
+    // shader discards); multisampled ones give them alpha-to-coverage.
+    struct ScenePipelines {
+        sg_pipeline opaque{}, opaque_culled{}, alpha{}, alpha_culled{}, chroma{}, chroma_culled{};
+    } single, msaa;
+    // One multisampled colour and depth pair, shared by every target: a
+    // scene pass clears it and resolves it into the target's colour.
+    Image msaa_colour, msaa_depth;
+    int msaa_width = 0, msaa_height = 0;
     sg_sampler point{}, linear{}, repeat_linear{};
     sg_sampler material{}, repeat_material{}; // trilinear, anisotropic: mipmapped pages
     Image dummy_packed, dummy_rgba;
@@ -162,33 +184,53 @@ od_renderer *od_renderer_create() {
     p.depth.pixel_format = SG_PIXELFORMAT_NONE;
     p.sample_count = 1;
     r->output_rgba_pipeline = sg_make_pipeline(&p);
-    p = {};
-    p.shader = r->scene_shader;
-    p.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8;
-    p.depth.pixel_format = SG_PIXELFORMAT_DEPTH;
-    p.depth.compare = SG_COMPAREFUNC_GREATER;
-    p.depth.write_enabled = true;
-    p.sample_count = 1;
-    p.layout.buffers[0].stride = 6 * sizeof(float);
-    p.layout.attrs[ATTR_direct_scene_position].format = SG_VERTEXFORMAT_FLOAT3;
-    p.layout.attrs[ATTR_direct_scene_texcoord].format = SG_VERTEXFORMAT_FLOAT2;
-    p.layout.attrs[ATTR_direct_scene_texcoord].offset = 3 * sizeof(float);
-    p.layout.attrs[ATTR_direct_scene_brightness].format = SG_VERTEXFORMAT_FLOAT;
-    p.layout.attrs[ATTR_direct_scene_brightness].offset = 5 * sizeof(float);
-    // Visibility/front-face decisions belong to the scene adapter/core, not
-    // the source's old clipped lists. Initial stream is explicitly two-sided.
-    r->scene_pipeline = sg_make_pipeline(&p);
-    p.colors[0].blend.enabled = true;
-    p.colors[0].blend.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA;
-    p.colors[0].blend.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-    p.colors[0].blend.src_factor_alpha = SG_BLENDFACTOR_ONE;
-    p.colors[0].blend.dst_factor_alpha = SG_BLENDFACTOR_ZERO;
-    r->alpha_pipeline = sg_make_pipeline(&p);
-    p.cull_mode = SG_CULLMODE_BACK;
-    p.face_winding = SG_FACEWINDING_CCW;
-    r->alpha_culled_pipeline = sg_make_pipeline(&p);
-    p.colors[0].blend.enabled = false;
-    r->scene_culled_pipeline = sg_make_pipeline(&p);
+    const auto scene_pipelines = [&](int samples, od_renderer::ScenePipelines &out) {
+        p = {};
+        p.shader = r->scene_shader;
+        p.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8;
+        p.depth.pixel_format = SG_PIXELFORMAT_DEPTH;
+        p.depth.compare = SG_COMPAREFUNC_GREATER;
+        p.depth.write_enabled = true;
+        p.sample_count = samples;
+        p.layout.buffers[0].stride = 6 * sizeof(float);
+        p.layout.attrs[ATTR_direct_scene_position].format = SG_VERTEXFORMAT_FLOAT3;
+        p.layout.attrs[ATTR_direct_scene_texcoord].format = SG_VERTEXFORMAT_FLOAT2;
+        p.layout.attrs[ATTR_direct_scene_texcoord].offset = 3 * sizeof(float);
+        p.layout.attrs[ATTR_direct_scene_brightness].format = SG_VERTEXFORMAT_FLOAT;
+        p.layout.attrs[ATTR_direct_scene_brightness].offset = 5 * sizeof(float);
+        // Visibility/front-face decisions belong to the scene adapter/core, not
+        // the source's old clipped lists. Initial stream is explicitly two-sided.
+        out.opaque = sg_make_pipeline(&p);
+        p.cull_mode = SG_CULLMODE_BACK;
+        p.face_winding = SG_FACEWINDING_CCW;
+        out.opaque_culled = sg_make_pipeline(&p);
+        p.cull_mode = SG_CULLMODE_NONE;
+        p.colors[0].blend.enabled = true;
+        p.colors[0].blend.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA;
+        p.colors[0].blend.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+        p.colors[0].blend.src_factor_alpha = SG_BLENDFACTOR_ONE;
+        p.colors[0].blend.dst_factor_alpha = SG_BLENDFACTOR_ZERO;
+        out.alpha = sg_make_pipeline(&p);
+        p.cull_mode = SG_CULLMODE_BACK;
+        out.alpha_culled = sg_make_pipeline(&p);
+        p.colors[0].blend = {};
+        if (samples == 1) {
+            out.chroma = out.opaque;
+            out.chroma_culled = out.opaque_culled;
+            return;
+        }
+        // Coverage from the texture's alpha; alpha itself stays the clear's 1.
+        p.alpha_to_coverage_enabled = true;
+        p.colors[0].write_mask = SG_COLORMASK_RGB;
+        p.cull_mode = SG_CULLMODE_NONE;
+        out.chroma = sg_make_pipeline(&p);
+        p.cull_mode = SG_CULLMODE_BACK;
+        out.chroma_culled = sg_make_pipeline(&p);
+    };
+    scene_pipelines(1, r->single);
+    if (sg_query_pixelformat(SG_PIXELFORMAT_RGBA8).msaa &&
+        sg_query_pixelformat(SG_PIXELFORMAT_DEPTH).msaa)
+        scene_pipelines(OD_SCENE_MSAA_SAMPLES, r->msaa);
     sg_sampler_desc s{};
     s.min_filter = SG_FILTER_NEAREST;
     s.mag_filter = SG_FILTER_NEAREST;
@@ -210,10 +252,20 @@ od_renderer *od_renderer_create() {
     const uint32_t zero = 0, white = 0xffffffffu;
     bool ok = make_image(r->dummy_packed, 1, 1, SG_PIXELFORMAT_R32UI, false, &zero) &&
               make_image(r->dummy_rgba, 1, 1, SG_PIXELFORMAT_RGBA8, false, &white);
+    const auto &s1 = r->single;
     for (auto pipeline :
          {r->draw_pipeline, r->shadow_pipeline, r->mask_pipeline, r->output_pipeline, r->output_rgba_pipeline,
-          r->scene_pipeline, r->alpha_pipeline, r->scene_culled_pipeline, r->alpha_culled_pipeline})
+          s1.opaque, s1.opaque_culled, s1.alpha, s1.alpha_culled})
         ok = ok && sg_query_pipeline_state(pipeline) == SG_RESOURCESTATE_VALID;
+    // Without a valid multisampled set, MSAA packets draw single-sampled.
+    auto &ms = r->msaa;
+    for (auto pipeline : {ms.opaque, ms.opaque_culled, ms.alpha, ms.alpha_culled, ms.chroma, ms.chroma_culled})
+        if (ms.opaque.id && sg_query_pipeline_state(pipeline) != SG_RESOURCESTATE_VALID) {
+            for (auto q : {ms.opaque, ms.opaque_culled, ms.alpha, ms.alpha_culled, ms.chroma, ms.chroma_culled})
+                if (q.id)
+                    sg_destroy_pipeline(q);
+            ms = {};
+        }
     ok = ok && sg_query_sampler_state(r->point) == SG_RESOURCESTATE_VALID &&
          sg_query_sampler_state(r->linear) == SG_RESOURCESTATE_VALID &&
          sg_query_sampler_state(r->repeat_linear) == SG_RESOURCESTATE_VALID &&
@@ -249,9 +301,13 @@ void od_renderer_destroy(od_renderer *r) {
             destroy_resource(resource);
     destroy_image(r->dummy_rgba);
     destroy_image(r->dummy_packed);
+    destroy_image(r->msaa_colour);
+    destroy_image(r->msaa_depth);
+    const auto &s1 = r->single, &ms = r->msaa;
     for (auto p :
          {r->draw_pipeline, r->shadow_pipeline, r->mask_pipeline, r->output_pipeline, r->output_rgba_pipeline,
-          r->scene_pipeline, r->alpha_pipeline, r->scene_culled_pipeline, r->alpha_culled_pipeline})
+          s1.opaque, s1.opaque_culled, s1.alpha, s1.alpha_culled, ms.opaque, ms.opaque_culled, ms.alpha,
+          ms.alpha_culled, ms.chroma, ms.chroma_culled})
         if (p.id)
             sg_destroy_pipeline(p);
     for (auto s : {r->draw_shader, r->output_shader, r->scene_shader, r->shadow_shader, r->mask_shader})
@@ -739,13 +795,40 @@ int od_renderer_scene(od_renderer *r, const od_scene_packet *p) {
         r->stats.upload_bytes += d.data.size;
     }
     sg_pass pass{};
-    pass.attachments.colors[0] = target->sides[target->current].attachment;
-    pass.attachments.depth_stencil = target->depth.attachment;
+    // Multisampled: drawn into the shared MSAA pair and resolved into the
+    // target's colour; the target's own depth is left as it was.
+    const bool msaa = p->msaa && p->clear && r->msaa.opaque.id;
+    if (msaa && (r->msaa_width != target->width || r->msaa_height != target->height)) {
+        destroy_image(r->msaa_colour);
+        destroy_image(r->msaa_depth);
+        r->msaa_width = r->msaa_height = 0;
+        if (!make_image(r->msaa_colour, target->width, target->height, SG_PIXELFORMAT_RGBA8, true,
+                        nullptr, 1, OD_SCENE_MSAA_SAMPLES) ||
+            !make_image(r->msaa_depth, target->width, target->height, SG_PIXELFORMAT_DEPTH, true,
+                        nullptr, 1, OD_SCENE_MSAA_SAMPLES)) {
+            destroy_image(r->msaa_colour);
+            destroy_image(r->msaa_depth);
+            return r->fail("MSAA target allocation failed");
+        }
+        r->msaa_width = target->width;
+        r->msaa_height = target->height;
+    }
+    const auto &pipelines = msaa ? r->msaa : r->single;
+    if (msaa) {
+        pass.attachments.colors[0] = r->msaa_colour.attachment;
+        pass.attachments.resolves[0] = target->sides[target->current].resolve;
+        pass.attachments.depth_stencil = r->msaa_depth.attachment;
+        pass.action.colors[0].store_action = SG_STOREACTION_DONTCARE;
+        pass.action.depth.store_action = SG_STOREACTION_DONTCARE;
+    } else {
+        pass.attachments.colors[0] = target->sides[target->current].attachment;
+        pass.attachments.depth_stencil = target->depth.attachment;
+        pass.action.depth.store_action = SG_STOREACTION_STORE;
+    }
     pass.action.colors[0].load_action = p->clear ? SG_LOADACTION_CLEAR : SG_LOADACTION_LOAD;
     std::copy_n(p->clear_colour, 4, &pass.action.colors[0].clear_value.r);
     pass.action.depth.load_action = p->clear ? SG_LOADACTION_CLEAR : SG_LOADACTION_LOAD;
     pass.action.depth.clear_value = 0.0f;
-    pass.action.depth.store_action = SG_STOREACTION_STORE;
     scene_vs_params_t vp{};
     std::copy_n(p->view_projection, 16, vp.view_projection);
     vp.depth_mode[0] = r->flip ? 1.0f : 0.0f;
@@ -778,14 +861,18 @@ int od_renderer_scene(od_renderer *r, const od_scene_packet *p) {
         fp.material_mode[0] = texture ? 1.0f : 0.0f;
         fp.material_mode[1] = tri.mode == OD_FACE_CHROMA ? 1.0f : 0.0f;
         fp.material_mode[2] = tri.mode == OD_FACE_TRANSLUCENT ? 128.0f / 255.0f : 1.0f;
+        fp.material_mode[3] = msaa && tri.mode == OD_FACE_CHROMA ? 1.0f : 0.0f;
         for (int a = 0; a < 3; ++a)
             fp.fog_colour[a] = float((p->fog.colour >> (8 * a)) & 255) / 255.0f;
         fp.fog_colour[3] = p->fog.enabled ? 1.0f : 0.0f;
         for (int entry = 0; entry < 64; ++entry)
             fp.fog_table[entry / 4][entry % 4] = p->fog.table[entry];
-        const auto opaque = tri.cull_back ? r->scene_culled_pipeline : r->scene_pipeline;
-        const auto alpha = tri.cull_back ? r->alpha_culled_pipeline : r->alpha_pipeline;
-        sg_apply_pipeline(tri.mode == OD_FACE_TRANSLUCENT ? alpha : opaque);
+        const auto opaque = tri.cull_back ? pipelines.opaque_culled : pipelines.opaque;
+        const auto alpha = tri.cull_back ? pipelines.alpha_culled : pipelines.alpha;
+        const auto chroma = tri.cull_back ? pipelines.chroma_culled : pipelines.chroma;
+        sg_apply_pipeline(tri.mode == OD_FACE_TRANSLUCENT ? alpha
+                          : tri.mode == OD_FACE_CHROMA    ? chroma
+                                                          : opaque);
         sg_apply_bindings(&b);
         sg_range u{&vp, sizeof vp};
         sg_apply_uniforms(UB_scene_vs_params, &u);

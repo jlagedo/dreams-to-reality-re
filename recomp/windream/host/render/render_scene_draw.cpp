@@ -814,6 +814,7 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
     packet.source_edge_quantum = source_edge_quantum;
     packet.clear = 1;
     packet.clear_colour[3] = 1;
+    packet.msaa = 1;
     packet.nodes = scene.poses.data();
     packet.node_count = scene.poses.size();
     packet.vertices = scene.vertices.data();
