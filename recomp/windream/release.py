@@ -156,8 +156,6 @@ If something goes wrong
   support": choose Renderer: Original (software) in the launcher and play
   on. In this pre-release the GPU renderer loads every level in automated
   tests but has seen little real play.
-- Keypad 1 to 5 toggle the original game's hidden debug switches; keypad 5
-  turns off collision and level exits. Press the key again to undo.
 - With Smooth motion off, a frame cap above 30 breaks the original game's
   physics.
 - To report a problem, open an issue at

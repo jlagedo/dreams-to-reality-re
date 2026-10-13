@@ -122,8 +122,6 @@ without the launcher. Controls, options and file locations are in the zip's
   physics.
 - The game saves by itself on every level entry and has no Save command, as
   in the original.
-- Keypad 1 to 5 toggle the original game's hidden debug switches; keypad 5
-  turns off collision and level exits. Press the key again to undo.
 - The final level closes the game after its first scene, in every build of
   the port.
 
