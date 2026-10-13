@@ -70,8 +70,9 @@ struct SceneFace {
 };
 struct SceneMaterial {
     uint32_t slot = 0, page = 0;
-    // Source bank: 256x256; the material-cache Glide descriptor uploads
-    // even texels as a single 128x128 LOD (MDL_LoadMaterials).
+    // Source bank: 256x256, uploaded whole. The material-cache Glide
+    // descriptor uploads only the even texels as a 128x128 LOD
+    // (MDL_LoadMaterials); the software renderer samples the full page.
     std::vector<uint8_t> indices;
     std::array<uint16_t, 32 * 256> palette{}; // physical row order (page - 0x8000 upward)
     // Empty, or 32 rows indexed by face shade for the faces of a lit node

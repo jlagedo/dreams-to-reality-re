@@ -572,8 +572,8 @@ od_render_id SceneDraw::texture(od_renderer *renderer, const SceneMaterial &mate
             entry.last_frame = frame_;
             return entry.texture;
         }
-    std::vector<uint32_t> rgba(128 * 128);
-    if (!od_expand_material_page(material.indices.data(), 256, palette.data(), rgba.data(), 128)) {
+    std::vector<uint32_t> rgba(256 * 256);
+    if (!od_expand_material_page(material.indices.data(), 256, palette.data(), rgba.data(), 256)) {
         error = "material palette expansion failed";
         return 0;
     }
@@ -583,7 +583,7 @@ od_render_id SceneDraw::texture(od_renderer *renderer, const SceneMaterial &mate
             entry.last_frame = frame_;
             return entry.texture;
         }
-    auto id = od_renderer_upload_rgba(renderer, 128, 128, rgba.data(), 128 * 4);
+    auto id = od_renderer_upload_rgba(renderer, 256, 256, rgba.data(), 256 * 4);
     if (!id) {
         error = od_renderer_error(renderer);
         return 0;

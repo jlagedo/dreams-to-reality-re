@@ -79,7 +79,8 @@ Palette row selection is the same rule as ours:
 
 Textures are uploaded at the full 256x256 (`0x40d158`/`0x433388`, arguments
 `0x100, 0x100`), as 8-bit palettised or ARGB1555. A separate alpha map comes
-from `0x40d25c`. Our renderer takes every second texel into 128x128.
+from `0x40d25c`. Our renderer also uploads the full page (since 2026-10-13;
+before, every second texel into 128x128 as Glide does).
 
 ## Per face type
 
@@ -131,9 +132,8 @@ from `0x40d25c`. Our renderer takes every second texel into 128x128.
    bilinear fringes around the key colour. Ours filters and discards below
    0.5. Worth comparing against the 3dfx captures on the few -6/-5 faces
    Dreams has (506 + 80 in the scenes, glide-renderer.md).
-3. **Texture resolution.** Guardian keeps 256x256 pages; ours halves them to
-   128x128 to match the Glide path. A modernised mode could keep the full
-   page.
+3. **Texture resolution.** Guardian keeps 256x256 pages, and so does ours
+   now; the Glide path halves them to 128x128.
 4. **Clamp on types 2/3.** Guardian never sets clamp. Glide clamps and ours
    follows Glide. Guardian's data may simply not need it, so this is not
    evidence against clamping.

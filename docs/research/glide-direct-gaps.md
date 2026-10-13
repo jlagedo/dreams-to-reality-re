@@ -738,9 +738,9 @@ even if its page changes.
 
 Windows reads the page at raster time. The direct renderer keys each texture
 on the captured page contents and palette, so a changed page produces a new
-128x128 expansion on the frame it is captured: the same image as the DOS
-first-bind upload, provided pages change in the tick and not during the draw.
-**[inferred]**
+expansion on the frame it is captured, provided pages change in the tick and
+not during the draw. **[inferred]** The expansion is the full 256x256 page
+(2026-10-13), not the DOS upload's 128x128 even texels.
 
 ### Required change in the direct renderer
 
