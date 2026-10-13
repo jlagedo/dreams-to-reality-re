@@ -122,6 +122,14 @@ int main() {
     CHECK(rgba[1] == 0xfff8fcf8);   // no bit replication in Glide palette expansion
     CHECK(rgba[128] == 0xff0000f8); // even source rows/columns form the 128 LOD
     CHECK(!od_expand_material_page(indices, 256, palette, rgba, 64));
+    // 4x2 page -> 2x1: a keyed texel weighs on alpha only; an all-keyed
+    // block keeps its plain mean.
+    const uint32_t page[8] = {0xff000010, 0x00ffffff, 0x00000010, 0x00000030,
+                              0xff000030, 0xff000020, 0x00000010, 0x00000030};
+    uint32_t mip[2]{};
+    od_material_mip(page, 4, 2, mip);
+    CHECK(mip[0] == 0xbf000020);
+    CHECK(mip[1] == 0x00000020);
     for (int f = 0; f < 2; ++f)
         for (unsigned c = 0; c < 65536u; ++c)
             CHECK(od_pack_colour(od_expand_colour(uint16_t(c), od_pixel_format(f)),

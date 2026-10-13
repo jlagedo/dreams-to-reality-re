@@ -100,6 +100,34 @@ int od_expand_material_page(const uint8_t *indices, size_t pitch, const uint16_t
         }
     return 1;
 }
+void od_material_mip(const uint32_t *rgba, int width, int height, uint32_t *half) {
+    const int w = std::max(width / 2, 1), h = std::max(height / 2, 1);
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x) {
+            uint32_t sum[4]{}, opaque[3]{}, count = 0, opaque_count = 0;
+            for (int dy = 0; dy < 2; ++dy)
+                for (int dx = 0; dx < 2; ++dx) {
+                    const int sx = std::min(x * 2 + dx, width - 1);
+                    const int sy = std::min(y * 2 + dy, height - 1);
+                    const uint32_t c = rgba[size_t(sy) * width + sx];
+                    for (int a = 0; a < 4; ++a)
+                        sum[a] += (c >> (8 * a)) & 255u;
+                    ++count;
+                    if (c >> 24) {
+                        for (int a = 0; a < 3; ++a)
+                            opaque[a] += (c >> (8 * a)) & 255u;
+                        ++opaque_count;
+                    }
+                }
+            uint32_t out = ((sum[3] + count / 2) / count) << 24;
+            for (int a = 0; a < 3; ++a) {
+                const uint32_t v = opaque_count ? (opaque[a] + opaque_count / 2) / opaque_count
+                                                : (sum[a] + count / 2) / count;
+                out |= v << (8 * a);
+            }
+            half[size_t(y) * w + x] = out;
+        }
+}
 void od_dos_palette_apply(const uint8_t *source, int32_t r, int32_t g, int32_t b,
                           uint16_t *row) {
     // The 64 KiB table of 0x2e952 holds clamp(channel + 2 * int8(offset), 0, 255).

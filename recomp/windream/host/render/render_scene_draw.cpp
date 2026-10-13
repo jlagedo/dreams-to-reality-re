@@ -583,7 +583,7 @@ od_render_id SceneDraw::texture(od_renderer *renderer, const SceneMaterial &mate
             entry.last_frame = frame_;
             return entry.texture;
         }
-    auto id = od_renderer_upload_rgba(renderer, 256, 256, rgba.data(), 256 * 4);
+    auto id = od_renderer_upload_material(renderer, 256, 256, rgba.data());
     if (!id) {
         error = od_renderer_error(renderer);
         return 0;

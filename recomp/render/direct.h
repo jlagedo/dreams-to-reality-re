@@ -118,6 +118,10 @@ od_render_id od_renderer_upload_packed(od_renderer *, int width, int height, con
                                        size_t pitch);
 od_render_id od_renderer_upload_rgba(od_renderer *, int width, int height, const void *,
                                      size_t pitch);
+/* A material page with its full mip chain (od_material_mip), sampled with
+ * trilinear and anisotropic filtering. Width and height: powers of two. */
+od_render_id od_renderer_upload_material(od_renderer *, int width, int height,
+                                         const uint32_t *rgba);
 int od_renderer_release(od_renderer *, od_render_id);
 int od_renderer_draw_2d(od_renderer *, const od_draw_2d *);
 /* Inclusive logical-pixel endpoints on the centered UI canvas. Packed stores
@@ -169,6 +173,11 @@ uint32_t od_expand_colour(uint16_t packed, od_pixel_format);
  * Palette expansion is Glide R/B*8, G*4, deliberately not bit replication. */
 int od_expand_material_page(const uint8_t *indices, size_t source_pitch, const uint16_t *palette,
                             uint32_t *rgba, int lod);
+/* One mip level down: each 2x2 block of a width x height RGBA page becomes a
+ * texel whose alpha is the block's mean and whose colour is the mean of its
+ * opaque texels, so the chroma key's colour never bleeds into the image.
+ * A block with no opaque texel keeps the mean of all four. */
+void od_material_mip(const uint32_t *rgba, int width, int height, uint32_t *half);
 int od_compose_pose(const od_pose_node *, size_t count, float *world_affines);
 /* The DOS 3dfx build's palette-row generation (DREAMSFX.EXE), which decides
  * the colours Glide binds. Its Windows twin differs: it has no project +0xc8

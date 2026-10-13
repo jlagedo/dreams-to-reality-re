@@ -18,7 +18,7 @@ struct Image {
 };
 struct Resource {
     uint32_t generation = 1;
-    bool alive = false, target = false, packed = false;
+    bool alive = false, target = false, packed = false, mipmapped = false;
     int width = 0, height = 0, logical_width = 0, logical_height = 0;
     Image sides[2], depth;
     unsigned current = 0;
@@ -37,17 +37,21 @@ void destroy_resource(Resource &r) {
         destroy_image(i);
     destroy_image(r.depth);
 }
+// With mips > 1, data holds every level, each half the one before, in order.
 bool make_image(Image &image, int w, int h, sg_pixel_format fmt, bool target,
-                const void *data = nullptr) {
+                const void *data = nullptr, int mips = 1) {
     sg_image_desc d{};
     d.width = w;
     d.height = h;
     d.pixel_format = fmt;
+    d.num_mipmaps = mips;
     const bool depth = fmt == SG_PIXELFORMAT_DEPTH;
     d.usage.color_attachment = target && !depth;
     d.usage.depth_stencil_attachment = depth;
-    if (data)
-        d.data.mip_levels[0] = {data, size_t(w) * size_t(h) * 4};
+    for (int i = 0, lw = w, lh = h; data && i < mips; ++i, lw = std::max(lw / 2, 1), lh = std::max(lh / 2, 1)) {
+        d.data.mip_levels[i] = {data, size_t(lw) * size_t(lh) * 4};
+        data = static_cast<const uint8_t *>(data) + d.data.mip_levels[i].size;
+    }
     image.image = sg_make_image(&d);
     if (sg_query_image_state(image.image) != SG_RESOURCESTATE_VALID)
         return false;
@@ -85,6 +89,7 @@ struct od_renderer {
     sg_pipeline output_rgba_pipeline{};
     sg_pipeline scene_culled_pipeline{}, alpha_culled_pipeline{};
     sg_sampler point{}, linear{}, repeat_linear{};
+    sg_sampler material{}, repeat_material{}; // trilinear, anisotropic: mipmapped pages
     Image dummy_packed, dummy_rgba;
     od_render_stats stats{};
     bool flip = false;
@@ -196,6 +201,12 @@ od_renderer *od_renderer_create() {
     s.wrap_u = SG_WRAP_REPEAT;
     s.wrap_v = SG_WRAP_REPEAT;
     r->repeat_linear = sg_make_sampler(&s);
+    s.mipmap_filter = SG_FILTER_LINEAR;
+    s.max_anisotropy = 16;
+    r->repeat_material = sg_make_sampler(&s);
+    s.wrap_u = SG_WRAP_CLAMP_TO_EDGE;
+    s.wrap_v = SG_WRAP_CLAMP_TO_EDGE;
+    r->material = sg_make_sampler(&s);
     const uint32_t zero = 0, white = 0xffffffffu;
     bool ok = make_image(r->dummy_packed, 1, 1, SG_PIXELFORMAT_R32UI, false, &zero) &&
               make_image(r->dummy_rgba, 1, 1, SG_PIXELFORMAT_RGBA8, false, &white);
@@ -205,7 +216,9 @@ od_renderer *od_renderer_create() {
         ok = ok && sg_query_pipeline_state(pipeline) == SG_RESOURCESTATE_VALID;
     ok = ok && sg_query_sampler_state(r->point) == SG_RESOURCESTATE_VALID &&
          sg_query_sampler_state(r->linear) == SG_RESOURCESTATE_VALID &&
-         sg_query_sampler_state(r->repeat_linear) == SG_RESOURCESTATE_VALID;
+         sg_query_sampler_state(r->repeat_linear) == SG_RESOURCESTATE_VALID &&
+         sg_query_sampler_state(r->material) == SG_RESOURCESTATE_VALID &&
+         sg_query_sampler_state(r->repeat_material) == SG_RESOURCESTATE_VALID;
     if (!ok) {
         od_renderer_destroy(r);
         return nullptr;
@@ -250,6 +263,10 @@ void od_renderer_destroy(od_renderer *r) {
         sg_destroy_sampler(r->linear);
     if (r->repeat_linear.id)
         sg_destroy_sampler(r->repeat_linear);
+    if (r->material.id)
+        sg_destroy_sampler(r->material);
+    if (r->repeat_material.id)
+        sg_destroy_sampler(r->repeat_material);
     delete r;
 }
 const char *od_renderer_error(const od_renderer *r) {
@@ -319,6 +336,33 @@ od_render_id od_renderer_upload_packed(od_renderer *r, int w, int h, const uint3
 }
 od_render_id od_renderer_upload_rgba(od_renderer *r, int w, int h, const void *p, size_t pitch) {
     return upload(r, w, h, p, pitch, false);
+}
+od_render_id od_renderer_upload_material(od_renderer *r, int w, int h, const uint32_t *rgba) {
+    if (!r)
+        return 0;
+    if (!r->dimensions_ok(w, h) || !rgba || (w & (w - 1)) || (h & (h - 1)))
+        return r->fail("invalid material layout");
+    std::vector<uint32_t> levels(rgba, rgba + size_t(w) * h);
+    int mips = 1;
+    for (int lw = w, lh = h; (lw > 1 || lh > 1) && mips < SG_MAX_MIPMAPS; ++mips) {
+        const size_t at = levels.size() - size_t(lw) * lh;
+        const int nw = std::max(lw / 2, 1), nh = std::max(lh / 2, 1);
+        levels.resize(levels.size() + size_t(nw) * nh);
+        od_material_mip(levels.data() + at, lw, lh, levels.data() + levels.size() - size_t(nw) * nh);
+        lw = nw;
+        lh = nh;
+    }
+    Resource t;
+    t.width = t.logical_width = w;
+    t.height = t.logical_height = h;
+    t.mipmapped = true;
+    if (!make_image(t.sides[0], w, h, SG_PIXELFORMAT_RGBA8, false, levels.data(), mips)) {
+        destroy_resource(t);
+        return r->fail("upload allocation failed");
+    }
+    ++r->stats.uploads;
+    r->stats.upload_bytes += levels.size() * 4;
+    return r->add(t);
 }
 int od_renderer_release(od_renderer *r, od_render_id id) {
     if (!r)
@@ -724,7 +768,10 @@ int od_renderer_scene(od_renderer *r, const od_scene_packet *p) {
         b.vertex_buffers[0] = buffer;
         b.views[VIEW_material_tex] =
             texture ? texture->sides[texture->current].texture : r->dummy_rgba.texture;
-        b.samplers[SMP_material_smp] = tri.wrap_texture ? r->repeat_linear : r->linear;
+        const bool mipmapped = texture && texture->mipmapped;
+        b.samplers[SMP_material_smp] =
+            tri.wrap_texture ? (mipmapped ? r->repeat_material : r->repeat_linear)
+                             : (mipmapped ? r->material : r->linear);
         scene_fs_params_t fp{};
         for (int a = 0; a < 4; ++a)
             fp.colour[a] = float((tri.colour >> (a * 8)) & 255) / 255.0f;
