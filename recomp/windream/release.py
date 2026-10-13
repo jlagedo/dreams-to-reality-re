@@ -68,8 +68,10 @@ Version {version}
 
 This is the 1997 Cryo game "Dreams to Reality" (European English edition for
 Windows), recompiled to run on a modern PC: the game's program, GDIDREAM.EXE,
-translated to run natively. No game data, music or video is included. You
-need your own two game discs as disc images:
+translated to run natively. No data of the retail game (levels, music,
+video) is included; resources\\ holds the Dreams Editor menu and fonts of
+Cryo's July 1997 demo, used only by Develop. You need your own two game discs
+as disc images:
 
     one .cue file with its .bin files for disc 1, and the same for disc 2
 
@@ -104,7 +106,10 @@ First start
 3. Under "Discs", choose the .cue file of each disc (in either order), or drop
    it on the disc's row (not on DreamsToReality.exe). Each row says whether
    the image was found and is the supported edition.
-4. Change the port settings if you like (renderer, window, keyboard, gamepad).
+4. Pick the mode: Play (the game as shipped), Develop (Cryo's own developer
+   tools and level editor, on a copy of the discs in a developer folder,
+   without CD music) or Play edits (that folder's game, with music).
+   Change the port settings if you like (renderer, window, keyboard, gamepad).
    "Smooth motion" is on unless you turn it off: the game runs a steady 30
    steps a second and, with the GPU renderer, shows a frame at every refresh
    of your display, and "Camera smoothing" (60 ms) evens out the camera
