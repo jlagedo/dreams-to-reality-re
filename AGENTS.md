@@ -33,7 +33,7 @@ either builds that or supplies the reverse engineering it depends on.
 | `src/dreams/` | Python support package: `paths.py` (local path settings), `watcom.py`, `formats/` (`lz`, `node`, `project`, `rig`, `scene`: the readers the verification scripts use) |
 | `tests/` | Python tests: `recomp/`, `re/`, `toolkit/` |
 | `docs/developer-mode.md` | The Develop manual: every key, editor command, tool and file of Develop |
-| `docs/specs/` | Recomp plans and status: 000 the recomp, 005 retail debug tools, 006 Windows rendering, 007 launcher, disc images and user data |
+| `docs/specs/` | Recomp plans and status: 000 the recomp, 005 retail debug tools, 006 Windows rendering, 007 launcher, disc images and user data, 008 the Cryo editor, 009 modern controls and combat |
 | `docs/research/` | What is known about the game and its binaries (`re-setup.md` Ghidra workflow, `re-status.md`, `engine.md`, `toolchain.md`, `install-and-discs.md` install, data roots and disc swap, ...); index in `docs/README.md` |
 | `.dreams.example.env` | Template for local path settings |
 | `.dreams.local.env` | Machine paths (gitignored) |
