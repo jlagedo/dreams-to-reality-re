@@ -868,6 +868,16 @@ int wd_render_open(SDL_Window *window) {
         require(od_renderer_set_shadow_detail(state.renderer, scale) != 0,
                 od_renderer_error(state.renderer));
     }
+    // WD_DRAW_DISTANCE=retail (default unlocked): the levels' own draw
+    // distance (project +0xcc, 42 of the 150 records) for drawing too. Port
+    // option, not retail: unlocked, what only that far plane dropped is drawn
+    // (SceneDraw::set_draw_far); the game's own culling results stay retail's.
+    {
+        const char *distance = std::getenv("WD_DRAW_DISTANCE");
+        const bool retail = distance && (!std::strcmp(distance, "retail") || !std::strcmp(distance, "0"));
+        state.scene.set_draw_far(!retail);
+        std::fprintf(stderr, "[direct] draw distance %s\n", retail ? "retail" : "unlocked");
+    }
     SDL_GetWindowSizeInPixels(window, &state.drawable_w, &state.drawable_h);
     std::fprintf(stderr, "[direct] shared renderer ready at %dx%d\n", state.drawable_w,
                  state.drawable_h);

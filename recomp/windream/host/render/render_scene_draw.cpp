@@ -634,7 +634,8 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
             error = "invalid face owner";
             return false;
         }
-        if (!scene.nodes[face.owner].submitted)
+        const auto &owner = scene.nodes[face.owner];
+        if (!(owner.submitted || (draw_far_ && owner.far_culled)))
             continue;
         if (!face.block) {
             error = "material draw requires a WDS2 capture";
@@ -672,7 +673,7 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
             }
             uint32_t colour = 0;
             for (const auto *face : faces) {
-                if (face->flags & 1)
+                if ((face->flags & 1) && !draw_far_)
                     continue; // rejected at the far plane
                 float clip[12]{};
                 for (int c = 0; c < 3; ++c) {
@@ -771,7 +772,7 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
         if (!gpu_texture)
             return false;
         for (const auto *face : faces) {
-            if (face->flags & 1)
+            if ((face->flags & 1) && !draw_far_)
                 continue; // rejected at the far plane; a head face still names the row
             od_scene_triangle triangle{};
             const auto &corners = lighting.corners[size_t(face - scene.faces.data())];

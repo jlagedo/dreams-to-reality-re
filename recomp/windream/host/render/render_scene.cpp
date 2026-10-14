@@ -223,8 +223,10 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
             const int64_t z = int64_t(depth / 32768.0 + double(signed_word(node + 0x54)));
             const int64_t radius = signed_word(node + 0xb0);
             beyond = z >= c.far_plane && z - radius >= c.far_plane && !(flags & 0x80);
-            if (beyond && !((flags & 0x10) && !beyond_far[size_t(pose.parent)]))
+            if (beyond && !((flags & 0x10) && !beyond_far[size_t(pose.parent)])) {
+                info.far_culled = info.submitted;
                 info.submitted = info.visual_active = false;
+            }
         }
         beyond_far.push_back(beyond);
         for (unsigned i = 0; i < 9; ++i)
@@ -383,11 +385,13 @@ bool capture_scene(SceneReader source, uint32_t root, SceneSnapshot &output, std
         }
     }
     // Snapshot CPU-mutated pages/palettes now, not by guest address at GPU
-    // submission time. Only submitted textured faces require live bindings.
+    // submission time. Only submitted textured faces require live bindings,
+    // and those of nodes only the far test dropped (an unlocked draw distance).
     std::unordered_map<uint32_t, uint32_t> material_slots;
     std::vector<uint8_t> lit_pages; // per material: a face of a node with bound lights uses it
     for (auto &face : result.faces) {
-        if (!result.nodes[face.owner].submitted || flat(face.type) || !textured(face.type))
+        const auto &owner = result.nodes[face.owner];
+        if (!(owner.submitted || owner.far_culled) || flat(face.type) || !textured(face.type))
             continue;
         auto found = material_slots.find(face.material_slot);
         if (found != material_slots.end()) {

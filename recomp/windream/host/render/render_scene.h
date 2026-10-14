@@ -37,6 +37,10 @@ struct SceneNode {
     std::array<uint8_t, 8> light_indices{};
     std::vector<SceneNormal> vertex_normals; // node +0x8c/+0x90; refreshed per Gouraud block/light
     bool visual_active = false; // hidden/flag-4 exclusion; hook-disabled nodes can still update UVs
+    // Retail's far test alone left it unsubmitted (REND_CullObjectSphere):
+    // drawn when the draw distance is unlocked (SceneDraw::set_draw_far),
+    // still neither lit nor UV-updated, as in retail.
+    bool far_culled = false;
     std::array<int32_t, 9> source_rotation{32768, 0, 0, 0, 32768, 0, 0, 0, 32768};
     std::array<int32_t, 3> source_position{};
     uint32_t face_normal_base = 0, face_normal_count = 0;

@@ -51,6 +51,11 @@ class SceneDraw {
     // After all frame submissions, before od_renderer_frame_complete().
     void finish_frame(od_renderer *);
     void reset(od_renderer *); // level/resource lifetime boundary
+    // Port option, not retail: also draw what retail's far plane alone
+    // dropped (a project's +0xcc draw distance), whole nodes and faces with a
+    // corner beyond it. Lighting, UV updates and every guest-visible result
+    // stay retail's; those faces draw with the shade and UVs they kept.
+    void set_draw_far(bool on) { draw_far_ = on; }
     // Entries the last submit would have put in Glide's 256-entry deferred list.
     size_t deferred_blocks() const { return deferred_blocks_; }
     // Glide's retained palette, which a submit starts from and leaves for the
@@ -81,6 +86,7 @@ class SceneDraw {
     std::array<uint16_t, 256> palette_{};
     size_t deferred_blocks_ = 0;
     bool deferred_overflow_logged_ = false;
+    bool draw_far_ = false;
     uint64_t no_draw_logged_ = 0; // bit (type + 15): one log line per type
     uint64_t lit_submits_ = 0;    // submits that drew faces with the host's lit rows
     od_render_id texture(od_renderer *, const SceneMaterial &, const std::array<uint16_t, 256> &,

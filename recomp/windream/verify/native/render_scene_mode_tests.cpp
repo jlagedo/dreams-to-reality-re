@@ -401,6 +401,15 @@ int main(int argc, char **argv) {
         check(far_draw.submit(renderer, far_copy, target, 256, 128, false, error), error.c_str());
         check(od_renderer_stats(renderer).scene_triangles == far_before + 10,
               "far rejection did not survive the snapshot round trip");
+        // Unlocked draw distance (port option): every face of every node only
+        // the far test dropped is drawn; the collector stays retail's.
+        far_draw.set_draw_far(true);
+        check(far_draw.submit(renderer, captured, target, 256, 128, false, error), error.c_str());
+        check(od_renderer_stats(renderer).scene_triangles == far_before + 21,
+              "unlocked draw distance did not draw all 11 faces");
+        check(wd::prepare_scene_collector(captured, 256, 128, false, far_collector, error) &&
+                  far_collector.total_triangles == 5,
+              "unlocked draw distance changed the collector");
         sg_commit();
         far_draw.reset(renderer);
     }
