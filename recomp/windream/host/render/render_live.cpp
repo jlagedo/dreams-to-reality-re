@@ -859,6 +859,15 @@ int wd_render_open(SDL_Window *window) {
                                   const_cast<void *>(desc.environment.d3d11.device_context));
     state.renderer = od_renderer_create();
     require(state.renderer != nullptr, "cannot create direct renderer");
+    // WD_SHADOW_DETAIL=<n> (default 4; 0 or 1: retail): the real shadow's
+    // silhouette at n times the retail 128-square shadow texture, antialiased.
+    // Port option, not retail (od_renderer_set_shadow_detail).
+    {
+        const char *detail = std::getenv("WD_SHADOW_DETAIL");
+        const int scale = detail && *detail ? std::atoi(detail) : 4;
+        require(od_renderer_set_shadow_detail(state.renderer, scale) != 0,
+                od_renderer_error(state.renderer));
+    }
     SDL_GetWindowSizeInPixels(window, &state.drawable_w, &state.drawable_h);
     std::fprintf(stderr, "[direct] shared renderer ready at %dx%d\n", state.drawable_w,
                  state.drawable_h);

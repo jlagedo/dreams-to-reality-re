@@ -651,9 +651,10 @@ validated" otherwise.
 ### What the direct renderer still fails on
 
 1. **The callback case above** (explicit failure, test-only route).
-2. **Non-mask faces in the shadow scene.** `prepare_shadow_input`
-   (`render_scene_draw.cpp`) fails with "shadow contains a non-mask material
-   mode" for any submitted face whose type is not `0x1b`. An attached weapon
+2. **Non-mask faces in the shadow scene** (no longer a failure, 2026-10-14:
+   see below). `prepare_shadow_input` (`render_scene_draw.cpp`) failed with
+   "shadow contains a non-mask material mode" for any submitted face whose
+   type is not `0x1b`. An attached weapon
    is a separate resource (`Gun.3dc` is loaded on its own, retyped `2 -> -5`
    and attached to the hand node, DOS `0x41b1c`, Windows `0x441af4`), so
    `MDL_ReplaceMaterial(actor, 2, 0x1b)` does not retype it, and it is drawn in
@@ -682,13 +683,26 @@ drawn.
    callback and the non-callback path; remove the `none_of` requirement.
    `0x1b` is not in `textured_mode`, so retyped blocks produce no writes, as
    in retail.
-2. `prepare_shadow_input`: stop failing on non-`0x1b` faces. The policy for
-   those faces is an owner decision (see [Unverified](#unverified)); the two
-   candidates are "leave them out of the mask" and "add them to the mask as
-   index 1". Until decided, leave them out and log the type once.
+2. `prepare_shadow_input`: stop failing on non-`0x1b` faces. **Done
+   2026-10-14, decided "add them to the mask as index 1"** (port choice): an
+   opaque or keyed face (`textured_mode`) casts shadow like the retyped body,
+   a translucent face or a Glide no-draw type casts none, and each type is
+   logged once (`[direct] shadow face type=N casts ...`). Checked live in
+   project 0 (Develop, keypad 6, Space, Ctrl): the sword's type-2 faces cast
+   their shadow and the game went on, where it stopped before.
 3. Fixture: the recorded shadow capture with one actor node bound to a type-1
-   light and with a shown type-2 child resource; live check with real shadows
-   on (`--poke 0x4a3168=1`) while the player holds a weapon.
+   light and with a shown type-2 child resource. Still to do, as are steps 1
+   and the lighting writes of item 3 above.
+
+The port also starts with the real shadow on (`host_port_defaults`,
+`WD_REAL_SHADOW=0` for the blob) and draws it detailed
+(`od_renderer_set_shadow_detail`, `WD_SHADOW_DETAIL`, default 4): the same
+triangles before the retail integer truncation, into a 1024-square
+multisampled silhouette, averaged into a 512-square shadow texture whose
+alpha is the coverage. The retail 128x256 mask is still drawn the same way
+and still matches retail's bytes (`render_shadow_smoke.py --require-parity`);
+`ODDirectGpuTests` checks that the detail leaves it unchanged and covers the
+same area.
 
 ## 7. Environment mapping and texture animation in DOS
 

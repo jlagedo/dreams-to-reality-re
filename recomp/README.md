@@ -140,6 +140,7 @@ does. F11 toggles fullscreen; the game sees F11 too.
 | `--mute` | `WD_MUTE` | off | Open no audio device; keep mixing on a timer so sound/CD cursors and completion polling still advance |
 | `--cinemascope` | `WD_CINEMASCOPE=1` | off (full screen) | Start letterboxed, as retail does: the Options page's "cinemascope" (`0x49d9f8`), which the retail image starts on and nothing saves. The port starts in full screen instead (`host/sdl/launch_mode.c`); in game, F12 / F11 and the Options page still switch it |
 | `--blob-shadow` | `WD_REAL_SHADOW=0` | real shadow (browser build: blob) | Start with the Options page's "2D shadow" (`0x4a3168` = 0, the OMBRE blob under Duncan), as retail does. The port starts with the "real shadow", Duncan's silhouette rendered from above (`host/sdl/launch_mode.c`); the Options page still switches it |
+| none | `WD_SHADOW_DETAIL` | 4 | Direct renderer: the real shadow's silhouette at that many times the retail 128-square shadow texture, from the unrounded triangles, multisampled and filtered (smooth edges; `od_renderer_set_shadow_detail`, port option). `0` or `1`: the retail mask only, blocky as in the software renderer. Faces besides the retyped body (a weapon in hand) cast shadow too, a port choice: retail rasterizes them into the mask with their textured rasterizers |
 | `--headless` | `WD_HEADLESS` | off | Keep the SDL window hidden, run muted, and enable scripted input while reporting focus |
 
 With `--pad keys`, the stick and d-pad are the arrows, A is Ctrl, X is Alt,

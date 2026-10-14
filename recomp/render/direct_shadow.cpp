@@ -91,7 +91,7 @@ int od_shadow_project(const od_shadow_packet *p, int32_t *poses, float *view, in
 }
 namespace od {
 bool prepare_shadow(const od_shadow_packet &p, std::vector<ShadowTriangle> &out,
-                    std::string &error) {
+                    std::string &error, std::vector<ShadowDetailTriangle> *detail) {
     std::vector<int32_t> poses;
     std::vector<std::array<float, 3>> view;
     std::vector<std::array<int32_t, 2>> screen;
@@ -161,11 +161,23 @@ bool prepare_shadow(const od_shadow_packet &p, std::vector<ShadowTriangle> &out,
             previous = current;
         }
         std::vector<std::array<int32_t, 2>> projected;
+        std::vector<std::array<double, 2>> exact;
         for (const auto &v : clipped) {
             std::array<int32_t, 2> xy;
-            for (unsigned a = 0; a < 2; ++a)
-                xy[a] = chop(double(v[a]) * p.focal[a] / v[2] + p.center[a]);
+            std::array<double, 2> at;
+            for (unsigned a = 0; a < 2; ++a) {
+                at[a] = double(v[a]) * p.focal[a] / v[2] + p.center[a];
+                xy[a] = chop(at[a]);
+            }
             projected.push_back(xy);
+            exact.push_back(at);
+        }
+        for (size_t j = 1; detail && j + 1 < exact.size(); ++j) {
+            const auto &a = exact[0], &b = exact[j], &c = exact[j + 1];
+            if ((b[0] - a[0]) * (c[1] - b[1]) - (c[0] - b[0]) * (b[1] - a[1]) < 0)
+                detail->push_back({{{float(a[0]), float(a[1])},
+                                    {float(b[0]), float(b[1])},
+                                    {float(c[0]), float(c[1])}}});
         }
         for (size_t j = 1; j + 1 < projected.size(); ++j) {
             ShadowTriangle triangle{projected[0], projected[j], projected[j + 1]};

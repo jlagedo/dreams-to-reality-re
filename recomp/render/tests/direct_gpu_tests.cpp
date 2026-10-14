@@ -476,6 +476,96 @@ static void shadow_checks(od_renderer *r) {
     std::puts(
         "direct shadow: GPU mask, paired-P8 LOD mapping, palette key and immutable resolve passed");
 }
+// The detailed silhouette (od_renderer_set_shadow_detail): one triangle, seen
+// head-on at depth 1000 with focal 1000, so mask pixels are local XY plus the
+// centre. Both windings are given; the culling keeps the one retail draws.
+static void shadow_detail_checks(od_renderer *r) {
+    od_shadow_node nodes[2]{};
+    nodes[0].parent = -1;
+    nodes[1].parent = 0;
+    nodes[1].rotation[0] = nodes[1].rotation[4] = nodes[1].rotation[8] = 32768;
+    nodes[1].translation[2] = 1000;
+    const int32_t corners[3][2] = {{20, 40}, {100, 60}, {50, 200}};
+    od_shadow_vertex vertices[3]{};
+    for (int i = 0; i < 3; ++i)
+        vertices[i] = {1, {corners[i][0] - 64, corners[i][1] - 128, 0}};
+    od_shadow_triangle triangles[2]{};
+    for (int i = 0; i < 2; ++i) {
+        triangles[i].owner = 1;
+        triangles[i].flags = 8;
+        triangles[i].vertices[0] = 0;
+        triangles[i].vertices[1] = i ? 2 : 1;
+        triangles[i].vertices[2] = i ? 1 : 2;
+    }
+    od_shadow_packet p{};
+    p.nodes = nodes;
+    p.node_count = 2;
+    p.vertices = vertices;
+    p.vertex_count = 3;
+    p.triangles = triangles;
+    p.triangle_count = 2;
+    p.camera_rotation[0] = p.camera_rotation[4] = p.camera_rotation[8] = 32768;
+    p.center[0] = 64;
+    p.center[1] = 128;
+    p.near_plane = 140;
+    p.far_plane = 0xfffff;
+    p.focal[0] = p.focal[1] = 1000;
+    uint16_t palette[256]{};
+    palette[0] = 0x001f;
+    palette[1] = 0xf800;
+    // Retail first: the mask and its 128-square LOD.
+    auto mask = od_renderer_target(r, 128, 256, 128, 256);
+    p.target = mask;
+    check(od_renderer_set_shadow_detail(r, 0) != 0, od_renderer_error(r));
+    check(od_renderer_shadow_mask(r, &p) != 0, od_renderer_error(r));
+    finish(r);
+    const auto retail_mask = capture(r, mask);
+    auto retail = od_renderer_resolve_shadow(r, mask, palette);
+    check(retail != 0, od_renderer_error(r));
+    finish(r);
+    double retail_cover = 0;
+    const auto retail_pixels = capture(r, retail);
+    for (auto value : retail_pixels)
+        retail_cover += value >> 24 == 255;
+    // Orientation: mask (40,50) is inside, its mirror across the LOD is not.
+    check(retail_pixels[25 * 128 + 40] >> 24 == 255 && retail_pixels[102 * 128 + 40] >> 24 == 0,
+          "retail shadow orientation");
+    // The triangle is 6100 mask pixels, 3050 LOD texels.
+    check(std::fabs(retail_cover - 3050) < 150, "retail shadow mask coverage");
+    // Detailed: the retail mask unchanged, a 256-square LOD, the same area,
+    // and partial coverage along the edges.
+    check(od_renderer_set_shadow_detail(r, 2) != 0, od_renderer_error(r));
+    check(od_renderer_shadow_mask(r, &p) != 0, od_renderer_error(r));
+    finish(r);
+    check(capture(r, mask) == retail_mask, "shadow detail changed the retail mask");
+    auto detailed = od_renderer_resolve_shadow(r, mask, palette);
+    check(detailed != 0, od_renderer_error(r));
+    finish(r);
+    const auto pixels = capture(r, detailed);
+    check(pixels.size() == 256 * 256, "shadow detail LOD size");
+    double cover = 0;
+    int partial = 0;
+    for (auto value : pixels) {
+        const uint32_t alpha = value >> 24;
+        cover += alpha / 255.0 / 4;
+        partial += alpha > 0 && alpha < 255;
+        check((alpha != 0 || value == 0x00f80000u) && (alpha != 255 || value == 0xff0000f8u),
+              "shadow detail colour");
+    }
+    check(std::fabs(cover - 3050) < 60, "shadow detail coverage");
+    check(pixels[50 * 256 + 80] >> 24 == 255 && pixels[205 * 256 + 80] >> 24 == 0,
+          "shadow detail orientation");
+    check(partial > 200, "shadow detail edges are not smooth");
+    check(od_renderer_set_shadow_detail(r, 17) == 0, "shadow detail accepted 17");
+    check(od_renderer_set_shadow_detail(r, 0) != 0, od_renderer_error(r));
+    od_renderer_release(r, retail);
+    od_renderer_release(r, detailed);
+    od_renderer_release(r, mask);
+    finish(r);
+    std::printf("direct shadow detail: retail mask kept, coverage %.0f of 3050 (retail %.0f), %d "
+                "edge texels\n",
+                cover, retail_cover, partial);
+}
 static void fog_checks(od_renderer *r) {
     auto target = od_renderer_target(r, 16, 16, 16, 16);
     od_pose_node node{-1, {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0}};
@@ -671,6 +761,7 @@ int main(int argc, char **argv) {
     scene_checks(r);
     material_checks(r);
     shadow_checks(r);
+    shadow_detail_checks(r);
     fog_checks(r);
     fog_selector_checks(r);
     packed_round_trips(r);

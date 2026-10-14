@@ -156,13 +156,20 @@ typedef struct od_shadow_packet {
     float focal[2];
 } od_shadow_packet;
 int od_renderer_shadow_mask(od_renderer *, const od_shadow_packet *);
+/* Port option, not retail. scale > 1: each mask also draws its silhouette from
+ * the same triangles before integer truncation into a 256*scale square,
+ * multisampled, and od_renderer_resolve_shadow then gives a 128*scale square
+ * whose alpha is that coverage, filtered (smooth edges). 0 (the default) or
+ * 1: the retail mask only. At most 16. */
+int od_renderer_set_shadow_detail(od_renderer *, int scale);
 /* Optional outputs: per-node translation+rotation (12 ints), per-vertex
  * camera XYZ (3 floats), screen XY (2 ints). Oracle/metadata preparation. */
 int od_shadow_project(const od_shadow_packet *, int32_t *, float *, int32_t *);
 /* Final colour correction into a distinct RGBA8 target. No commit/present. */
 int od_renderer_output_target(od_renderer *, od_render_id source, od_render_id target, float gamma);
 /* 128x256 index-0/1 shadow -> 128-square material LOD, on the GPU. Source
- * words represent paired horizontal P8 indices; LOD uses every second row. */
+ * words represent paired horizontal P8 indices; LOD uses every second row.
+ * With shadow detail: a 128*scale square from the detailed silhouette. */
 od_render_id od_renderer_resolve_shadow(od_renderer *, od_render_id mask,
                                         const uint16_t palette[256]);
 /* After the host's sg_commit: retire objects released during this frame. */

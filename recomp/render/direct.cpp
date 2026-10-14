@@ -23,6 +23,9 @@ struct Resource {
     int width = 0, height = 0, logical_width = 0, logical_height = 0;
     Image sides[2], depth;
     unsigned current = 0;
+    // A shadow mask's detailed silhouette (od_renderer_set_shadow_detail).
+    Image detail;
+    int detail_size = 0;
 };
 void destroy_image(Image &image) {
     if (image.texture.id)
@@ -39,6 +42,7 @@ void destroy_resource(Resource &r) {
     for (auto &i : r.sides)
         destroy_image(i);
     destroy_image(r.depth);
+    destroy_image(r.detail);
 }
 // With mips > 1, data holds every level, each half the one before, in order.
 // A multisampled image is an attachment only: it is resolved, never sampled.
@@ -99,6 +103,11 @@ struct od_renderer {
     sg_pipeline shadow_pipeline{};
     sg_shader mask_shader{};
     sg_pipeline mask_pipeline{};
+    // The detailed shadow: float silhouette, multisampled when available.
+    sg_shader cover_shader{}, detail_shader{};
+    sg_pipeline cover_pipeline{}, detail_pipeline{};
+    Image shadow_msaa;
+    int shadow_msaa_size = 0, cover_samples = 1, shadow_detail = 0;
     sg_pipeline draw_pipeline{}, output_pipeline{};
     sg_pipeline output_rgba_pipeline{};
     // Single-sampled scenes draw chroma faces with the opaque pipelines (the
@@ -157,6 +166,8 @@ od_renderer *od_renderer_create() {
     r->scene_shader = sg_make_shader(direct_scene_shader_desc(sg_query_backend()));
     r->shadow_shader = sg_make_shader(direct_shadow_shader_desc(sg_query_backend()));
     r->mask_shader = sg_make_shader(direct_mask_shader_desc(sg_query_backend()));
+    r->cover_shader = sg_make_shader(direct_cover_shader_desc(sg_query_backend()));
+    r->detail_shader = sg_make_shader(direct_shadow_detail_shader_desc(sg_query_backend()));
     sg_pipeline_desc p{};
     p.shader = r->draw_shader;
     p.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8;
@@ -165,6 +176,16 @@ od_renderer *od_renderer_create() {
     r->draw_pipeline = sg_make_pipeline(&p);
     p.shader = r->shadow_shader;
     r->shadow_pipeline = sg_make_pipeline(&p);
+    p.shader = r->detail_shader;
+    r->detail_pipeline = sg_make_pipeline(&p);
+    p = {};
+    p.shader = r->cover_shader;
+    p.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8;
+    p.depth.pixel_format = SG_PIXELFORMAT_NONE;
+    r->cover_samples = sg_query_pixelformat(SG_PIXELFORMAT_RGBA8).msaa ? OD_SCENE_MSAA_SAMPLES : 1;
+    p.sample_count = r->cover_samples;
+    p.layout.attrs[ATTR_direct_cover_position].format = SG_VERTEXFORMAT_FLOAT2;
+    r->cover_pipeline = sg_make_pipeline(&p);
     p = {};
     p.shader = r->mask_shader;
     p.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8;
@@ -255,7 +276,7 @@ od_renderer *od_renderer_create() {
     const auto &s1 = r->single;
     for (auto pipeline :
          {r->draw_pipeline, r->shadow_pipeline, r->mask_pipeline, r->output_pipeline, r->output_rgba_pipeline,
-          s1.opaque, s1.opaque_culled, s1.alpha, s1.alpha_culled})
+          s1.opaque, s1.opaque_culled, s1.alpha, s1.alpha_culled, r->cover_pipeline, r->detail_pipeline})
         ok = ok && sg_query_pipeline_state(pipeline) == SG_RESOURCESTATE_VALID;
     // Without a valid multisampled set, MSAA packets draw single-sampled.
     auto &ms = r->msaa;
@@ -303,14 +324,16 @@ void od_renderer_destroy(od_renderer *r) {
     destroy_image(r->dummy_packed);
     destroy_image(r->msaa_colour);
     destroy_image(r->msaa_depth);
+    destroy_image(r->shadow_msaa);
     const auto &s1 = r->single, &ms = r->msaa;
     for (auto p :
          {r->draw_pipeline, r->shadow_pipeline, r->mask_pipeline, r->output_pipeline, r->output_rgba_pipeline,
           s1.opaque, s1.opaque_culled, s1.alpha, s1.alpha_culled, ms.opaque, ms.opaque_culled, ms.alpha,
-          ms.alpha_culled, ms.chroma, ms.chroma_culled})
+          ms.alpha_culled, ms.chroma, ms.chroma_culled, r->cover_pipeline, r->detail_pipeline})
         if (p.id)
             sg_destroy_pipeline(p);
-    for (auto s : {r->draw_shader, r->output_shader, r->scene_shader, r->shadow_shader, r->mask_shader})
+    for (auto s : {r->draw_shader, r->output_shader, r->scene_shader, r->shadow_shader, r->mask_shader,
+                   r->cover_shader, r->detail_shader})
         if (s.id)
             sg_destroy_shader(s);
     if (r->point.id)
@@ -566,8 +589,13 @@ od_render_id od_renderer_resolve_shadow(od_renderer *r, od_render_id mask,
     auto *source = r->find(mask);
     if (!source || !source->target || source->width != 128 || source->height != 256)
         return r->fail("invalid packed shadow target");
-    const sg_view source_view = source->sides[source->current].texture;
-    const auto id = od_renderer_target(r, 128, 128, 128, 128);
+    const bool detailed = r->shadow_detail > 1 && source->detail.texture.id;
+    const sg_view source_view =
+        detailed ? source->detail.texture : source->sides[source->current].texture;
+    // Detailed: half the silhouette's size, each texel one bilinear tap at
+    // the centre of its 2x2 source texels (their average).
+    const int size = detailed ? source->detail_size / 2 : 128;
+    const auto id = od_renderer_target(r, size, size, size, size);
     if (!id)
         return 0;
     auto *target = r->find(id);
@@ -583,13 +611,18 @@ od_render_id od_renderer_resolve_shadow(od_renderer *r, od_render_id mask,
     p.shadow_one[3] = palette[0] == palette[1] ? 0.0f : 1.0f;
     p.shadow_layout[0] = r->flip ? 1.0f : 0.0f;
     sg_bindings b{};
-    b.views[VIEW_shadow_tex] = source_view;
-    b.samplers[SMP_shadow_smp] = r->point;
+    if (detailed) {
+        b.views[VIEW_detail_tex] = source_view;
+        b.samplers[SMP_detail_smp] = r->linear;
+    } else {
+        b.views[VIEW_shadow_tex] = source_view;
+        b.samplers[SMP_shadow_smp] = r->point;
+    }
     sg_pass pass{};
     pass.attachments.colors[0] = target->sides[0].attachment;
     pass.action.colors[0].load_action = SG_LOADACTION_DONTCARE;
     sg_begin_pass(&pass);
-    sg_apply_pipeline(r->shadow_pipeline);
+    sg_apply_pipeline(detailed ? r->detail_pipeline : r->shadow_pipeline);
     sg_apply_bindings(&b);
     sg_range u{&p, sizeof p};
     sg_apply_uniforms(UB_shadow_params, &u);
@@ -637,13 +670,85 @@ int od_renderer_output_target(od_renderer *r, od_render_id source, od_render_id 
     dst->current = 1 - dst->current;
     return 1;
 }
+int od_renderer_set_shadow_detail(od_renderer *r, int scale) {
+    if (!r)
+        return 0;
+    if (scale < 0 || scale > 16)
+        return r->fail("shadow detail outside 0..16");
+    r->shadow_detail = scale;
+    return 1;
+}
+// The detailed silhouette of a shadow mask: its float triangles into a
+// 256*scale square, multisampled and resolved into the mask's detail image.
+static bool draw_shadow_detail(od_renderer *r, Resource &mask,
+                          const std::vector<od::ShadowDetailTriangle> &triangles) {
+    const int size = 256 * r->shadow_detail;
+    if (!r->dimensions_ok(size, size))
+        return r->fail("shadow detail larger than the device's images");
+    if (mask.detail_size != size) {
+        destroy_image(mask.detail);
+        mask.detail_size = 0;
+        if (!make_image(mask.detail, size, size, SG_PIXELFORMAT_RGBA8, true)) {
+            destroy_image(mask.detail);
+            return r->fail("shadow detail allocation failed");
+        }
+        mask.detail_size = size;
+    }
+    const bool msaa = r->cover_samples > 1;
+    if (msaa && r->shadow_msaa_size != size) {
+        destroy_image(r->shadow_msaa);
+        r->shadow_msaa_size = 0;
+        if (!make_image(r->shadow_msaa, size, size, SG_PIXELFORMAT_RGBA8, true, nullptr, 1,
+                        r->cover_samples)) {
+            destroy_image(r->shadow_msaa);
+            return r->fail("shadow detail MSAA allocation failed");
+        }
+        r->shadow_msaa_size = size;
+    }
+    sg_buffer buffer{};
+    if (!triangles.empty()) {
+        sg_buffer_desc d{};
+        d.data = {triangles.data(), triangles.size() * sizeof(triangles[0])};
+        buffer = sg_make_buffer(&d);
+        if (sg_query_buffer_state(buffer) != SG_RESOURCESTATE_VALID) {
+            sg_destroy_buffer(buffer);
+            return r->fail("shadow detail vertex upload failed");
+        }
+        r->frame_buffers.push_back(buffer);
+        ++r->stats.uploads;
+        r->stats.upload_bytes += d.data.size;
+    }
+    sg_pass pass{};
+    if (msaa) {
+        pass.attachments.colors[0] = r->shadow_msaa.attachment;
+        pass.attachments.resolves[0] = mask.detail.resolve;
+        pass.action.colors[0].store_action = SG_STOREACTION_DONTCARE;
+    } else
+        pass.attachments.colors[0] = mask.detail.attachment;
+    pass.action.colors[0].load_action = SG_LOADACTION_CLEAR;
+    pass.action.colors[0].clear_value = {0, 0, 0, 0};
+    sg_begin_pass(&pass);
+    if (!triangles.empty()) {
+        sg_bindings bindings{};
+        bindings.vertex_buffers[0] = buffer;
+        sg_apply_pipeline(r->cover_pipeline);
+        sg_apply_bindings(&bindings);
+        sg_draw(0, int(triangles.size() * 3), 1);
+        ++r->stats.scene_batches;
+    }
+    sg_end_pass();
+    return true;
+}
 int od_renderer_shadow_mask(od_renderer *r, const od_shadow_packet *p) {
     if (!r || !p) return 0;
     auto *target = r->find(p->target);
     if (!target || !target->target || target->width != 128 || target->height != 256)
         return r->fail("invalid paired-P8 shadow target");
     std::vector<od::ShadowTriangle> triangles;
-    if (!od::prepare_shadow(*p, triangles, r->error))
+    std::vector<od::ShadowDetailTriangle> detail;
+    if (!od::prepare_shadow(*p, triangles, r->error, r->shadow_detail > 1 ? &detail : nullptr))
+        return 0;
+    if (r->shadow_detail > 1 && !draw_shadow_detail(r, *target, detail))
         return 0;
     struct Vertex {
         float xy[2];

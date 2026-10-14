@@ -231,6 +231,39 @@ void main() {
 @end
 @program direct_shadow direct_quad_vs direct_shadow_fs
 
+// Port option, not retail (od_renderer_set_shadow_detail): the same silhouette
+// as float triangles, at a multiple of the mask's resolution, multisampled.
+// Positions are mask pixels; the target is the LOD square, mask row y at LOD
+// row y/2 + 1/4 (the retail LOD samples row 2y's centre at LOD row y + 1/2).
+@vs direct_cover_vs
+in vec2 position;
+void main() {
+    vec2 lod=vec2(position.x,position.y*0.5+0.25)/128.0;
+    gl_Position=vec4(lod.x*2.0-1.0,1.0-lod.y*2.0,0.0,1.0);
+}
+@end
+@fs direct_cover_fs
+out vec4 frag_color;
+void main() { frag_color=vec4(1.0); }
+@end
+@program direct_cover direct_cover_vs direct_cover_fs
+
+// The detailed silhouette's coverage, filtered, between the palette's two
+// shadow colours (alpha: the colour key, as in direct_shadow_fs).
+@fs direct_shadow_detail_fs
+layout(binding=0) uniform shadow_params { vec4 shadow_zero; vec4 shadow_one; vec4 shadow_layout; };
+layout(binding=0) uniform texture2D detail_tex;
+layout(binding=0) uniform sampler detail_smp;
+in vec2 uv;
+out vec4 frag_color;
+void main() {
+    vec2 p=uv;
+    if(shadow_layout.x!=0.0)p.y=1.0-p.y;
+    frag_color=mix(shadow_zero,shadow_one,texture(sampler2D(detail_tex,detail_smp),p).r);
+}
+@end
+@program direct_shadow_detail direct_quad_vs direct_shadow_detail_fs
+
 @vs direct_mask_vs
 layout(binding=0) uniform mask_params { vec4 mask_dimensions; };
 in vec2 position;

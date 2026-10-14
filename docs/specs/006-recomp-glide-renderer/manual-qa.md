@@ -242,7 +242,7 @@ Four toggles; DOWN/UP selects, SPACE changes.
 | # | How | Correct | Defect | Done |
 |---|---|---|---|---|
 | 5.1 | Real shadow on, no weapon in hand; walk, turn, jump, stand on slopes | The round blob under the player becomes a projected silhouette that follows the pose; other actors keep blobs | No shadow, a rectangle, a shadow detached from the feet, error box | [ ] |
-| 5.2 | Real shadow on, then draw or hold a weapon (sword, bow or gun, Space for combat mode once you own one) | **Predicted to stop** with `shadow contains a non-mask material mode`. This has never been run. Report what happens either way, with the weapon and level | If it does not stop: a wrong or missing shadow | [ ] |
+| 5.2 | Real shadow on, then draw or hold a weapon (sword, bow or gun, Space for combat mode once you own one) | The weapon casts shadow with the body (port choice; it stopped the game with `shadow contains a non-mask material mode` until 2026-10-14). Checked headless with the sword in project 0 | Game stops, weapon missing from the shadow, a rectangle | [ ] |
 | 5.3 | Real shadow on, load a save, change level | The option holds; shadow correct after each | Shadow lost or frozen after a load | [ ] |
 | 5.4 | Real shadow off again | Blob shadow returns, keyed (no dark square round it) | Square outline, missing shadow | [ ] |
 | 5.5 | Manual fight on and off; fight in each | Combat behaves per the option; picture unaffected | Any picture change | [ ] |
@@ -250,8 +250,9 @@ Four toggles; DOWN/UP selects, SPACE changes.
 | 5.7 | Cinemascope on and off, at 4:3 and at `--width 1920 --height 1080` | The game's own wide format and back to full screen; HUD and captions placed correctly in both; compare with software if unsure of the layout | Stale strips above or below the picture, HUD misplaced | [ ] |
 | 5.8 | Same options page from the main menu ("Options") | Same four toggles, same results | - | [ ] |
 
-`--poke 0x4a3168=1` on the `run.py` command line starts with real shadows on,
-for repeating 5.2.
+The port starts with real shadows on (`run.py --blob-shadow` starts with the
+blob, as retail does), drawn smooth (`WD_SHADOW_DETAIL=1` for the retail
+blocky mask, to compare).
 
 ## 6. Movies
 

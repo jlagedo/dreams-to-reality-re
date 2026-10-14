@@ -884,9 +884,30 @@ bool prepare_shadow_input(const SceneSnapshot &scene, od_render_id target,
         }
         if (!scene.nodes[face.owner].submitted)
             continue;
+        // MDL_ReplaceMaterial retypes only the actor's own resource to 0x1b;
+        // a separate resource attached to it (a weapon in hand) and an
+        // actor's blocks of other types keep theirs. Windows rasterizes them
+        // into the mask with their textured rasterizers, which leaves
+        // untraced indices in OMBRE2. Port choice, not retail: an opaque or
+        // keyed face casts shadow like the retyped ones; a translucent face
+        // or one Glide does not draw casts none.
         if (face.type != 0x1b) {
-            error = "shadow contains a non-mask material mode";
-            return false;
+            od_face_mode mode{};
+            uint32_t wrap = 0;
+            const bool drawn = textured_mode(face.type, mode, wrap);
+            if (!drawn && !glide_no_draw(face.type)) {
+                error = "unimplemented shadow face type " + std::to_string(face.type);
+                return false;
+            }
+            static uint64_t logged = 0;
+            const uint64_t bit = uint64_t(1) << ((face.type + 15) & 63);
+            if (!(logged & bit)) {
+                std::fprintf(stderr, "[direct] shadow face type=%d %s\n", face.type,
+                             drawn && mode != OD_FACE_TRANSLUCENT ? "casts shadow" : "casts none");
+                logged |= bit;
+            }
+            if (!drawn || mode == OD_FACE_TRANSLUCENT)
+                continue;
         }
         od_shadow_triangle t{};
         for (unsigned c = 0; c < 3; ++c)
