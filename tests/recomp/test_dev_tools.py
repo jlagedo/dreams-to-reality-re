@@ -329,7 +329,10 @@ def test_profiler(ctl, image, reference):
     text = [picture.getpixel((x, y)) for x in range(10, 60) for y in range(14, 30)]
     assert (255, 255, 255) in text, "no frame rate text"
     after = shot(ctl, image, reference, "profiler-off")
-    assert after.getpixel((320, 0)) == (0, 0, 0)
+    # Row 0 is the 3D scene again (the port starts with cinemascope off).
+    assert any(after.getpixel((x, 0)) != (123, 125, 123) for x in range(0, 640, 8)), (
+        "the frame bar stayed"
+    )
 
 
 def test_dialogue_test(ctl, image, reference):

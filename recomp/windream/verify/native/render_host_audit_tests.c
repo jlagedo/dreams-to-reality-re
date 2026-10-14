@@ -21,6 +21,7 @@ void recomp_trace_help(void) { abort(); }
 void wd_scene_probe_init(void) { abort(); }
 void wd_render_install(void) { abort(); }
 void host_mode_install(void) { abort(); }
+void host_port_defaults(void) { abort(); }
 void wd_render_close(void) { abort(); }
 void imp_CreateFileA(void);
 void imp_CloseHandle(void);

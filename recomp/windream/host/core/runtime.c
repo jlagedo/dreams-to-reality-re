@@ -465,10 +465,12 @@ int main(int argc, char** argv) {
     }
     recomp_install_crash_handler();
     recomp_set_region_describer(region);
-    if (!setup(exe) || !apply_pokes()) {
+    if (!setup(exe)) {
         wd_web_status("fatal", "cannot load the game program (is /dreams filled?)");
         return 1;
     }
+    host_port_defaults();
+    if (!apply_pokes()) return 1;
     /* The PE entry point (WINDREAM: 0x465538), from the mapped headers. */
     uint32_t entry = WD_IMAGE_BASE + WD_HOST_READ32(WD_IMAGE_BASE + WD_HOST_READ32(WD_IMAGE_BASE + 0x3C) + 0x28);
     recomp_func_t entry_fn = recomp_lookup(entry);

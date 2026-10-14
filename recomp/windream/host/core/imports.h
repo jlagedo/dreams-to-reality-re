@@ -65,6 +65,7 @@ uint32_t wd_image_span(void);
 struct Disc;                                          /* recomp/disc/disc.h */
 int      files_open_discs(void);                      /* 1 disc mode (WD_DISC1, WD_DISC2), 0 legacy, -1 failed (message printed) */
 void     host_mode_install(void);                     /* launch_mode.c: the current launch mode's replacements, after wd_render_install */
+void     host_port_defaults(void);                    /* launch_mode.c: the port's start settings, before WD_POKE */
 const char* files_tree(void);                         /* WD_TREE (tree mode: one tree is CD root, install root and write root), or NULL */
 void*    files_disc_read(int disc, const char* path, size_t* size);   /* a whole file of disc 1 or 2, malloc'd; NULL if absent */
 void*    files_read_guest(uint32_t path_va, size_t* size);   /* the file a guest path names, read as CreateFileA would open it, malloc'd; NULL if absent */

@@ -155,6 +155,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument(
         "--mute", action="store_true", help="mix silently without opening an audio device"
     )
+    ap.add_argument(
+        "--cinemascope",
+        action="store_true",
+        help="start letterboxed, as retail does (the port starts in full screen; F11/F12 and the "
+        "Options page switch it in game)",
+    )
+    ap.add_argument(
+        "--blob-shadow",
+        action="store_true",
+        help="start with the 2D (blob) shadow, as retail does (the port starts with the real "
+        "shadow; the Options page switches it in game)",
+    )
     ap.add_argument("--tag", help="isolated run directory suffix under DREAMS_OUT/recomp/windream")
     ap.add_argument("--render-audit", action="store_true", help="run the build-audit executable")
     ap.add_argument(
@@ -379,6 +391,8 @@ def prepare(args: argparse.Namespace) -> tuple[list[str], dict[str, str], Path] 
         WD_RENDER_PROFILE="1" if args.render_profile else os.environ.get("WD_RENDER_PROFILE", ""),
         WD_MUTE="1" if args.mute or args.headless else os.environ.get("WD_MUTE", ""),
         WD_HEADLESS="1" if args.headless else os.environ.get("WD_HEADLESS", ""),
+        WD_CINEMASCOPE="1" if args.cinemascope else os.environ.get("WD_CINEMASCOPE", ""),
+        WD_REAL_SHADOW="0" if args.blob_shadow else os.environ.get("WD_REAL_SHADOW", ""),
         WD_SCENE_CAPTURE=str(run / "direct-scene.wds") if args.capture_scene else "",
         WD_VM_LOG=str(run / "vm.log") if args.vm_log else "",
         WD_VM_SHADOW=args.vm_shadow or "",
