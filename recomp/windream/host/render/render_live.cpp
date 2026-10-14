@@ -15,6 +15,7 @@ extern int g_wd_quiet;
 #include "render/direct_sokol.h"
 #include "render/graphics_backend.h"
 #include "render/fog.h"
+#include "render/text.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -868,6 +869,20 @@ int wd_render_open(SDL_Window *window) {
         require(od_renderer_set_shadow_detail(state.renderer, scale) != 0,
                 od_renderer_error(state.renderer));
     }
+    // WD_SHADOW_OPACITY=<0..1> (default 0.6; 1: retail, solid and keyed) and
+    // WD_SHADOW_SOFTNESS=<texels> (default 2; 0: a sharp edge): the real
+    // shadow darkens the ground by that much, its edge blurred by that sigma.
+    // Port options, not retail.
+    {
+        const char *opacity = std::getenv("WD_SHADOW_OPACITY");
+        const char *softness = std::getenv("WD_SHADOW_SOFTNESS");
+        const float o = opacity && *opacity ? float(std::atof(opacity)) : 0.6f;
+        const float s = softness && *softness ? float(std::atof(softness)) : 2.0f;
+        require(o > 0 && o <= 1, "WD_SHADOW_OPACITY outside (0, 1]");
+        state.scene.set_shadow_opacity(o);
+        require(od_renderer_set_shadow_softness(state.renderer, s) != 0,
+                od_renderer_error(state.renderer));
+    }
     // WD_DRAW_DISTANCE=retail (default unlocked): the levels' own draw
     // distance (project +0xcc, 42 of the 150 records) for drawing too. Port
     // option, not retail: unlocked, what only that far plane dropped is drawn
@@ -1126,6 +1141,185 @@ void wd_render_line(uint32_t destination, int x0, int y0, int x1, int y1, uint32
     if (++state.lines == 1 || state.lines % 1000 == 0)
         std::fprintf(stderr, "[direct] lines=%llu\n", (unsigned long long)state.lines);
 }
+// The port's TrueType text (port option, not retail; WD_TEXT=bitmap keeps the
+// game's bitmap glyphs). The game lays its strings out itself with its own
+// fonts' advances (TEXT_Print and its twins, untouched) and draws each glyph
+// through a sprite leaf; a leaf whose descriptor belongs to a loaded font slot
+// draws instead that character from Reddit Sans Condensed Bold (render/text.h)
+// at the target's physical resolution: centred on the bitmap glyph's body,
+// on its baseline, with the same fade and a drop shadow one game pixel
+// down-right, as the bitmap fonts have. Font slot s (0..3; 2 and 3 below 640
+// wide) is TEXT_LoadFont's 0x40c-byte record at 0x5ea4bc (+0 loaded, +0x408
+// its sprite set); set n's descriptors are 28 bytes each from [0x5ecd34 + 4n]
+// (SPR_GetDescriptor 0x425593). Capitals are TEXT_CAP_RATIO of the slot's 'H'
+// height above its baseline: the size the similarity search over Google
+// Fonts' sans-serifs fitted (out/research/fonts).
+constexpr float TEXT_CAP_RATIO = 0.91f;
+struct TextSlot {
+    float cap = 0; // physical px the atlas was built for
+    od_render_id atlas = 0;
+    od::TextAtlas data;
+};
+struct TextState {
+    int enabled = -1;
+    std::array<TextSlot, 4> slots;
+    uint64_t glyphs = 0;
+} port_text;
+bool text_enabled() {
+    if (port_text.enabled < 0) {
+        // Default on, except in Develop, whose editor prints in the July
+        // fonts it restores (host/sdl/editor_menu.c); WD_TEXT=truetype or
+        // bitmap decides either way.
+        const char *mode = std::getenv("WD_TEXT");
+        const char *launch = std::getenv("WD_MODE");
+        const bool develop = launch && SDL_strcasecmp(launch, "dev") == 0;
+        port_text.enabled = mode && *mode ? std::strcmp(mode, "bitmap") != 0 : !develop;
+        std::fprintf(stderr, "[direct] text: %s\n",
+                     port_text.enabled ? "TrueType (Reddit Sans Condensed Bold)" : "bitmap fonts");
+    }
+    return port_text.enabled != 0;
+}
+float colour_channel(uint32_t value, int shift, int bits) {
+    return float((value >> shift) & ((1u << bits) - 1)) / float((1u << bits) - 1);
+}
+uint32_t colour_rgba(uint16_t colour, od_pixel_format format, float scale, float alpha) {
+    float r, g, b;
+    if (format == OD_RGB555) {
+        r = colour_channel(colour, 10, 5), g = colour_channel(colour, 5, 5), b = colour_channel(colour, 0, 5);
+    } else {
+        r = colour_channel(colour, 11, 5), g = colour_channel(colour, 5, 6), b = colour_channel(colour, 0, 5);
+    }
+    const auto byte = [](float v) { return uint32_t(std::lround(std::clamp(v, 0.0f, 1.0f) * 255)); };
+    return byte(r * scale) | byte(g * scale) << 8 | byte(b * scale) << 16 | byte(alpha) << 24;
+}
+// Draws the glyph a sprite leaf was asked for in TrueType; false: not a font
+// glyph (or one the TrueType font lacks), draw it as before.
+bool draw_text_glyph(Surface &surface, const wd::UiRegisters &regs, bool faded) {
+    if (!text_enabled())
+        return false;
+    uint8_t request[16], desc[28];
+    if (!wd_render_read_arena(nullptr, regs.esi, request, sizeof request))
+        return false;
+    uint32_t x, y, flags, address;
+    std::memcpy(&x, request, 4);
+    std::memcpy(&y, request + 4, 4);
+    std::memcpy(&flags, request + 8, 4);
+    std::memcpy(&address, request + 12, 4);
+    // Opaque, flag-4 and paired-alpha sprites are not text.
+    if (!faded && (flags & (1 | 4 | 8 | 16)))
+        return false;
+    int slot = -1, code = 0;
+    for (int s = 0; s < 4 && slot < 0; ++s) {
+        const uint32_t record = 0x5ea4bcu + uint32_t(s) * 0x40c;
+        if (!word(record))
+            continue;
+        const uint32_t base = word(0x5ecd34u + word(record + 0x408) * 4);
+        if (base && address >= base && address < base + 256 * 28 && (address - base) % 28 == 0) {
+            slot = s;
+            code = int((address - base) / 28);
+        }
+    }
+    if (slot < 0 || !wd_render_read_arena(nullptr, address, desc, sizeof desc))
+        return false;
+    int32_t w, h, hot_x, hot_y;
+    uint32_t palette;
+    std::memcpy(&palette, desc, 4);
+    std::memcpy(&w, desc + 4, 4);
+    std::memcpy(&h, desc + 8, 4);
+    std::memcpy(&hot_x, desc + 12, 4);
+    std::memcpy(&hot_y, desc + 16, 4);
+    if (w <= 0 || h <= 0)
+        return false;
+    // Physical pixels per logical one, as od_renderer_draw_2d maps them.
+    const auto canvas = od_centered_canvas(surface.physical_width, surface.physical_height,
+                                           surface.width, surface.height);
+    const float scale = float(canvas.height) / float(surface.height);
+    // The atlas for this slot at this scale.
+    auto &entry = port_text.slots[size_t(slot)];
+    {
+        uint8_t letter[28];
+        const uint32_t base = address - uint32_t(code) * 28;
+        if (!wd_render_read_arena(nullptr, base + 'H' * 28, letter, sizeof letter))
+            return false;
+        int32_t cap;
+        std::memcpy(&cap, letter + 16, 4);
+        const float want = TEXT_CAP_RATIO * float(cap) * scale;
+        if (!(want > 0))
+            return false;
+        if (!entry.atlas || std::fabs(entry.cap - want) > 0.01f) {
+            std::string error;
+            require(od::build_text_atlas(want, entry.data, error), error);
+            if (entry.atlas) {
+                forget_target(entry.atlas);
+                od_renderer_release(state.renderer, entry.atlas);
+            }
+            entry.atlas = od_renderer_upload_rgba(state.renderer, entry.data.width,
+                                                  entry.data.height, entry.data.rgba.data(),
+                                                  size_t(entry.data.width) * 4);
+            require(entry.atlas != 0, od_renderer_error(state.renderer));
+            entry.cap = want;
+            std::fprintf(stderr, "[direct] text atlas slot=%d cap=%.1fpx %dx%d\n", slot, want,
+                         entry.data.width, entry.data.height);
+        }
+    }
+    const auto &g = entry.data.glyphs[size_t(code)];
+    if (!g.present)
+        return false;
+    // Retail's half scales (BL/BH) step the source by two: half size.
+    const float sx = (regs.ebx & 255) ? 2.0f : 1.0f, sy = ((regs.ebx >> 8) & 255) ? 2.0f : 1.0f;
+    const float left = float(int32_t(x) - hot_x), top = float(int32_t(y) - hot_y);
+    const float baseline = top + float(hot_y) / sy;
+    const float centre = left + float(w - 1) / (2 * sx); // the body; the shadow is the last column
+    const float k = 1.0f / scale;
+    const float pen = centre - g.ink_centre * k / sx;
+    od_draw_2d command{};
+    command.kind = OD_DRAW_GLYPH;
+    command.target = surface.target;
+    command.source = entry.atlas;
+    command.format = surface.format;
+    auto &p = command.glyph;
+    p.box[0] = pen + g.left * k / sx;
+    p.box[1] = baseline + g.top * k / sy;
+    p.box[2] = float(g.width) * k / sx;
+    p.box[3] = float(g.height) * k / sy;
+    p.source[0] = float(g.x);
+    p.source[1] = float(g.y);
+    p.source[2] = float(g.width);
+    p.source[3] = float(g.height);
+    p.shadow[0] = 1.0f / sx;
+    p.shadow[1] = 1.0f / sy;
+    // Colours from the glyph's own palette: index 1 its body, 13 its shadow;
+    // the leaf's darken parameter halves them, its fade or half blend scales
+    // the coverage (TEXT_BlitGlyphFaded: 64 / AL of 64).
+    uint16_t colours[14];
+    if (!wd_render_read_arena(nullptr, palette, colours, sizeof colours))
+        return false;
+    float alpha = 1.0f;
+    if (faded) {
+        const uint32_t divisor = regs.eax & 255;
+        if (!divisor)
+            return false;
+        alpha = std::min(1.0f, float(64 / divisor) / 64.0f);
+    } else if (flags & 2)
+        alpha = 0.5f;
+    const float shade = !faded && (regs.ecx & 255) ? 0.5f : 1.0f;
+    p.colour = colour_rgba(colours[1], surface.format, shade, alpha);
+    p.shadow_colour = colour_rgba(colours[13], surface.format, shade, alpha);
+    const float x0 = std::floor(p.box[0]), y0 = std::floor(p.box[1]);
+    const float x1 = std::ceil(p.box[0] + p.box[2] + p.shadow[0]);
+    const float y1 = std::ceil(p.box[1] + p.box[3] + p.shadow[1]);
+    const int rx0 = std::max(0, int(x0)), ry0 = std::max(0, int(y0));
+    const int rx1 = std::min(surface.width, int(x1)), ry1 = std::min(surface.height, int(y1));
+    if (rx1 <= rx0 || ry1 <= ry0)
+        return true;
+    command.rect = {rx0, ry0, rx1 - rx0, ry1 - ry0};
+    draw(command);
+    if (++port_text.glyphs == 1 || port_text.glyphs % 5000 == 0)
+        std::fprintf(stderr, "[direct] text glyphs=%llu (slot %d '%c' on %s surface %08x)\n",
+                     (unsigned long long)port_text.glyphs, slot, code >= 32 && code < 127 ? code : '?',
+                     surface.main ? "the main" : "an offscreen", surface.base);
+    return true;
+}
 void wd_render_ui(const uint32_t raw[8], uint32_t entry) {
     wd_render_display_point();
     SurfaceScope surfaces(state.surface_depth, retire_invalid_surfaces);
@@ -1146,7 +1340,9 @@ void wd_render_ui(const uint32_t raw[8], uint32_t entry) {
     resize(surface);
     for (const auto &write : batch.metadata)
         wd_render_write_arena(write.address, &write.value, write.bytes);
-    upload(surface, batch.rect, batch.pixels, batch.kind, batch.parameter, batch.lookup);
+    const bool sprite = entry != 0x427b8c && entry != 0x40368b;
+    if (!(sprite && draw_text_glyph(surface, registers, entry == 0x403bcd)))
+        upload(surface, batch.rect, batch.pixels, batch.kind, batch.parameter, batch.lookup);
     ++state.ui_draws;
 }
 void wd_render_movie_upload(uint32_t source, uint32_t destination, int x, int y,

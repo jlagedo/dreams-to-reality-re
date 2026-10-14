@@ -13,6 +13,11 @@ layout(binding=0) uniform draw_params {
     vec4 dimensions; // physical xy, logical zw
     ivec4 operation; // kind, parameter, 555, GL render-texture flip
     ivec4 line_points; // inclusive logical endpoints for packed line stores
+    vec4 glyph_box; // kind 12: logical cell, atlas texel rect, colours, shadow offset
+    vec4 glyph_source;
+    vec4 glyph_colour;
+    vec4 glyph_shadow_colour;
+    vec4 glyph_shadow;
 };
 @image_sample_type previous_tex unfilterable_float
 layout(binding=0) uniform texture2D previous_tex;
@@ -24,8 +29,16 @@ layout(binding=2) uniform utexture2D packed_tex;
 layout(binding=3) uniform utexture2D lookup_tex;
 @sampler_type point_smp nonfiltering
 layout(binding=0) uniform sampler point_smp;
+layout(binding=4) uniform texture2D glyph_tex;
+layout(binding=1) uniform sampler linear_smp;
 in vec2 uv;
 out vec4 frag_color;
+float glyph_coverage(vec2 p) {
+    vec2 f=(p-glyph_box.xy)/glyph_box.zw;
+    if(any(lessThan(f,vec2(0.0)))||any(greaterThan(f,vec2(1.0))))return 0.0;
+    vec2 texel=glyph_source.xy+f*glyph_source.zw;
+    return texture(sampler2D(glyph_tex,linear_smp),texel/vec2(textureSize(sampler2D(glyph_tex,linear_smp),0))).a;
+}
 uint pack_colour(vec4 c) {
     uvec3 b = uvec3(floor(clamp(c.rgb, 0.0, 1.0)*255.0+0.5));
     return operation.z != 0 ? (uint(floor(c.a*255.0+0.5))==1u?32768u:0u)|((b.r>>3)<<10)|((b.g>>3)<<5)|(b.b>>3)
@@ -93,6 +106,15 @@ void main() {
     ivec2 local=ivec2(floor(pos-draw_rect.xy));
     bool inside=all(greaterThanEqual(pos,draw_rect.xy))&&all(lessThan(pos,draw_rect.xy+draw_rect.zw));
     if(!inside) { if(kind==11)discard;frag_color=kind==6?vec4(0,0,0,1):old; return; }
+    if(kind==12) {
+        // TrueType glyph (port option): the shadow under the body, both
+        // blended in float over what is there; no 16-bit quantization.
+        float s=glyph_coverage(pos-glyph_shadow.xy)*glyph_shadow_colour.a;
+        float b=glyph_coverage(pos)*glyph_colour.a;
+        vec3 c=mix(old.rgb,glyph_shadow_colour.rgb,s);
+        frag_color=vec4(mix(c,glyph_colour.rgb,b),old.a);
+        return;
+    }
     if(kind==11) {
         ivec2 a=line_points.xy,b=line_points.zw,p=ivec2(floor(pos));
         ivec2 delta=abs(b-a);
@@ -204,6 +226,7 @@ void main() {
     float coverage=material_mode.z;
     if(material_mode.w!=0.0)
         coverage=clamp((c.a-0.5)/ramp+0.5,0.0,1.0);
+    else if(material_mode.y==2.0)coverage=c.a*material_mode.z; // OD_FACE_SHADE
     else if(material_mode.y!=0.0&&c.a<0.5)discard;
     c.rgb*=vertex_brightness;
     if(fog_colour.a!=0.0)c.rgb=mix(c.rgb,fog_colour.rgb,fog_factor(view_w));
@@ -259,7 +282,18 @@ out vec4 frag_color;
 void main() {
     vec2 p=uv;
     if(shadow_layout.x!=0.0)p.y=1.0-p.y;
-    frag_color=mix(shadow_zero,shadow_one,texture(sampler2D(detail_tex,detail_smp),p).r);
+    // Softness (shadow_layout.y, sigma in resolved texels): a 7x7 Gaussian of
+    // bilinear taps out to 2.25 sigma; at 0 every tap is the one at the centre
+    // of four source texels (their average).
+    float coverage=0.0,total=0.0;
+    vec2 delta=vec2(shadow_layout.y*0.75)/vec2(textureSize(sampler2D(detail_tex,detail_smp),0)/2);
+    for(int y=-3;y<=3;y++)
+        for(int x=-3;x<=3;x++) {
+            float w=exp(-float(x*x+y*y)*0.28125); // taps 0.75 sigma apart
+            coverage+=w*texture(sampler2D(detail_tex,detail_smp),p+vec2(x,y)*delta).r;
+            total+=w;
+        }
+    frag_color=mix(shadow_zero,shadow_one,coverage/total);
 }
 @end
 @program direct_shadow_detail direct_quad_vs direct_shadow_detail_fs

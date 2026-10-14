@@ -56,6 +56,10 @@ class SceneDraw {
     // corner beyond it. Lighting, UV updates and every guest-visible result
     // stay retail's; those faces draw with the shade and UVs they kept.
     void set_draw_far(bool on) { draw_far_ = on; }
+    // Port option, not retail: below 1, the real shadow (the GPU shadow
+    // mask's material) darkens what is under it by its coverage times this
+    // (OD_FACE_SHADE) instead of being keyed solid. 1: retail.
+    void set_shadow_opacity(float opacity) { shadow_opacity_ = opacity; }
     // Entries the last submit would have put in Glide's 256-entry deferred list.
     size_t deferred_blocks() const { return deferred_blocks_; }
     // Glide's retained palette, which a submit starts from and leaves for the
@@ -87,6 +91,7 @@ class SceneDraw {
     size_t deferred_blocks_ = 0;
     bool deferred_overflow_logged_ = false;
     bool draw_far_ = false;
+    float shadow_opacity_ = 1.0f;
     uint64_t no_draw_logged_ = 0; // bit (type + 15): one log line per type
     uint64_t lit_submits_ = 0;    // submits that drew faces with the host's lit rows
     od_render_id texture(od_renderer *, const SceneMaterial &, const std::array<uint16_t, 256> &,

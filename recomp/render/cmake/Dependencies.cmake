@@ -20,3 +20,11 @@ FetchContent_Declare(sokol
     SOURCE_SUBDIR _opendreams_no_cmake
 )
 FetchContent_MakeAvailable(sokol)
+
+# stb_truetype for the port's TrueType text (render/text.cpp), pinned by commit.
+FetchContent_Declare(stb
+    URL https://codeload.github.com/nothings/stb/tar.gz/2c980bb59875b0d32144a71867fbdebb2f77cd20
+    DOWNLOAD_EXTRACT_TIMESTAMP FALSE
+    SOURCE_SUBDIR _opendreams_no_cmake
+)
+FetchContent_MakeAvailable(stb)

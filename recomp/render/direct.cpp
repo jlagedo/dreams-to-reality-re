@@ -108,6 +108,7 @@ struct od_renderer {
     sg_pipeline cover_pipeline{}, detail_pipeline{};
     Image shadow_msaa;
     int shadow_msaa_size = 0, cover_samples = 1, shadow_detail = 0;
+    float shadow_softness = 0;
     sg_pipeline draw_pipeline{}, output_pipeline{};
     sg_pipeline output_rgba_pipeline{};
     // Single-sampled scenes draw chroma faces with the opaque pipelines (the
@@ -480,9 +481,13 @@ static int draw_2d(od_renderer *r, const od_draw_2d *c, const int *line) {
     auto *source = r->find(c->source);
     if (!t || !t->target)
         return r->fail("2D target is stale or not a target");
-    if (c->kind < OD_DRAW_KEEP || c->kind > OD_DRAW_LOOKUP || c->format < OD_RGB565 ||
-        c->format > OD_RGB555)
+    if (c->kind < OD_DRAW_KEEP || c->kind > OD_DRAW_GLYPH || int(c->kind) == 11 ||
+        c->format < OD_RGB565 || c->format > OD_RGB555)
         return r->fail("unknown 2D operation/format");
+    const bool glyph = c->kind == OD_DRAW_GLYPH;
+    if (glyph && (!source || source->packed || source->target ||
+                  !(c->glyph.box[2] > 0) || !(c->glyph.box[3] > 0)))
+        return r->fail("glyph draw requires an RGBA atlas upload and a cell");
     if (c->rect.width < 0 || c->rect.height < 0)
         return r->fail("negative 2D extent");
     const bool copy = c->kind == OD_DRAW_COPY || c->kind == OD_DRAW_DIM;
@@ -527,6 +532,16 @@ static int draw_2d(od_renderer *r, const od_draw_2d *c, const int *line) {
         p.operation[0] = 11;
         std::copy_n(line, 4, p.line_points);
     }
+    if (glyph) {
+        std::copy_n(c->glyph.box, 4, p.glyph_box);
+        std::copy_n(c->glyph.source, 4, p.glyph_source);
+        for (int a = 0; a < 4; ++a) {
+            p.glyph_colour[a] = float((c->glyph.colour >> (a * 8)) & 255) / 255.0f;
+            p.glyph_shadow_colour[a] = float((c->glyph.shadow_colour >> (a * 8)) & 255) / 255.0f;
+        }
+        p.glyph_shadow[0] = c->glyph.shadow[0];
+        p.glyph_shadow[1] = c->glyph.shadow[1];
+    }
     sg_bindings b{};
     b.views[VIEW_previous_tex] = line ? r->dummy_rgba.texture : t->sides[t->current].texture;
     b.views[VIEW_source_tex] =
@@ -534,7 +549,9 @@ static int draw_2d(od_renderer *r, const od_draw_2d *c, const int *line) {
     b.views[VIEW_packed_tex] = packed ? source->sides[0].texture : r->dummy_packed.texture;
     b.views[VIEW_lookup_tex] =
         c->kind == OD_DRAW_LOOKUP ? lookup->sides[0].texture : r->dummy_packed.texture;
+    b.views[VIEW_glyph_tex] = glyph ? source->sides[0].texture : r->dummy_rgba.texture;
     b.samplers[SMP_point_smp] = r->point;
+    b.samplers[SMP_linear_smp] = r->linear;
     sg_begin_pass(&pass);
     sg_apply_pipeline(r->draw_pipeline);
     if (line) {
@@ -610,6 +627,7 @@ od_render_id od_renderer_resolve_shadow(od_renderer *r, od_render_id mask,
     p.shadow_zero[3] = 0;
     p.shadow_one[3] = palette[0] == palette[1] ? 0.0f : 1.0f;
     p.shadow_layout[0] = r->flip ? 1.0f : 0.0f;
+    p.shadow_layout[1] = detailed ? r->shadow_softness : 0.0f;
     sg_bindings b{};
     if (detailed) {
         b.views[VIEW_detail_tex] = source_view;
@@ -676,6 +694,14 @@ int od_renderer_set_shadow_detail(od_renderer *r, int scale) {
     if (scale < 0 || scale > 16)
         return r->fail("shadow detail outside 0..16");
     r->shadow_detail = scale;
+    return 1;
+}
+int od_renderer_set_shadow_softness(od_renderer *r, float sigma) {
+    if (!r)
+        return 0;
+    if (!std::isfinite(sigma) || sigma < 0 || sigma > 16)
+        return r->fail("shadow softness outside 0..16");
+    r->shadow_softness = sigma;
     return 1;
 }
 // The detailed silhouette of a shadow mask: its float triangles into a
@@ -854,7 +880,7 @@ int od_renderer_scene(od_renderer *r, const od_scene_packet *p) {
         auto *texture = r->find(tri.texture);
         if (tri.texture && (!texture || texture->packed || tri.texture == p->target))
             return r->fail("invalid material texture");
-        if (tri.mode < OD_FACE_OPAQUE || tri.mode > OD_FACE_TRANSLUCENT)
+        if (tri.mode < OD_FACE_OPAQUE || tri.mode > OD_FACE_SHADE)
             return r->fail("unknown face mode");
         for (size_t j = 0; j < 3; ++j) {
             const auto &corner = tri.corners[j];
@@ -964,8 +990,10 @@ int od_renderer_scene(od_renderer *r, const od_scene_packet *p) {
         for (int a = 0; a < 4; ++a)
             fp.colour[a] = float((tri.colour >> (a * 8)) & 255) / 255.0f;
         fp.material_mode[0] = texture ? 1.0f : 0.0f;
-        fp.material_mode[1] = tri.mode == OD_FACE_CHROMA ? 1.0f : 0.0f;
-        fp.material_mode[2] = tri.mode == OD_FACE_TRANSLUCENT ? 128.0f / 255.0f : 1.0f;
+        fp.material_mode[1] = tri.mode == OD_FACE_CHROMA ? 1.0f : tri.mode == OD_FACE_SHADE ? 2.0f : 0.0f;
+        fp.material_mode[2] = tri.mode == OD_FACE_TRANSLUCENT ? 128.0f / 255.0f
+                              : tri.mode == OD_FACE_SHADE   ? fp.colour[3]
+                                                            : 1.0f;
         fp.material_mode[3] = msaa && tri.mode == OD_FACE_CHROMA ? 1.0f : 0.0f;
         for (int a = 0; a < 3; ++a)
             fp.fog_colour[a] = float((p->fog.colour >> (8 * a)) & 255) / 255.0f;
@@ -975,7 +1003,7 @@ int od_renderer_scene(od_renderer *r, const od_scene_packet *p) {
         const auto opaque = tri.cull_back ? pipelines.opaque_culled : pipelines.opaque;
         const auto alpha = tri.cull_back ? pipelines.alpha_culled : pipelines.alpha;
         const auto chroma = tri.cull_back ? pipelines.chroma_culled : pipelines.chroma;
-        sg_apply_pipeline(tri.mode == OD_FACE_TRANSLUCENT ? alpha
+        sg_apply_pipeline(tri.mode == OD_FACE_TRANSLUCENT || tri.mode == OD_FACE_SHADE ? alpha
                           : tri.mode == OD_FACE_CHROMA    ? chroma
                                                           : opaque);
         sg_apply_bindings(&b);

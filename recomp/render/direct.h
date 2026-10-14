@@ -37,8 +37,19 @@ typedef enum od_draw_kind {
     OD_DRAW_CAPTION = 7,
     OD_DRAW_BAND = 8,
     OD_DRAW_RAW = 9,
-    OD_DRAW_LOOKUP = 10
+    OD_DRAW_LOOKUP = 10,
+    /* 11 is the line operation inside the shader (od_renderer_line_2d). */
+    OD_DRAW_GLYPH = 12 /* port option: a TrueType glyph and its drop shadow */
 } od_draw_kind;
+/* OD_DRAW_GLYPH: source is an RGBA upload (coverage in alpha) sampled with
+ * linear filtering at the target's physical resolution; rect bounds the draw. */
+typedef struct od_draw_glyph {
+    float box[4];         /* logical x, y, width, height the atlas cell covers */
+    float source[4];      /* atlas texels x, y, width, height */
+    float shadow[2];      /* logical offset of the drop shadow (0, 0: none) */
+    uint32_t colour;      /* 0xAABBGGRR; alpha scales the coverage */
+    uint32_t shadow_colour;
+} od_draw_glyph;
 typedef struct od_draw_2d {
     od_draw_kind kind;
     od_render_id target, source;
@@ -47,6 +58,7 @@ typedef struct od_draw_2d {
     uint32_t parameter;    /* fill colour, dim level, or darken flag */
     uint32_t full_surface; /* frame operation covers drawable instead of UI safe area */
     od_render_id lookup;   /* OD_DRAW_LOOKUP: 256x28 R32UI blend-table snapshot */
+    od_draw_glyph glyph;   /* OD_DRAW_GLYPH */
 } od_draw_2d;
 typedef struct od_render_stats {
     uint64_t uploads, upload_bytes, scene_triangles, draws_2d, gpu_copies;
@@ -71,7 +83,14 @@ typedef struct od_scene_corner {
     uint32_t node, vertex;
     float uv[2];
 } od_scene_corner;
-typedef enum od_face_mode { OD_FACE_OPAQUE, OD_FACE_CHROMA, OD_FACE_TRANSLUCENT } od_face_mode;
+/* OD_FACE_SHADE (port option, not retail): blended with the texture's alpha
+ * times the triangle colour's alpha; no cut-out. The soft real shadow. */
+typedef enum od_face_mode {
+    OD_FACE_OPAQUE,
+    OD_FACE_CHROMA,
+    OD_FACE_TRANSLUCENT,
+    OD_FACE_SHADE
+} od_face_mode;
 typedef struct od_scene_fog {
     uint32_t enabled, colour; /* colour 0xAABBGGRR; fog does not change alpha */
     uint8_t table[64];        /* SST1 reciprocal-W selection and wrapped 8-bit deltas */
@@ -162,6 +181,9 @@ int od_renderer_shadow_mask(od_renderer *, const od_shadow_packet *);
  * whose alpha is that coverage, filtered (smooth edges). 0 (the default) or
  * 1: the retail mask only. At most 16. */
 int od_renderer_set_shadow_detail(od_renderer *, int scale);
+/* Port option: with shadow detail, a Gaussian blur of the silhouette's edge
+ * when it is resolved, sigma in resolved texels (0, the default: none). */
+int od_renderer_set_shadow_softness(od_renderer *, float sigma);
 /* Optional outputs: per-node translation+rotation (12 ints), per-vertex
  * camera XYZ (3 floats), screen XY (2 ints). Oracle/metadata preparation. */
 int od_shadow_project(const od_shadow_packet *, int32_t *, float *, int32_t *);

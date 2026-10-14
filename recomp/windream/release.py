@@ -15,7 +15,9 @@ Output: DREAMS_OUT/recomp/windream/release/DreamsToReality/ holding the
 executable, README.txt, resources/editor-tree.tsv (the Dreams Editor menu of
 Develop, extracted from the July 1997 demo: DREAMS_WIP_DIR must be set; spec
 008 phase 1) and resources/fonts/ (the July editor fonts, from the same demo,
-SHA-256 checked), and beside it DreamsToReality-<version>-<system>.zip
+SHA-256 checked), resources/licenses/RedditSans-OFL.txt (the license of the
+text font the program embeds, render/text.h), and beside it
+DreamsToReality-<version>-<system>.zip
 (what is published) and the build's .pdb under the same name (kept, not
 published: it symbolizes the exe+0x... addresses of a user's crash report and
 crash dump). The script fails if the folder holds anything else (delete what a
@@ -70,8 +72,10 @@ This is the 1997 Cryo game "Dreams to Reality" (European English edition for
 Windows), recompiled to run on a modern PC: the game's program, GDIDREAM.EXE,
 translated to run natively. No data of the retail game (levels, music,
 video) is included; resources\\ holds the Dreams Editor menu and fonts of
-Cryo's July 1997 demo, used only by Develop. You need your own two game discs
-as disc images:
+Cryo's July 1997 demo, used only by Develop. The game's text is drawn with
+Reddit Sans Condensed (Copyright 2020-23 Reddit, Inc., SIL Open Font License
+1.1: resources\\licenses\\RedditSans-OFL.txt), built into the program. You
+need your own two game discs as disc images:
 
     one .cue file with its .bin files for disc 1, and the same for disc 2
 
@@ -303,8 +307,15 @@ def main() -> int:
     if problems:
         print("\n".join(problems), file=sys.stderr)
         return 1
-    files = (exe_name, "README.txt", resource, *fonts)
-    extra = unexpected_files(stage, {*files, "resources", f"resources/{editor_tree.FONT_DIR}"})
+    # The OFL travels with the font, which the program embeds (render/text.h).
+    font_license = "resources/licenses/RedditSans-OFL.txt"
+    (stage / "resources" / "licenses").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(build / "text-font" / "OFL.txt", stage / font_license)
+    files = (exe_name, "README.txt", resource, *fonts, font_license)
+    extra = unexpected_files(
+        stage,
+        {*files, "resources", f"resources/{editor_tree.FONT_DIR}", "resources/licenses"},
+    )
     if extra:
         print(
             f"{stage} holds files that are not part of the release; delete them and run again:\n  "

@@ -790,6 +790,10 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
             }
             triangle.colour = 0xffffffff;
             triangle.mode = mode;
+            if (material.gpu_mask && shadow_opacity_ < 1.0f) {
+                triangle.mode = OD_FACE_SHADE;
+                triangle.colour = (uint32_t(std::lround(shadow_opacity_ * 255)) << 24) | 0xffffffu;
+            }
             triangle.wrap_texture = wrap;
             triangle.cull_back = 1;
             if (face->type >= 0x16 && face->type <= 0x18) {
@@ -801,7 +805,9 @@ bool SceneDraw::submit(od_renderer *renderer, const SceneSnapshot &scene, od_ren
                             8u,
                         255u));
             }
-            (mode == OD_FACE_TRANSLUCENT ? deferred : opaque).push_back(triangle);
+            (triangle.mode == OD_FACE_TRANSLUCENT || triangle.mode == OD_FACE_SHADE ? deferred
+                                                                                  : opaque)
+                .push_back(triangle);
         }
     }
     if (lit_faces && (lit_submits_++ % 50) == 0)

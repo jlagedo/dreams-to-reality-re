@@ -21,6 +21,8 @@
 #endif
 #include "render/direct_sokol.h"
 #include "render/fog.h"
+#include "render/text.h"
+#include <string>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -419,6 +421,99 @@ static void material_checks(od_renderer *r) {
     std::puts("direct material: clamp/repeat, alpha 128/255, ordered depth writes and equal-depth "
               "rejection passed");
 }
+// OD_FACE_SHADE (the soft real shadow): blended by texture alpha times the
+// colour's alpha, never cut out. Black at alpha 0.5 x 0.6 over blue leaves 70%.
+static void shade_checks(od_renderer *r) {
+    const uint32_t texels[2] = {0x80000000u, 0x00000000u};
+    auto texture = od_renderer_upload_rgba(r, 2, 1, texels, 8);
+    auto target = od_renderer_target(r, 16, 16, 16, 16);
+    od_pose_node node{-1, {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0}};
+    od_scene_vertex vertices[3] = {{{-1, -1, 0.5f}}, {{3, -1, 0.5f}}, {{-1, 3, 0.5f}}};
+    od_scene_triangle triangle{};
+    for (unsigned i = 0; i < 3; ++i)
+        triangle.corners[i] = {0, i, {0.25f, 0.5f}};
+    triangle.texture = texture;
+    triangle.colour = 0x99ffffffu;
+    triangle.mode = OD_FACE_SHADE;
+    od_scene_packet p{};
+    p.target = target;
+    p.nodes = &node;
+    p.node_count = 1;
+    p.vertices = vertices;
+    p.vertex_count = 3;
+    p.triangles = &triangle;
+    p.triangle_count = 1;
+    p.clear = 1;
+    p.clear_colour[2] = p.clear_colour[3] = 1;
+    p.view_projection[0] = p.view_projection[5] = p.view_projection[10] = p.view_projection[15] = 1;
+    check(od_renderer_scene(r, &p) != 0, od_renderer_error(r));
+    finish(r);
+    const uint32_t blue = (capture(r, target)[8 * 16 + 8] >> 16) & 255;
+    check(blue >= 176 && blue <= 181 && (capture(r, target)[8 * 16 + 8] & 0xffff) == 0,
+          "shade face: alpha x colour alpha darkening");
+    // A transparent texel draws nothing (no cut-out, no colour).
+    for (auto &corner : triangle.corners)
+        corner.uv[0] = 0.75f;
+    check(od_renderer_scene(r, &p) != 0, od_renderer_error(r));
+    finish(r);
+    check(((capture(r, target)[8 * 16 + 8] >> 16) & 255) == 255, "shade face: zero alpha");
+    od_renderer_release(r, target);
+    od_renderer_release(r, texture);
+    finish(r);
+    std::printf("direct shade: texture alpha x colour alpha darkening (blue %u of 255)\n", blue);
+}
+// The port's TrueType text: the embedded font builds an atlas with the game's
+// cp1252 codes, and OD_DRAW_GLYPH blends a cell and its shadow over a target
+// whose physical size is 4x its logical one, leaving the rest untouched.
+static void glyph_checks(od_renderer *r) {
+    od::TextAtlas atlas;
+    std::string error;
+    check(od::build_text_atlas(40.0f, atlas, error), error.c_str());
+    for (const char *c = "AZaz09&?"; *c; ++c)
+        check(atlas.glyphs[uint8_t(*c)].present, "text atlas lacks a basic glyph");
+    check(atlas.glyphs[0xe9].present && od::text_cp1252(0x9c) == 0x153 &&
+              od::text_cp1252(0x81) == 0,
+          "text atlas cp1252 mapping");
+    const auto &h = atlas.glyphs['H'];
+    check(std::fabs(-h.top - 40.0f) <= 1.0f, "text atlas cap height");
+    // A 4x4 opaque cell drawn white at logical (2,2)-(4,4) with a black
+    // shadow one logical pixel down-right, on a 16x16 logical target of 64x64.
+    std::vector<uint32_t> cell(16, 0xffffffffu);
+    auto source = od_renderer_upload_rgba(r, 4, 4, cell.data(), 16);
+    auto target = od_renderer_target(r, 64, 64, 16, 16);
+    od_draw_2d fill{};
+    fill.kind = OD_DRAW_FILL;
+    fill.target = target;
+    fill.rect = {0, 0, 16, 16};
+    fill.parameter = 0x001f; // blue
+    check(od_renderer_draw_2d(r, &fill) != 0, od_renderer_error(r));
+    od_draw_2d g{};
+    g.kind = OD_DRAW_GLYPH;
+    g.target = target;
+    g.source = source;
+    g.rect = {2, 2, 3, 3};
+    g.glyph = {{2, 2, 2, 2}, {0, 0, 4, 4}, {1, 1}, 0xffffffffu, 0xff000000u};
+    check(od_renderer_draw_2d(r, &g) != 0, od_renderer_error(r));
+    finish(r);
+    const auto pixels = capture(r, target);
+    const auto at = [&](int x, int y) { return pixels[size_t(y) * 64 + x]; };
+    check((at(4 * 2 + 3, 4 * 2 + 3) & 0xffffff) == 0xffffff, "glyph body colour");
+    check((at(4 * 4 + 2, 4 * 4 + 2) & 0xffffff) == 0x000000, "glyph shadow colour");
+    check((at(4 * 8, 4 * 8) & 0xffffff) == 0xff0000, "glyph draw changed pixels outside it");
+    g.glyph.colour = 0x00ffffffu; // zero alpha: nothing
+    g.glyph.shadow_colour = 0x00000000u;
+    check(od_renderer_draw_2d(r, &fill) != 0 && od_renderer_draw_2d(r, &g) != 0,
+          od_renderer_error(r));
+    finish(r);
+    check((capture(r, target)[size_t(4 * 2 + 3) * 64 + 4 * 2 + 3] & 0xffffff) == 0xff0000,
+          "glyph alpha 0 drew");
+    od_renderer_release(r, target);
+    od_renderer_release(r, source);
+    finish(r);
+    std::printf("direct glyph: embedded font atlas (%dx%d, cap %.1f), cp1252, body/shadow blend "
+                "and bounds passed\n",
+                atlas.width, atlas.height, -h.top);
+}
 static void shadow_checks(od_renderer *r) {
     auto mask = od_renderer_target(r, 128, 256, 128, 256);
     od_pose_node node{-1, {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0}};
@@ -760,6 +855,8 @@ int main(int argc, char **argv) {
     check(r != nullptr, "renderer creation");
     scene_checks(r);
     material_checks(r);
+    shade_checks(r);
+    glyph_checks(r);
     shadow_checks(r);
     shadow_detail_checks(r);
     fog_checks(r);
