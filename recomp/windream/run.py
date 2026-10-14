@@ -250,7 +250,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument(
         "--ctl", nargs="?", type=int, const=0, metavar="PORT",
         help="development control channel (WD_CTL) on 127.0.0.1:PORT, default a free port "
-        "written to <run dir>/ctl.port; the client is debug/wdctl.py",
+        "written to <run dir>/ctl.port; the client is debug/wdctl.py. The game then keeps "
+        "running without focus (WD_FOCUS)",
     )  # fmt: skip
     args = ap.parse_args(argv)
     if (args.width is None) != (args.height is None):
@@ -382,7 +383,10 @@ def prepare(args: argparse.Namespace) -> tuple[list[str], dict[str, str], Path] 
         WD_VM_LOG=str(run / "vm.log") if args.vm_log else "",
         WD_VM_SHADOW=args.vm_shadow or "",
         WD_QUIET="1" if unattended or args.headless else "",
-        WD_FOCUS="1" if unattended or args.headless else "",
+        # The game runs frames only while it has focus (MGM_DispatchMessages and
+        # GetFocus, as retail); a game driven over the channel must not stop
+        # when its window is in the background.
+        WD_FOCUS="1" if unattended or args.headless or args.ctl is not None else "",
         WD_CTL="" if args.ctl is None else str(args.ctl),
     )
     binary = recomp_env.build_dir(

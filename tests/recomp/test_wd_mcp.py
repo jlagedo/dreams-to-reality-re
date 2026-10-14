@@ -34,6 +34,8 @@ TOOLS = {
     "game_wait", "game_wait_until", "game_read", "game_read_cstr", "game_write", "game_project",
     "game_log", "game_pause", "game_resume", "game_step", "game_audio_dump", "game_audio_dump_stop",
     "game_stderr", "game_screenshot",
+    "play_state", "play_map", "play_hold", "play_turn", "play_walk_to", "play_fly_to",
+    "play_reach_exit",
 }  # fmt: skip
 
 

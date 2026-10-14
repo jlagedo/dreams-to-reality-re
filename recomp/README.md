@@ -531,7 +531,9 @@ It is development-only and separate from the game:
 
 `run.py --ctl [PORT]` sets `WD_CTL` (default 0: a free port). The host listens
 on 127.0.0.1 only, writes the port to `<run dir>/ctl.port` and logs
-`[ctl] listening on 127.0.0.1:<port>`. One client at a time.
+`[ctl] listening on 127.0.0.1:<port>`. One client at a time. With `--ctl` the
+game also keeps running while its window is in the background (`WD_FOCUS=1`);
+otherwise, as retail, it runs frames only while it has focus.
 
 ```sh
 uv run python recomp/windream/run.py --headless --discs --tag play --ctl   # in one shell (or in the background)
@@ -614,7 +616,8 @@ game's timers takes that has not been examined).
 coding assistant can drive a running game as tools: start one, press keys, wait
 for a file to open or a memory cell to change, read guest memory, look at a
 frame. It has no game logic of its own: each tool is one call into `wdctl`
-(`start_game`, `Ctl`), and it needs the same development build with
+(`start_game`, `Ctl`) or, for the `play_*` tools, into `game_play.py`, and it
+needs the same development build with
 `WD_DEVTOOLS` as the channel. It exists for development only; nothing in the
 game or the release depends on it.
 
@@ -644,6 +647,28 @@ software renderer's BMP into a PNG for `game_screenshot`.
 | `game_pause()`, `game_resume()`, `game_step(frames=1)` | Hold, release, single-step |
 | `game_audio_dump(path)`, `game_audio_dump_stop()` | Record the mixer's output to a WAV file |
 | `game_screenshot()` | The next frame, saved as a PNG under `<run dir>/mcp-shots/` and returned as an image with its path |
+| `play_state(radius=6000)` | The game as data: mode (playing, or a dialogue or menu), project, camera; Duncan's position, facing, vitality, magic, oxygen, action, combat stance and inventory; actors within `radius` (enemy, ally or object, distance, bearing); the level's exits (destination, conditions, box); what lies 150 to 1,000 units ahead |
+| `play_map(span=6000)` | An overhead picture around Duncan: floors by height, walls, actors, exit boxes |
+| `play_hold(keys, frames)` | Hold game keys together for exactly that many frames |
+| `play_turn(facing=None, x=None, z=None)` | Turn on the spot to a facing or toward a point |
+| `play_walk_to(x, z, radius=150, max_frames=600, stop_for_enemies=True, allow_drops=False)` | Walk to a point in a straight line; stops on arrival, a dialogue or menu, damage, an enemy near, an edge, being blocked or the level changing, and says which |
+| `play_fly_to(x, y, z, radius=200, land=True, max_frames=900)` | Take off if needed and fly to a point (ALT held; DOWN noses up), then release ALT to land; stops on arrival, the flight ending, the level changing, a dialogue or menu, or damage |
+| `play_reach_exit(destination, attempts=3)` | Take the exit to a project by itself (`windream/debug/autopilot.py`): a roomy goal in the exit's box, a clear approach line, a route through free space, take-off, staging and a Dubins final turn flown frame by frame; retries from where Duncan ends up |
+
+The `play_*` tools (`windream/debug/game_play.py`) let an agent play turn by
+turn: each action pauses the game and leaves it paused, so time passes only in
+the frames it steps. Facings and bearings are degrees of `atan2(dz, dx)` in
+the level's horizontal plane (y grows downward); a positive bearing means
+turn LEFT. The actor, exit and faction fields they read and how each was
+established are listed in `game_play.py`'s docstring; `tests/recomp/test_game_play.py`
+checks them in project 0.
+
+`autopilot.py` needs no one in the loop: it plans on the collision mesh and
+flies the plan with the game paused between frames, so a run from the same
+state repeats exactly. Its module docstring lists the flight measurements it
+relies on (speed, pitch and turn rates, the glide after ALT is let go);
+`tests/recomp/test_autopilot.py` takes project 0's exit to Project134 and
+Project134's exit back, each on the first attempt.
 
 An error from the channel comes back as a tool error with the channel's message.
 The game the server started is ended when the server exits (`wdctl.Game`'s

@@ -4,7 +4,10 @@ drive a running game as tools.
 Development only, like the channel itself (recomp/windream/devtools, WD_CTL):
 nothing in the game or the release depends on this file. It has no game logic
 of its own; every tool is one call into wdctl.py (Ctl, start_game), which is
-where the protocol and the meaning of the game's addresses live.
+where the protocol and the meaning of the game's addresses live, or into
+game_play.py and autopilot.py (the play_* tools: the game's state as data, an
+overhead map, turn-by-turn actions that leave the game paused, and an exit
+taken by itself).
 
 Run it over stdio (an MCP client starts it; the repository's .mcp.json does):
 
@@ -27,6 +30,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import autopilot  # noqa: E402
+import game_play  # noqa: E402
 import wdctl  # noqa: E402
 
 try:  # mcp 2.x
@@ -43,7 +48,11 @@ mcp = MCPServer(
         "Drive a running Dreams to Reality recomp through its development control channel. "
         "game_start (or game_attach) first, then game_key / game_wait_until / game_read / "
         "game_screenshot; game_stop ends a game this server started. Addresses are guest "
-        "virtual addresses, as ints or hex strings."
+        "virtual addresses, as ints or hex strings. To play: play_state (Duncan, actors, "
+        "exits, ground ahead), play_map (overhead picture), then play_turn / play_walk_to / "
+        "play_fly_to / play_hold, which pause the game and leave it paused, or "
+        "play_reach_exit to take an exit by itself. Angles are degrees of "
+        "atan2(dz, dx); a positive bearing means turn LEFT."
     ),
 )
 
@@ -374,6 +383,115 @@ def game_screenshot() -> list:
             frame.save(png, "PNG")
         raw.unlink()
     return [Image(path=png), f"saved {png}"]
+
+
+# ---- playing, turn by turn (game_play.py) ----
+
+
+@tool
+def play_state(radius: int = 6000) -> dict:
+    """What the game is doing, as data: mode ("playing" or "dialogue or menu"), project and
+    scene, camera mode; Duncan's position (x, y, z; y grows downward), facing (degrees,
+    atan2(dz, dx)), vitality, magic, oxygen, action, combat stance; his inventory; the actors
+    within `radius` (enemy, ally or object, with distance and bearing: positive means turn
+    LEFT); the level's exits (destination, conditions, box, distance, bearing); and what lies
+    0.15 to 1 thousand units ahead (floor, up, down, high ledge, big drop, nothing)."""
+    return game_play.observe(_channel(), radius)
+
+
+@tool
+def play_map(span: int = 6000) -> list:
+    """An overhead picture of the level `span` units across, centred on Duncan (yellow arrow):
+    floors shaded by height (lighter is higher), walls dark red, enemies red, allies green,
+    objects blue, exit boxes cyan (L<n>); +x right, +z up, a grid line every 1,000 units."""
+    global _shots
+    folder = (_run_dir or wdctl.WINDREAM.parents[1] / "out" / "recomp" / "windream") / "mcp-shots"
+    folder.mkdir(parents=True, exist_ok=True)
+    _shots += 1
+    png = folder / f"map-{_shots:04d}.png"
+    try:
+        answer = game_play.overhead_map(_channel(), png, span=span)
+    except ImportError:
+        raise wdctl.CtlError(
+            "play_map needs Pillow: `uv run --with mcp --with pillow ...`"
+        ) from None
+    return [Image(path=png), str(answer)]
+
+
+@tool
+def play_hold(keys: list[str], frames: int) -> dict:
+    """Hold game keys together (UP, DOWN, LEFT, RIGHT, CTRL jump or action, ALT attack,
+    SPACE, ESC, 1, 2, 3) for exactly `frames` frames (30 a second of game time), release
+    them; the game stays paused after. Duncan's state before and after."""
+    if frames < 1 or frames > 900:
+        raise wdctl.CtlError("frames must be 1 to 900")
+    return game_play.hold(_channel(), keys, frames)
+
+
+@tool
+def play_turn(facing: float | None = None, x: float | None = None, z: float | None = None) -> dict:
+    """Turn Duncan on the spot to a facing in degrees (atan2(dz, dx)), or toward the point
+    (x, z). The game stays paused after."""
+    toward = (x, z) if x is not None and z is not None else None
+    if facing is None and toward is None:
+        raise wdctl.CtlError("play_turn needs facing, or x and z")
+    return game_play.turn(_channel(), facing=facing, toward=toward)
+
+
+@tool
+def play_walk_to(
+    x: float,
+    z: float,
+    radius: float = 150,
+    max_frames: int = 600,
+    stop_for_enemies: bool = True,
+    allow_drops: bool = False,
+) -> dict:
+    """Walk Duncan to (x, z) in a straight line, turning on the spot when he is off course and
+    jumping once when blocked. Stops, paused, and says why: arrived (within radius), dialogue
+    or menu, took damage, enemy near (combat stance), edge ahead (a big drop or nothing;
+    allow_drops walks on), blocked, or out of frames. Plan the route around walls yourself
+    (play_map)."""
+    return game_play.walk_to(
+        _channel(),
+        x,
+        z,
+        radius=radius,
+        max_frames=max_frames,
+        stop_for_enemies=stop_for_enemies,
+        allow_drops=allow_drops,
+    )
+
+
+@tool
+def play_fly_to(
+    x: float,
+    y: float,
+    z: float,
+    radius: float = 200,
+    land: bool = True,
+    max_frames: int = 900,
+) -> dict:
+    """Fly Duncan to (x, y, z) (y grows downward: more negative is higher), taking off first
+    if he is on the ground (needs magic; it drains while he flies). Steers with LEFT/RIGHT and
+    holds the height with the pitch (DOWN noses up). Within radius horizontally, land releases
+    ALT so he drops onto what is below. Stops, paused, and says why: arrived (and landed),
+    the flight ended (impact or no magic), level changed, dialogue or menu, took damage, out of
+    frames."""
+    return game_play.fly_to(_channel(), x, y, z, radius=radius, land=land, max_frames=max_frames)
+
+
+@tool
+def play_reach_exit(destination: str, attempts: int = 3) -> dict:
+    """Take the level's exit that leads to `destination` (a project name, e.g. "Project134")
+    by itself, with no one in the loop (autopilot.py): plan on the collision mesh (a roomy
+    point in the exit's box, a clear straight approach, a route through free space), wait for
+    enough magic, take off and fly the route frame by frame, retrying from where Duncan ends
+    up. Returns why it stopped ("level changed to ..." on success) and each attempt's plan."""
+    result = autopilot.reach_exit(_channel(), destination, attempts=attempts)
+    for attempt in result["attempts"]:
+        attempt.pop("flown_route", None)
+    return result
 
 
 if __name__ == "__main__":
